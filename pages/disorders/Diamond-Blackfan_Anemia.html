@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3761,6 +3929,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3904,16 +4080,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythroid progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000038">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3940,16 +4121,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RPS19
 
 
-    <a href="https://bioregistry.io/hgnc:10402" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10402">hgnc:10402</a>
+    <a href="https://bioregistry.io/hgnc:10402" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10402</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPS19 (hgnc:10402). hgnc:10402 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3977,11 +4169,18 @@
         RPL5
 
 
-    <a href="https://bioregistry.io/hgnc:10360" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10360">hgnc:10360</a>
+    <a href="https://bioregistry.io/hgnc:10360" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:10360</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPL5 (hgnc:10360). hgnc:10360 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4009,11 +4208,18 @@
         RPL11
 
 
-    <a href="https://bioregistry.io/hgnc:10301" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10301">hgnc:10301</a>
+    <a href="https://bioregistry.io/hgnc:10301" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:10301</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPL11 (hgnc:10301). hgnc:10301 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4041,11 +4247,18 @@
         RPL35A
 
 
-    <a href="https://bioregistry.io/hgnc:10345" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10345">hgnc:10345</a>
+    <a href="https://bioregistry.io/hgnc:10345" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:10345</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPL35A (hgnc:10345). hgnc:10345 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4073,11 +4286,18 @@
         RPS26
 
 
-    <a href="https://bioregistry.io/hgnc:10414" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10414">hgnc:10414</a>
+    <a href="https://bioregistry.io/hgnc:10414" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:10414</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPS26 (hgnc:10414). hgnc:10414 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4105,11 +4325,18 @@
         RPS24
 
 
-    <a href="https://bioregistry.io/hgnc:10411" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10411">hgnc:10411</a>
+    <a href="https://bioregistry.io/hgnc:10411" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:10411</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPS24 (hgnc:10411). hgnc:10411 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4137,11 +4364,18 @@
         RPS10
 
 
-    <a href="https://bioregistry.io/hgnc:10383" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10383">hgnc:10383</a>
+    <a href="https://bioregistry.io/hgnc:10383" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:10383</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPS10 (hgnc:10383). hgnc:10383 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4169,11 +4403,18 @@
         RPS17
 
 
-    <a href="https://bioregistry.io/hgnc:10397" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10397">hgnc:10397</a>
+    <a href="https://bioregistry.io/hgnc:10397" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:10397</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPS17 (hgnc:10397). hgnc:10397 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4201,10 +4442,13 @@
         RPS7
 
 
-    <a href="https://bioregistry.io/hgnc:10440" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10440">hgnc:10440</a>
+    <a href="https://bioregistry.io/hgnc:10440" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:10440</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPS7 (hgnc:10440). hgnc:10440 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4232,16 +4476,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ribosome biogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042254" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042254">GO:0042254</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042254" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042254</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ribosome biogenesis (GO:0042254). GO:0042254 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4250,6 +4499,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4267,10 +4518,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006412">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4290,16 +4544,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         translational initiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006413" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006413">GO:0006413</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006413" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006413</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translational initiation (GO:0006413). GO:0006413 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4320,6 +4579,7 @@
 
 
                 </div>
+
 
 
 
@@ -4460,16 +4720,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000765">CL:0000765</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000765</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythroblast (CL:0000765). CL:0000765 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4496,16 +4761,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         signal transduction by p53 class mediator
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072331">GO:0072331</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0072331</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased signal transduction by p53 class mediator (GO:0072331). GO:0072331 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4525,16 +4795,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         erythrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030218">GO:0030218</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0030218</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal erythrocyte differentiation (GO:0030218). GO:0030218 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4555,6 +4830,7 @@
 
 
                 </div>
+
 
 
 
@@ -4632,16 +4908,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         erythroid progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000038">CL:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves erythroid progenitor cell (CL:0000038). CL:0000038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4662,6 +4943,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4673,10 +4958,13 @@
         GATA1
 
 
-    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4170">hgnc:4170</a>
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:4170</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4704,16 +4992,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4722,6 +5015,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4739,10 +5034,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030218">GO:0030218</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030218" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030218</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal erythrocyte differentiation (GO:0030218). GO:0030218 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4763,6 +5061,7 @@
 
 
                 </div>
+
 
 
 
@@ -4879,14 +5178,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macrocytic anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001972" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001972">HP:0001972</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001972</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is macrocytic anemia (HP:0001972). HP:0001972 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4940,14 +5246,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pure red cell aplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012410" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012410">HP:0012410</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012410</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pure red cell aplasia (HP:0012410). HP:0012410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5001,14 +5314,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute myeloid leukemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004808">HP:0004808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is acute myeloid leukemia (HP:0004808). HP:0004808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5062,14 +5382,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myelodysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002863" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002863">HP:0002863</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002863</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is myelodysplasia (HP:0002863). HP:0002863 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5132,14 +5459,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Craniofacial dysostosis
+
+                        <span class="phenotype-term-label">Craniofacial dysostosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004439" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004439">HP:0004439</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004439" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004439</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is craniofacial dysostosis (HP:0004439). HP:0004439 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5202,14 +5538,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Triphalangeal thumb
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001199">HP:0001199</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001199</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is triphalangeal thumb (HP:0001199). HP:0001199 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5272,14 +5615,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteosarcoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002669" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002669">HP:0002669</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002669" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002669</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is osteosarcoma (HP:0002669). HP:0002669 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5342,14 +5692,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5936,7 +6293,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -6015,7 +6377,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">blood transfusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">blood transfusion<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Blood Transfusion</span>
 
 
@@ -6094,7 +6461,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -6173,7 +6545,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">iron chelation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">iron chelation therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6220,7 +6597,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6266,7 +6648,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surveillance for malignancies</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
@@ -6468,11 +6855,93 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Copy number analysis of Diamond-Blackfan Anemia (DBA) using SNP array
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000105" target="_blank">ega:EGAS00000000105</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Diamondâ€“Blackfan anemia (DBA), is a rare congenital anemia that usually presents in infancy. About fifty percent of DBA patients possess mutations in ribosomal protains (RPs). In this study, we performed genomic copy number analysis using SNP arrays for 27 Japanese DBA patients to detect genomic copy number lesions of the RP genes&#39; loci.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Diamond-Blackfan Anemia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Loss of functional mutation in RPL27 and RPS27 identified by whole-exome sequencing in Diamond-Blackfan Anemia
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000875" target="_blank">ega:EGAS00001000875</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We performed whole-exome sequencing analysis of 48 patients with no documented mutations/deletions involving known Diamond-Blackfan anemia genes and identified 10 mutations in previous known causative genes and 2 mutations in novel ribosomal genes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Diamond-Blackfan Anemia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6491,7 +6960,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Diamond-Blackfan Anemia
 creation_date: &#39;2026-02-16T18:18:28Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
 category: Mendelian
 description: &gt;
   Diamond-Blackfan anemia (DBA) is a congenital ribosomopathy and inherited
@@ -7090,6 +7558,24 @@ treatments:
     snippet: &#34;This companion article outlines consensus disease-specific long-term follow-up screening guidelines for patients with IMBFS.&#34;
     explanation: Consensus late-effects screening guidelines for inherited bone marrow failure syndromes (which include Diamond-Blackfan anemia) frame long-term post-transplant surveillance.
 datasets:
+- accession: ega:EGAS00000000105
+  title: Copy number analysis of Diamond-Blackfan Anemia (DBA) using SNP array
+  description: Diamondâ€“Blackfan anemia (DBA), is a rare congenital anemia that usually presents in infancy. About fifty percent of DBA patients possess mutations in ribosomal protains (RPs). In this study, we performed genomic copy number analysis using SNP arrays for 27 Japanese DBA patients to detect genomic copy number lesions of the RP genes&#39; loci.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Diamond-Blackfan Anemia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001000875
+  title: Loss of functional mutation in RPL27 and RPS27 identified by whole-exome sequencing in Diamond-Blackfan Anemia
+  description: We performed whole-exome sequencing analysis of 48 patients with no documented mutations/deletions involving known Diamond-Blackfan anemia genes and identified 10 mutations in previous known causative genes and 2 mutations in novel ribosomal genes.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Diamond-Blackfan Anemia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 references:
 - reference: PMID:20301769
   title: &#34;DBA Syndrome.&#34;
@@ -7748,7 +8234,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diamond-Blackfan Anemia", "mondoId": "MONDO:0015253", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diamond-Blackfan_Anemia", "yamlRevision": "3a785fdb5353"};
+        const OS_CONFIG = {"diseaseName": "Diamond-Blackfan Anemia", "mondoId": "MONDO:0015253", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diamond-Blackfan_Anemia", "yamlRevision": "b9129ffb1fee"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8167,5 +8653,73 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3785,6 +3953,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3811,6 +3987,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3820,9 +4066,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">NIH Highlighted Topic</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Pathophysiology conforms to the genomic instability module(s) — hallmark-of-aging mechanism(s) — making this entry a relevant model for NIH Highlighted Topic 89 (cellular quiescence, senescence, and cell death in aging and disease).">NIH HT 89 cellular quiescence senescence cell death in</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3976,16 +4238,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 XPA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12814" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12814">hgnc:12814</a>
+    <a href="https://bioregistry.io/hgnc:12814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:12814</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in XPA (hgnc:12814). hgnc:12814 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4052,16 +4319,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ERCC3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3435" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3435">hgnc:3435</a>
+    <a href="https://bioregistry.io/hgnc:3435" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3435</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC3 (hgnc:3435). hgnc:3435 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4128,16 +4400,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 XPC
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12816" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12816">hgnc:12816</a>
+    <a href="https://bioregistry.io/hgnc:12816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:12816</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in XPC (hgnc:12816). hgnc:12816 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4204,16 +4481,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ERCC2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3434">hgnc:3434</a>
+    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:3434</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC2 (hgnc:3434). hgnc:3434 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4280,16 +4562,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 DDB2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2718" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2718">hgnc:2718</a>
+    <a href="https://bioregistry.io/hgnc:2718" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2718</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DDB2 (hgnc:2718). hgnc:2718 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4356,16 +4643,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ERCC4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3436" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3436">hgnc:3436</a>
+    <a href="https://bioregistry.io/hgnc:3436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:3436</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4432,16 +4724,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ERCC5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3437">hgnc:3437</a>
+    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:3437</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ERCC5 (hgnc:3437). hgnc:3437 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4530,16 +4827,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 POLH
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9181" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9181">hgnc:9181</a>
+    <a href="https://bioregistry.io/hgnc:9181" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:9181</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in POLH (hgnc:9181). hgnc:9181 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4620,17 +4922,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4651,10 +4960,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4681,16 +4993,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to UV
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009411" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009411">GO:0009411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009411" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0009411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal response to UV (GO:0009411). GO:0009411 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4711,6 +5028,7 @@
 
 
                 </div>
+
 
 
 
@@ -4786,16 +5104,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         XPA
 
 
-    <a href="https://bioregistry.io/hgnc:12814" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12814">hgnc:12814</a>
+    <a href="https://bioregistry.io/hgnc:12814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:12814</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves XPA (hgnc:12814). hgnc:12814 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4823,11 +5152,18 @@
         XPC
 
 
-    <a href="https://bioregistry.io/hgnc:12816" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12816">hgnc:12816</a>
+    <a href="https://bioregistry.io/hgnc:12816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:12816</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves XPC (hgnc:12816). hgnc:12816 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4855,11 +5191,18 @@
         ERCC2
 
 
-    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3434">hgnc:3434</a>
+    <a href="https://bioregistry.io/hgnc:3434" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:3434</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERCC2 (hgnc:3434). hgnc:3434 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4887,11 +5230,18 @@
         ERCC3
 
 
-    <a href="https://bioregistry.io/hgnc:3435" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3435">hgnc:3435</a>
+    <a href="https://bioregistry.io/hgnc:3435" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:3435</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERCC3 (hgnc:3435). hgnc:3435 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4919,11 +5269,18 @@
         DDB2
 
 
-    <a href="https://bioregistry.io/hgnc:2718" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2718">hgnc:2718</a>
+    <a href="https://bioregistry.io/hgnc:2718" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:2718</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DDB2 (hgnc:2718). hgnc:2718 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4951,11 +5308,18 @@
         ERCC4
 
 
-    <a href="https://bioregistry.io/hgnc:3436" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3436">hgnc:3436</a>
+    <a href="https://bioregistry.io/hgnc:3436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:3436</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4983,10 +5347,13 @@
         ERCC5
 
 
-    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3437">hgnc:3437</a>
+    <a href="https://bioregistry.io/hgnc:3437" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:3437</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ERCC5 (hgnc:3437). hgnc:3437 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5014,16 +5381,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         nucleotide-excision repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006289" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006289">GO:0006289</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006289" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006289</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nucleotide-excision repair (GO:0006289). GO:0006289 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5044,6 +5416,7 @@
 
 
                 </div>
+
 
 
 
@@ -5159,15 +5532,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         POLH
 
 
-    <a href="https://bioregistry.io/hgnc:9181" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9181">hgnc:9181</a>
+    <a href="https://bioregistry.io/hgnc:9181" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:9181</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves POLH (hgnc:9181). hgnc:9181 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5195,16 +5575,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         translesion synthesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019985" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019985">GO:0019985</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019985" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0019985</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translesion synthesis (GO:0019985). GO:0019985 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5225,6 +5610,7 @@
 
 
                 </div>
+
 
 
 
@@ -5293,17 +5679,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5324,10 +5717,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5344,6 +5740,7 @@
 
 
                 </div>
+
 
 
 
@@ -5414,6 +5811,7 @@
                 <div class="item-name">Cutaneous carcinogenesis</div>
 
                 <div class="item-desc">XP dramatically accelerates development of sunlight-induced basal cell carcinoma, squamous cell carcinoma, and melanoma, often beginning in the first decade of life.</div>
+
 
 
 
@@ -5515,16 +5913,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5551,16 +5954,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5581,6 +5989,7 @@
 
 
                 </div>
+
 
 
 
@@ -5750,14 +6159,21 @@
                         Sensorineural hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5818,14 +6234,21 @@
                         Photophobia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5886,14 +6309,23 @@
                         Photosensitivity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cutaneous photosensitivity
+
+                        <span class="phenotype-term-label">Cutaneous photosensitivity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000992">HP:0000992</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000992</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5945,14 +6377,21 @@
                         Freckling in sun-exposed skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Freckling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001480" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001480">HP:0001480</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001480</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Freckling (HP:0001480). HP:0001480 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6004,14 +6443,21 @@
                         Basal cell carcinoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Basal cell carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002671" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002671">HP:0002671</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002671" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002671</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Basal cell carcinoma (HP:0002671). HP:0002671 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6063,14 +6509,21 @@
                         Squamous cell carcinoma of the skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Squamous cell carcinoma of the skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006739">HP:0006739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Squamous cell carcinoma of the skin (HP:0006739). HP:0006739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6131,14 +6584,21 @@
                         Peripheral neuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0009830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6190,14 +6650,21 @@
                         Dystonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6249,14 +6716,21 @@
                         Cognitive impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6308,14 +6782,21 @@
                         Progressive cerebellar ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Progressive cerebellar ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002073">HP:0002073</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6425,14 +6906,21 @@
                         Cutaneous melanoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Melanoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002861">HP:0002861</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002861</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Melanoma (HP:0002861). HP:0002861 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6484,14 +6972,21 @@
                         Hyporeflexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyporeflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001265">HP:0001265</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001265</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6705,13 +7200,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POLH
 
 
-    <a href="https://bioregistry.io/hgnc:9181" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9181">hgnc:9181</a>
+    <a href="https://bioregistry.io/hgnc:9181" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:9181</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POLH (hgnc:9181). hgnc:9181 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6832,13 +7332,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: XPA
 
 
-    <a href="https://bioregistry.io/hgnc:12814" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12814">hgnc:12814</a>
+    <a href="https://bioregistry.io/hgnc:12814" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:12814</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is XPA (hgnc:12814). hgnc:12814 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6898,13 +7403,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ERCC4
 
 
-    <a href="https://bioregistry.io/hgnc:3436" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3436">hgnc:3436</a>
+    <a href="https://bioregistry.io/hgnc:3436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:3436</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ERCC4 (hgnc:3436). hgnc:3436 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7103,7 +7613,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7319,7 +7834,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7404,6 +7924,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-ultraviolet-radiation-exposure" data-dismech-node="Ultraviolet radiation exposure" data-dismech-type="environmental">
                 <div class="item-name">Ultraviolet radiation exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ultraviolet radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:0000006</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -7666,6 +8213,85 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Mutator phenotype and specific mutational signature explain an increased risk of hematological malignancies in patients with Xeroderma Pigmentosum
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001004511" target="_blank">ega:EGAS00001004511</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">In this study we report for the first time the unique collection of 6 leukemias and two sarcomas from XP-C. Comprehensive WGS-based mutational analysis provides genetic explanation for the increased incidence of leukemia in XP-C and describes an unique mutational process in internal tumors associated with NER deficiency.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Xeroderma Pigmentosum&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    GENOMIC MUTATION LANDSCAPE OF SKIN CANCERS FROM DNA REPAIR-DEFICIENT XERODERMA PIGMENTOSUM PATIENTS
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006732" target="_blank">ega:EGAS00001006732</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Xeroderma pigmentosum (XP) is a genetic disorder caused by mutations in genes of the Nucleotide Excision Repair (NER) pathway (groups A-G) or in Translesion Synthesis (TLS) DNA polymerase η (group V). XP is associated with an increased skin cancer risk, reaching, for some groups, several thousand-fold compared to the general population. Here, we analyzed 38 skin cancer genomes from five XP groups. We found that the activity of NER determines heterogeneity of the mutation rates across skin cancer genomes and that transcription-coupled NER extends beyond the gene boundaries reducing the intergenic mutation rate.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Xeroderma Pigmentosum&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7878,6 +8504,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7894,7 +8523,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Xeroderma Pigmentosum
 creation_date: &#34;2026-05-13T00:00:00Z&#34;
-updated_date: &#39;2026-06-02T00:00:00Z&#39;
 description: &gt;-
   Xeroderma pigmentosum is a rare autosomal recessive DNA repair disorder caused
   by biallelic pathogenic variants in nucleotide-excision repair genes or POLH,
@@ -8817,6 +9445,11 @@ genetic:
       explanation: The abstract supports the mechanistic and clinical consequence of these ERCC4 non-coding variants.
 environmental:
 - name: Ultraviolet radiation exposure
+  exposure_term:
+    preferred_term: exposure to ultraviolet radiation
+    term:
+      id: ECTO:0000006
+      label: exposure to ultraviolet radiation
   influences_mechanisms:
   - target: UV-induced DNA photoproduct formation
     environmental_effect: TRIGGERS
@@ -9166,6 +9799,25 @@ classifications:
   nih_research_priority:
   - classification_value: NIH_HT_89_cellular_quiescence_senescence_cell_death_in
     notes: Pathophysiology conforms to the genomic instability module(s) — hallmark-of-aging mechanism(s) — making this entry a relevant model for NIH Highlighted Topic 89 (cellular quiescence, senescence, and cell death in aging and disease).
+datasets:
+- accession: ega:EGAS00001004511
+  title: Mutator phenotype and specific mutational signature explain an increased risk of hematological malignancies in patients with Xeroderma Pigmentosum
+  description: In this study we report for the first time the unique collection of 6 leukemias and two sarcomas from XP-C. Comprehensive WGS-based mutational analysis provides genetic explanation for the increased incidence of leukemia in XP-C and describes an unique mutational process in internal tumors associated with NER deficiency.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Xeroderma Pigmentosum&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001006732
+  title: GENOMIC MUTATION LANDSCAPE OF SKIN CANCERS FROM DNA REPAIR-DEFICIENT XERODERMA PIGMENTOSUM PATIENTS
+  description: Xeroderma pigmentosum (XP) is a genetic disorder caused by mutations in genes of the Nucleotide Excision Repair (NER) pathway (groups A-G) or in Translesion Synthesis (TLS) DNA polymerase η (group V). XP is associated with an increased skin cancer risk, reaching, for some groups, several thousand-fold compared to the general population. Here, we analyzed 38 skin cancer genomes from five XP groups. We found that the activity of NER determines heterogeneity of the mutation rates across skin cancer genomes and that transcription-coupled NER extends beyond the gene boundaries reducing the intergenic mutation rate.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Xeroderma Pigmentosum&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -9624,7 +10276,7 @@ UK prospective cohort quantified neurological burden and progression:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Xeroderma Pigmentosum", "mondoId": "MONDO:0019600", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Xeroderma_Pigmentosum", "yamlRevision": "3d96329d8d77"};
+        const OS_CONFIG = {"diseaseName": "Xeroderma Pigmentosum", "mondoId": "MONDO:0019600", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Xeroderma_Pigmentosum", "yamlRevision": "0c39286b4ead"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10043,5 +10695,73 @@ UK prospective cohort quantified neurological burden and progression:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

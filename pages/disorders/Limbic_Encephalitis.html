@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Limbic%20Encephalitis"
@@ -3703,6 +3869,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3748,7 +3916,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3774,6 +3942,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4571,16 +4747,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4607,17 +4788,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hippocampal formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002421">UBERON:0002421</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0002421</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hippocampal formation (UBERON:0002421). UBERON:0002421 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brain
@@ -4625,13 +4813,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4699,17 +4891,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4730,10 +4929,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4760,16 +4962,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immunoglobulin production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4790,6 +4997,7 @@
 
 
                 </div>
+
 
 
 
@@ -4860,16 +5068,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4896,16 +5109,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4932,19 +5150,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hippocampal formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002421">UBERON:0002421</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002421</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hippocampal formation (UBERON:0002421). UBERON:0002421 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5012,16 +5236,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5048,16 +5277,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5077,16 +5311,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         synapse organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050808">GO:0050808</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0050808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal synapse organization (GO:0050808). GO:0050808 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5113,19 +5352,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hippocampal formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002421">UBERON:0002421</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002421</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hippocampal formation (UBERON:0002421). UBERON:0002421 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5193,16 +5438,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5229,16 +5479,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5265,19 +5520,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hippocampal formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002421">UBERON:0002421</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002421</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hippocampal formation (UBERON:0002421). UBERON:0002421 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5352,16 +5613,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5388,19 +5654,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hippocampal formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002421">UBERON:0002421</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002421</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hippocampal formation (UBERON:0002421). UBERON:0002421 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5468,7 +5740,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPAR Synaptic Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMPAR autoantibodies bind GluR1/GluR2-containing receptors on hippocampal neurons and reduce synaptic AMPAR cluster number and localization, producing potentially reversible limbic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\", \"synapse organization\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment commonly uses high-dose corticosteroids, intravenous immunoglobulin, plasma exchange, or combinations, with escalation based on severity, antibody subtype, and tumor context.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"GABAB Receptor Autoimmunity and Neuronal Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GABAB receptor antibodies target inhibitory GABAB1 receptors and are linked to prominent seizures, temporal-lobe EEG abnormalities, and memory dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"High-Dose Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose systemic corticosteroids are a core first-line immunosuppressive treatment for autoimmune limbic encephalitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin is used as first-line immune modulation alone or in combination with corticosteroids or plasma exchange.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LGI1-CASPR2 VGKC-Complex Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many patients formerly classified by high voltage-gated potassium channel complex antibodies have antibodies to LGI1 or CASPR2, which correlate with distinct limbic encephalitis, Morvan/neuromyotonia, tumor, and prognosis phenotypes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"Limbic Gray Matter Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammation predominates in medial temporal and limbic gray matter, explaining the memory, seizure, psychiatric, and behavioral syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune response\"], \"locations\": [\"hippocampal formation\", \"brain\"]}}, {\"id\": \"Limbic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Limbic-region inflammation and synaptic antibody effects converge on temporal-lobe networks, producing memory impairment, seizures, confusion, psychiatric symptoms, EEG abnormalities, and MRI signal changes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"Maintenance Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selected relapsing or deteriorating cases may require maintenance immunosuppression after acute treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuronal Antigen Humoral Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serum or CSF antibodies against neuronal intracellular or cell-surface antigens identify major mechanistic and prognostic subgroups.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\"]}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma exchange is used to remove pathogenic circulating antibodies in antibody-mediated limbic encephalitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rituximab or Cyclophosphamide Second-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe, refractory, or relapsing autoimmune limbic encephalitis can be escalated to second-line B-cell-directed or cytotoxic immunotherapy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\"]}}, {\"id\": \"Tumor Removal and Antineoplastic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tumor-directed treatment is required when limbic encephalitis is paraneoplastic or a tumor is identified alongside a neuronal antibody syndrome.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Limbic Gray Matter Inflammation\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limbic inflammation disrupts memory and seizure-prone temporal-lobe networks.\\n\"}, {\"source\": \"Neuronal Antigen Humoral Autoimmunity\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell-surface antibody subtypes can alter synaptic receptor localization, receptor signaling, or neuronal excitability.\\n\"}, {\"source\": \"LGI1-CASPR2 VGKC-Complex Autoimmunity\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LGI1-antibody-positive patients predominantly manifest limbic encephalitis.\\n\"}, {\"source\": \"AMPAR Synaptic Cluster Loss\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic AMPAR localization impairs hippocampal excitatory signaling involved in memory and seizures.\\n\"}, {\"source\": \"GABAB Receptor Autoimmunity and Neuronal Hyperexcitability\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted GABAB receptor function can produce seizure-prone temporal-lobe networks.\\n\"}, {\"source\": \"First-Line Immunotherapy\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-Dose Corticosteroid Therapy\", \"target\": \"Limbic Gray Matter Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab or Cyclophosphamide Second-Line Immunotherapy\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tumor Removal and Antineoplastic Therapy\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maintenance Immunosuppression\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AMPAR Synaptic Cluster Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMPAR autoantibodies bind GluR1/GluR2-containing receptors on hippocampal neurons and reduce synaptic AMPAR cluster number and localization, producing potentially reversible limbic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\", \"synapse organization\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"First-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment commonly uses high-dose corticosteroids, intravenous immunoglobulin, plasma exchange, or combinations, with escalation based on severity, antibody subtype, and tumor context.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"GABAB Receptor Autoimmunity and Neuronal Hyperexcitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GABAB receptor antibodies target inhibitory GABAB1 receptors and are linked to prominent seizures, temporal-lobe EEG abnormalities, and memory dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"High-Dose Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose systemic corticosteroids are a core first-line immunosuppressive treatment for autoimmune limbic encephalitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intravenous Immunoglobulin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin is used as first-line immune modulation alone or in combination with corticosteroids or plasma exchange.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LGI1-CASPR2 VGKC-Complex Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many patients formerly classified by high voltage-gated potassium channel complex antibodies have antibodies to LGI1 or CASPR2, which correlate with distinct limbic encephalitis, Morvan/neuromyotonia, tumor, and prognosis phenotypes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"Limbic Gray Matter Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammation predominates in medial temporal and limbic gray matter, explaining the memory, seizure, psychiatric, and behavioral syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune response\"], \"locations\": [\"hippocampal formation\", \"brain\"]}}, {\"id\": \"Limbic Network Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Limbic-region inflammation and synaptic antibody effects converge on temporal-lobe networks, producing memory impairment, seizures, confusion, psychiatric symptoms, EEG abnormalities, and MRI signal changes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemical synaptic transmission\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"Maintenance Immunosuppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selected relapsing or deteriorating cases may require maintenance immunosuppression after acute treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuronal Antigen Humoral Autoimmunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Serum or CSF antibodies against neuronal intracellular or cell-surface antigens identify major mechanistic and prognostic subgroups.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\", \"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\"]}}, {\"id\": \"Plasma Exchange\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Plasma exchange is used to remove pathogenic circulating antibodies in antibody-mediated limbic encephalitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rituximab or Cyclophosphamide Second-Line Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe, refractory, or relapsing autoimmune limbic encephalitis can be escalated to second-line B-cell-directed or cytotoxic immunotherapy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"rituximab\", \"cyclophosphamide\"]}}, {\"id\": \"Small-Cell Lung Cancer\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Small-cell lung cancer is a major tumor association, particularly in classic paraneoplastic limbic encephalitis and GABAB receptor antibody limbic encephalitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thymus, Breast, or Lung Tumor\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"AMPAR antibody limbic encephalitis is often associated with tumors of the thymus, breast, or lung.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tumor Removal and Antineoplastic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tumor-directed treatment is required when limbic encephalitis is paraneoplastic or a tumor is identified alongside a neuronal antibody syndrome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Underlying Neoplasm\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Limbic encephalitis can be paraneoplastic; tumor type and antibody class affect prognosis, evaluation, and treatment.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Limbic Gray Matter Inflammation\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Limbic inflammation disrupts memory and seizure-prone temporal-lobe networks.\\n\"}, {\"source\": \"Neuronal Antigen Humoral Autoimmunity\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell-surface antibody subtypes can alter synaptic receptor localization, receptor signaling, or neuronal excitability.\\n\"}, {\"source\": \"LGI1-CASPR2 VGKC-Complex Autoimmunity\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LGI1-antibody-positive patients predominantly manifest limbic encephalitis.\\n\"}, {\"source\": \"AMPAR Synaptic Cluster Loss\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced synaptic AMPAR localization impairs hippocampal excitatory signaling involved in memory and seizures.\\n\"}, {\"source\": \"GABAB Receptor Autoimmunity and Neuronal Hyperexcitability\", \"target\": \"Limbic Network Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted GABAB receptor function can produce seizure-prone temporal-lobe networks.\\n\"}, {\"source\": \"Underlying Neoplasm\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A systemic tumour expressing neuronal antigens breaks tolerance to them, and the antibodies that follow are what this node holds. Loss of immune tolerance is the intervening step, and the cited review names it, which is why the intermediates are recorded as known.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Small-Cell Lung Cancer\", \"target\": \"GABAB Receptor Autoimmunity and Neuronal Hyperexcitability\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Small-cell lung cancer is the tumour that dominates the GABAB receptor antibody group specifically, rather than the paraneoplastic picture generally. Targeted at that antibody node for that reason, by the same tolerance-breaking route as the general neoplasm link.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Thymus, Breast, or Lung Tumor\", \"target\": \"AMPAR Synaptic Cluster Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The AMPAR antibody group carries its own tumour signature, distinct from the small-cell lung cancer pattern of the GABAB group. Graded the same way as the other two tumour links in this entry, and pointed at the antibody node its cohort defines.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"First-Line Immunotherapy\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-Dose Corticosteroid Therapy\", \"target\": \"Limbic Gray Matter Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Immunoglobulin\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma Exchange\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab or Cyclophosphamide Second-Line Immunotherapy\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tumor Removal and Antineoplastic Therapy\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Maintenance Immunosuppression\", \"target\": \"Neuronal Antigen Humoral Autoimmunity\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5509,14 +5781,21 @@
                         Hyponatremia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyponatremia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002902">HP:0002902</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002902</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyponatremia (HP:0002902). HP:0002902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5604,14 +5883,21 @@
                         Memory Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Memory impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002354</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5664,14 +5950,21 @@
                         Seizure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5747,14 +6040,21 @@
                         Faciobrachial Dystonic Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Faciobrachial dystonic seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5833,14 +6133,21 @@
                         Confusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Confusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001289">HP:0001289</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001289</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Confusion (HP:0001289). HP:0001289 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5893,14 +6200,23 @@
                         Psychiatric Symptoms
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Psychosis
+
+                        <span class="phenotype-term-label">Psychosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000709</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,14 +6272,21 @@
                         Personality Changes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Personality changes
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000751" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000751">HP:0000751</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000751</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Personality changes (HP:0000751). HP:0000751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6016,14 +6339,21 @@
                         EEG Abnormality
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EEG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002353">HP:0002353</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002353</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6076,14 +6406,21 @@
                         Sleep Disturbance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6148,14 +6485,21 @@
                         Status Epilepticus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Status epilepticus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002133">HP:0002133</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002133</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6208,14 +6552,21 @@
                         Abnormal Hippocampus Morphology
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal hippocampus morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025100" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025100">HP:0025100</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0025100</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal hippocampus morphology (HP:0025100). HP:0025100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6294,14 +6645,21 @@
                         CSF Pleocytosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CSF pleocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012229">HP:0012229</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012229</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6400,7 +6758,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -6577,7 +6940,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -6707,7 +7075,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">intravenous immunoglobulin therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Intravenous Immunoglobulin Therapy</span>
 
 
@@ -6837,7 +7210,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">plasmapheresis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Plasmapheresis</span>
 
 
@@ -6967,7 +7345,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6997,17 +7380,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cyclophosphamide
@@ -7015,10 +7405,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7172,7 +7565,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7326,7 +7724,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -7467,6 +7870,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Limbic encephalitis can be paraneoplastic; tumor type and antibody class affect prognosis, evaluation, and treatment.</div>
 
 
@@ -7506,10 +7913,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Neuronal Antigen Humoral Autoimmunity</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A systemic tumour expressing neuronal antigens breaks tolerance to them, and the antibodies that follow are what this node holds. Loss of immune tolerance is the intervening step, and the cited review names it, which is why the intermediates are recorded as known.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23250843" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23250843" target="_blank">PMID:23250843</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Some patients develop limbic encephalitis as a paraneoplastic manifestation of systemic cancer, where immune tolerance is thought to be lost."</div>
+
+
+                <div class="evidence-explanation">States that some patients develop limbic encephalitis as a paraneoplastic manifestation of systemic cancer, with immune tolerance thought to be lost, naming both the exposure and the route to this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-small-cell-lung-cancer" data-dismech-node="Small-Cell Lung Cancer" data-dismech-type="environmental">
                 <div class="item-name">Small-Cell Lung Cancer</div>
+
+
+
+
 
 
 
@@ -7552,10 +8015,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">GABAB Receptor Autoimmunity and Neuronal Hyperexcitability</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Small-cell lung cancer is the tumour that dominates the GABAB receptor antibody group specifically, rather than the paraneoplastic picture generally. Targeted at that antibody node for that reason, by the same tolerance-breaking route as the general neoplasm link.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19962348" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19962348" target="_blank">PMID:19962348</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seven of 15 patients had tumours, five of which were small-cell lung cancer, and seven patients had non-neuronal autoantibodies."</div>
+
+
+                <div class="evidence-explanation">In the founding GABAB receptor antibody series, five of the seven tumours found were small-cell lung cancer, tying this exposure to this antibody node rather than to paraneoplastic limbic encephalitis at large.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-thymus-breast-or-lung-tumor" data-dismech-node="Thymus, Breast, or Lung Tumor" data-dismech-type="environmental">
                 <div class="item-name">Thymus, Breast, or Lung Tumor</div>
+
+
+
+
 
 
 
@@ -7597,6 +8116,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">AMPAR Synaptic Cluster Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The AMPAR antibody group carries its own tumour signature, distinct from the small-cell lung cancer pattern of the GABAB group. Graded the same way as the other two tumour links in this entry, and pointed at the antibody node its cohort defines.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19338055" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19338055" target="_blank">PMID:19338055</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seven had tumors of the lung, breast, or thymus."</div>
+
+
+                <div class="evidence-explanation">Seven patients in the cohort that first characterised AMPAR antibodies had tumours of the lung, breast, or thymus, which is what attaches this exposure to this node rather than to a different antibody group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7893,6 +8464,101 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    mRNA signatures of a T-cell driven Limbic Encephalitis mouse model
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE303749" target="_blank">geo:GSE303749</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">To determine the key transcription factors and molecular pathways involved in Limbic Encephalitis (LE), we analyzed immune cell-driven transcriptional changes in a newly developed mouse model of CD8+ T cell-mediated LE. This murine model (OVA-CD8+ LE) recapitulates the essential phenotypic features observed in human cytotoxic T lymphocyte (CTL)-induced LE, including neuroinflammation and seizure susceptibility. In a time series approach 2, 5, 8 and 28 days post-injection hippocampal tissue was harvested for RNA sequencing analysis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=31</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42415095" target="_blank" style="color: var(--secondary);">PMID:42415095</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Limbic Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    snRNA-seq profiles distinguish anti-Drebrin- and anti-GAD65-positive encephalitis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE303810" target="_blank">geo:GSE303810</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Autoantibodies (ABs) against intracellular proteins, including glutamate-decarboxylase 65 (anti-GAD65), are increasingly recognized in autoimmune and limbic encephalitis (AE/LE). Anti-GAD65 LE frequently progresses into severe temporal lobe epilepsy (TLE), neuropathologically characterized by hippocampal sclerosis (HS) and variable cytotoxic T lymphocytes (CTLs) infiltration. Recently, we have identified Drebrin as a novel intracellular target protein of ABs in patients suspicious for AE.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=8</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42415095" target="_blank" style="color: var(--secondary);">PMID:42415095</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Limbic Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7920,17 +8586,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Memory impairment
@@ -7938,10 +8611,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002354</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7990,6 +8666,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8006,7 +8685,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Limbic Encephalitis
 creation_date: &#34;2026-05-16T08:20:21Z&#34;
-updated_date: &#34;2026-05-16T08:53:06Z&#34;
 category: Autoimmune
 parents:
 - Autoimmune Encephalitis
@@ -8791,6 +9469,26 @@ biochemical:
       The AMPAR subtype is defined by GluR1/GluR2 neuronal surface antibodies.
 environmental:
 - name: Underlying Neoplasm
+  influences_mechanisms:
+  - target: Neuronal Antigen Humoral Autoimmunity
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A systemic tumour expressing neuronal antigens breaks tolerance to them,
+      and the antibodies that follow are what this node holds. Loss of immune
+      tolerance is the intervening step, and the cited review names it, which
+      is why the intermediates are recorded as known.
+    evidence:
+    - reference: PMID:23250843
+      reference_title: &#34;Limbic encephalitis and related cortical syndromes.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Some patients develop limbic encephalitis as a paraneoplastic manifestation of systemic cancer, where immune tolerance is thought to be lost.&#34;
+      explanation: &gt;-
+        States that some patients develop limbic encephalitis as a
+        paraneoplastic manifestation of systemic cancer, with immune tolerance
+        thought to be lost, naming both the exposure and the route to this
+        node.
   description: &gt;-
     Limbic encephalitis can be paraneoplastic; tumor type and antibody class
     affect prognosis, evaluation, and treatment.
@@ -8805,6 +9503,26 @@ environmental:
       The review supports systemic cancer as a trigger for paraneoplastic limbic
       encephalitis.
 - name: Small-Cell Lung Cancer
+  influences_mechanisms:
+  - target: GABAB Receptor Autoimmunity and Neuronal Hyperexcitability
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Small-cell lung cancer is the tumour that dominates the GABAB receptor
+      antibody group specifically, rather than the paraneoplastic picture
+      generally. Targeted at that antibody node for that reason, by the same
+      tolerance-breaking route as the general neoplasm link.
+    evidence:
+    - reference: PMID:19962348
+      reference_title: &#34;Antibodies to the GABA(B) receptor in limbic encephalitis with seizures: case series and characterisation of the antigen.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Seven of 15 patients had tumours, five of which were small-cell lung cancer, and seven patients had non-neuronal autoantibodies.&#34;
+      explanation: &gt;-
+        In the founding GABAB receptor antibody series, five of the seven
+        tumours found were small-cell lung cancer, tying this exposure to this
+        antibody node rather than to paraneoplastic limbic encephalitis at
+        large.
   description: &gt;-
     Small-cell lung cancer is a major tumor association, particularly in
     classic paraneoplastic limbic encephalitis and GABAB receptor antibody
@@ -8820,6 +9538,25 @@ environmental:
       The GABAB receptor antibody series shows small-cell lung cancer was the
       dominant tumor association.
 - name: Thymus, Breast, or Lung Tumor
+  influences_mechanisms:
+  - target: AMPAR Synaptic Cluster Loss
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The AMPAR antibody group carries its own tumour signature, distinct from
+      the small-cell lung cancer pattern of the GABAB group. Graded the same
+      way as the other two tumour links in this entry, and pointed at the
+      antibody node its cohort defines.
+    evidence:
+    - reference: PMID:19338055
+      reference_title: &#34;AMPA receptor antibodies in limbic encephalitis alter synaptic receptor location.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Seven had tumors of the lung, breast, or thymus.&#34;
+      explanation: &gt;-
+        Seven patients in the cohort that first characterised AMPAR antibodies
+        had tumours of the lung, breast, or thymus, which is what attaches
+        this exposure to this node rather than to a different antibody group.
   description: &gt;-
     AMPAR antibody limbic encephalitis is often associated with tumors of the
     thymus, breast, or lung.
@@ -9188,7 +9925,31 @@ clinical_trials:
     explanation: &gt;
       ClinicalTrials.gov documents an active Phase III satralizumab trial that
       includes LGI1 encephalitis, a major autoimmune limbic encephalitis subtype.
-datasets: []
+datasets:
+- accession: geo:GSE303749
+  title: mRNA signatures of a T-cell driven Limbic Encephalitis mouse model
+  description: To determine the key transcription factors and molecular pathways involved in Limbic Encephalitis (LE), we analyzed immune cell-driven transcriptional changes in a newly developed mouse model of CD8+ T cell-mediated LE. This murine model (OVA-CD8+ LE) recapitulates the essential phenotypic features observed in human cytotoxic T lymphocyte (CTL)-induced LE, including neuroinflammation and seizure susceptibility. In a time series approach 2, 5, 8 and 28 days post-injection hippocampal tissue was harvested for RNA sequencing analysis.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 31
+  publication: PMID:42415095
+  notes: Identified by GEO DataSets index search for Limbic Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE303810
+  title: snRNA-seq profiles distinguish anti-Drebrin- and anti-GAD65-positive encephalitis
+  description: Autoantibodies (ABs) against intracellular proteins, including glutamate-decarboxylase 65 (anti-GAD65), are increasingly recognized in autoimmune and limbic encephalitis (AE/LE). Anti-GAD65 LE frequently progresses into severe temporal lobe epilepsy (TLE), neuropathologically characterized by hippocampal sclerosis (HS) and variable cytotoxic T lymphocytes (CTLs) infiltration. Recently, we have identified Drebrin as a novel intracellular target protein of ABs in patients suspicious for AE.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 8
+  publication: PMID:42415095
+  notes: Identified by GEO DataSets index search for Limbic Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 references:
 - reference: DOI:10.1017/cjn.2024.16
   title: &#34;Canadian Consensus Guidelines for the Diagnosis and Treatment of Autoimmune Encephalitis in Adults&#34;
@@ -10076,7 +10837,7 @@ The Canadian guideline notes an infectious prodrome is common in autoimmune ence
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Limbic Encephalitis", "mondoId": "MONDO:0015588", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Limbic_Encephalitis", "yamlRevision": "287b67f46c61"};
+        const OS_CONFIG = {"diseaseName": "Limbic Encephalitis", "mondoId": "MONDO:0015588", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Limbic_Encephalitis", "yamlRevision": "8a4e5bb7866c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10495,5 +11256,73 @@ The Canadian guideline notes an infectious prodrome is common in autoimmune ence
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

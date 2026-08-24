@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Refeeding%20Syndrome"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3732,7 +3900,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">24</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3846,6 +4014,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -3885,6 +4054,7 @@
                 <div class="item-name">Aggressive nutritional reintroduction</div>
 
                 <div class="item-desc">Refeeding syndrome is triggered when aggressive enteral or parenteral feeding is initiated in a malnourished patient.</div>
+
 
 
 
@@ -3989,6 +4159,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4077,6 +4248,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4145,16 +4317,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phosphate ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006817">GO:0006817</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal phosphate ion transport (GO:0006817). GO:0006817 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4163,6 +4340,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4180,10 +4359,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006813">GO:0006813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006813</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal potassium ion transport (GO:0006813). GO:0006813 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4203,16 +4385,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         magnesium ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015693" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015693">GO:0015693</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015693" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0015693</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal magnesium ion transport (GO:0015693). GO:0015693 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4233,6 +4420,7 @@
 
 
                 </div>
+
 
 
 
@@ -4328,6 +4516,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4384,6 +4573,7 @@
                 <div class="item-name">Sodium and fluid retention</div>
 
                 <div class="item-desc">Sodium and fluid retention occurs alongside electrolyte abnormalities during refeeding.</div>
+
 
 
 
@@ -4476,16 +4666,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         thiamine metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006772" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006772">GO:0006772</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006772" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006772</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal thiamine metabolic process (GO:0006772). GO:0006772 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4506,6 +4701,7 @@
 
 
                 </div>
+
 
 
 
@@ -4577,6 +4773,7 @@
                 <div class="item-name">Cardiorespiratory complications from metabolic derangements</div>
 
                 <div class="item-desc">Severe metabolic derangements can progress to fatal arrhythmias, systolic heart failure, and respiratory insufficiency.</div>
+
 
 
 
@@ -4681,6 +4878,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4757,16 +4955,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         fatty acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006631" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006631">GO:0006631</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006631" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006631</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal fatty acid metabolic process (GO:0006631). GO:0006631 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4787,6 +4990,7 @@
 
 
                 </div>
+
 
 
 
@@ -4933,7 +5137,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal myocardial fatty acid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal myocardial fatty acid metabolism is implicated in cardiac dysfunction associated with refeeding syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid metabolic process\"]}}, {\"id\": \"Aggressive nutritional reintroduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Refeeding syndrome is triggered when aggressive enteral or parenteral feeding is initiated in a malnourished patient.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac rhythm disturbances related to electrolyte abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiorespiratory complications from metabolic derangements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe metabolic derangements can progress to fatal arrhythmias, systolic heart failure, and respiratory insufficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systolic heart failure due to electrolyte shifts and fluid overload.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Controlled refeeding and caloric advancement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gradual reintroduction of calories with careful monitoring to avoid rapid metabolic shifts.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Delirium\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delirium occurring after refeeding in a severely malnourished patient.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031258\"}}, {\"id\": \"Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sodium and fluid retention leading to edema during refeeding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000969\"}}, {\"id\": \"Electrolyte supplementation and monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Repletion of phosphate, potassium, and magnesium with close monitoring of serum electrolytes during refeeding.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypophosphatemia as hallmark biochemical shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypophosphatemia is the hallmark biochemical change following refeeding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypophosphatemia at onset of refeeding syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypophosphatemia is observed at the onset of refeeding syndrome and is monitored during refeeding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular electrolyte shift during anabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The metabolic response to refeeding drives an acute intracellular shift of electrolytes with increased phosphate demand for tissue anabolism and high- energy phosphate bond formation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphate ion transport\", \"potassium ion transport\", \"magnesium ion transport\"]}}, {\"id\": \"Magnesium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C64840\", \"term_label\": \"Magnesium Measurement\", \"readouts\": [{\"target\": \"Intracellular electrolyte shift during anabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Decreased serum magnesium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\"}]}}, {\"id\": \"Myocardial fibrosis and architectural disarray\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial fibrosis and architectural disarray in refeeding syndrome-associated cardiac dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Phosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C64857\", \"term_label\": \"Phosphate Measurement\", \"readouts\": [{\"target\": \"Hypophosphatemia as hallmark biochemical shift\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased phosphate is the diagnostic biochemical readout of the hallmark hypophosphatemic shift in refeeding syndrome.\"}, {\"target\": \"Rapid post-feeding phosphate decline\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Serial phosphate measurement monitors the rapid post-refeeding decline, especially after parenteral nutrition initiation.\"}]}}, {\"id\": \"Potassium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C64853\", \"term_label\": \"Potassium Measurement\", \"readouts\": [{\"target\": \"Intracellular electrolyte shift during anabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Decreased serum potassium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\"}]}}, {\"id\": \"Rapid post-feeding phosphate decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After initiation of parenteral nutrition, phosphate levels decline rapidly and more markedly than potassium or magnesium.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Refeeding-induced central nervous system disorders\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Refeeding can precipitate central nervous system complications including hypoglycemic encephalopathy, Wernicke encephalopathy, and hypophosphatemic encephalopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure linked to severe electrolyte derangements.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures as a systemic complication during refeeding syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sodium and fluid retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sodium and fluid retention occurs alongside electrolyte abnormalities during refeeding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thiamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:18385\", \"term_label\": \"thiamine(1+)\", \"readouts\": [{\"target\": \"Thiamine deficiency emerges during refeeding\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Low thiamine availability reports the vitamin-deficiency branch that can contribute to refeeding-associated neurologic complications.\"}]}}, {\"id\": \"Thiamine (vitamin B1) supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thiamine supplementation prior to and during refeeding to prevent deficiency and related complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thiamine deficiency emerges during refeeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thiamine deficiency is a common accompanying abnormality during refeeding.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"thiamine metabolic process\"]}}], \"edges\": [{\"source\": \"Aggressive nutritional reintroduction\", \"target\": \"Intracellular electrolyte shift during anabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carbohydrate-containing refeeding drives anabolic metabolism and acute intracellular electrolyte shifts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aggressive nutritional reintroduction\", \"target\": \"Sodium and fluid retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding can produce sodium and fluid retention alongside electrolyte shifts.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aggressive nutritional reintroduction\", \"target\": \"Thiamine deficiency emerges during refeeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding can uncover or worsen thiamine deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hallmark hypophosphatemic shift is measured as decreased serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Cardiorespiratory complications from metabolic derangements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe phosphate depletion contributes to cardiorespiratory decompensation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Refeeding-induced central nervous system disorders\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe hypophosphatemia can be part of refeeding-related encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypophosphatemia at onset of refeeding syndrome\", \"target\": \"Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Onset hypophosphatemia is monitored as decreased serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Hypophosphatemia as hallmark biochemical shift\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular phosphate shift and anabolic phosphate demand lower serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Potassium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular electrolyte shifts can lower serum potassium during refeeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Magnesium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular electrolyte shifts can lower serum magnesium during refeeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rapid post-feeding phosphate decline\", \"target\": \"Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The rapid post-feeding decline is measured as decreased phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sodium and fluid retention\", \"target\": \"Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sodium and fluid retention manifests clinically as edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sodium and fluid retention\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fluid retention can worsen the cardiorespiratory complication branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Thiamine deficiency emerges during refeeding\", \"target\": \"Thiamine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thiamine deficiency is monitored as decreased thiamine availability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thiamine deficiency emerges during refeeding\", \"target\": \"Refeeding-induced central nervous system disorders\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thiamine deficiency can contribute to Wernicke encephalopathy during refeeding.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Wernicke encephalopathy\"]}, {\"source\": \"Cardiorespiratory complications from metabolic derangements\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiorespiratory complications include cardiac arrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiorespiratory complications from metabolic derangements\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiorespiratory complications include systolic heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiorespiratory complications from metabolic derangements\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiorespiratory complications include respiratory insufficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refeeding-induced central nervous system disorders\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding-related neurologic disorders include seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refeeding-induced central nervous system disorders\", \"target\": \"Delirium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding-related CNS disturbance can include delirium in critically ill patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal myocardial fatty acid metabolism\", \"target\": \"Myocardial fibrosis and architectural disarray\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal myocardial metabolism was associated with histologic myocardial disarray and fibrosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal myocardial fatty acid metabolism\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal myocardial metabolism contributes to the cardiac dysfunction branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Controlled refeeding and caloric advancement\", \"target\": \"Aggressive nutritional reintroduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Controlled refeeding and caloric advancement\", \"target\": \"Intracellular electrolyte shift during anabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Electrolyte supplementation and monitoring\", \"target\": \"Hypophosphatemia as hallmark biochemical shift\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Electrolyte supplementation and monitoring\", \"target\": \"Intracellular electrolyte shift during anabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiamine (vitamin B1) supplementation\", \"target\": \"Thiamine deficiency emerges during refeeding\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Phosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased phosphate is the diagnostic biochemical readout of the hallmark hypophosphatemic shift in refeeding syndrome.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Rapid post-feeding phosphate decline\", \"target\": \"Phosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serial phosphate measurement monitors the rapid post-refeeding decline, especially after parenteral nutrition initiation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Potassium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased serum potassium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Magnesium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased serum magnesium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Thiamine deficiency emerges during refeeding\", \"target\": \"Thiamine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low thiamine availability reports the vitamin-deficiency branch that can contribute to refeeding-associated neurologic complications.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal myocardial fatty acid metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal myocardial fatty acid metabolism is implicated in cardiac dysfunction associated with refeeding syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fatty acid metabolic process\"]}}, {\"id\": \"Aggressive nutritional reintroduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Refeeding syndrome is triggered when aggressive enteral or parenteral feeding is initiated in a malnourished patient.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aggressive refeeding after malnutrition\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Rapid or aggressive enteral or parenteral feeding in a malnourished patient can precipitate refeeding syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac rhythm disturbances related to electrolyte abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiorespiratory complications from metabolic derangements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe metabolic derangements can progress to fatal arrhythmias, systolic heart failure, and respiratory insufficiency.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congestive Heart Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Systolic heart failure due to electrolyte shifts and fluid overload.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Controlled refeeding and caloric advancement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gradual reintroduction of calories with careful monitoring to avoid rapid metabolic shifts.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Delirium\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delirium occurring after refeeding in a severely malnourished patient.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031258\"}}, {\"id\": \"Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sodium and fluid retention leading to edema during refeeding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000969\"}}, {\"id\": \"Electrolyte supplementation and monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Repletion of phosphate, potassium, and magnesium with close monitoring of serum electrolytes during refeeding.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypophosphatemia as hallmark biochemical shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypophosphatemia is the hallmark biochemical change following refeeding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypophosphatemia at onset of refeeding syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypophosphatemia is observed at the onset of refeeding syndrome and is monitored during refeeding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intracellular electrolyte shift during anabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The metabolic response to refeeding drives an acute intracellular shift of electrolytes with increased phosphate demand for tissue anabolism and high- energy phosphate bond formation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphate ion transport\", \"potassium ion transport\", \"magnesium ion transport\"]}}, {\"id\": \"Magnesium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C64840\", \"term_label\": \"Magnesium Measurement\", \"readouts\": [{\"target\": \"Intracellular electrolyte shift during anabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Decreased serum magnesium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\"}]}}, {\"id\": \"Myocardial fibrosis and architectural disarray\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial fibrosis and architectural disarray in refeeding syndrome-associated cardiac dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Phosphate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C64857\", \"term_label\": \"Phosphate Measurement\", \"readouts\": [{\"target\": \"Hypophosphatemia as hallmark biochemical shift\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased phosphate is the diagnostic biochemical readout of the hallmark hypophosphatemic shift in refeeding syndrome.\"}, {\"target\": \"Rapid post-feeding phosphate decline\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Serial phosphate measurement monitors the rapid post-refeeding decline, especially after parenteral nutrition initiation.\"}]}}, {\"id\": \"Potassium\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"NCIT:C64853\", \"term_label\": \"Potassium Measurement\", \"readouts\": [{\"target\": \"Intracellular electrolyte shift during anabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Decreased serum potassium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\"}]}}, {\"id\": \"Pre-refeeding malnutrition state\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients who develop refeeding syndrome typically have been malnourished for days to weeks before nutrition is reintroduced.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prolonged malnutrition or starvation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Refeeding syndrome typically occurs after days to weeks of malnutrition or starvation followed by reintroduction of nutrition.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rapid post-feeding phosphate decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After initiation of parenteral nutrition, phosphate levels decline rapidly and more markedly than potassium or magnesium.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Refeeding-induced central nervous system disorders\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Refeeding can precipitate central nervous system complications including hypoglycemic encephalopathy, Wernicke encephalopathy, and hypophosphatemic encephalopathy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure linked to severe electrolyte derangements.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures as a systemic complication during refeeding syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Severe acute malnutrition in hospitalized children\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Refeeding syndrome occurs during early nutritional management in inpatient children with severe acute malnutrition.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe mental illness with starvation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Starvation associated with severe mental illness can precede refeeding syndrome during inpatient nutritional rehabilitation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sodium and fluid retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sodium and fluid retention occurs alongside electrolyte abnormalities during refeeding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thiamine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:18385\", \"term_label\": \"thiamine(1+)\", \"readouts\": [{\"target\": \"Thiamine deficiency emerges during refeeding\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Low thiamine availability reports the vitamin-deficiency branch that can contribute to refeeding-associated neurologic complications.\"}]}}, {\"id\": \"Thiamine (vitamin B1) supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thiamine supplementation prior to and during refeeding to prevent deficiency and related complications.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thiamine deficiency emerges during refeeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thiamine deficiency is a common accompanying abnormality during refeeding.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"thiamine metabolic process\"]}}], \"edges\": [{\"source\": \"Aggressive nutritional reintroduction\", \"target\": \"Intracellular electrolyte shift during anabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Carbohydrate-containing refeeding drives anabolic metabolism and acute intracellular electrolyte shifts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aggressive nutritional reintroduction\", \"target\": \"Sodium and fluid retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding can produce sodium and fluid retention alongside electrolyte shifts.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aggressive nutritional reintroduction\", \"target\": \"Thiamine deficiency emerges during refeeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding can uncover or worsen thiamine deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hallmark hypophosphatemic shift is measured as decreased serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Cardiorespiratory complications from metabolic derangements\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe phosphate depletion contributes to cardiorespiratory decompensation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Refeeding-induced central nervous system disorders\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe hypophosphatemia can be part of refeeding-related encephalopathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypophosphatemia at onset of refeeding syndrome\", \"target\": \"Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Onset hypophosphatemia is monitored as decreased serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Hypophosphatemia as hallmark biochemical shift\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular phosphate shift and anabolic phosphate demand lower serum phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Potassium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular electrolyte shifts can lower serum potassium during refeeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Magnesium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular electrolyte shifts can lower serum magnesium during refeeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rapid post-feeding phosphate decline\", \"target\": \"Phosphate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The rapid post-feeding decline is measured as decreased phosphate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sodium and fluid retention\", \"target\": \"Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sodium and fluid retention manifests clinically as edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sodium and fluid retention\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fluid retention can worsen the cardiorespiratory complication branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Thiamine deficiency emerges during refeeding\", \"target\": \"Thiamine\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thiamine deficiency is monitored as decreased thiamine availability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thiamine deficiency emerges during refeeding\", \"target\": \"Refeeding-induced central nervous system disorders\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thiamine deficiency can contribute to Wernicke encephalopathy during refeeding.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Wernicke encephalopathy\"]}, {\"source\": \"Cardiorespiratory complications from metabolic derangements\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiorespiratory complications include cardiac arrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiorespiratory complications from metabolic derangements\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiorespiratory complications include systolic heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiorespiratory complications from metabolic derangements\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiorespiratory complications include respiratory insufficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refeeding-induced central nervous system disorders\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding-related neurologic disorders include seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Refeeding-induced central nervous system disorders\", \"target\": \"Delirium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Refeeding-related CNS disturbance can include delirium in critically ill patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal myocardial fatty acid metabolism\", \"target\": \"Myocardial fibrosis and architectural disarray\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal myocardial metabolism was associated with histologic myocardial disarray and fibrosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abnormal myocardial fatty acid metabolism\", \"target\": \"Congestive Heart Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal myocardial metabolism contributes to the cardiac dysfunction branch.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged malnutrition or starvation\", \"target\": \"Pre-refeeding malnutrition state\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Days to weeks without adequate intake is what creates the depleted state this node describes. Recorded as direct because the exposure constitutes the node rather than acting on it, and as triggering rather than predisposing for the same reason.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aggressive refeeding after malnutrition\", \"target\": \"Aggressive nutritional reintroduction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Reintroducing calories rapidly into a starved patient is the precipitating act itself. The exposure and the node describe the same event, so the link is direct and triggering.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe acute malnutrition in hospitalized children\", \"target\": \"Pre-refeeding malnutrition state\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A specific population arriving in the depleted state, rather than a separate mechanism. Recorded as predisposing rather than triggering because being in this group identifies who is at risk without adding a step to the chain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe mental illness with starvation\", \"target\": \"Pre-refeeding malnutrition state\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Psychiatric illness reduces intake, sustained low intake produces starvation, and starvation produces the depleted state at this node. Graded below the other routes to the same node in this entry because those intervening steps are real and because the cited report hedges on both the diagnosis and the outcome.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Controlled refeeding and caloric advancement\", \"target\": \"Aggressive nutritional reintroduction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Controlled refeeding and caloric advancement\", \"target\": \"Intracellular electrolyte shift during anabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Electrolyte supplementation and monitoring\", \"target\": \"Hypophosphatemia as hallmark biochemical shift\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Electrolyte supplementation and monitoring\", \"target\": \"Intracellular electrolyte shift during anabolism\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiamine (vitamin B1) supplementation\", \"target\": \"Thiamine deficiency emerges during refeeding\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hypophosphatemia as hallmark biochemical shift\", \"target\": \"Phosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased phosphate is the diagnostic biochemical readout of the hallmark hypophosphatemic shift in refeeding syndrome.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Rapid post-feeding phosphate decline\", \"target\": \"Phosphate\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serial phosphate measurement monitors the rapid post-refeeding decline, especially after parenteral nutrition initiation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Potassium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased serum potassium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Intracellular electrolyte shift during anabolism\", \"target\": \"Magnesium\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased serum magnesium reports the electrolyte-shift branch that can accompany carbohydrate-driven refeeding.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Thiamine deficiency emerges during refeeding\", \"target\": \"Thiamine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low thiamine availability reports the vitamin-deficiency branch that can contribute to refeeding-associated neurologic complications.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4982,14 +5186,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pancytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001876">HP:0001876</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001876</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5052,14 +5263,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5113,14 +5331,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5183,14 +5408,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000969">HP:0000969</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000969</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Edema (HP:0000969). HP:0000969 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5253,14 +5485,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5314,14 +5553,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delirium
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031258">HP:0031258</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0031258</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5406,14 +5652,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5571,7 +5824,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">nutrition intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">nutrition intervention<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutrition intervention, annotated with Nutritional Intervention (NCIT:C67022). NCIT:C67022 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Intervention</span>
 
 
@@ -5788,7 +6046,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">nutritional supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -5983,7 +6246,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vitamin B1 supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">vitamin B1 supplementation<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vitamin B1 supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -6111,7 +6379,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">micronutrient supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">micronutrient supplementation<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is micronutrient supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -6200,6 +6473,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Refeeding syndrome typically occurs after days to weeks of malnutrition or starvation followed by reintroduction of nutrition.</div>
 
 
@@ -6238,10 +6515,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Pre-refeeding malnutrition state</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Days to weeks without adequate intake is what creates the depleted state this node describes. Recorded as direct because the exposure constitutes the node rather than acting on it, and as triggering rather than predisposing for the same reason.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19278172" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19278172" target="_blank">PMID:19278172</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The typical patient who experiences RFS has been malnourished for days to weeks and develops hypophosphatemia and, occasionally, hypokalemia and hypomagnesemia when administered a carbohydrate load in the form of glucose-containing fluids, total parenteral nutrition (TPN), tube feedings, or an oral diet."</div>
+
+
+                <div class="evidence-explanation">Describes the typical patient as malnourished for days to weeks before a carbohydrate load precipitates the electrolyte shifts, establishing the depleted state this node holds.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-aggressive-refeeding-after-malnutrition" data-dismech-node="Aggressive refeeding after malnutrition" data-dismech-type="environmental">
                 <div class="item-name">Aggressive refeeding after malnutrition</div>
+
+
+
+
 
 
 
@@ -6283,10 +6616,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Aggressive nutritional reintroduction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Reintroducing calories rapidly into a starved patient is the precipitating act itself. The exposure and the node describe the same event, so the link is direct and triggering.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19931071" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19931071" target="_blank">PMID:19931071</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Refeeding syndrome (RFS) is the result of aggressive enteral or parenteral feeding in a malnourished patient, with hypophosphatemia being the hallmark of this phenomenon."</div>
+
+
+                <div class="evidence-explanation">States outright that refeeding syndrome is the result of aggressive enteral or parenteral feeding in a malnourished patient, which is exactly the claim this link makes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-severe-acute-malnutrition-in-hospitalized-children" data-dismech-node="Severe acute malnutrition in hospitalized children" data-dismech-type="environmental">
                 <div class="item-name">Severe acute malnutrition in hospitalized children</div>
+
+
+
+
 
 
 
@@ -6328,10 +6717,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Pre-refeeding malnutrition state</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A specific population arriving in the depleted state, rather than a separate mechanism. Recorded as predisposing rather than triggering because being in this group identifies who is at risk without adding a step to the chain.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41007088" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41007088" target="_blank">PMID:41007088</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Refeeding syndrome is a potentially fatal complication that occurs in inpatient, severely acutely malnourished children during the early phase of nutritional management."</div>
+
+
+                <div class="evidence-explanation">Systematic review and meta-analysis identifying refeeding syndrome as a complication arising in severely acutely malnourished inpatient children during early nutritional management, which locates this population at the node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-severe-mental-illness-with-starvation" data-dismech-node="Severe mental illness with starvation" data-dismech-type="environmental">
                 <div class="item-name">Severe mental illness with starvation</div>
+
+
+
+
 
 
 
@@ -6372,6 +6817,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Pre-refeeding malnutrition state</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Psychiatric illness reduces intake, sustained low intake produces starvation, and starvation produces the depleted state at this node. Graded below the other routes to the same node in this entry because those intervening steps are real and because the cited report hedges on both the diagnosis and the outcome.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40933623" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40933623" target="_blank">PMID:40933623</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This report highlights a case of schizophrenia-induced starvation and the potential development of RFS during an inpatient psychiatric hospitalization."</div>
+
+
+                <div class="evidence-explanation">Single case report describing schizophrenia-induced starvation and the potential development of refeeding syndrome during psychiatric admission. It hedges on whether the syndrome occurred, so it supports the route only partially.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7079,6 +7576,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7095,7 +7595,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Refeeding Syndrome
 creation_date: &#39;2026-02-01T20:31:01Z&#39;
-updated_date: &#39;2026-05-19T18:26:22Z&#39;
 description: &gt;-
   A potentially dangerous constellation of metabolic disturbances that occurs when
   nutrition is reintroduced after a period of malnutrition or starvation, often
@@ -7834,6 +8333,25 @@ biochemical:
     explanation: This supports thiamine deficiency as a common biochemical abnormality during refeeding.
 environmental:
 - name: Prolonged malnutrition or starvation
+  influences_mechanisms:
+  - target: Pre-refeeding malnutrition state
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Days to weeks without adequate intake is what creates the depleted state
+      this node describes. Recorded as direct because the exposure constitutes
+      the node rather than acting on it, and as triggering rather than
+      predisposing for the same reason.
+    evidence:
+    - reference: PMID:19278172
+      reference_title: &#34;Refeeding syndrome: an important aspect of supportive oncology.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The typical patient who experiences RFS has been malnourished for days to weeks and develops hypophosphatemia and, occasionally, hypokalemia and hypomagnesemia when administered a carbohydrate load in the form of glucose-containing fluids, total parenteral nutrition (TPN), tube feedings, or an oral diet.&#34;
+      explanation: &gt;-
+        Describes the typical patient as malnourished for days to weeks before
+        a carbohydrate load precipitates the electrolyte shifts, establishing
+        the depleted state this node holds.
   description: &gt;-
     Refeeding syndrome typically occurs after days to weeks of malnutrition or
     starvation followed by reintroduction of nutrition.
@@ -7846,6 +8364,24 @@ environmental:
     explanation: &gt;-
       This describes the malnutrition period preceding refeeding syndrome.
 - name: Aggressive refeeding after malnutrition
+  influences_mechanisms:
+  - target: Aggressive nutritional reintroduction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Reintroducing calories rapidly into a starved patient is the
+      precipitating act itself. The exposure and the node describe the same
+      event, so the link is direct and triggering.
+    evidence:
+    - reference: PMID:19931071
+      reference_title: &#34;Refeeding syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Refeeding syndrome (RFS) is the result of aggressive enteral or parenteral feeding in a malnourished patient, with hypophosphatemia being the hallmark of this phenomenon.&#34;
+      explanation: &gt;-
+        States outright that refeeding syndrome is the result of aggressive
+        enteral or parenteral feeding in a malnourished patient, which is
+        exactly the claim this link makes.
   description: &gt;-
     Rapid or aggressive enteral or parenteral feeding in a malnourished patient
     can precipitate refeeding syndrome.
@@ -7858,6 +8394,26 @@ environmental:
     explanation: &gt;-
       This supports aggressive refeeding in malnourished patients as a trigger.
 - name: Severe acute malnutrition in hospitalized children
+  influences_mechanisms:
+  - target: Pre-refeeding malnutrition state
+    environmental_effect: PREDISPOSES
+    causal_link_type: DIRECT
+    description: &gt;-
+      A specific population arriving in the depleted state, rather than a
+      separate mechanism. Recorded as predisposing rather than triggering
+      because being in this group identifies who is at risk without adding a
+      step to the chain.
+    evidence:
+    - reference: PMID:41007088
+      reference_title: &#34;The Identification and Management of Refeeding Syndrome in Inpatient Severely Acutely Malnourished Children Aged 6 to 59 Months in Sub-Saharan African Countries: A Systematic Review and Meta-Analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Refeeding syndrome is a potentially fatal complication that occurs in inpatient, severely acutely malnourished children during the early phase of nutritional management.&#34;
+      explanation: &gt;-
+        Systematic review and meta-analysis identifying refeeding syndrome as
+        a complication arising in severely acutely malnourished inpatient
+        children during early nutritional management, which locates this
+        population at the node.
   description: &gt;-
     Refeeding syndrome occurs during early nutritional management in inpatient
     children with severe acute malnutrition.
@@ -7869,6 +8425,27 @@ environmental:
     snippet: &#34;Refeeding syndrome is a potentially fatal complication that occurs in inpatient, severely acutely malnourished children during the early phase of nutritional management.&#34;
     explanation: This identifies severe acute malnutrition in hospitalized children as a high-risk setting.
 - name: Severe mental illness with starvation
+  influences_mechanisms:
+  - target: Pre-refeeding malnutrition state
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Psychiatric illness reduces intake, sustained low intake produces
+      starvation, and starvation produces the depleted state at this node.
+      Graded below the other routes to the same node in this entry because
+      those intervening steps are real and because the cited report hedges on
+      both the diagnosis and the outcome.
+    evidence:
+    - reference: PMID:40933623
+      reference_title: &#34;A potential case of refeeding syndrome in a patient with severe mental illness.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This report highlights a case of schizophrenia-induced starvation and the potential development of RFS during an inpatient psychiatric hospitalization.&#34;
+      explanation: &gt;-
+        Single case report describing schizophrenia-induced starvation and the
+        potential development of refeeding syndrome during psychiatric
+        admission. It hedges on whether the syndrome occurred, so it supports
+        the route only partially.
   description: &gt;-
     Starvation associated with severe mental illness can precede refeeding
     syndrome during inpatient nutritional rehabilitation.
@@ -8580,7 +9157,7 @@ Typical sequence: (1) Starvation with depletion of intracellular phosphate, K+, 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Refeeding Syndrome", "mondoId": "MONDO:0400005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Refeeding_Syndrome", "yamlRevision": "e6a9f09ad03b"};
+        const OS_CONFIG = {"diseaseName": "Refeeding Syndrome", "mondoId": "MONDO:0400005", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Refeeding_Syndrome", "yamlRevision": "aa8188196372"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8999,5 +9576,73 @@ Typical sequence: (1) Starvation with depletion of intracellular phosphate, K+, 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

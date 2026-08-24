@@ -17,12 +17,96 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Automated page-build regen PRs (auto/generate-pages,
+  # auto/generate-grouping-pages, auto/generate-project-pages — opened by
+  # github-actions[bot]) are pure derived-asset rebuilds: an agentic review of
+  # thousands of regenerated HTML files is expense without signal, so this
+  # workflow declines to review them. The approving review that branch
+  # protection (and their armed auto-merge) requires is instead supplied
+  # deterministically by the regen workflows themselves, right after each
+  # force-push — NOT by a job here, because pull_request runs on those
+  # bot-pushed branches sit gated at conclusion=action_required with zero jobs
+  # executed, so nothing in this workflow is guaranteed to run for them.
+  #
+  # That same gating is why the pull_request skip in claude-review's `if:`
+  # below is not enough on its own: historically these PRs got their reviews
+  # via pr-shepherd auto-dispatching this workflow for PRs stuck in
+  # REVIEW_REQUIRED — the workflow_dispatch path, which the job-level `if:`
+  # cannot inspect (the dispatch payload has only a PR number). This guard job
+  # resolves the dispatched PR's head branch and author so claude-review can
+  # decline those dispatches too. pr-shepherd is also instructed not to
+  # dispatch for regen PRs; this is the deterministic backstop for that.
+  #
+  # The `/review` comment path is deliberately left open as the one manual
+  # escape hatch: it requires an OWNER/MEMBER/COLLABORATOR author, so it is
+  # always an explicit human request.
+  dispatch-guard:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      page-build: ${{ steps.check.outputs.page-build }}
+    steps:
+      - name: Check whether the dispatched PR is an automated page-build PR
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: |
+          set -uo pipefail
+          # Fail OPEN: if the PR cannot be resolved (bad number, transient API
+          # error), run the review rather than silently disabling it — the
+          # same posture as the diff-scale preflight in claude-review.
+          info="$(gh pr view "$PR_NUMBER" --repo "$REPO" \
+                    --json headRefName,author \
+                    --jq '[.headRefName, .author.login] | @tsv' || true)"
+          head_ref="${info%%$'\t'*}"
+          author="${info##*$'\t'}"
+          echo "Dispatched PR #${PR_NUMBER}: head_ref='${head_ref}' author='${author}'"
+
+          # gh renders bot authors as "app/github-actions" in current versions
+          # (see generate-pages.yaml's --author filter); accept the raw login
+          # forms too in case that rendering changes.
+          case "$author" in
+            app/github-actions|github-actions|github-actions\[bot\]) is_bot=true ;;
+            *) is_bot=false ;;
+          esac
+
+          if [[ "$head_ref" == auto/generate-* && "$is_bot" == true ]]; then
+            echo "page-build=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Agentic review declined::PR #${PR_NUMBER} is an automated page-build regen PR (${head_ref}, author ${author}). These are approved deterministically by their regen workflow and get no agentic review. To force one, comment /review on the PR."
+          else
+            echo "page-build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   claude-review:
+    needs: dispatch-guard
+    # The needs/!cancelled() dance: dispatch-guard only runs on
+    # workflow_dispatch, so for pull_request and issue_comment events it is
+    # skipped — !cancelled() lets this job still evaluate its condition then
+    # (a skipped need yields empty outputs, which pass the != 'true' check).
+    # We deliberately do NOT gate on the guard's job result: a guard that fails
+    # for an infrastructure reason must fail OPEN (run the review) rather than
+    # silently disable it, matching the guard step's own fail-open posture.
+    # Only an affirmative page-build == 'true' declines the review.
+    # The pull_request branch declines bot-authored page-build regen PRs
+    # directly from the event payload (see dispatch-guard's comment for the
+    # full design); the author guard means a HUMAN pushing a PR from a branch
+    # that happens to match the prefix still gets the normal agentic review.
     if: >-
       ${{
-        (
+        !cancelled() &&
+        needs.dispatch-guard.outputs.page-build != 'true' &&
+        ((
           github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          !(
+            startsWith(github.event.pull_request.head.ref, 'auto/generate-') &&
+            github.event.pull_request.user.login == 'github-actions[bot]'
+          )
         ) ||
         github.event_name == 'workflow_dispatch' ||
         (
@@ -30,7 +114,7 @@ jobs:
           github.event.issue.pull_request != null &&
           github.event.comment.body == '/review' &&
           contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
-        )
+        ))
       }}
     runs-on: ubuntu-latest
     permissions:

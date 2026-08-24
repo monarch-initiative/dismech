@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3859,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3780,6 +3948,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4332,16 +4508,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SMARCB1
 
 
-    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11103">hgnc:11103</a>
+    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:11103</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4369,10 +4556,13 @@
         SMARCA4
 
 
-    <a href="https://bioregistry.io/hgnc:11100" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11100">hgnc:11100</a>
+    <a href="https://bioregistry.io/hgnc:11100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11100</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMARCA4 (hgnc:11100). hgnc:11100 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4399,19 +4589,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         SWI/SNF complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016514" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016514">GO:0016514</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016514" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0016514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves SWI/SNF complex (GO:0016514). GO:0016514 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4496,16 +4692,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006338</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4526,6 +4727,7 @@
 
 
                 </div>
+
 
 
 
@@ -4601,16 +4803,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010468">GO:0010468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0010468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of gene expression (GO:0010468). GO:0010468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4652,6 +4859,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4767,16 +4975,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4797,6 +5010,7 @@
 
 
                 </div>
+
 
 
 
@@ -4922,6 +5136,7 @@
                 <div class="item-name">EZH2 Enzymatic Dependency</div>
 
                 <div class="item-desc">SMARCB1-deficient rhabdoid tumor models show dependence on EZH2 enzymatic activity. In AT/RT patient molecular data, tumor-specific DNA hypermethylation is associated with PRC2 and suppressed neural-development genes. This is a preclinical mechanistic vulnerability, not established clinical efficacy of EZH2 inhibition.</div>
+
 
 
 
@@ -5091,7 +5306,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is an occasional presenting sign and may reflect posterior fossa or cerebellar involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cycling Progenitor-Like Tumor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient tumors contain a shared cycling intermediate-precursor-like cell population at the base of subtype-specific differentiation trajectories. Patient-derived tumoroids can be shifted toward differentiated, non-proliferative states, supporting differentiation arrest as an assayable contributor to malignant growth rather than inferring proliferation from clinical tempo alone.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"EZH2 Enzymatic Dependency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMARCB1-deficient rhabdoid tumor models show dependence on EZH2 enzymatic activity. In AT/RT patient molecular data, tumor-specific DNA hypermethylation is associated with PRC2 and suppressed neural-development genes. This is a preclinical mechanistic vulnerability, not established clinical efficacy of EZH2 inhibition.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is a frequent presenting symptom caused by the intracranial tumor burden and associated pressure effects.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus is a common presenting complication caused by tumor-related cerebrospinal fluid obstruction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lethargy occurred in 18% of the clinical cohort used for direct symptom-frequency curation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Patient-derived AT/RT tumoroids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Long-term expandable three-dimensional models derived from primary tumors or patient-derived orthotopic xenografts preserve MYC- and SHH-subgroup molecular features and enable subgroup-specific drug screening. Published models do not yet represent every subgroup equally.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"conditions\": [\"AT/RT-MYC\", \"AT/RT-SHH\"], \"publication\": \"PMID:37020038\"}}, {\"id\": \"SMARCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCA4\"], \"gene_terms\": [{\"label\": \"SMARCA4\", \"id\": \"hgnc:11100\"}], \"association\": \"Rare Somatic/Germline Loss-of-Function\"}}, {\"id\": \"SMARCB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCB1\"], \"gene_terms\": [{\"label\": \"SMARCB1\", \"id\": \"hgnc:11103\"}], \"association\": \"Somatic/Germline Loss-of-Function\"}}, {\"id\": \"SMARCB1 or SMARCA4 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AT/RT is defined by inactivation of the SWI/SNF core subunits SMARCB1 and, more rarely, SMARCA4. This is the shared disease-defining lesion across the AT/RT molecular subgroups.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCB1\", \"SMARCA4\"], \"gene_terms\": [{\"label\": \"SMARCB1\", \"id\": \"hgnc:11103\"}, {\"label\": \"SMARCA4\", \"id\": \"hgnc:11100\"}]}}, {\"id\": \"SWI/SNF Chromatin Remodeling Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of SMARCB1 or SMARCA4 impairs the SWI/SNF chromatin-remodeling machinery, shifting AT/RT biology toward an epigenetically driven tumor state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occurred in 27% of the clinical cohort used for direct symptom-frequency curation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Subtype-Specific Enhancer Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite a simple recurrent genetic landscape, AT/RT segregates into distinct epigenetic subgroups with different enhancer states and regulatory networks.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of gene expression\"], \"experimental_models\": [{\"name\": \"Patient-derived AT/RT tumoroids\", \"model_type\": \"ORGANOID\", \"description\": \"Preserves subgroup-specific epigenetic and gene-expression programs for perturbation studies.\"}]}}, {\"id\": \"Tazemetostat (Investigational EZH2 Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tazemetostat is an investigational EZH2 inhibitor in AT/RT. Early-phase pediatric studies test it alone or in combination, but this entry does not assert established efficacy or standard-of-care status.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tazemetostat\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting is a common presenting feature, usually reflecting intracranial mass effect and increased intracranial pressure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"SMARCB1 or SMARCA4 Inactivation\", \"target\": \"SWI/SNF Chromatin Remodeling Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core subunit loss disables normal SWI/SNF chromatin remodeling\"}, {\"source\": \"SMARCB1 or SMARCA4 Inactivation\", \"target\": \"EZH2 Enzymatic Dependency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMARCB1 loss creates a preclinical dependency on EZH2 activity in rhabdoid tumors, including the AT/RT disease context.\"}, {\"source\": \"SWI/SNF Chromatin Remodeling Defect\", \"target\": \"Subtype-Specific Enhancer Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation segregates into distinct subgroup programs\"}, {\"source\": \"Subtype-Specific Enhancer Dysregulation\", \"target\": \"Cycling Progenitor-Like Tumor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype trajectories share a proliferative intermediate-precursor-like state\"}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid intracranial tumor growth produces pressure symptoms including headache.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intracranial mass effect\", \"raised intracranial pressure\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracranial tumor burden and pressure effects produce nausea and vomiting at presentation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intracranial mass effect\", \"raised intracranial pressure\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior fossa or cerebellar involvement by rapidly growing AT/RT can present with ataxia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"posterior fossa involvement\", \"cerebellar pathway disruption\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor growth can obstruct cerebrospinal-fluid pathways, producing hydrocephalus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cerebrospinal-fluid obstruction\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracranial tumor involvement can provoke seizures at presentation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cortical or network irritation by tumor\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised intracranial pressure and tumor burden can produce lethargy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intracranial mass effect\", \"raised intracranial pressure\"]}, {\"source\": \"EZH2 Enzymatic Dependency\", \"target\": \"Cycling Progenitor-Like Tumor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EZH2/PRC2-associated repression helps maintain a low-differentiation malignant state.\"}, {\"source\": \"Tazemetostat (Investigational EZH2 Inhibition)\", \"target\": \"EZH2 Enzymatic Dependency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived AT/RT tumoroids\", \"target\": \"Subtype-Specific Enhancer Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"SMARCB1\", \"target\": \"SMARCB1 or SMARCA4 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"SMARCB1 or SMARCA4 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is an occasional presenting sign and may reflect posterior fossa or cerebellar involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Cycling Progenitor-Like Tumor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient tumors contain a shared cycling intermediate-precursor-like cell population at the base of subtype-specific differentiation trajectories. Patient-derived tumoroids can be shifted toward differentiated, non-proliferative states, supporting differentiation arrest as an assayable contributor to malignant growth rather than inferring proliferation from clinical tempo alone.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"EZH2 Enzymatic Dependency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMARCB1-deficient rhabdoid tumor models show dependence on EZH2 enzymatic activity. In AT/RT patient molecular data, tumor-specific DNA hypermethylation is associated with PRC2 and suppressed neural-development genes. This is a preclinical mechanistic vulnerability, not established clinical efficacy of EZH2 inhibition.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is a frequent presenting symptom caused by the intracranial tumor burden and associated pressure effects.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hydrocephalus is a common presenting complication caused by tumor-related cerebrospinal fluid obstruction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lethargy occurred in 18% of the clinical cohort used for direct symptom-frequency curation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Patient-derived AT/RT tumoroids\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Long-term expandable three-dimensional models derived from primary tumors or patient-derived orthotopic xenografts preserve MYC- and SHH-subgroup molecular features and enable subgroup-specific drug screening. Published models do not yet represent every subgroup equally.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"ORGANOID\", \"conditions\": [\"AT/RT-MYC\", \"AT/RT-SHH\"], \"publication\": \"PMID:37020038\"}}, {\"id\": \"SMARCA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCA4\"], \"gene_terms\": [{\"label\": \"SMARCA4\", \"id\": \"hgnc:11100\"}], \"association\": \"Rare Somatic/Germline Loss-of-Function\"}}, {\"id\": \"SMARCB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCB1\"], \"gene_terms\": [{\"label\": \"SMARCB1\", \"id\": \"hgnc:11103\"}], \"association\": \"Somatic/Germline Loss-of-Function\"}}, {\"id\": \"SMARCB1 or SMARCA4 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AT/RT is defined by inactivation of the SWI/SNF core subunits SMARCB1 and, more rarely, SMARCA4. This is the shared disease-defining lesion across the AT/RT molecular subgroups.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"SMARCB1\", \"SMARCA4\"], \"gene_terms\": [{\"label\": \"SMARCB1\", \"id\": \"hgnc:11103\"}, {\"label\": \"SMARCA4\", \"id\": \"hgnc:11100\"}]}}, {\"id\": \"SWI/SNF Chromatin Remodeling Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of SMARCB1 or SMARCA4 impairs the SWI/SNF chromatin-remodeling machinery, shifting AT/RT biology toward an epigenetically driven tumor state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin remodeling\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occurred in 27% of the clinical cohort used for direct symptom-frequency curation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Subtype-Specific Enhancer Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite a simple recurrent genetic landscape, AT/RT segregates into distinct epigenetic subgroups with different enhancer states and regulatory networks.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of gene expression\"], \"experimental_models\": [{\"name\": \"Patient-derived AT/RT tumoroids\", \"model_type\": \"ORGANOID\", \"description\": \"Preserves subgroup-specific epigenetic and gene-expression programs for perturbation studies.\"}]}}, {\"id\": \"Tazemetostat (Investigational EZH2 Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tazemetostat is an investigational EZH2 inhibitor in AT/RT. Early-phase pediatric studies test it alone or in combination, but this entry does not assert established efficacy or standard-of-care status.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tazemetostat\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vomiting is a common presenting feature, usually reflecting intracranial mass effect and increased intracranial pressure.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"SMARCB1 or SMARCA4 Inactivation\", \"target\": \"SWI/SNF Chromatin Remodeling Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core subunit loss disables normal SWI/SNF chromatin remodeling\"}, {\"source\": \"SMARCB1 or SMARCA4 Inactivation\", \"target\": \"EZH2 Enzymatic Dependency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMARCB1 loss creates a preclinical dependency on EZH2 activity in rhabdoid tumors, including the AT/RT disease context.\"}, {\"source\": \"SWI/SNF Chromatin Remodeling Defect\", \"target\": \"Subtype-Specific Enhancer Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epigenetic dysregulation segregates into distinct subgroup programs\"}, {\"source\": \"Subtype-Specific Enhancer Dysregulation\", \"target\": \"Cycling Progenitor-Like Tumor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype trajectories share a proliferative intermediate-precursor-like state\"}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid intracranial tumor growth produces pressure symptoms including headache.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intracranial mass effect\", \"raised intracranial pressure\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracranial tumor burden and pressure effects produce nausea and vomiting at presentation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intracranial mass effect\", \"raised intracranial pressure\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Posterior fossa or cerebellar involvement by rapidly growing AT/RT can present with ataxia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"posterior fossa involvement\", \"cerebellar pathway disruption\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor growth can obstruct cerebrospinal-fluid pathways, producing hydrocephalus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cerebrospinal-fluid obstruction\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracranial tumor involvement can provoke seizures at presentation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cortical or network irritation by tumor\"]}, {\"source\": \"Cycling Progenitor-Like Tumor State\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised intracranial pressure and tumor burden can produce lethargy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intracranial mass effect\", \"raised intracranial pressure\"]}, {\"source\": \"EZH2 Enzymatic Dependency\", \"target\": \"Cycling Progenitor-Like Tumor State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EZH2/PRC2-associated repression helps maintain a low-differentiation malignant state.\"}, {\"source\": \"Tazemetostat (Investigational EZH2 Inhibition)\", \"target\": \"EZH2 Enzymatic Dependency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived AT/RT tumoroids\", \"target\": \"Subtype-Specific Enhancer Dysregulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Preserves subgroup-specific epigenetic and gene-expression programs for perturbation studies.\"}, {\"source\": \"SMARCB1\", \"target\": \"SMARCB1 or SMARCA4 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMARCA4\", \"target\": \"SMARCB1 or SMARCA4 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5132,14 +5347,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002013</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5269,14 +5491,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5397,14 +5626,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5525,14 +5761,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5653,14 +5896,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5781,14 +6031,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lethargy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001254">HP:0001254</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001254</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5953,13 +6210,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMARCB1
 
 
-    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11103">hgnc:11103</a>
+    <a href="https://bioregistry.io/hgnc:11103" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:11103</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMARCB1 (hgnc:11103). hgnc:11103 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6017,13 +6279,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMARCA4
 
 
-    <a href="https://bioregistry.io/hgnc:11100" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11100">hgnc:11100</a>
+    <a href="https://bioregistry.io/hgnc:11100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11100</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMARCA4 (hgnc:11100). hgnc:11100 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6090,7 +6357,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">surgical resection<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical resection, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6168,7 +6440,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -6268,7 +6545,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -6370,7 +6652,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6400,16 +6687,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tazemetostat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C107506" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C107506">NCIT:C107506</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C107506" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-19">NCIT:C107506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tazemetostat (NCIT:C107506). NCIT:C107506 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6836,6 +7128,120 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A cycling, progenitor-like cell population at the root of atypical teratoid rhabdoid tumor subtype differentiation trajectories.
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001008108" target="_blank">ega:EGAS00001008108</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background: Atypical teratoid rhabdoid tumors (ATRTs), characterized by the loss of SMARCB1, are among the most lethal pediatric central nervous system (CNS) tumors. Three molecular subtypes have been identified, each defined by distinct molecular and clinical features. No subtype-specific treatments are available, highlighting the necessity to better understand inter- and intra-subtype heterogeneity. Methods: We generated a single-nucleus transcriptome atlas of ATRTs, validated by single-cell ATAC-seq and spatial transcriptomics, to study subtype-specific differentiation trajectories.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;atypical teratoid rhabdoid tumor&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A cycling, progenitor-like cell population at the root of atypical teratoid rhabdoid tumor subtype differentiation trajectories
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001008123" target="_blank">ega:EGAS00001008123</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;atypical teratoid rhabdoid tumor&#34;); description-level mentions were not accepted. EGA study_type: Cancer Genomics. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Measles oncolytic virus as an immunotherapy for recurrent/refractory pediatric medulloblastoma and atypical teratoid rhabdoid tumor
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000000811" target="_blank">ega:EGAS50000000811</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Pediatric recurrent medulloblastoma (MB) and atypical teratoid rhabdoid tumor (ATRT) are largely incurable and warrant novel therapies. We investigated a) the safety of a measles virus variant, MV-NIS, in a pediatric phase 1 study and b) the mechanisms of MV-NIS and potential benefit of combination with immune checkpoint inhibition (ICI). Pediatric patients with recurrent MB or ATRT were treated with intratumoral injections for local recurrence or via lumbar puncture for disseminated recurrence. We evaluated local immune responses to MV-NIS with and without ICI via single-cell and bulk RNA sequencing in an intracranial, immunocompetent, syngeneic murine model.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;atypical teratoid rhabdoid tumor&#34;); description-level mentions were not accepted. EGA study_type: Transcriptome Analysis. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7140,30 +7546,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-20">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-20">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             brain
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0000955</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -7195,14 +7611,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-subtype-specific-enhancer-dysregulation">Subtype-Specific Enhancer Dysregulation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Preserves subgroup-specific epigenetic and gene-expression programs for perturbation studies.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-subtype-specific-enhancer-dysregulation">Subtype-Specific Enhancer Dysregulation</a>
+
+
+
+                <span class="crosslink-desc">Preserves subgroup-specific epigenetic and gene-expression programs for perturbation studies.</span>
+
+
 
 
 
@@ -7239,10 +7660,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -7288,6 +7710,9 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7304,7 +7729,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Atypical Teratoid/Rhabdoid Tumor
 creation_date: &#39;2026-04-12T20:00:00Z&#39;
-updated_date: &#39;2026-08-05T00:00:00Z&#39;
 description: &gt;-
   Atypical teratoid/rhabdoid tumor (AT/RT) is a highly aggressive embryonal
   central nervous system tumor that predominantly affects infants and young
@@ -8489,6 +8913,34 @@ references:
       evidence_source: OTHER
       snippet: Atypical teratoid rhabdoid tumor (ATRT) is a rare, aggressive pediatric central nervous system (CNS) tumor that predominantly affects children under the age of 3.
       explanation: Deep research cited this publication as relevant literature for Atypical Teratoid Rhabdoid Tumor.
+datasets:
+- accession: ega:EGAS00001008108
+  title: A cycling, progenitor-like cell population at the root of atypical teratoid rhabdoid tumor subtype differentiation trajectories.
+  description: &#39;Background: Atypical teratoid rhabdoid tumors (ATRTs), characterized by the loss of SMARCB1, are among the most lethal pediatric central nervous system (CNS) tumors. Three molecular subtypes have been identified, each defined by distinct molecular and clinical features. No subtype-specific treatments are available, highlighting the necessity to better understand inter- and intra-subtype heterogeneity. Methods: We generated a single-nucleus transcriptome atlas of ATRTs, validated by single-cell ATAC-seq and spatial transcriptomics, to study subtype-specific differentiation trajectories.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;atypical teratoid rhabdoid tumor&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001008123
+  title: A cycling, progenitor-like cell population at the root of atypical teratoid rhabdoid tumor subtype differentiation trajectories
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;atypical teratoid rhabdoid tumor&#34;); description-level mentions were not accepted. EGA study_type: Cancer Genomics. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS50000000811
+  title: Measles oncolytic virus as an immunotherapy for recurrent/refractory pediatric medulloblastoma and atypical teratoid rhabdoid tumor
+  description: Pediatric recurrent medulloblastoma (MB) and atypical teratoid rhabdoid tumor (ATRT) are largely incurable and warrant novel therapies. We investigated a) the safety of a measles virus variant, MV-NIS, in a pediatric phase 1 study and b) the mechanisms of MV-NIS and potential benefit of combination with immune checkpoint inhibition (ICI). Pediatric patients with recurrent MB or ATRT were treated with intratumoral injections for local recurrence or via lumbar puncture for disseminated recurrence. We evaluated local immune responses to MV-NIS with and without ICI via single-cell and bulk RNA sequencing in an intracranial, immunocompetent, syngeneic murine model.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;atypical teratoid rhabdoid tumor&#34;); description-level mentions were not accepted. EGA study_type: Transcriptome Analysis. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -9611,7 +10063,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Atypical Teratoid/Rhabdoid Tumor", "mondoId": "MONDO:0020560", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atypical_Teratoid_Rhabdoid_Tumor", "yamlRevision": "ea46d9692d8b"};
+        const OS_CONFIG = {"diseaseName": "Atypical Teratoid/Rhabdoid Tumor", "mondoId": "MONDO:0020560", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atypical_Teratoid_Rhabdoid_Tumor", "yamlRevision": "c4667dc8545d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10030,5 +10482,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

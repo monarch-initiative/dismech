@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Leber%20Hereditary%20Optic%20Neuropathy"
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3751,7 +3919,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3836,36 +4004,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">mitochondrial disease</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4167,16 +4420,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MT-ND4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7459">hgnc:7459</a>
+    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7459</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MT-ND4 (hgnc:7459). hgnc:7459 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4242,16 +4500,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MT-ND1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7455">hgnc:7455</a>
+    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7455</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MT-ND1 (hgnc:7455). hgnc:7455 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4317,16 +4580,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MT-ND6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7462">hgnc:7462</a>
+    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:7462</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MT-ND6 (hgnc:7462). hgnc:7462 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4394,16 +4662,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 DNAJC30
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16410">hgnc:16410</a>
+    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:16410</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DNAJC30 (hgnc:16410). hgnc:16410 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4548,10 +4821,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-5">
 
         prospective longitudinal biomarker cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment is of type this experiment type
+This experiment is of type prospective longitudinal biomarker cohort study.</span>
     </span>
 
 
@@ -4644,10 +4923,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         within-family genetic modifier association study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
+This experiment is of type within-family genetic modifier association study.</span>
     </span>
 
 
@@ -4843,10 +5128,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         randomised controlled trial with between-patient comparator
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+This experiment is of type randomised controlled trial with between-patient comparator.</span>
     </span>
 
 
@@ -5042,10 +5333,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-8">
 
         prospective pharmacogenetic stratified interventional study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this experiment is of type this experiment type
+This experiment is of type prospective pharmacogenetic stratified interventional study.</span>
     </span>
 
 
@@ -5222,16 +5519,27 @@ the context of idebenone therapy."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MT-ND4
 
 
-    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7459">hgnc:7459</a>
+    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:7459</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MT-ND4 (hgnc:7459). hgnc:7459 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5259,11 +5567,18 @@ the context of idebenone therapy."</div>
         MT-ND1
 
 
-    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7455">hgnc:7455</a>
+    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:7455</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MT-ND1 (hgnc:7455). hgnc:7455 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5291,11 +5606,18 @@ the context of idebenone therapy."</div>
         MT-ND6
 
 
-    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7462">hgnc:7462</a>
+    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:7462</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MT-ND6 (hgnc:7462). hgnc:7462 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5323,10 +5645,13 @@ the context of idebenone therapy."</div>
         DNAJC30
 
 
-    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16410">hgnc:16410</a>
+    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:16410</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAJC30 (hgnc:16410). hgnc:16410 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5355,16 +5680,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         NADH dehydrogenase (ubiquinone) activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008137" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008137">GO:0008137</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008137" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0008137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone) activity (GO:0008137). GO:0008137 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5389,19 +5719,25 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         mitochondrial inner membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005743">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0005743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrial inner membrane (GO:0005743). GO:0005743 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5523,16 +5859,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial electron transport, NADH to ubiquinone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006120" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006120">GO:0006120</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006120" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006120</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mitochondrial electron transport, NADH to ubiquinone (GO:0006120). GO:0006120 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5552,16 +5893,21 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5587,19 +5933,25 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         mitochondrial inner membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005743">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0005743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrial inner membrane (GO:0005743). GO:0005743 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5712,16 +6064,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5748,16 +6105,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         reactive oxygen species metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072593">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0072593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5777,16 +6139,21 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         ATP synthesis coupled electron transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042773" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042773">GO:0042773</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042773" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0042773</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ATP synthesis coupled electron transport (GO:0042773). GO:0042773 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5806,16 +6173,21 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5836,6 +6208,7 @@ the context of idebenone therapy."</div>
 
 
                 </div>
+
 
 
 
@@ -5952,16 +6325,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5988,16 +6366,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6024,19 +6407,25 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6126,16 +6515,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6165,17 +6559,24 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         nerve fiber layer of retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001793" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001793">UBERON:0001793</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001793" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0001793</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in nerve fiber layer of retina (UBERON:0001793). UBERON:0001793 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         optic nerve
@@ -6183,13 +6584,17 @@ the context of idebenone therapy."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000941">UBERON:0000941</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0000941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic nerve, annotated with cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6311,19 +6716,25 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         optic nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000941">UBERON:0000941</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0000941</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in optic nerve, annotated with cranial nerve II (UBERON:0000941). UBERON:0000941 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6397,16 +6808,21 @@ the context of idebenone therapy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000740">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6423,6 +6839,7 @@ the context of idebenone therapy."</div>
 
 
                 </div>
+
 
 
 
@@ -6684,7 +7101,7 @@ the context of idebenone therapy."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of a bioenergetic shortfall and increased electron leak creates chronic oxidative stress. Cybrid experiments show directly that the primary mutations raise mitochondrial ROS production while lowering ATP output and membrane potential, and that this is coupled to apoptotic activation (cytochrome c release, BAK/BAX, cleaved caspases) and impaired PINK1/parkin mitophagy. Why the resulting injury is confined to retinal ganglion cells remains unsettled. One proposed explanation is that RGCs regulate superoxide unusually tightly and that LHON mutations subvert that regulation \\u2014 but the supporting measurement was made in the RGC-5 cell line, which was subsequently shown not to be of retinal ganglion cell origin, so this should be treated as an unconfirmed hypothesis. The better-supported account of selective vulnerability is the anatomical one given in the downstream node: the long, partly unmyelinated intraretinal axon segment imposes an exceptionally high and spatially distributed ATP demand.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"reactive oxygen species metabolic process\", \"ATP synthesis coupled electron transport\", \"response to oxidative stress\"]}}, {\"id\": \"Avoidance of Smoking and Heavy Alcohol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention with a documented effect on penetrance is exposure avoidance. Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes, and to avoid other putative triggers such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects. The treatment is bound to the NCIT smoking cessation intervention term because smoking is the dominant and only well-evidenced modifiable trigger; alcohol moderation and other trigger-avoidance advice are delivered in the same counselling encounter but have no more specific NCIT clinical-action term.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Complex I Electron Transfer Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant complex I transfers electrons from NADH to ubiquinone inefficiently. Proton pumping across the inner membrane falls, the NADH/NAD+ redox couple shifts, and the coupled ATP-generating capacity of oxidative phosphorylation is reduced. The severity of the biochemical lesion is not uniform across the three primary variants: transmitochondrial cybrid work shows a frank assembly and catalytic-activity defect for m.3460G\u003eA, whereas m.11778G\u003eA and m.14484T\u003eC are generally reported to impair coupling efficiency and raise ROS with comparatively better preserved catalytic activity, so this node should be read as a shared functional endpoint rather than an identical molecular block. Idebenone\u0027s therapeutic rationale is to accept electrons via NQO1 and deliver them downstream to complex III, partly bypassing this block.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"]}}, {\"id\": \"Complex I Subunit Missense Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a missense point mutation in a gene encoding a core subunit of respiratory-chain complex I (NADH:ubiquinone oxidoreductase). The large majority of molecularly resolved classical cases carry one of three usually homoplasmic mtDNA variants \\u2014 m.11778G\u003eA in MT-ND4, m.3460G\u003eA in MT-ND1, or m.14484T\u003eC in MT-ND6, which together are responsible for the majority of LHON cases worldwide. In arLHON the equivalent lesion is biallelic disruption of a nuclear complex I subunit or assembly/maintenance factor (DNAJC30, NDUFS2, MCAT, NDUFA12). Because mtDNA is present in every cell, the mutation itself is systemic; the disease phenotype is not.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"genes\": [\"MT-ND4\", \"MT-ND1\", \"MT-ND6\", \"DNAJC30\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}, {\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}, {\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}, {\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}]}}, {\"id\": \"DNAJC30\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"subtypes\": [\"arLHON\"], \"association\": \"Biallelic DNAJC30 variants \\u2014 dominated by the p.Tyr51Cys founder allele in Central and Eastern European populations \\u2014 cause autosomal recessive LHON and, less often, Leigh syndrome.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DNAJC30 p.Tyr51Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder missense allele in the nuclear DNAJC30 gene, prevalent in Central and Eastern European populations. In the homozygous state it causes autosomal recessive LHON and, less commonly, Leigh syndrome, with sex-dependent incomplete penetrance.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Idebenone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Idebenone is a short-chain benzoquinone/coenzyme Q10 analogue that, after NQO1-mediated reduction, can accept electrons and deliver them to complex III, partly bypassing the defective complex I while also limiting oxidative injury. It is the only disease-specific drug authorised for LHON (European Medicines Agency, under exceptional circumstances), given at 900 mg/day (300 mg three times daily). The pivotal RHODOS randomised placebo-controlled trial did not meet its primary endpoint but favoured idebenone in secondary analyses, particularly in patients with discordant visual acuities at baseline; the later externally controlled LEROS study met its primary endpoint and confirmed long-term efficacy in the subacute/dynamic and chronic phases, with effect size varying by disease phase and causative variant. Benefit is greatest when treatment begins within the first year of visual loss.\\n\", \"meta\": {\"evidence_count\": 10, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Lenadogene Nolparvovec Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lenadogene nolparvovec (GS010, rAAV2/2-ND4) is a single intravitreal AAV2 vector delivering a nuclear-encoded, mitochondrially targeted wild-type ND4 (allotopic expression) for m.11778G\u003eA/MT-ND4 LHON. Across the RESCUE, REVERSE, REFLECT, and RESTORE programme, sustained bilateral visual improvement was observed for up to five years with a good safety profile apart from intraocular inflammation. Interpretation is materially confounded: sham-injected fellow eyes improved to essentially the same degree as treated eyes, so the within-patient primary endpoints were not met. A nonhuman-primate study found transfer of viral vector DNA to the contralateral, non-injected eye, which offers a plausible mechanistic explanation for that bilateral effect but also removes the fellow eye as an independent control. Gene therapy is therefore promising but not established routine care.\\n\", \"meta\": {\"evidence_count\": 7, \"therapeutic_agents\": [\"lenadogene nolparvovec\"]}}, {\"id\": \"MT-ND1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"subtypes\": [\"MT-ND1\"], \"association\": \"m.3460G\u003eA in MT-ND1 is one of the three primary LHON mtDNA variants; a de novo occurrence has been documented in a population-based cohort.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"subtypes\": [\"MT-ND4\"], \"association\": \"m.11778G\u003eA in MT-ND4 is the most frequent primary LHON mtDNA variant and generally carries the poorest prognosis for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"subtypes\": [\"MT-ND6\"], \"association\": \"m.14484T\u003eC in MT-ND6 is the primary LHON variant with the most favourable natural history for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: bilateral, painless, subacute central visual failure with dense central or centrocecal scotoma, severe dyschromatopsia, and optic atrophy. Visual acuity commonly deteriorates to the level of legal blindness and then plateaus, and the loss is generally irreversible. Spontaneous recovery does occur and is genotype-dependent, being most frequent with m.14484T\u003eC and least with m.11778G\u003eA; the quoted recovery percentages vary widely between series and are not curated here (see `notes`).\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"optic nerve\"]}}, {\"id\": \"Papillomacular Bundle Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ultrastructural morphometry of LHON optic nerves shows 95-99% depletion of the nerve fiber population, with surviving fibers confined to the periphery and a marked loss of axons below 1 micron in diameter \\u2014 the P-cell population that forms the papillomacular bundle. This anatomical selectivity is what converts a generalized bioenergetic defect into the characteristic clinical picture of dense central/centrocecal scotoma and dyschromatopsia with relative sparing of peripheral fields and pupillary responses.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Retinal ganglion cell\"], \"locations\": [\"nerve fiber layer of retina\", \"optic nerve\"]}}, {\"id\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LHON is not a deterministic monogenic disease. Most carriers of a primary mtDNA variant never lose vision; conversion is gated by additional factors that act on the bioenergetic threshold of the retinal ganglion cell. Three modifier classes are established. (1) mtDNA haplogroup background: risk of visual failure is higher for m.11778G\u003eA on haplogroup J2 and for m.14484T\u003eC on haplogroup J1, higher for m.3460G\u003eA on haplogroup K, and significantly lower for m.11778G\u003eA on haplogroup H, with MT-CYB substitutions offering a mechanistic explanation. (2) Sex: males are affected four to five times more often than females, an asymmetry not explicable by maternal transmission alone. (3) Environmental exposure: smoking is strongly and consistently associated with visual loss independent of sex and alcohol, with clinical penetrance reaching 93% in men who smoked; heavy alcohol intake shows a weaker trend. This node is the mechanistic bridge between genotype and the observed low penetrance (17.5% of males and 5.4% of females in a contemporary Australian registry cohort). Those two penetrance figures are not in conflict and must not be compared directly: the 93% figure is conditional on smoking and comes from LHON-affected pedigrees ascertained through probands, whereas the 17.5%/5.4% figures are unconditional lifetime risks from a registry that includes 4,948 largely asymptomatic carriers. The registry authors state explicitly that historically higher male rates are not supported by their data. The same ascertainment caveat separates the clinical carrier prevalence recorded under `prevalence` (11.82 per 100,000) from the population-genomic susceptibility estimate of roughly 1 in 1,000.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"]}}, {\"id\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal ganglion cells are the selectively vulnerable cell type in LHON and in mitochondrial optic neuropathies generally. Their long, partly unmyelinated intraretinal axons impose a high and spatially distributed energy demand that a complex-I-deficient mitochondrial population cannot sustain, and the cells die by apoptosis. Ganglion cell layer thinning on OCT can precede overt optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"retina\"]}}, {\"id\": \"m.11778G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Usually homoplasmic mtDNA missense substitution in MT-ND4, the most common primary LHON variant worldwide and the genotype targeted by lenadogene nolparvovec gene therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.14484T\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND6; the primary LHON variant most associated with spontaneous visual recovery. Risk is increased on haplogroup J1.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.3460G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND1; one of the three primary LHON variants. Risk of visual failure is increased on haplogroup K.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Complex I Subunit Missense Mutation\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Missense substitution of a core complex I subunit degrades assembly and/or catalytic function of the NADH:ubiquinone oxidoreductase holoenzyme, impairing electron transfer from NADH to ubiquinone.\\n\"}, {\"source\": \"Complex I Electron Transfer Deficiency\", \"target\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced electron flux through complex I lowers ATP output while increasing electron leak, raising superoxide and downstream reactive oxygen species production.\\n\"}, {\"source\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ATP shortfall and oxidative stress lower the apoptotic threshold of retinal ganglion cells, driving their dysfunction and death.\\n\"}, {\"source\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"target\": \"Papillomacular Bundle Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RGC death is not uniform across the ganglion cell population: the smallest-caliber axons, which constitute the papillomacular bundle serving central vision, are preferentially lost.\\n\"}, {\"source\": \"Papillomacular Bundle Axonal Degeneration\", \"target\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the papillomacular bundle progresses from acute-phase RNFL swelling and disc hyperemia through temporal and then diffuse optic pallor, producing permanent severe central visual impairment.\\n\"}, {\"source\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Modifier factors determine whether the underlying complex I defect crosses the threshold at which retinal ganglion cells decompensate and die, converting an asymptomatic carrier into an affected individual.\\n\"}, {\"source\": \"Idebenone\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenadogene Nolparvovec Gene Therapy\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Smoking and Heavy Alcohol\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MT-ND4\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND1\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND6\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC30\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"m.11778G\u003eA\", \"target\": \"MT-ND4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.3460G\u003eA\", \"target\": \"MT-ND1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.14484T\u003eC\", \"target\": \"MT-ND6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DNAJC30 p.Tyr51Cys\", \"target\": \"DNAJC30\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of a bioenergetic shortfall and increased electron leak creates chronic oxidative stress. Cybrid experiments show directly that the primary mutations raise mitochondrial ROS production while lowering ATP output and membrane potential, and that this is coupled to apoptotic activation (cytochrome c release, BAK/BAX, cleaved caspases) and impaired PINK1/parkin mitophagy. Why the resulting injury is confined to retinal ganglion cells remains unsettled. One proposed explanation is that RGCs regulate superoxide unusually tightly and that LHON mutations subvert that regulation \\u2014 but the supporting measurement was made in the RGC-5 cell line, which was subsequently shown not to be of retinal ganglion cell origin, so this should be treated as an unconfirmed hypothesis. The better-supported account of selective vulnerability is the anatomical one given in the downstream node: the long, partly unmyelinated intraretinal axon segment imposes an exceptionally high and spatially distributed ATP demand.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"reactive oxygen species metabolic process\", \"ATP synthesis coupled electron transport\", \"response to oxidative stress\"]}}, {\"id\": \"Avoidance of Smoking and Heavy Alcohol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention with a documented effect on penetrance is exposure avoidance. Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes, and to avoid other putative triggers such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects. The treatment is bound to the NCIT smoking cessation intervention term because smoking is the dominant and only well-evidenced modifiable trigger; alcohol moderation and other trigger-avoidance advice are delivered in the same counselling encounter but have no more specific NCIT clinical-action term.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Complex I Electron Transfer Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant complex I transfers electrons from NADH to ubiquinone inefficiently. Proton pumping across the inner membrane falls, the NADH/NAD+ redox couple shifts, and the coupled ATP-generating capacity of oxidative phosphorylation is reduced. The severity of the biochemical lesion is not uniform across the three primary variants: transmitochondrial cybrid work shows a frank assembly and catalytic-activity defect for m.3460G\u003eA, whereas m.11778G\u003eA and m.14484T\u003eC are generally reported to impair coupling efficiency and raise ROS with comparatively better preserved catalytic activity, so this node should be read as a shared functional endpoint rather than an identical molecular block. Idebenone\u0027s therapeutic rationale is to accept electrons via NQO1 and deliver them downstream to complex III, partly bypassing this block.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"]}}, {\"id\": \"Complex I Subunit Missense Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a missense point mutation in a gene encoding a core subunit of respiratory-chain complex I (NADH:ubiquinone oxidoreductase). The large majority of molecularly resolved classical cases carry one of three usually homoplasmic mtDNA variants \\u2014 m.11778G\u003eA in MT-ND4, m.3460G\u003eA in MT-ND1, or m.14484T\u003eC in MT-ND6, which together are responsible for the majority of LHON cases worldwide. In arLHON the equivalent lesion is biallelic disruption of a nuclear complex I subunit or assembly/maintenance factor (DNAJC30, NDUFS2, MCAT, NDUFA12). Because mtDNA is present in every cell, the mutation itself is systemic; the disease phenotype is not.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"NADH dehydrogenase (ubiquinone) activity\"], \"genes\": [\"MT-ND4\", \"MT-ND1\", \"MT-ND6\", \"DNAJC30\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}, {\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}, {\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}, {\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}]}}, {\"id\": \"DNAJC30\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"subtypes\": [\"arLHON\"], \"association\": \"Biallelic DNAJC30 variants \\u2014 dominated by the p.Tyr51Cys founder allele in Central and Eastern European populations \\u2014 cause autosomal recessive LHON and, less often, Leigh syndrome.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DNAJC30 p.Tyr51Cys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder missense allele in the nuclear DNAJC30 gene, prevalent in Central and Eastern European populations. In the homozygous state it causes autosomal recessive LHON and, less commonly, Leigh syndrome, with sex-dependent incomplete penetrance.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAJC30\"], \"gene_terms\": [{\"label\": \"DNAJC30\", \"id\": \"hgnc:16410\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Heavy Alcohol Intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Alcohol shows a weaker and less certain relationship with conversion than smoking: only heavy intake was associated with a trend towards increased visual failure in the definitive gene-environment study. Carriers are advised to moderate alcohol and avoid binge drinking.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Idebenone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Idebenone is a short-chain benzoquinone/coenzyme Q10 analogue that, after NQO1-mediated reduction, can accept electrons and deliver them to complex III, partly bypassing the defective complex I while also limiting oxidative injury. It is the only disease-specific drug authorised for LHON (European Medicines Agency, under exceptional circumstances), given at 900 mg/day (300 mg three times daily). The pivotal RHODOS randomised placebo-controlled trial did not meet its primary endpoint but favoured idebenone in secondary analyses, particularly in patients with discordant visual acuities at baseline; the later externally controlled LEROS study met its primary endpoint and confirmed long-term efficacy in the subacute/dynamic and chronic phases, with effect size varying by disease phase and causative variant. Benefit is greatest when treatment begins within the first year of visual loss.\\n\", \"meta\": {\"evidence_count\": 10, \"therapeutic_agents\": [\"idebenone\"]}}, {\"id\": \"Lenadogene Nolparvovec Gene Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lenadogene nolparvovec (GS010, rAAV2/2-ND4) is a single intravitreal AAV2 vector delivering a nuclear-encoded, mitochondrially targeted wild-type ND4 (allotopic expression) for m.11778G\u003eA/MT-ND4 LHON. Across the RESCUE, REVERSE, REFLECT, and RESTORE programme, sustained bilateral visual improvement was observed for up to five years with a good safety profile apart from intraocular inflammation. Interpretation is materially confounded: sham-injected fellow eyes improved to essentially the same degree as treated eyes, so the within-patient primary endpoints were not met. A nonhuman-primate study found transfer of viral vector DNA to the contralateral, non-injected eye, which offers a plausible mechanistic explanation for that bilateral effect but also removes the fellow eye as an independent control. Gene therapy is therefore promising but not established routine care.\\n\", \"meta\": {\"evidence_count\": 7, \"therapeutic_agents\": [\"lenadogene nolparvovec\"]}}, {\"id\": \"MT-ND1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"subtypes\": [\"MT-ND1\"], \"association\": \"m.3460G\u003eA in MT-ND1 is one of the three primary LHON mtDNA variants; a de novo occurrence has been documented in a population-based cohort.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"subtypes\": [\"MT-ND4\"], \"association\": \"m.11778G\u003eA in MT-ND4 is the most frequent primary LHON mtDNA variant and generally carries the poorest prognosis for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"MT-ND6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"subtypes\": [\"MT-ND6\"], \"association\": \"m.14484T\u003eC in MT-ND6 is the primary LHON variant with the most favourable natural history for spontaneous visual recovery.\\n\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: bilateral, painless, subacute central visual failure with dense central or centrocecal scotoma, severe dyschromatopsia, and optic atrophy. Visual acuity commonly deteriorates to the level of legal blindness and then plateaus, and the loss is generally irreversible. Spontaneous recovery does occur and is genotype-dependent, being most frequent with m.14484T\u003eC and least with m.11778G\u003eA; the quoted recovery percentages vary widely between series and are not curated here (see `notes`).\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"optic nerve\"]}}, {\"id\": \"Other Putative Mitochondrial-Toxic Exposures\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"GeneReviews advises that it is reasonable for carriers to avoid other putative environmental triggers of visual loss, including head trauma, industrial toxins, and drugs with mitochondrial toxic effects. These associations rest largely on case reports rather than controlled estimates.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Papillomacular Bundle Axonal Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ultrastructural morphometry of LHON optic nerves shows 95-99% depletion of the nerve fiber population, with surviving fibers confined to the periphery and a marked loss of axons below 1 micron in diameter \\u2014 the P-cell population that forms the papillomacular bundle. This anatomical selectivity is what converts a generalized bioenergetic defect into the characteristic clinical picture of dense central/centrocecal scotoma and dyschromatopsia with relative sparing of peripheral fields and pupillary responses.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Retinal ganglion cell\"], \"locations\": [\"nerve fiber layer of retina\", \"optic nerve\"]}}, {\"id\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LHON is not a deterministic monogenic disease. Most carriers of a primary mtDNA variant never lose vision; conversion is gated by additional factors that act on the bioenergetic threshold of the retinal ganglion cell. Three modifier classes are established. (1) mtDNA haplogroup background: risk of visual failure is higher for m.11778G\u003eA on haplogroup J2 and for m.14484T\u003eC on haplogroup J1, higher for m.3460G\u003eA on haplogroup K, and significantly lower for m.11778G\u003eA on haplogroup H, with MT-CYB substitutions offering a mechanistic explanation. (2) Sex: males are affected four to five times more often than females, an asymmetry not explicable by maternal transmission alone. (3) Environmental exposure: smoking is strongly and consistently associated with visual loss independent of sex and alcohol, with clinical penetrance reaching 93% in men who smoked; heavy alcohol intake shows a weaker trend. This node is the mechanistic bridge between genotype and the observed low penetrance (17.5% of males and 5.4% of females in a contemporary Australian registry cohort). Those two penetrance figures are not in conflict and must not be compared directly: the 93% figure is conditional on smoking and comes from LHON-affected pedigrees ascertained through probands, whereas the 17.5%/5.4% figures are unconditional lifetime risks from a registry that includes 4,948 largely asymptomatic carriers. The registry authors state explicitly that historically higher male rates are not supported by their data. The same ascertainment caveat separates the clinical carrier prevalence recorded under `prevalence` (11.82 per 100,000) from the population-genomic susceptibility estimate of roughly 1 in 1,000.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Retinal ganglion cell\"]}}, {\"id\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinal ganglion cells are the selectively vulnerable cell type in LHON and in mitochondrial optic neuropathies generally. Their long, partly unmyelinated intraretinal axons impose a high and spatially distributed energy demand that a complex-I-deficient mitochondrial population cannot sustain, and the cells die by apoptosis. Ganglion cell layer thinning on OCT can precede overt optic atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Retinal ganglion cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"retina\"]}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoking is the best-established modifiable determinant of whether a LHON mtDNA carrier converts to visual loss. In a multicentre study of 196 affected and 206 unaffected carriers from 125 pedigrees, smoking showed a strong and consistent association with visual loss independent of sex and alcohol intake, with clinical penetrance reaching 93% in men who smoked. Carriers should be strongly advised not to smoke.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"m.11778G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Usually homoplasmic mtDNA missense substitution in MT-ND4, the most common primary LHON variant worldwide and the genotype targeted by lenadogene nolparvovec gene therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND4\"], \"gene_terms\": [{\"label\": \"MT-ND4\", \"id\": \"hgnc:7459\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.14484T\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND6; the primary LHON variant most associated with spontaneous visual recovery. Risk is increased on haplogroup J1.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND6\"], \"gene_terms\": [{\"label\": \"MT-ND6\", \"id\": \"hgnc:7462\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"m.3460G\u003eA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"mtDNA missense substitution in MT-ND1; one of the three primary LHON variants. Risk of visual failure is increased on haplogroup K.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"MT-ND1\"], \"gene_terms\": [{\"label\": \"MT-ND1\", \"id\": \"hgnc:7455\"}], \"variant_type\": \"single_nucleotide_variant\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Complex I Subunit Missense Mutation\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Missense substitution of a core complex I subunit degrades assembly and/or catalytic function of the NADH:ubiquinone oxidoreductase holoenzyme, impairing electron transfer from NADH to ubiquinone.\\n\"}, {\"source\": \"Complex I Electron Transfer Deficiency\", \"target\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced electron flux through complex I lowers ATP output while increasing electron leak, raising superoxide and downstream reactive oxygen species production.\\n\"}, {\"source\": \"ATP Deficit and Reactive Oxygen Species Overproduction\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ATP shortfall and oxidative stress lower the apoptotic threshold of retinal ganglion cells, driving their dysfunction and death.\\n\"}, {\"source\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"target\": \"Papillomacular Bundle Axonal Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RGC death is not uniform across the ganglion cell population: the smallest-caliber axons, which constitute the papillomacular bundle serving central vision, are preferentially lost.\\n\"}, {\"source\": \"Papillomacular Bundle Axonal Degeneration\", \"target\": \"Optic Atrophy and Irreversible Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the papillomacular bundle progresses from acute-phase RNFL swelling and disc hyperemia through temporal and then diffuse optic pallor, producing permanent severe central visual impairment.\\n\"}, {\"source\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"target\": \"Retinal Ganglion Cell Degeneration and Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Modifier factors determine whether the underlying complex I defect crosses the threshold at which retinal ganglion cells decompensate and die, converting an asymptomatic carrier into an affected individual.\\n\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This node exists to hold exactly this: the factors that gate whether a carrier converts to visual loss. Smoking is graded above the other two exposures pointing here because its evidence is measured at the node itself rather than around it, reporting clinical penetrance as a number and holding the association independent of sex and alcohol.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heavy Alcohol Intake\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Alcohol points at the same gating node as smoking and is graded below it deliberately. The same study that measured smoking as a penetrance figure found only a trend for alcohol, and only at heavy intake, so the difference between these two links reflects a difference the source itself reports rather than a curatorial preference.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Other Putative Mitochondrial-Toxic Exposures\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Head trauma, industrial toxins, and mitochondrially toxic drugs are grouped here as plausible additional gates on conversion. Graded at the same level as alcohol and below smoking, and the wording of the source is the reason: it recommends avoidance as reasonable rather than reporting a measured effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Idebenone\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lenadogene Nolparvovec Gene Therapy\", \"target\": \"Complex I Electron Transfer Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of Smoking and Heavy Alcohol\", \"target\": \"Penetrance Modulation by Genetic Background and Environmental Triggers\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MT-ND4\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND1\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MT-ND6\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAJC30\", \"target\": \"Complex I Subunit Missense Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"m.11778G\u003eA\", \"target\": \"MT-ND4\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.3460G\u003eA\", \"target\": \"MT-ND1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"m.14484T\u003eC\", \"target\": \"MT-ND6\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DNAJC30 p.Tyr51Cys\", \"target\": \"DNAJC30\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6729,14 +7146,23 @@ the context of idebenone therapy."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
+
+                        <span class="phenotype-term-label">Visual impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505), qualified as temporality subacute; course progressive. HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6830,14 +7256,21 @@ the context of idebenone therapy."</div>
                         Central Scotoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central scotoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000603">HP:0000603</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6889,14 +7322,23 @@ the context of idebenone therapy."</div>
                         Dyschromatopsia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Color vision defect
+
+                        <span class="phenotype-term-label">Color vision defect</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000551">HP:0000551</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyschromatopsia, annotated with Color vision defect (HP:0000551). HP:0000551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6948,14 +7390,21 @@ the context of idebenone therapy."</div>
                         Optic Atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000648">HP:0000648</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic atrophy (HP:0000648), qualified as course progressive. HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7047,14 +7496,23 @@ the context of idebenone therapy."</div>
                         Severe Irreversible Reduction in Visual Acuity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced visual acuity
+
+                        <span class="phenotype-term-label">Reduced visual acuity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0007663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe reduction in visual acuity to the legal-blindness threshold, annotated with Reduced visual acuity (HP:0007663), qualified as course progressive; severity severe. HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7135,14 +7593,21 @@ the context of idebenone therapy."</div>
                         Myopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003198</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nonspecific myopathy, annotated with Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7203,14 +7668,21 @@ the context of idebenone therapy."</div>
                         Peripheral Neuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0009830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7262,14 +7734,23 @@ the context of idebenone therapy."</div>
                         Movement Disorder
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of movement
+
+                        <span class="phenotype-term-label">Abnormality of movement</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100022">HP:0100022</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100022</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Movement disorder, annotated with Abnormality of movement (HP:0100022). HP:0100022 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7321,14 +7802,21 @@ the context of idebenone therapy."</div>
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7380,14 +7868,23 @@ the context of idebenone therapy."</div>
                         Multiple Sclerosis-Like Illness (Harding Disease)
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CNS demyelination
+
+                        <span class="phenotype-term-label">CNS demyelination</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007305">HP:0007305</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007305</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multiple sclerosis-like demyelinating illness, annotated with CNS demyelination (HP:0007305). HP:0007305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7492,14 +7989,21 @@ the context of idebenone therapy."</div>
                         Centrocecal Scotoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Centrocecal scotoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000576" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000576">HP:0000576</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000576</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Centrocecal scotoma (HP:0000576). HP:0000576 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7551,14 +8055,21 @@ the context of idebenone therapy."</div>
                         Temporal Optic Disc Pallor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Temporal optic disc pallor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012511" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012511">HP:0012511</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0012511</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Temporal optic disc pallor (HP:0012511). HP:0012511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7610,14 +8121,23 @@ the context of idebenone therapy."</div>
                         Peripapillary Telangiectatic Microangiopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal telangiectasia
+
+                        <span class="phenotype-term-label">Retinal telangiectasia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007763">HP:0007763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0007763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripapillary retinal telangiectasia, annotated with Retinal telangiectasia (HP:0007763), qualified as temporality acute. HP:0007763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7687,14 +8207,23 @@ the context of idebenone therapy."</div>
                         Retinal Nerve Fiber Layer Swelling and Subsequent Thinning
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal retinal nerve fiber layer morphology
+
+                        <span class="phenotype-term-label">Abnormal retinal nerve fiber layer morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020119">HP:0020119</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0020119</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal nerve fiber layer swelling followed by thinning, annotated with Abnormal retinal nerve fiber layer morphology (HP:0020119). HP:0020119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7768,14 +8297,21 @@ the context of idebenone therapy."</div>
                         Postural Tremor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Postural tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002174" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002174">HP:0002174</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002174</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postural tremor (HP:0002174). HP:0002174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7827,14 +8363,23 @@ the context of idebenone therapy."</div>
                         Cardiac Pre-Excitation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventricular preexcitation
+
+                        <span class="phenotype-term-label">Ventricular preexcitation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004309" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004309">HP:0004309</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004309" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0004309</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiac pre-excitation, annotated with Ventricular preexcitation (HP:0004309). HP:0004309 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7933,13 +8478,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MT-ND4
 
 
-    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7459">hgnc:7459</a>
+    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:7459</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MT-ND4 (hgnc:7459). hgnc:7459 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8002,13 +8552,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MT-ND1
 
 
-    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7455">hgnc:7455</a>
+    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:7455</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MT-ND1 (hgnc:7455). hgnc:7455 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8071,13 +8626,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MT-ND6
 
 
-    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7462">hgnc:7462</a>
+    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:7462</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MT-ND6 (hgnc:7462). hgnc:7462 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8140,13 +8700,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNAJC30
 
 
-    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16410">hgnc:16410</a>
+    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:16410</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAJC30 (hgnc:16410). hgnc:16410 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8231,13 +8796,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NQO1
 
 
-    <a href="https://bioregistry.io/hgnc:2874" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2874">hgnc:2874</a>
+    <a href="https://bioregistry.io/hgnc:2874" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:2874</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NQO1 (hgnc:2874). hgnc:2874 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8360,13 +8930,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: MT-ND4
 
 
-    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7459">hgnc:7459</a>
+    <a href="https://bioregistry.io/hgnc:7459" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:7459</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in MT-ND4 (hgnc:7459). hgnc:7459 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -8448,13 +9023,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: MT-ND1
 
 
-    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7455">hgnc:7455</a>
+    <a href="https://bioregistry.io/hgnc:7455" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:7455</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in MT-ND1 (hgnc:7455). hgnc:7455 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -8536,13 +9116,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: MT-ND6
 
 
-    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7462">hgnc:7462</a>
+    <a href="https://bioregistry.io/hgnc:7462" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:7462</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in MT-ND6 (hgnc:7462). hgnc:7462 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -8624,13 +9209,18 @@ the context of idebenone therapy."</div>
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: DNAJC30
 
 
-    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16410">hgnc:16410</a>
+    <a href="https://bioregistry.io/hgnc:16410" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:16410</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in DNAJC30 (hgnc:16410). hgnc:16410 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -8714,7 +9304,12 @@ the context of idebenone therapy."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8744,16 +9339,21 @@ the context of idebenone therapy."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         idebenone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31687" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31687">CHEBI:31687</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31687" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:31687</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses idebenone (CHEBI:31687). CHEBI:31687 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8874,7 +9474,12 @@ the context of idebenone therapy."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Gene Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Gene Therapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8904,16 +9509,21 @@ the context of idebenone therapy."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         lenadogene nolparvovec
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C174939" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C174939">NCIT:C174939</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C174939" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C174939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lenadogene nolparvovec (NCIT:C174939). NCIT:C174939 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9034,7 +9644,12 @@ the context of idebenone therapy."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">smoking cessation and trigger-avoidance counselling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">smoking cessation and trigger-avoidance counselling<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is smoking cessation and trigger-avoidance counselling, annotated with Smoking Cessation Intervention (NCIT:C15372). NCIT:C15372 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Smoking Cessation Intervention</span>
 
 
@@ -9154,7 +9769,12 @@ the context of idebenone therapy."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9254,7 +9874,12 @@ the context of idebenone therapy."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9332,7 +9957,12 @@ the context of idebenone therapy."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9463,6 +10093,33 @@ the context of idebenone therapy."</div>
             <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoking" data-dismech-node="Tobacco Smoking" data-dismech-type="environmental">
                 <div class="item-name">Tobacco Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-63">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Smoking is the best-established modifiable determinant of whether a LHON mtDNA carrier converts to visual loss. In a multicentre study of 196 affected and 206 unaffected carriers from 125 pedigrees, smoking showed a strong and consistent association with visual loss independent of sex and alcohol intake, with clinical penetrance reaching 93% in men who smoked. Carriers should be strongly advised not to smoke.
@@ -9548,10 +10205,111 @@ the context of idebenone therapy."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Penetrance Modulation by Genetic Background and Environmental Triggers</strong>
+
+                        <span style="color: #0d9488;"> &mdash; This node exists to hold exactly this: the factors that gate whether a carrier converts to visual loss. Smoking is graded above the other two exposures pointing here because its evidence is measured at the node itself rather than around it, reporting clinical penetrance as a number and holding the association independent of sex and alcohol.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19525327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19525327" target="_blank">PMID:19525327</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a strong and consistent association between visual loss and smoking, independent of gender and alcohol intake, leading to a clinical penetrance of 93% in men who smoked"</div>
+
+
+                <div class="evidence-explanation">Penetrance is this node&#39;s own subject, and the sentence gives it as a figure while holding the association independent of sex and alcohol.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301353" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301353" target="_blank">PMID:20301353</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes"</div>
+
+
+                <div class="evidence-explanation">GeneReviews converts the association into an avoidance recommendation for carriers, which is the clinical form of a penetrance-gating claim. Graded above the structurally similar avoidance sentence carried by the other-exposures link, which says only that avoidance would be reasonable: this one says strongly advised, and it sits beside a measured penetrance figure rather than standing on its own.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-heavy-alcohol-intake" data-dismech-node="Heavy Alcohol Intake" data-dismech-type="environmental">
                 <div class="item-name">Heavy Alcohol Intake</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to alcohol consumption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-64">ECTO:0001082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9616,10 +10374,66 @@ the context of idebenone therapy."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Penetrance Modulation by Genetic Background and Environmental Triggers</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Alcohol points at the same gating node as smoking and is graded below it deliberately. The same study that measured smoking as a penetrance figure found only a trend for alcohol, and only at heavy intake, so the difference between these two links reflects a difference the source itself reports rather than a curatorial preference.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19525327" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19525327" target="_blank">PMID:19525327</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was a trend towards increased visual failure with alcohol, but only with a heavy intake"</div>
+
+
+                <div class="evidence-explanation">A trend restricted to heavy intake, in the same cohort that gave smoking a penetrance figure. That is what keeps this partial and below the smoking link.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-other-putative-mitochondrial-toxic-exposures" data-dismech-node="Other Putative Mitochondrial-Toxic Exposures" data-dismech-type="environmental">
                 <div class="item-name">Other Putative Mitochondrial-Toxic Exposures</div>
+
+
+
+
 
 
 
@@ -9661,6 +10475,58 @@ the context of idebenone therapy."</div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Penetrance Modulation by Genetic Background and Environmental Triggers</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Head trauma, industrial toxins, and mitochondrially toxic drugs are grouped here as plausible additional gates on conversion. Graded at the same level as alcohol and below smoking, and the wording of the source is the reason: it recommends avoidance as reasonable rather than reporting a measured effect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301353" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301353" target="_blank">PMID:20301353</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It would be reasonable to avoid exposure to other putative environmental triggers for visual loss, such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects"</div>
+
+
+                <div class="evidence-explanation">Framed as reasonable avoidance of putative triggers, not as a measured association. The hedge is the source&#39;s own and is carried into the grade.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9970,16 +10836,21 @@ the context of idebenone therapy."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Visual impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0000505</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10061,16 +10932,21 @@ the context of idebenone therapy."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Visual impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000505</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10130,16 +11006,21 @@ the context of idebenone therapy."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Visual impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000505</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10199,16 +11080,21 @@ the context of idebenone therapy."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Visual impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000505</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10276,6 +11162,9 @@ the context of idebenone therapy."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -11614,6 +12503,42 @@ variants:
 
 environmental:
 - name: Tobacco Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: Penetrance Modulation by Genetic Background and Environmental Triggers
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      This node exists to hold exactly this: the factors that gate whether a
+      carrier converts to visual loss. Smoking is graded above the other two
+      exposures pointing here because its evidence is measured at the node
+      itself rather than around it, reporting clinical penetrance as a number
+      and holding the association independent of sex and alcohol.
+    evidence:
+    - reference: PMID:19525327
+      reference_title: &#34;Gene-environment interactions in Leber hereditary optic neuropathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We identified a strong and consistent association between visual loss and smoking, independent of gender and alcohol intake, leading to a clinical penetrance of 93% in men who smoked&#34;
+      explanation: &gt;-
+        Penetrance is this node&#39;s own subject, and the sentence gives it as a
+        figure while holding the association independent of sex and alcohol.
+    - reference: PMID:20301353
+      reference_title: &#34;Leber Hereditary Optic Neuropathy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Individuals in whom a LHON-causing mtDNA variant has been identified should be strongly advised not to smoke and to moderate alcohol intake, avoiding binge-drinking episodes&#34;
+      explanation: &gt;-
+        GeneReviews converts the association into an avoidance recommendation
+        for carriers, which is the clinical form of a penetrance-gating claim.
+        Graded above the structurally similar avoidance sentence carried by
+        the other-exposures link, which says only that avoidance would be
+        reasonable: this one says strongly advised, and it sits beside a
+        measured penetrance figure rather than standing on its own.
   description: &gt;
     Smoking is the best-established modifiable determinant of whether a LHON
     mtDNA carrier converts to visual loss. In a multicentre study of 196
@@ -11642,6 +12567,31 @@ environmental:
     snippet: &#34;strongly advised not to smoke and to moderate alcohol intake, avoiding&#34;
     explanation: GeneReviews translates the smoking association into an explicit avoidance recommendation for carriers.
 - name: Heavy Alcohol Intake
+  exposure_term:
+    preferred_term: exposure to alcohol consumption
+    term:
+      id: ECTO:0001082
+      label: exposure to alcohol consumption
+  influences_mechanisms:
+  - target: Penetrance Modulation by Genetic Background and Environmental Triggers
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Alcohol points at the same gating node as smoking and is graded below it
+      deliberately. The same study that measured smoking as a penetrance
+      figure found only a trend for alcohol, and only at heavy intake, so the
+      difference between these two links reflects a difference the source
+      itself reports rather than a curatorial preference.
+    evidence:
+    - reference: PMID:19525327
+      reference_title: &#34;Gene-environment interactions in Leber hereditary optic neuropathy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;There was a trend towards increased visual failure with alcohol, but only with a heavy intake&#34;
+      explanation: &gt;-
+        A trend restricted to heavy intake, in the same cohort that gave
+        smoking a penetrance figure. That is what keeps this partial and below
+        the smoking link.
   description: &gt;
     Alcohol shows a weaker and less certain relationship with conversion than
     smoking: only heavy intake was associated with a trend towards increased
@@ -11662,6 +12612,26 @@ environmental:
     snippet: &#34;binge-drinking episodes.&#34;
     explanation: GeneReviews advises carriers to avoid binge-drinking episodes.
 - name: Other Putative Mitochondrial-Toxic Exposures
+  influences_mechanisms:
+  - target: Penetrance Modulation by Genetic Background and Environmental Triggers
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Head trauma, industrial toxins, and mitochondrially toxic drugs are
+      grouped here as plausible additional gates on conversion. Graded at the
+      same level as alcohol and below smoking, and the wording of the source
+      is the reason: it recommends avoidance as reasonable rather than
+      reporting a measured effect.
+    evidence:
+    - reference: PMID:20301353
+      reference_title: &#34;Leber Hereditary Optic Neuropathy.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It would be reasonable to avoid exposure to other putative environmental triggers for visual loss, such as head trauma, industrial toxins, and drugs with mitochondrial toxic effects&#34;
+      explanation: &gt;-
+        Framed as reasonable avoidance of putative triggers, not as a measured
+        association. The hedge is the source&#39;s own and is carried into the
+        grade.
   description: &gt;
     GeneReviews advises that it is reasonable for carriers to avoid other
     putative environmental triggers of visual loss, including head trauma,
@@ -13052,7 +14022,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Leber Hereditary Optic Neuropathy", "mondoId": "MONDO:0010788", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leber_Hereditary_Optic_Neuropathy", "yamlRevision": "3c469c629a9e"};
+        const OS_CONFIG = {"diseaseName": "Leber Hereditary Optic Neuropathy", "mondoId": "MONDO:0010788", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leber_Hereditary_Optic_Neuropathy", "yamlRevision": "b064baabc27a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13471,5 +14441,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -89,6 +89,22 @@ function extractWindowJson(code, prefix) {
 // Recreate the exact same MiniSearch index as app/index.html
 // ---------------------------------------------------------------------------
 
+// These two mirror app/index.html (and its models/ and discussions/ siblings).
+// `search config stays in sync across the browsers` below is what keeps the
+// copies from drifting apart.
+const SEARCH_TOKEN_SPLIT = /[\s\-_/,;:()'’]+/;
+
+function nameBoost(queryLower, nameLower) {
+    if (nameLower === queryLower) return 50;
+    // Each name-match tier is scaled by how much of the name the query accounts
+    // for, so a short canonical name outranks a long specific one that merely
+    // starts the same way. The floors keep the tiers ordered by boost.
+    const coverage = queryLower.length / nameLower.length;
+    if (nameLower.startsWith(queryLower)) return Math.max(3, 30 * coverage);
+    if (nameLower.includes(queryLower)) return 1 + 2 * coverage;
+    return 1;
+}
+
 function buildIndex(data, schema) {
     const searchableFields = schema.searchableFields || [];
 
@@ -109,11 +125,7 @@ function buildIndex(data, schema) {
         fields: searchableFields,
         idField: '_id',
         storeFields: ['name'],
-        tokenize: (text) =>
-            text
-                .toLowerCase()
-                .split(/[\s\-_/,;:()]+/)
-                .filter((t) => t.length > 1),
+        tokenize: (text) => text.toLowerCase().split(SEARCH_TOKEN_SPLIT).filter((t) => t.length > 1),
         searchOptions: {
             boost: schema.fieldBoosts || {},
             prefix: true,
@@ -134,13 +146,8 @@ function buildIndex(data, schema) {
 function search(miniSearch, data, query) {
     const queryLower = query.toLowerCase().trim();
     const searchResults = miniSearch.search(query, {
-        boostDocument: (_id, _term, storedFields) => {
-            const nameLower = (storedFields?.name || '').toLowerCase();
-            if (nameLower === queryLower) return 50;
-            if (nameLower.startsWith(queryLower)) return 10;
-            if (nameLower.includes(queryLower)) return 3;
-            return 1;
-        },
+        boostDocument: (_id, _term, storedFields) =>
+            nameBoost(queryLower, (storedFields?.name || '').toLowerCase()),
     });
 
     // Sort by score descending (MiniSearch already does this, but be explicit)
@@ -241,6 +248,178 @@ describe('partial prefix queries rank the right disorder first', () => {
             );
         });
     }
+});
+
+// ---------------------------------------------------------------------------
+// Ranking rules, pinned against a fixture corpus
+//
+// The suites above run against the committed app/data.js, which is only
+// refreshed by the generate-pages bot. On main it therefore lags the KB by
+// however many disorders have been curated since the last page build, so a
+// ranking regression introduced by a new entry stays invisible here and only
+// surfaces later, in the bot's own PR. These cases use a fixture corpus
+// instead, so they hold however stale the snapshot is.
+//
+// The corpus is a miniature of the real one: enough sibling entries sharing a
+// stem for term frequencies to behave as they do at full size. A two-document
+// fixture will not do — with that little text MiniSearch's own term weighting
+// swamps the name boost, and the case stops measuring the rule it names.
+// ---------------------------------------------------------------------------
+
+const FIXTURE_CORPUS = [
+    {
+        name: "Parkinson's Disease",
+        description:
+            'A progressive neurodegenerative movement disorder with parkinsonism, rest tremor, rigidity and bradykinesia.',
+    },
+    {
+        name: 'Parkinson Disease, Mitochondrial',
+        description:
+            'Maternally inherited parkinsonism caused by mitochondrial DNA variants; presents with parkinson features and parkinsonian gait.',
+    },
+    {
+        name: 'PRKN-Related Juvenile Parkinson Disease',
+        description:
+            'Early-onset parkinsonism caused by biallelic PRKN variants; parkinsonian features with dystonia.',
+    },
+    {
+        name: 'Infantile Parkinsonism-Dystonia',
+        description: 'Dopamine transporter deficiency causing parkinsonism and dystonia in infancy.',
+    },
+    { name: 'Multiple Sclerosis', description: 'A demyelinating disease of the central nervous system.' },
+    { name: 'Asthma', description: 'A chronic inflammatory airway disease with wheeze and reversible obstruction.' },
+    { name: 'Marfan Syndrome', description: 'A connective tissue disorder caused by FBN1 variants.' },
+    { name: 'Huntington Disease', description: 'A trinucleotide repeat neurodegenerative disorder with chorea.' },
+];
+
+describe('ranking rules (fixture corpus)', () => {
+    let fixtureIndex;
+
+    before(() => {
+        fixtureIndex = buildIndex(FIXTURE_CORPUS, schema);
+    });
+
+    // Both of these fail on the pre-2026-08 configuration, where "Parkinson's"
+    // was a single token (so "Parkinson" could only reach it as a downweighted
+    // prefix match) and every prefix match got a flat boost regardless of how
+    // much of the name the query accounted for.
+    for (const query of ['Parkinson', 'Parkin']) {
+        it(`"${query}" ranks the canonical entry above a longer same-prefix sibling`, () => {
+            const results = search(fixtureIndex, FIXTURE_CORPUS, query);
+            assert.ok(results.length > 0, `No results for "${query}"`);
+            assert.equal(
+                results[0].name,
+                "Parkinson's Disease",
+                `Expected "Parkinson's Disease" first, got "${results[0].name}" (score: ${results[0].score})`
+            );
+        });
+    }
+
+    it('an exact name match still wins outright', () => {
+        const results = search(fixtureIndex, FIXTURE_CORPUS, 'Asthma');
+        assert.equal(results[0].name, 'Asthma', `got "${results[0].name}"`);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Guards on the ranking rules themselves
+// ---------------------------------------------------------------------------
+
+describe('name boost tiers', () => {
+    it('an exact name match outranks every other tier', () => {
+        assert.equal(nameBoost('asthma', 'asthma'), 50);
+    });
+
+    it('a prefix match is always worth at least as much as any substring match', () => {
+        // The floors are what make this hold: with startsWith/includes both
+        // implying coverage <= 1, prefix lands in [3, 30] and substring in
+        // (1, 3]. This bounds the *boost*, not the final rank — rank is this
+        // boost times MiniSearch's own relevance, so a much richer substring
+        // match can still finish ahead, as "Renal Agenesis" does.
+        const query = 'agenesis';
+        const prefixNames = [
+            'agenesis of the corpus callosum with peripheral neuropathy',
+            'agenesis',
+            'agenesis of the kidney and lower urinary tract with a very long tail',
+        ];
+        const substringNames = ['renal agenesis', 'bilateral renal agenesis', 'x agenesis'];
+
+        for (const name of prefixNames) {
+            assert.ok(
+                nameBoost(query, name) >= 3,
+                `prefix match "${name}" scored ${nameBoost(query, name)}, expected >= 3`
+            );
+        }
+        for (const name of substringNames) {
+            assert.ok(
+                nameBoost(query, name) <= 3,
+                `substring match "${name}" scored ${nameBoost(query, name)}, expected <= 3`
+            );
+        }
+    });
+
+    it('a shorter name outranks a longer one with the same prefix', () => {
+        assert.ok(nameBoost('parkinson', "parkinson's disease") > nameBoost('parkinson', 'parkinson disease, mitochondrial'));
+        assert.ok(nameBoost('autism', 'autism spectrum disorder') > nameBoost('autism', 'autism, susceptibility to, x-linked 3'));
+    });
+
+    it('a name with no match at all gets no boost', () => {
+        assert.equal(nameBoost('asthma', 'marfan syndrome'), 1);
+    });
+});
+
+describe('search config stays in sync across the browsers', () => {
+    // app/index.html, app/models/index.html and app/discussions/index.html each
+    // carry their own copy of this MiniSearch configuration. The apostrophe bug
+    // this suite now guards against was present in all three, and a "keep in
+    // sync" comment is not a mechanism — this is.
+    const BROWSERS = ['index.html', join('models', 'index.html'), join('discussions', 'index.html')];
+
+    function extractSearchConfig(html) {
+        const grab = (re) => {
+            const found = html.match(re);
+            assert.ok(found, `pattern ${re} not found`);
+            return found.map((line) => line.trim().replace(/\s+/g, ' '));
+        };
+        return {
+            tokenSplit: grab(/const SEARCH_TOKEN_SPLIT = .*/g),
+            tokenize: grab(/tokenize: \(text\) =>.*/g),
+            boostTiers: grab(/^ *(if \(nameLower|const coverage|return 1;).*/gm),
+        };
+    }
+
+    const configs = BROWSERS.map((rel) => [rel, extractSearchConfig(readFileSync(join(root, 'app', rel), 'utf-8'))]);
+
+    for (const [rel, config] of configs.slice(1)) {
+        it(`app/${rel} matches app/index.html`, () => {
+            assert.deepEqual(config, configs[0][1], `app/${rel} has drifted from app/index.html`);
+        });
+    }
+
+    it('the browsers use the same token separators as this test', () => {
+        const declared = configs[0][1].tokenSplit[0];
+        assert.ok(
+            declared.includes(SEARCH_TOKEN_SPLIT.source),
+            `app/index.html declares ${declared}, this test uses /${SEARCH_TOKEN_SPLIT.source}/`
+        );
+    });
+
+    it('the browsers use the same boost constants as this test', () => {
+        // nameBoost() above is a transcription, not an import — the browsers are
+        // standalone HTML with no module boundary to import across. Compare the
+        // numbers so a retuned constant cannot land in one copy only.
+        // In source order: the exact-match tier (50), the prefix tier (floor 3,
+        // scale 30), the substring tier (base 1, scale 2), the no-match tier (1).
+        const expected = ['50', '3', '30', '1', '2', '1'];
+        const numbers = configs[0][1].boostTiers.join(' ').match(/\d+(\.\d+)?/g);
+        assert.deepEqual(numbers, expected, `app/index.html: got ${JSON.stringify(numbers)}`);
+
+        // ...and that nameBoost() above, which is a transcription of that same
+        // logic, was retuned along with it. Without this the guard would stay
+        // green while the transcription and the browsers drifted apart.
+        const transcribed = nameBoost.toString().match(/\d+(\.\d+)?/g);
+        assert.deepEqual(transcribed, expected, `nameBoost(): got ${JSON.stringify(transcribed)}`);
+    });
 });
 
 describe('name field is boosted above other fields', () => {

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Atrial%20Fibrillation"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3750,7 +3918,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3793,6 +3961,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3806,7 +3982,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4700,6 +4876,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4762,16 +4939,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Atrial Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002129">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Atrial Cardiomyocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4798,16 +4980,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cardiac Conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086001">GO:0086001</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086001" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0086001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cardiac Conduction, annotated with cardiac muscle cell action potential (GO:0086001). GO:0086001 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4845,6 +5032,7 @@
 
                     </div>
                 </div>
+
 
 
 	                <div class="crosslink-block">
@@ -4967,16 +5155,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5003,15 +5196,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NLRP3
 
 
-    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16400">hgnc:16400</a>
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:16400</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5031,6 +5231,7 @@
 
 
                 </div>
+
 
 
 
@@ -5127,16 +5328,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiac Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac Fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5153,6 +5359,7 @@
 
 
                 </div>
+
 
 
 
@@ -5261,19 +5468,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Pulmonary vein
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002016" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002016">UBERON:0002016</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002016" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002016</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Pulmonary vein (UBERON:0002016). UBERON:0002016 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5335,6 +5548,7 @@
 
                 <div class="item-desc">Loss of atrial contraction leads to blood stasis, particularly in the left atrial appendage, promoting thrombus formation and embolic stroke.
 </div>
+
 
 
 
@@ -5453,16 +5667,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         microbial amine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009309" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009309">GO:0009309</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009309" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0009309</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased microbial amine biosynthetic process, annotated with amine biosynthetic process (GO:0009309). GO:0009309 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5483,6 +5702,7 @@
 
 
                 </div>
+
 
 
 
@@ -5570,6 +5790,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5698,15 +5919,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CHRM2
 
 
-    <a href="https://bioregistry.io/hgnc:1951" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1951">hgnc:1951</a>
+    <a href="https://bioregistry.io/hgnc:1951" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:1951</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHRM2 (hgnc:1951). hgnc:1951 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5734,16 +5962,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         G protein-coupled acetylcholine receptor signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007213" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007213">GO:0007213</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007213" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007213</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased G protein-coupled acetylcholine receptor signaling, annotated with G protein-coupled acetylcholine receptor signaling pathway (GO:0007213). GO:0007213 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5764,6 +5997,7 @@
 
 
                 </div>
+
 
 
 
@@ -5851,6 +6085,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -5954,7 +6189,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warfarin or a direct oral anticoagulant (DOAC) is used to prevent stroke according to thromboembolic risk. DOAC preference applies only in patients without mechanical heart valves or moderate-to-severe mitral stenosis.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"warfarin\", \"apixaban\", \"rivaroxaban\", \"dabigatran\"]}}, {\"id\": \"Atrial Electrical Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rapid atrial rates cause shortening of atrial refractory period and loss of rate adaptation, promoting AF maintenance. AF begets AF.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Atrial Cardiomyocyte\"], \"biological_processes\": [\"Cardiac Conduction\"], \"experimental_models\": [{\"name\": \"Palmitate-treated human iPSC-derived atrial cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Assays obesity-associated NOX2-dependent atrial ion-channel remodeling.\"}], \"computational_models\": [{\"name\": \"Courtemanche-Ramirez-Nattel human atrial action-potential model\", \"model_type\": \"KINETIC\", \"description\": \"Models rate-dependent atrial action-potential adaptation and its ionic-current determinants.\"}]}}, {\"id\": \"Atrial Fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess atrial extracellular matrix separates cardiomyocyte bundles and creates heterogeneous, slowed conduction that favors reentry and AF maintenance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac Fibroblast\"]}}, {\"id\": \"Atrial Thrombus Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of atrial contraction leads to blood stasis, particularly in the left atrial appendage, promoting thrombus formation and embolic stroke.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cardiac Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"M2R inhibition produces autonomic dysfunction in vivo and is proposed to promote the electrical substrate for AF.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Catheter Ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pulmonary vein isolation for rhythm control.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chest Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100749\"}}, {\"id\": \"Courtemanche-Ramirez-Nattel human atrial action-potential model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Ionic-current kinetic model of the human atrial cardiomyocyte action potential used to examine rate adaptation and ion-current contributions to AF susceptibility. It models cellular electrophysiology, not whole-patient natural history or treatment outcomes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"publication\": \"PMID:9688927\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Elevated Circulating TMAO\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised systemic plasma TMAO is the exposure that independently associates with prevalent AF in humans and predicts earlier AF onset/persistence in mouse models; the CutC/D inhibitor IMC lowers it and delays AF.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fibroblast NLRP3 Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NLRP3 inflammasome signaling is increased in atrial fibroblasts from people with AF. Fibroblast-restricted activation is sufficient to create a profibrotic, conduction-slowing atrial substrate in mice.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac fibroblast\"], \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}]}}, {\"id\": \"Gut Microbial TMA Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gut bacteria transform dietary choline to trimethylamine (TMA) through the CutC/D pathway. Iodomethylcholine (IMC) inhibits this microbial choline-to-TMA(O) transformation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"microbial amine biosynthetic process\"]}}, {\"id\": \"Gut Microbial TMA-Lyase Inhibition (Iodomethylcholine)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Iodomethylcholine (IMC), a gut-restricted CutC/D choline-TMA lyase inhibitor, suppresses microbial choline-to-TMA(O) transformation, reduces circulating TMAO, and delays choline-induced AF onset in mice. It is an investigational AF-prevention strategy, not yet a human therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Left Atrial Appendage Closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative to anticoagulation in selected patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscarinic M2 Receptor Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TMAO inhibits muscarinic receptor 2 (M2R) signaling.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled acetylcholine receptor signaling\"], \"genes\": [\"CHRM2\"], \"gene_terms\": [{\"label\": \"CHRM2\", \"id\": \"hgnc:1951\"}]}}, {\"id\": \"NOX2-Dependent Atrial Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In obesity-driven AF models, NOX2-derived oxidative stress promotes atrial ion-channel remodeling and abnormal action-potential duration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Palmitate-treated human iPSC-derived atrial cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived atrial cardiomyocytes exposed to palmitate model the obesity-associated NOX2 oxidative-stress and ion-channel-remodeling axis. The reductionist system lacks multicellular atrial structure, autonomic input, and thromboembolic physiology.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Atrial cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Palmitate exposure\"]}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Pulmonary Vein Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic beats originating from pulmonary vein myocardial sleeves commonly trigger AF episodes. These foci have distinct electrophysiology.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Pulmonary vein\"]}}, {\"id\": \"Thromboembolic Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0001727\"}}], \"edges\": [{\"source\": \"NOX2-Dependent Atrial Oxidative Stress\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NOX2 inhibition reverses abnormal atrial action-potential duration and ion-channel remodeling in obesity-driven AF models.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered atrial electrical activation is the defining arrhythmia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation-related rhythm disturbance commonly manifests as palpitations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"symptomatic perception of irregular atrial rhythm\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AF-related rhythm and hemodynamic disturbance can produce dyspnea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired atrial contribution to cardiac output\", \"comorbid cardiovascular reserve limitation\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AF symptom burden includes fatigue, often alongside dyspnea and intermittent symptoms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"symptomatic rhythm disturbance\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rate irregularity and loss of coordinated atrial contribution can reduce exercise capacity, although severity depends strongly on ventricular rate and comorbid cardiac reserve.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"irregular ventricular response\", \"reduced hemodynamic reserve during exertion\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Chest Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chest pain can occur during AF, but the intermediate mechanism and the contribution of coexisting ischemic or structural disease vary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast NLRP3 Inflammasome Activation\", \"target\": \"Atrial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast-restricted NLRP3 activation promotes profibrotic atrial remodeling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Fibrosis\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrotic discontinuity slows and heterogenizes atrial conduction, facilitating reentry.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced atrial conduction velocity\"]}, {\"source\": \"Pulmonary Vein Triggers\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid ectopic pulmonary-vein discharges initiate paroxysmal AF.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Thrombus Formation\", \"target\": \"Thromboembolic Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial thrombus formation creates risk for embolic stroke, which is the main target of anticoagulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"left atrial appendage stasis\", \"systemic embolism\"]}, {\"source\": \"Gut Microbial TMA Production\", \"target\": \"Elevated Circulating TMAO\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inhibiting microbial CutC/D lowers circulating TMAO during choline supplementation, linking microbial TMA generation to systemic TMAO exposure without separately asserting an uncited hepatic step.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"host conversion of absorbed trimethylamine to trimethylamine N-oxide\"]}, {\"source\": \"Elevated Circulating TMAO\", \"target\": \"Muscarinic M2 Receptor Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TMAO, structurally similar to acetylcholine, inhibits the cardiac M2 muscarinic receptor.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscarinic M2 Receptor Inhibition\", \"target\": \"Cardiac Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"M2R inhibition disrupts parasympathetic (vagal) cardiac control.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Autonomic Dysfunction\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The high-TMAO state is associated with slower conduction velocity and APD80/wavelength shortening, which may lower the reentry threshold and feed electrical remodeling that sustains AF.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Anticoagulation\", \"target\": \"Thromboembolic Stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Catheter Ablation\", \"target\": \"Pulmonary Vein Triggers\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Left Atrial Appendage Closure\", \"target\": \"Atrial Thrombus Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gut Microbial TMA-Lyase Inhibition (Iodomethylcholine)\", \"target\": \"Gut Microbial TMA Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Palmitate-treated human iPSC-derived atrial cardiomyocytes\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Courtemanche-Ramirez-Nattel human atrial action-potential model\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alcohol Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warfarin or a direct oral anticoagulant (DOAC) is used to prevent stroke according to thromboembolic risk. DOAC preference applies only in patients without mechanical heart valves or moderate-to-severe mitral stenosis.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"warfarin\", \"apixaban\", \"rivaroxaban\", \"dabigatran\"]}}, {\"id\": \"Atrial Electrical Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rapid atrial rates cause shortening of atrial refractory period and loss of rate adaptation, promoting AF maintenance. AF begets AF.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Atrial Cardiomyocyte\"], \"biological_processes\": [\"Cardiac Conduction\"], \"experimental_models\": [{\"name\": \"Palmitate-treated human iPSC-derived atrial cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Assays obesity-associated NOX2-dependent atrial ion-channel remodeling.\"}], \"computational_models\": [{\"name\": \"Courtemanche-Ramirez-Nattel human atrial action-potential model\", \"model_type\": \"KINETIC\", \"description\": \"Models rate-dependent atrial action-potential adaptation and its ionic-current determinants.\"}]}}, {\"id\": \"Atrial Fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess atrial extracellular matrix separates cardiomyocyte bundles and creates heterogeneous, slowed conduction that favors reentry and AF maintenance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac Fibroblast\"]}}, {\"id\": \"Atrial Thrombus Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of atrial contraction leads to blood stasis, particularly in the left atrial appendage, promoting thrombus formation and embolic stroke.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cardiac Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"M2R inhibition produces autonomic dysfunction in vivo and is proposed to promote the electrical substrate for AF.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Catheter Ablation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pulmonary vein isolation for rhythm control.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chest Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100749\"}}, {\"id\": \"Courtemanche-Ramirez-Nattel human atrial action-potential model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Ionic-current kinetic model of the human atrial cardiomyocyte action potential used to examine rate adaptation and ion-current contributions to AF susceptibility. It models cellular electrophysiology, not whole-patient natural history or treatment outcomes.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"publication\": \"PMID:9688927\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Elevated Circulating TMAO\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised systemic plasma TMAO is the exposure that independently associates with prevalent AF in humans and predicts earlier AF onset/persistence in mouse models; the CutC/D inhibitor IMC lowers it and delays AF.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fibroblast NLRP3 Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NLRP3 inflammasome signaling is increased in atrial fibroblasts from people with AF. Fibroblast-restricted activation is sufficient to create a profibrotic, conduction-slowing atrial substrate in mice.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac fibroblast\"], \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}]}}, {\"id\": \"Gut Microbial TMA Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gut bacteria transform dietary choline to trimethylamine (TMA) through the CutC/D pathway. Iodomethylcholine (IMC) inhibits this microbial choline-to-TMA(O) transformation.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"microbial amine biosynthetic process\"]}}, {\"id\": \"Gut Microbial TMA-Lyase Inhibition (Iodomethylcholine)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Iodomethylcholine (IMC), a gut-restricted CutC/D choline-TMA lyase inhibitor, suppresses microbial choline-to-TMA(O) transformation, reduces circulating TMAO, and delays choline-induced AF onset in mice. It is an investigational AF-prevention strategy, not yet a human therapy.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperthyroidism\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Left Atrial Appendage Closure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative to anticoagulation in selected patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscarinic M2 Receptor Inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TMAO inhibits muscarinic receptor 2 (M2R) signaling.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled acetylcholine receptor signaling\"], \"genes\": [\"CHRM2\"], \"gene_terms\": [{\"label\": \"CHRM2\", \"id\": \"hgnc:1951\"}]}}, {\"id\": \"NOX2-Dependent Atrial Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In obesity-driven AF models, NOX2-derived oxidative stress promotes atrial ion-channel remodeling and abnormal action-potential duration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Palmitate-treated human iPSC-derived atrial cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived atrial cardiomyocytes exposed to palmitate model the obesity-associated NOX2 oxidative-stress and ion-channel-remodeling axis. The reductionist system lacks multicellular atrial structure, autonomic input, and thromboembolic physiology.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Atrial cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"Palmitate exposure\"]}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001962\"}}, {\"id\": \"Pulmonary Vein Triggers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic beats originating from pulmonary vein myocardial sleeves commonly trigger AF episodes. These foci have distinct electrophysiology.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Pulmonary vein\"]}}, {\"id\": \"Thromboembolic Stroke\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"severity\": \"SEVERE\", \"term_id\": \"HP:0001727\"}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"NOX2-Dependent Atrial Oxidative Stress\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NOX2 inhibition reverses abnormal atrial action-potential duration and ion-channel remodeling in obesity-driven AF models.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered atrial electrical activation is the defining arrhythmia phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation-related rhythm disturbance commonly manifests as palpitations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"symptomatic perception of irregular atrial rhythm\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AF-related rhythm and hemodynamic disturbance can produce dyspnea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired atrial contribution to cardiac output\", \"comorbid cardiovascular reserve limitation\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AF symptom burden includes fatigue, often alongside dyspnea and intermittent symptoms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"symptomatic rhythm disturbance\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rate irregularity and loss of coordinated atrial contribution can reduce exercise capacity, although severity depends strongly on ventricular rate and comorbid cardiac reserve.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"irregular ventricular response\", \"reduced hemodynamic reserve during exertion\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Chest Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chest pain can occur during AF, but the intermediate mechanism and the contribution of coexisting ischemic or structural disease vary.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast NLRP3 Inflammasome Activation\", \"target\": \"Atrial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast-restricted NLRP3 activation promotes profibrotic atrial remodeling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Fibrosis\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrotic discontinuity slows and heterogenizes atrial conduction, facilitating reentry.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced atrial conduction velocity\"]}, {\"source\": \"Pulmonary Vein Triggers\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rapid ectopic pulmonary-vein discharges initiate paroxysmal AF.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial Thrombus Formation\", \"target\": \"Thromboembolic Stroke\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial thrombus formation creates risk for embolic stroke, which is the main target of anticoagulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"left atrial appendage stasis\", \"systemic embolism\"]}, {\"source\": \"Gut Microbial TMA Production\", \"target\": \"Elevated Circulating TMAO\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inhibiting microbial CutC/D lowers circulating TMAO during choline supplementation, linking microbial TMA generation to systemic TMAO exposure without separately asserting an uncited hepatic step.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"host conversion of absorbed trimethylamine to trimethylamine N-oxide\"]}, {\"source\": \"Elevated Circulating TMAO\", \"target\": \"Muscarinic M2 Receptor Inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TMAO, structurally similar to acetylcholine, inhibits the cardiac M2 muscarinic receptor.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Muscarinic M2 Receptor Inhibition\", \"target\": \"Cardiac Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"M2R inhibition disrupts parasympathetic (vagal) cardiac control.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Autonomic Dysfunction\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The high-TMAO state is associated with slower conduction velocity and APD80/wavelength shortening, which may lower the reentry threshold and feed electrical remodeling that sustains AF.\", \"hypothesis_groups\": [\"tmao_autonomic_af\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hypertension\", \"target\": \"Atrial Fibrosis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Chronic pressure load stretches the atrium, and that stretch drives the fibrotic remodelling that creates the reentrant substrate. Hypertension is the commonest condition in patients presenting with new atrial fibrillation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity\", \"target\": \"NOX2-Dependent Atrial Oxidative Stress\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Targets the oxidative stress node specifically rather than the generic substrate, because the cited work shows NOX2 inhibition normalising atrial action potential duration and abolishing obesity-driven ion channel remodelling, placing NOX2 on the causal path.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obstructive Sleep Apnea\", \"target\": \"Cardiac Autonomic Dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Apnoeic episodes produce repeated intrathoracic pressure swings, hypoxaemia and surges of autonomic tone, which is why this targets the autonomic node rather than the fibrotic substrate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"Atrial Fibrosis\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking appears among the established risk factors in cohort modelling but without an identified atrial mechanism, so it is recorded as predisposing to the fibrotic substrate rather than driving it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alcohol Exposure\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Alcohol shortens atrial refractoriness and slows conduction, and the association is dose-defined above roughly one standard drink per day, which is why this targets electrical rather than structural remodelling.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hyperthyroidism\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Excess thyroid hormone shortens the atrial action potential and raises automaticity, a reversible electrical effect: restoring euthyroidism often restores sinus rhythm, which distinguishes it from the structural risk factors here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Anticoagulation\", \"target\": \"Thromboembolic Stroke\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Catheter Ablation\", \"target\": \"Pulmonary Vein Triggers\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Left Atrial Appendage Closure\", \"target\": \"Atrial Thrombus Formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gut Microbial TMA-Lyase Inhibition (Iodomethylcholine)\", \"target\": \"Gut Microbial TMA Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Palmitate-treated human iPSC-derived atrial cardiomyocytes\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Assays obesity-associated NOX2-dependent atrial ion-channel remodeling.\"}, {\"source\": \"Courtemanche-Ramirez-Nattel human atrial action-potential model\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models rate-dependent atrial action-potential adaptation and its ionic-current determinants.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5997,14 +6232,21 @@
                         Palpitations
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001962</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6056,14 +6298,21 @@
                         Atrial Fibrillation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6126,14 +6375,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6194,14 +6450,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6253,14 +6516,21 @@
                         Exercise Intolerance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6312,14 +6582,21 @@
                         Chest Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6380,14 +6657,21 @@
                         Thromboembolic Stroke
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thromboembolic stroke
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001727" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001727">HP:0001727</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001727</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thromboembolic stroke (HP:0001727). HP:0001727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6487,13 +6771,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PITX2
 
 
-    <a href="https://bioregistry.io/hgnc:9005" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9005">hgnc:9005</a>
+    <a href="https://bioregistry.io/hgnc:9005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:9005</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PITX2 (hgnc:9005). hgnc:9005 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6553,13 +6842,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZFHX3
 
 
-    <a href="https://bioregistry.io/hgnc:777" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:777">hgnc:777</a>
+    <a href="https://bioregistry.io/hgnc:777" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:777</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZFHX3 (hgnc:777). hgnc:777 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6630,7 +6924,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6660,17 +6959,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         warfarin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:10033">CHEBI:10033</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:10033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         apixaban
@@ -6678,11 +6984,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_72296" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:72296">CHEBI:72296</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_72296" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:72296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses apixaban (CHEBI:72296). CHEBI:72296 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         rivaroxaban
@@ -6690,11 +7001,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_68579" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:68579">CHEBI:68579</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_68579" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:68579</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rivaroxaban (CHEBI:68579). CHEBI:68579 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         dabigatran
@@ -6702,10 +7018,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_70752" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:70752">CHEBI:70752</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_70752" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:70752</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dabigatran (CHEBI:70752). CHEBI:70752 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6719,16 +7038,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Thromboembolic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001727" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001727">HP:0001727</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001727</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Thromboembolic stroke (HP:0001727). HP:0001727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6825,7 +7149,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6855,17 +7184,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         metoprolol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6904" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6904">CHEBI:6904</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6904" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:6904</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metoprolol (CHEBI:6904). CHEBI:6904 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         diltiazem
@@ -6873,11 +7209,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_101278" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:101278">CHEBI:101278</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_101278" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:101278</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses diltiazem (CHEBI:101278). CHEBI:101278 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         digoxin
@@ -6885,10 +7226,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4551" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4551">CHEBI:4551</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4551" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:4551</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses digoxin (CHEBI:4551). CHEBI:4551 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6945,7 +7289,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6975,17 +7324,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         amiodarone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2663" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2663">CHEBI:2663</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2663" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:2663</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amiodarone (CHEBI:2663). CHEBI:2663 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         flecainide
@@ -6993,11 +7349,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75984" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75984">CHEBI:75984</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75984" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:75984</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         sotalol
@@ -7005,10 +7366,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63622" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63622">CHEBI:63622</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63622" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:63622</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sotalol (CHEBI:63622). CHEBI:63622 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7065,7 +7429,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Ablation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Ablation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ablation Therapy (NCIT:C20985). NCIT:C20985 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7194,7 +7563,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Cardioversion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Cardioversion<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Cardioversion (NCIT:C70911). NCIT:C70911 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7433,7 +7807,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7571,6 +7950,10 @@
                 <div class="item-name">Hypertension</div>
 
 
+
+
+
+
                 <div class="item-desc">Major modifiable population risk factor.</div>
 
 
@@ -7632,10 +8015,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Atrial Fibrosis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Chronic pressure load stretches the atrium, and that stretch drives the fibrotic remodelling that creates the reentrant substrate. Hypertension is the commonest condition in patients presenting with new atrial fibrillation.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27057292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27057292" target="_blank">PMID:27057292</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of all the risk factors, HTN is the most commonly encountered condition in patients with incident AF."</div>
+
+
+                <div class="evidence-explanation">Identifies hypertension as the most commonly encountered condition in patients with incident atrial fibrillation, the leading contributor to the substrate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-obesity" data-dismech-node="Obesity" data-dismech-type="environmental">
                 <div class="item-name">Obesity</div>
+
+
+
+
 
 
                 <div class="item-desc">Associated with atrial remodeling</div>
@@ -7699,10 +8138,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">NOX2-Dependent Atrial Oxidative Stress</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Targets the oxidative stress node specifically rather than the generic substrate, because the cited work shows NOX2 inhibition normalising atrial action potential duration and abolishing obesity-driven ion channel remodelling, placing NOX2 on the causal path.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39146015" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39146015" target="_blank">PMID:39146015</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We showed that NOX2 inhibition normalized atrial action potential duration and abrogated obesity-mediated ion channel remodeling with reduced AF burden."</div>
+
+
+                <div class="evidence-explanation">NOX2 inhibition normalized atrial action potential duration and abrogated obesity-mediated ion channel remodeling. Support is PARTIAL because the demonstration is experimental animal work.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-obstructive-sleep-apnea" data-dismech-node="Obstructive Sleep Apnea" data-dismech-type="environmental">
                 <div class="item-name">Obstructive Sleep Apnea</div>
+
+
+
+
 
 
                 <div class="item-desc">Associated with increased AF risk; the direction and effect of treatment vary by context.</div>
@@ -7744,10 +8239,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cardiac Autonomic Dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Apnoeic episodes produce repeated intrathoracic pressure swings, hypoxaemia and surges of autonomic tone, which is why this targets the autonomic node rather than the fibrotic substrate.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29657903" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29657903" target="_blank">PMID:29657903</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OSA/SDB is strongly associated with AFib confirming the notion that OSA/SDB populations are high risk for development of AF."</div>
+
+
+                <div class="evidence-explanation">Reports a strong association between sleep-disordered breathing and atrial fibrillation, identifying these populations as high risk for its development.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoking" data-dismech-node="Tobacco Smoking" data-dismech-type="environmental">
                 <div class="item-name">Tobacco Smoking</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-36">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Modifiable AF susceptibility factor; not a universal or sufficient cause.</div>
@@ -7789,10 +8363,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atrial Fibrosis</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Smoking appears among the established risk factors in cohort modelling but without an identified atrial mechanism, so it is recorded as predisposing to the fibrotic substrate rather than driving it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39680399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39680399" target="_blank">PMID:39680399</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Older age, current smoking, taller height, greater weight, higher blood pressure (systolic, diastolic, and hypertension treatment), presence of diabetes, and presence of heart disease (HF or myocardial infarction) are associated with higher rates of AF."</div>
+
+
+                <div class="evidence-explanation">Lists current smoking among the factors associated with atrial fibrillation risk in a cohort risk model, an association without a specified mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-alcohol-exposure" data-dismech-node="Alcohol Exposure" data-dismech-type="environmental">
                 <div class="item-name">Alcohol Exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to alcohol consumption
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001082" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-37">ECTO:0001082</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to alcohol consumption (ECTO:0001082). ECTO:0001082 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Risk is associated particularly with more-than-moderate or binge exposure.</div>
@@ -7834,10 +8487,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Atrial Electrical Remodeling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Alcohol shortens atrial refractoriness and slows conduction, and the association is dose-defined above roughly one standard drink per day, which is why this targets electrical rather than structural remodelling.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39680399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39680399" target="_blank">PMID:39680399</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional factors associated with increased AF risk include more than moderate alcohol use (defined as &gt;1 standard alcoholic drink per day or binge drinking), sleep apnea, and hyperthyroidism."</div>
+
+
+                <div class="evidence-explanation">Identifies more than moderate alcohol use, above one standard drink per day, as associated with increased atrial fibrillation risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-hyperthyroidism" data-dismech-node="Hyperthyroidism" data-dismech-type="environmental">
                 <div class="item-name">Hyperthyroidism</div>
+
+
+
+
 
 
                 <div class="item-desc">Clinically important secondary and potentially reversible AF-associated condition.</div>
@@ -7878,6 +8587,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Atrial Electrical Remodeling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Excess thyroid hormone shortens the atrial action potential and raises automaticity, a reversible electrical effect: restoring euthyroidism often restores sinus rhythm, which distinguishes it from the structural risk factors here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39680399" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39680399" target="_blank">PMID:39680399</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional factors associated with increased AF risk include more than moderate alcohol use (defined as &gt;1 standard alcoholic drink per day or binge drinking), sleep apnea, and hyperthyroidism."</div>
+
+
+                <div class="evidence-explanation">Lists hyperthyroidism among the factors associated with increased atrial fibrillation risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8153,6 +8914,340 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    H3K27ac and H3K4me3 ChIP-Seq profiling of a human paired left and right atrial cohort of atrial fibrillation and healthy sinus rhythm individuals
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227793" target="_blank">geo:GSE227793</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">H3K27ac and H3K4me3 ChIP-Seq profiling was performed on atrial appendages samples from 12 individuals aged over 60 years, either classified as persistent atrial fibrillation (AF) or normal sinus rhythm (SR). For all individuals, careful examination of medical history displayed no indications of hypertension, hypothyroidism or diabetes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">CHIP SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=52</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41906156" target="_blank" style="color: var(--secondary);">PMID:41906156</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Atrial Fibrillation (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Humanin and MOTS-c Attenuate Atrial Fibrillation by Suppressing Fibrosis and Mitochondrial Dysfunction in murine models
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE322635" target="_blank">geo:GSE322635</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">BACKGROUND: Atrial fibrillation (AF) is the most common clinical arrhythmia associated with mitochondrial dysfunction, oxidative stress, and atrial fibrosis. Mitochondrial-derived peptides (MDPs) including humanin (HN) and MOTS-c, demonstrated potent cytoprotective effects, but their role in AF remains elusive. METHODS: Public GEO database, immunohistochemistry and immunofluorescence were applied to determine their expressions in atrial tissues. Plasma peptide levels were measured in a clinical cohort.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">rat</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42193373" target="_blank" style="color: var(--secondary);">PMID:42193373</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Atrial Fibrillation (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Gene-Gene Interactions Between A LMNA Variant and Common Polymorphisms Drive Early-Onset Atrial Fibrillation [ATAC-seq]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE295056" target="_blank">geo:GSE295056</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Atrial fibrillation (AF) is a common arrhythmia with a complex genetic basis, yet the molecular mechanisms linking rare and common variants remain unclear. Using induced pluripotent stem cell-derived atrial cardiomyocytes, we uncover a novel mechanism by which a rare pathogenic LMNA variant encoding Lamin A/C disrupts chromatin accessibility and gene regulation at AF-associated loci. Specifically, reduced accessibility at an SCN5A enhancer harboring an AF-associated variant leads to reduced sodium current, conduction abnormalities, and re-entrant AF.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">ATAC SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=9</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42156780" target="_blank" style="color: var(--secondary);">PMID:42156780</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Atrial Fibrillation (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Lone atrial fibrillation case-control study
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003045" target="_blank">ega:EGAS00001003045</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Atrial Fibrillation&#34;); description-level mentions were not accepted. EGA study_type: Population Genomics. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole exome sequencing of 76 individuals with familial atrial fibrillation
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003207" target="_blank">ega:EGAS00001003207</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We investigated genetic background of familial and early onset atrial fibrillation (AF) with the aim of identify genes involved in atrial fibrillation pathology and are highly predisposing risk factors. We performed whole exome sequencing on 24 families where three or more family members suffered from AF.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Atrial Fibrillation&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    early onset lone atrial fibrillation case-control study
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003208" target="_blank">ega:EGAS00001003208</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Target sequencing W/ TruSight Cardio Sequencing Kit. 395 early onset lone AF cases and 375 controls. Sequencing was performed on Illumina NextSeq and HiSeq 2500 systems.395 early.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Atrial Fibrillation&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Characterization of feces in Atrial Fibrillation (AF) patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001208" target="_blank">metabolomics_workbench:ST001208</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atrial Fibrillation&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Alterations in fecal metabolic patterns are associated with atrial fibrillation
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001168" target="_blank">metabolomics_workbench:ST001168</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atrial Fibrillation&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Alterations in serum metabolic patterns are associated with atrial fibrillation
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001169" target="_blank">metabolomics_workbench:ST001169</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atrial Fibrillation&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -8180,16 +9275,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Atrial fibrillation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8270,16 +9370,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Atrial fibrillation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0005110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8377,15 +9482,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Atrial cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002129">CL:0002129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0002129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Atrial cardiomyocyte, annotated with regular atrial cardiac myocyte (CL:0002129). CL:0002129 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8395,15 +9505,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8419,22 +9534,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-atrial-electrical-remodeling">Atrial Electrical Remodeling</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Assays obesity-associated NOX2-dependent atrial ion-channel remodeling.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-atrial-electrical-remodeling">Atrial Electrical Remodeling</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Assays obesity-associated NOX2-dependent atrial ion-channel remodeling.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8465,6 +9586,301 @@
 
 
                 <div class="evidence-explanation">Directly identifies the palmitate-treated hiPSC atrial-cardiomyocyte model and cross-system comparison.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-goat-capra-hircus" data-dismech-node="Goat (Capra hircus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Goat (Capra hircus)
+
+                    <span class="tag tag-exp-model-type">Chronic rapid-atrial-pacing model</span>
+
+                </div>
+
+                <div class="item-desc">Awake chronically instrumented goats were maintained in AF to measure time-dependent shortening of fibrillation interval and increased AF inducibility, establishing tachycardia-induced electrical remodeling.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Atrial Fibrillation</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Goat (Capra hircus)</div>
+                    </div>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7671380" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7671380" target="_blank">PMID:7671380</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During the first 24 hours of AF the median fibrillation interval shortened from 145 +/- 18 to 108 +/- 8 ms and the inducibility of AF by a single premature stimulus increased from 24% to 76%."</div>
+
+
+                <div class="evidence-explanation">Defines the model and its core electrophysiologic outputs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-fibroblast-specific-nlrp3-activation-with-knockdown-rescue-mouse-mus-musculus" data-dismech-node="Fibroblast-specific NLRP3 activation with knockdown rescue Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Fibroblast-specific NLRP3 activation with knockdown rescue Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Conditional inflammatory atrial-cardiomyopathy model</span>
+
+                </div>
+
+                <div class="item-desc">Fibroblast-restricted NLRP3 activation models inflammatory atrial fibrosis, conduction slowing, and AF susceptibility; NLRP3 knockdown provides a causal rescue arm.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Atrial Fibrillation</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Fibroblast-specific NLRP3 activation with knockdown rescue</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NLRP3
+
+
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:16400</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40243956" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40243956" target="_blank">PMID:40243956</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fibroblast-specific activation of NLRP3 in mice induced AF-promoting atrial myopathy and heart failure with diastolic dysfunction, accompanied by increased fibrosis, and reduced conduction velocity."</div>
+
+
+                <div class="evidence-explanation">Directly reports the modeled AF substrate and phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-human-crem-ib-c-x-transgenic-mouse-mus-musculus" data-dismech-node="Human CREM-IbΔC-X transgenic Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Human CREM-IbΔC-X transgenic Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Spontaneous-AF dietary-metabolite model</span>
+
+                </div>
+
+                <div class="item-desc">A spontaneous-AF transgenic model used to test dietary TMAO acceleration and upstream microbial CutC/D inhibition. This is an emerging mechanism model, not evidence of human therapeutic efficacy.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Atrial Fibrillation</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Human CREM-IbΔC-X transgenic</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1172/JCI201684" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1172/JCI201684" target="_blank">DOI:10.1172/JCI201684</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Human cAMP response element modulator isoform IbΔC-X transgenic mice (CREM-IbΔC-X), a spontaneous mouse model of AF, supplemented with a TMAO diet developed AF sooner."</div>
+
+
+                <div class="evidence-explanation">Directly describes the model and TMAO-dependent acceleration of AF onset.</div>
 
 
 
@@ -8516,14 +9932,19 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-atrial-electrical-remodeling">Atrial Electrical Remodeling</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models rate-dependent atrial action-potential adaptation and its ionic-current determinants.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-atrial-electrical-remodeling">Atrial Electrical Remodeling</a>
+
+
+
+                <span class="crosslink-desc">Models rate-dependent atrial action-potential adaptation and its ionic-current determinants.</span>
+
+
 
 
 
@@ -8560,10 +9981,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8622,7 +10044,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Atrial Fibrillation
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-08-05T12:00:00Z&#39;
 description: &gt;-
   Atrial fibrillation (AF) is the most common sustained cardiac arrhythmia,
   characterized by rapid, disorganized atrial electrical activity that replaces
@@ -9401,6 +10822,25 @@ genetic:
     explanation: Cross-population meta-analysis directly supports ZFHX3 as a shared AF susceptibility locus.
 environmental:
 - name: Hypertension
+  influences_mechanisms:
+  - target: Atrial Fibrosis
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Chronic pressure load stretches the atrium, and that stretch drives the
+      fibrotic remodelling that creates the reentrant substrate. Hypertension
+      is the commonest condition in patients presenting with new atrial
+      fibrillation.
+    evidence:
+    - reference: PMID:27057292
+      reference_title: &#34;Atrial Fibrillation and Hypertension: Mechanistic, Epidemiologic, and Treatment Parallels.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Of all the risk factors, HTN is the most commonly encountered condition in patients with incident AF.&#34;
+      explanation: &gt;-
+        Identifies hypertension as the most commonly encountered condition in
+        patients with incident atrial fibrillation, the leading contributor to
+        the substrate.
   notes: Major modifiable population risk factor.
   evidence:
   - reference: PMID:27057292
@@ -9419,6 +10859,25 @@ environmental:
       globally among all potential risk factors, followed closely by high body mass index.
     explanation: GBD modeling supports blood pressure as the leading attributable AF/AFL risk factor.
 - name: Obesity
+  influences_mechanisms:
+  - target: NOX2-Dependent Atrial Oxidative Stress
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Targets the oxidative stress node specifically rather than the generic
+      substrate, because the cited work shows NOX2 inhibition normalising
+      atrial action potential duration and abolishing obesity-driven ion
+      channel remodelling, placing NOX2 on the causal path.
+    evidence:
+    - reference: PMID:39146015
+      reference_title: &#34;Modulation of NOX2 causes obesity-mediated atrial fibrillation.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;We showed that NOX2 inhibition normalized atrial action potential duration and abrogated obesity-mediated ion channel remodeling with reduced AF burden.&#34;
+      explanation: &gt;-
+        NOX2 inhibition normalized atrial action potential duration and
+        abrogated obesity-mediated ion channel remodeling. Support is PARTIAL
+        because the demonstration is experimental animal work.
   notes: Associated with atrial remodeling
   evidence:
   - reference: PMID:39146015
@@ -9434,6 +10893,24 @@ environmental:
     snippet: &#34;We showed that NOX2 inhibition normalized atrial action potential duration and abrogated obesity-mediated ion channel remodeling with reduced AF burden.&#34;
     explanation: Demonstrates that obesity causes atrial remodeling that can be reversed by targeting the underlying oxidative stress pathway.
 - name: Obstructive Sleep Apnea
+  influences_mechanisms:
+  - target: Cardiac Autonomic Dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Apnoeic episodes produce repeated intrathoracic pressure swings,
+      hypoxaemia and surges of autonomic tone, which is why this targets the
+      autonomic node rather than the fibrotic substrate.
+    evidence:
+    - reference: PMID:29657903
+      reference_title: &#34;Obstructive Sleep Apnea as a Risk Factor for Atrial Fibrillation: A Meta-Analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;OSA/SDB is strongly associated with AFib confirming the notion that OSA/SDB populations are high risk for development of AF.&#34;
+      explanation: &gt;-
+        Reports a strong association between sleep-disordered breathing and
+        atrial fibrillation, identifying these populations as high risk for
+        its development.
   notes: Associated with increased AF risk; the direction and effect of treatment vary by context.
   evidence:
   - reference: PMID:29657903
@@ -9443,6 +10920,29 @@ environmental:
     snippet: &#34;OSA/SDB is strongly associated with AFib confirming the notion that OSA/SDB populations are high risk for development of AF.&#34;
     explanation: Meta-analysis of 9 studies with 19,837 participants confirms OSA as a significant risk factor for AF development.
 - name: Tobacco Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: Atrial Fibrosis
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Smoking appears among the established risk factors in cohort modelling
+      but without an identified atrial mechanism, so it is recorded as
+      predisposing to the fibrotic substrate rather than driving it.
+    evidence:
+    - reference: PMID:39680399
+      reference_title: &#34;Atrial Fibrillation: A Review.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Older age, current smoking, taller height, greater weight, higher blood pressure (systolic, diastolic, and hypertension treatment), presence of diabetes, and presence of heart disease (HF or myocardial infarction) are associated with higher rates of AF.&#34;
+      explanation: &gt;-
+        Lists current smoking among the factors associated with atrial
+        fibrillation risk in a cohort risk model, an association without a
+        specified mechanism.
   notes: Modifiable AF susceptibility factor; not a universal or sufficient cause.
   evidence:
   - reference: PMID:39680399
@@ -9456,6 +10956,28 @@ environmental:
       associated with higher rates of AF.
     explanation: Directly supports an association of current smoking with higher AF rates.
 - name: Alcohol Exposure
+  exposure_term:
+    preferred_term: exposure to alcohol consumption
+    term:
+      id: ECTO:0001082
+      label: exposure to alcohol consumption
+  influences_mechanisms:
+  - target: Atrial Electrical Remodeling
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Alcohol shortens atrial refractoriness and slows conduction, and the
+      association is dose-defined above roughly one standard drink per day,
+      which is why this targets electrical rather than structural remodelling.
+    evidence:
+    - reference: PMID:39680399
+      reference_title: &#34;Atrial Fibrillation: A Review.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Additional factors associated with increased AF risk include more than moderate alcohol use (defined as &gt;1 standard alcoholic drink per day or binge drinking), sleep apnea, and hyperthyroidism.&#34;
+      explanation: &gt;-
+        Identifies more than moderate alcohol use, above one standard drink
+        per day, as associated with increased atrial fibrillation risk.
   notes: Risk is associated particularly with more-than-moderate or binge exposure.
   evidence:
   - reference: PMID:39680399
@@ -9468,6 +10990,24 @@ environmental:
       binge drinking), sleep apnea, and hyperthyroidism.
     explanation: Directly supports dose-contextualized alcohol exposure as an AF risk factor.
 - name: Hyperthyroidism
+  influences_mechanisms:
+  - target: Atrial Electrical Remodeling
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Excess thyroid hormone shortens the atrial action potential and raises
+      automaticity, a reversible electrical effect: restoring euthyroidism
+      often restores sinus rhythm, which distinguishes it from the structural
+      risk factors here.
+    evidence:
+    - reference: PMID:39680399
+      reference_title: &#34;Atrial Fibrillation: A Review.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Additional factors associated with increased AF risk include more than moderate alcohol use (defined as &gt;1 standard alcoholic drink per day or binge drinking), sleep apnea, and hyperthyroidism.&#34;
+      explanation: &gt;-
+        Lists hyperthyroidism among the factors associated with increased
+        atrial fibrillation risk.
   notes: Clinically important secondary and potentially reversible AF-associated condition.
   evidence:
   - reference: PMID:39680399
@@ -10208,7 +11748,78 @@ review_notes: &gt;-
   classification; the mechanical-valve and mitral-stenosis distinction is
   captured explicitly under anticoagulation. The full 31-item D2P disposition
   is recorded in the associated REVIEW history event and PR.
-datasets: []
+datasets:
+- accession: geo:GSE227793
+  title: H3K27ac and H3K4me3 ChIP-Seq profiling of a human paired left and right atrial cohort of atrial fibrillation and healthy sinus rhythm individuals
+  description: H3K27ac and H3K4me3 ChIP-Seq profiling was performed on atrial appendages samples from 12 individuals aged over 60 years, either classified as persistent atrial fibrillation (AF) or normal sinus rhythm (SR). For all individuals, careful examination of medical history displayed no indications of hypertension, hypothyroidism or diabetes.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: CHIP_SEQ
+  sample_count: 52
+  publication: PMID:41906156
+  notes: Identified by GEO DataSets index search for Atrial Fibrillation (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE322635
+  title: Humanin and MOTS-c Attenuate Atrial Fibrillation by Suppressing Fibrosis and Mitochondrial Dysfunction in murine models
+  description: &#39;BACKGROUND: Atrial fibrillation (AF) is the most common clinical arrhythmia associated with mitochondrial dysfunction, oxidative stress, and atrial fibrosis. Mitochondrial-derived peptides (MDPs) including humanin (HN) and MOTS-c, demonstrated potent cytoprotective effects, but their role in AF remains elusive. METHODS: Public GEO database, immunohistochemistry and immunofluorescence were applied to determine their expressions in atrial tissues. Plasma peptide levels were measured in a clinical cohort.&#39;
+  organism:
+    preferred_term: rat
+    term:
+      id: NCBITaxon:10116
+      label: Rattus norvegicus
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:42193373
+  notes: Identified by GEO DataSets index search for Atrial Fibrillation (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE295056
+  title: Gene-Gene Interactions Between A LMNA Variant and Common Polymorphisms Drive Early-Onset Atrial Fibrillation [ATAC-seq]
+  description: Atrial fibrillation (AF) is a common arrhythmia with a complex genetic basis, yet the molecular mechanisms linking rare and common variants remain unclear. Using induced pluripotent stem cell-derived atrial cardiomyocytes, we uncover a novel mechanism by which a rare pathogenic LMNA variant encoding Lamin A/C disrupts chromatin accessibility and gene regulation at AF-associated loci. Specifically, reduced accessibility at an SCN5A enhancer harboring an AF-associated variant leads to reduced sodium current, conduction abnormalities, and re-entrant AF.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: ATAC_SEQ
+  sample_count: 9
+  publication: PMID:42156780
+  notes: Identified by GEO DataSets index search for Atrial Fibrillation (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001003045
+  title: Lone atrial fibrillation case-control study
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Atrial Fibrillation&#34;); description-level mentions were not accepted. EGA study_type: Population Genomics. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001003207
+  title: Whole exome sequencing of 76 individuals with familial atrial fibrillation
+  description: We investigated genetic background of familial and early onset atrial fibrillation (AF) with the aim of identify genes involved in atrial fibrillation pathology and are highly predisposing risk factors. We performed whole exome sequencing on 24 families where three or more family members suffered from AF.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Atrial Fibrillation&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001003208
+  title: early onset lone atrial fibrillation case-control study
+  description: Target sequencing W/ TruSight Cardio Sequencing Kit. 395 early onset lone AF cases and 375 controls. Sequencing was performed on Illumina NextSeq and HiSeq 2500 systems.395 early.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Atrial Fibrillation&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST001208
+  title: Characterization of feces in Atrial Fibrillation (AF) patients
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atrial Fibrillation&#34;). Retrieved 2026-08-02.
+- accession: metabolomics_workbench:ST001168
+  title: Alterations in fecal metabolic patterns are associated with atrial fibrillation
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atrial Fibrillation&#34;). Retrieved 2026-08-02.
+- accession: metabolomics_workbench:ST001169
+  title: Alterations in serum metabolic patterns are associated with atrial fibrillation
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atrial Fibrillation&#34;). Retrieved 2026-08-02.
 references:
 - reference: DOI:10.1038/s41467-024-54296-w
   title: Large-scale single-nuclei profiling identifies role for ATRNL1 in atrial fibrillation
@@ -10776,7 +12387,7 @@ AF pathogenesis is a systems-level disease of the atrium—an immune–electrica
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Atrial Fibrillation", "mondoId": "MONDO:0004981", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atrial_Fibrillation", "yamlRevision": "b2a5d04d09a5"};
+        const OS_CONFIG = {"diseaseName": "Atrial Fibrillation", "mondoId": "MONDO:0004981", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atrial_Fibrillation", "yamlRevision": "fe255b9cdd50"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11195,5 +12806,73 @@ AF pathogenesis is a systems-level disease of the atrium—an immune–electrica
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

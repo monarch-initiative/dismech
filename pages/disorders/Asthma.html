@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Asthma"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3742,7 +3910,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">24</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4768,10 +4936,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         primary human epithelial perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type primary human epithelial perturbation experiment.</span>
     </span>
 
 
@@ -4821,15 +4995,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4854,15 +5035,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-location">
 
         bronchus
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002185</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -4890,15 +5078,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         bronchial epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002328</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4922,10 +5117,16 @@
 
 
 
-    <span class="tag tag-cell">
+
+
+
+
+    <span class="tag tag-cell" tabindex="0" aria-describedby="pill-tip-5">
 
         goblet cell
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experimental model uses this cell type
+This experimental model uses goblet cell.</span>
     </span>
 
 
@@ -4949,10 +5150,16 @@
 
 
 
-    <span class="tag tag-cell">
+
+
+
+
+    <span class="tag tag-cell" tabindex="0" aria-describedby="pill-tip-6">
 
         ciliated epithelial cell
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experimental model uses this cell type
+This experimental model uses ciliated epithelial cell.</span>
     </span>
 
 
@@ -5004,15 +5211,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL13
 
 
-    <a href="https://bioregistry.io/hgnc:5973" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5973">hgnc:5973</a>
+    <a href="https://bioregistry.io/hgnc:5973" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:5973</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets IL13 (hgnc:5973). hgnc:5973 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5051,15 +5265,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         type 2 immune response
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042092">GO:0042092</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042092</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this perturbation acts on this biological process
+This perturbation acts on type 2 immune response (GO:0042092). GO:0042092 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5108,10 +5329,16 @@
 
 
 
-    <span class="tag tag-gene">
+
+
+
+
+    <span class="tag tag-gene" tabindex="0" aria-describedby="pill-tip-9">
 
         MTOR
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this perturbation targets this gene
+This perturbation targets MTOR.</span>
     </span>
 
 
@@ -5150,15 +5377,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         regulation of cell population proliferation
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042127">GO:0042127</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042127" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0042127</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this perturbation acts on this biological process
+This perturbation acts on regulation of cell population proliferation (GO:0042127). GO:0042127 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5222,10 +5456,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-11">
 
         immunofluorescence assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this readout is measured by this assay
+This readout is measured by immunofluorescence assay.</span>
     </span>
 
 
@@ -5249,10 +5489,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-12">
 
         mucin secretion assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Relation: this readout is measured by this assay
+This readout is measured by mucin secretion assay.</span>
     </span>
 
 
@@ -5309,16 +5555,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         cell migration
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0016477</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -5346,10 +5603,13 @@
         cell population proliferation
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008283</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5380,10 +5640,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-15">
 
         proliferation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this readout is measured by this assay
+This readout is measured by proliferation assay.</span>
     </span>
 
 
@@ -5443,10 +5709,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-16">
 
         single-cell transcriptomic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.</span>
     </span>
 
 
@@ -5695,10 +5967,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-17">
 
         conditional cell-type-specific genetic perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Relation: this experiment is of type this experiment type
+This experiment is of type conditional cell-type-specific genetic perturbation experiment.</span>
     </span>
 
 
@@ -5760,10 +6038,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         cytokine immunoassay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by cytokine immunoassay.</span>
     </span>
 
 
@@ -5787,10 +6071,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-19">
 
         bronchoalveolar lavage differential cell count
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Relation: this readout is measured by this assay
+This readout is measured by bronchoalveolar lavage differential cell count.</span>
     </span>
 
 
@@ -5850,10 +6140,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-20">
 
         immunohistochemistry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Relation: this readout is measured by this assay
+This readout is measured by immunohistochemistry.</span>
     </span>
 
 
@@ -5877,10 +6173,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-21">
 
         mucin quantification assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">Relation: this readout is measured by this assay
+This readout is measured by mucin quantification assay.</span>
     </span>
 
 
@@ -5940,10 +6242,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-22">
 
         proliferation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">Relation: this readout is measured by this assay
+This readout is measured by proliferation assay.</span>
     </span>
 
 
@@ -5967,10 +6275,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-23">
 
         morphometry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">Relation: this readout is measured by this assay
+This readout is measured by morphometry.</span>
     </span>
 
 
@@ -6030,10 +6344,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-24">
 
         liquid chromatography-mass spectrometry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">Relation: this readout is measured by this assay
+This readout is measured by liquid chromatography-mass spectrometry.</span>
     </span>
 
 
@@ -6242,10 +6562,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-25">
 
         prospective birth cohort with G×E stratification
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">Relation: this experiment is of type this experiment type
+This experiment is of type prospective birth cohort with G×E stratification.</span>
     </span>
 
 
@@ -6295,15 +6621,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-26">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -6407,10 +6740,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-27">
 
         flow cytometry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">Relation: this readout is measured by this assay
+This readout is measured by flow cytometry.</span>
     </span>
 
 
@@ -6434,10 +6773,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-28">
 
         sputum/bronchoalveolar lavage differential count
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Relation: this readout is measured by this assay
+This readout is measured by sputum/bronchoalveolar lavage differential count.</span>
     </span>
 
 
@@ -6497,10 +6842,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-29">
 
         spirometry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Relation: this readout is measured by this assay
+This readout is measured by spirometry.</span>
     </span>
 
 
@@ -6662,17 +7013,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Mast Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mast Cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6693,11 +7051,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6718,11 +7081,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-Lymphocyte, annotated with T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6743,11 +7111,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Bronchial Epithelial Cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6768,11 +7141,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000767" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000767">CL:0000767</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000767" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000767</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Basophil (CL:0000767). CL:0000767 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6793,10 +7171,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6823,17 +7204,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6854,10 +7242,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002437" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002437">GO:0002437</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002437" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0002437</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response to antigenic stimulus (GO:0002437). GO:0002437 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6874,6 +7265,7 @@
 
 
                 </div>
+
 
 
 
@@ -6984,17 +7376,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T-helper 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000546">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7015,11 +7414,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0001069" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0001069">CL:0001069</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0001069" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0001069</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Group 2 innate lymphoid cell (CL:0001069). CL:0001069 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7040,11 +7444,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mast Cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7065,10 +7474,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7095,16 +7507,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL4
 
 
-    <a href="https://bioregistry.io/hgnc:6014" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6014">hgnc:6014</a>
+    <a href="https://bioregistry.io/hgnc:6014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:6014</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL4 (hgnc:6014). hgnc:6014 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7132,11 +7555,18 @@
         IL13
 
 
-    <a href="https://bioregistry.io/hgnc:5973" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5973">hgnc:5973</a>
+    <a href="https://bioregistry.io/hgnc:5973" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:5973</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL13 (hgnc:5973). hgnc:5973 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7164,11 +7594,18 @@
         IL4R
 
 
-    <a href="https://bioregistry.io/hgnc:6015" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6015">hgnc:6015</a>
+    <a href="https://bioregistry.io/hgnc:6015" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:6015</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL4R (hgnc:6015). hgnc:6015 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7196,11 +7633,18 @@
         STAT6
 
 
-    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11368">hgnc:11368</a>
+    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:11368</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7228,11 +7672,18 @@
         IL5
 
 
-    <a href="https://bioregistry.io/hgnc:6016" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6016">hgnc:6016</a>
+    <a href="https://bioregistry.io/hgnc:6016" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:6016</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL5 (hgnc:6016). hgnc:6016 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7260,10 +7711,13 @@
         GATA3
 
 
-    <a href="https://bioregistry.io/hgnc:4172" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4172">hgnc:4172</a>
+    <a href="https://bioregistry.io/hgnc:4172" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:4172</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GATA3 (hgnc:4172). hgnc:4172 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7291,17 +7745,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Type 2 immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042092">GO:0042092</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0042092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Type 2 immune response (GO:0042092). GO:0042092 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7322,11 +7783,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045064">GO:0045064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0045064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T-helper 2 cell differentiation (GO:0045064). GO:0045064 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7347,11 +7813,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035771">GO:0035771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0035771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Interleukin-4-mediated signaling pathway (GO:0035771). GO:0035771 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7372,11 +7843,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035708">GO:0035708</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-51">GO:0035708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves IgE isotype switching, annotated with interleukin-4-dependent isotype switching to IgE isotypes (GO:0035708). GO:0035708 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7397,10 +7873,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032633" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032633">GO:0032633</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032633" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-52">GO:0032633</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Interleukin-4 production (GO:0032633). GO:0032633 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7417,6 +7896,7 @@
 
 
                 </div>
+
 
 
 
@@ -7535,16 +8015,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Smooth Muscle Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-53">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Smooth Muscle Cells, annotated with smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7571,16 +8056,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Smooth muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006939">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-54">GO:0006939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Smooth muscle contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7597,6 +8087,7 @@
 
 
                 </div>
+
 
 
 
@@ -7771,17 +8262,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Goblet Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000160">CL:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-55">CL:0000160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Goblet Cell (CL:0000160). CL:0000160 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7802,11 +8300,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-56">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Bronchial Epithelial Cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7827,10 +8330,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002202" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002202">CL:0002202</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-57">CL:0002202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mucosal Epithelial Cell, annotated with epithelial cell of tracheobronchial tree (CL:0002202). CL:0002202 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7857,16 +8363,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Mucus secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070254" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070254">GO:0070254</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070254" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-58">GO:0070254</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Mucus secretion (GO:0070254). GO:0070254 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7883,6 +8394,7 @@
 
 
                 </div>
+
 
 
 
@@ -7999,17 +8511,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-59">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8030,11 +8549,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-60">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Smooth Muscle Cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8055,10 +8579,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-61">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Bronchial Epithelial Cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8085,15 +8612,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ADAM33
 
 
-    <a href="https://bioregistry.io/hgnc:15478" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15478">hgnc:15478</a>
+    <a href="https://bioregistry.io/hgnc:15478" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:15478</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADAM33 (hgnc:15478). hgnc:15478 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8121,16 +8655,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Tissue remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048771">GO:0048771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-63">GO:0048771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Tissue remodeling (GO:0048771). GO:0048771 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8147,6 +8686,7 @@
 
 
                 </div>
+
 
 
 
@@ -8240,17 +8780,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Airway Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002598">CL:0002598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-64">CL:0002598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Airway Smooth Muscle Cell, annotated with bronchial smooth muscle cell (CL:0002598). CL:0002598 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8271,11 +8818,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000160">CL:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-65">CL:0000160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Goblet Cell (CL:0000160). CL:0000160 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8296,10 +8848,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000546">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-66">CL:0000546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 2 Cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8326,16 +8881,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SIRT1
 
 
-    <a href="https://bioregistry.io/hgnc:14929" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14929">hgnc:14929</a>
+    <a href="https://bioregistry.io/hgnc:14929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-67">hgnc:14929</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-67">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SIRT1 (hgnc:14929). hgnc:14929 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8363,11 +8929,18 @@
         NFKB1
 
 
-    <a href="https://bioregistry.io/hgnc:7794" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7794">hgnc:7794</a>
+    <a href="https://bioregistry.io/hgnc:7794" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-68">hgnc:7794</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-68">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NFKB1 (hgnc:7794). hgnc:7794 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8395,11 +8968,18 @@
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8427,11 +9007,18 @@
         NFE2L2
 
 
-    <a href="https://bioregistry.io/hgnc:7782" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7782">hgnc:7782</a>
+    <a href="https://bioregistry.io/hgnc:7782" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:7782</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NFE2L2 (hgnc:7782). hgnc:7782 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8459,11 +9046,18 @@
         FOXO3
 
 
-    <a href="https://bioregistry.io/hgnc:3821" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3821">hgnc:3821</a>
+    <a href="https://bioregistry.io/hgnc:3821" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:3821</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXO3 (hgnc:3821). hgnc:3821 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8491,10 +9085,13 @@
         TGFB1
 
 
-    <a href="https://bioregistry.io/hgnc:11766" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11766">hgnc:11766</a>
+    <a href="https://bioregistry.io/hgnc:11766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:11766</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGFB1 (hgnc:11766). hgnc:11766 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8522,17 +9119,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein deacetylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006476">GO:0006476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-73">GO:0006476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein deacetylation (GO:0006476). GO:0006476 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8553,11 +9157,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-74">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8578,10 +9187,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006355">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-75">GO:0006355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves transcriptional regulation, annotated with regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8598,6 +9210,7 @@
 
 
                 </div>
+
 
 
 
@@ -8735,16 +9348,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Bronchial Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-76">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Bronchial Epithelial Cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8771,15 +9389,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CDHR3
 
 
-    <a href="https://bioregistry.io/hgnc:26308" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26308">hgnc:26308</a>
+    <a href="https://bioregistry.io/hgnc:26308" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:26308</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDHR3 (hgnc:26308). hgnc:26308 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8807,17 +9432,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         defense response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051607">GO:0051607</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-78">GO:0051607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8838,10 +9470,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042092">GO:0042092</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-79">GO:0042092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type 2 immune response (GO:0042092). GO:0042092 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8868,19 +9503,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-80">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -8994,16 +9635,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Airway Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-81">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Airway Epithelial Cell, annotated with bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -9030,16 +9676,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Reactive oxygen species production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903409" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1903409">GO:1903409</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-82">GO:1903409</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Reactive oxygen species production, annotated with reactive oxygen species biosynthetic process (GO:1903409). GO:1903409 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9048,6 +9699,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -9065,10 +9718,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006509">GO:0006509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-83">GO:0006509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ADAM10 ectodomain shedding, annotated with membrane protein ectodomain proteolysis (GO:0006509). GO:0006509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9088,16 +9744,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Purinoceptor (P2X7/P2Y) signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035589" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035589">GO:0035589</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-84">GO:0035589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Purinoceptor (P2X7/P2Y) signaling, annotated with G protein-coupled purinergic nucleotide receptor signaling pathway (GO:0035589). GO:0035589 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9124,19 +9785,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-85">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -9265,7 +9932,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAM33\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Associated\"}}, {\"id\": \"Airway Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation leads to airway hyperresponsiveness and recurrent episodes of wheezing, breathlessness, chest tightness, and coughing.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"Mast Cell\", \"Eosinophil\", \"T-Lymphocyte\", \"Bronchial Epithelial Cell\", \"Basophil\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory response\", \"Inflammatory response to antigenic stimulus\"]}}, {\"id\": \"Airway Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-standing inflammation can lead to structural changes in the airway, permanently affecting lung function.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Fibroblast\", \"Smooth Muscle Cell\", \"Bronchial Epithelial Cell\"], \"biological_processes\": [\"Tissue remodeling\"], \"genes\": [\"ADAM33\"], \"gene_terms\": [{\"label\": \"ADAM33\", \"id\": \"hgnc:15478\"}]}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Bronchoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During an asthma attack, smooth muscles around the airways tighten and narrow the airway.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Smooth Muscle Cells\"], \"biological_processes\": [\"Smooth muscle contraction\"]}}, {\"id\": \"CDHR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CDHR3\"], \"gene_terms\": [{\"label\": \"CDHR3\", \"id\": \"hgnc:26308\"}], \"association\": \"GWAS\"}}, {\"id\": \"Chest Tightness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031352\"}}, {\"id\": \"Coughing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000961\"}}, {\"id\": \"Early-Life Rhinovirus Wheezing Illness and Asthma Inception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral lower respiratory wheezing illnesses in infancy and early childhood, particularly those caused by human rhinovirus (and to a lesser extent respiratory syncytial virus), are among the strongest early-life predictors of subsequent childhood asthma. In a high-risk prospective birth cohort, wheezing with rhinovirus in the first three years of life conferred an almost ten-fold increase in the odds of asthma at age 6, an effect that grew stronger when wheezing occurred later in early childhood. Rhinovirus infection of the developing airway epithelium interacts with allergic (type 2) sensitization to injure and remodel the epithelium and bias the immune response toward the Th2 program, contributing to asthma inception rather than acting purely as a marker of pre-existing susceptibility. This positions early respiratory infection as an upstream, potentially modifiable contributor to the chronic airway inflammation that defines established asthma.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Bronchial Epithelial Cell\"], \"biological_processes\": [\"defense response to virus\", \"type 2 immune response\"], \"genes\": [\"CDHR3\"], \"gene_terms\": [{\"label\": \"CDHR3\", \"id\": \"hgnc:26308\"}], \"locations\": [\"lung\"]}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Group 1 house dust mite (HDM) allergens, exemplified by the cysteine peptidase Der p 1, are potent triggers of intracellular reactive oxygen species (ROS) generation in airway epithelial cells, an event relevant to asthma because the disease is associated with deficits in antioxidant defences and because ROS amplify inflammation through transcription-factor and chromatin regulation. Der p 1 behaves as a prothrombinase, generating thrombin that activates protease-activated receptors (PAR1/PAR4); the resulting signaling, converging with purinoceptor (P2X7/P2Y) activation by ATP released through pannexons, drives sheddase activity of the metalloprotease ADAM10. ADAM10 in turn sustains further prothrombin activation, establishing a self-amplifying thrombin-ROS signaling cycle. As the principal sheddase of the adherens-junction protein E-cadherin, ADAM10 activation also compounds the epithelial-barrier disruption caused by direct cleavage of tight junctions by group 1 HDM allergens, and ADAM10 liberates chemokines (CCL20, CCL2, CCL5, CXCL8) and promotes TH2 bias and IgE synthesis (via CD23 shedding) - tying allergen-protease sensing to the type 2 inflammatory program of allergic asthma.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Airway Epithelial Cell\"], \"biological_processes\": [\"Reactive oxygen species production\", \"ADAM10 ectodomain shedding\", \"Purinoceptor (P2X7/P2Y) signaling\"], \"locations\": [\"lung\"]}}, {\"id\": \"IL13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Associated\"}}, {\"id\": \"IL4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Associated\"}}, {\"id\": \"Mucus Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cells infiltrate the airways, increasing mucus production, which can block airways and further impair breathing.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Goblet Cell\", \"Bronchial Epithelial Cell\", \"Mucosal Epithelial Cell\"], \"biological_processes\": [\"Mucus secretion\"]}}, {\"id\": \"Rapid Breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002883\"}}, {\"id\": \"Reduced Exercise Tolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIRT1 (Sirtuin 1), an NAD+-dependent deacetylase, exerts protective effects in asthma by inhibiting pro-inflammatory signaling pathways (NF-\\u03baB, STAT3) while activating stress-response transcription factors (Nrf2, FOXO3) and suppressing pro-fibrotic TGF-\\u03b2/Smad signaling. SIRT1 activation attenuates Th2 inflammation, suppresses mucus hypersecretion and goblet cell metaplasia, and reduces airway smooth muscle proliferation. SIRT1 also mitigates oxidative stress and mitochondrial dysfunction.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Airway Smooth Muscle Cell\", \"Goblet Cell\", \"T-helper 2 Cell\"], \"biological_processes\": [\"protein deacetylation\", \"response to oxidative stress\", \"transcriptional regulation\"], \"genes\": [\"SIRT1\", \"NFKB1\", \"STAT3\", \"NFE2L2\", \"FOXO3\", \"TGFB1\"], \"gene_terms\": [{\"label\": \"SIRT1\", \"id\": \"hgnc:14929\"}, {\"label\": \"NFKB1\", \"id\": \"hgnc:7794\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"NFE2L2\", \"id\": \"hgnc:7782\"}, {\"label\": \"FOXO3\", \"id\": \"hgnc:3821\"}, {\"label\": \"TGFB1\", \"id\": \"hgnc:11766\"}]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Type 2 Immune Response / Th2 Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Allergic asthma is driven by a type 2 immune response in which allergen-activated dendritic cells promote Th2 cell differentiation. Th2 cells and ILC2s produce IL-4, IL-5, and IL-13, which drive IgE class switching, eosinophil recruitment, goblet cell metaplasia, and airway hyperresponsiveness. IL-4/IL-13 signal through STAT6 to amplify the type 2 program.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T-helper 2 cell\", \"Group 2 innate lymphoid cell\", \"Mast Cell\", \"Eosinophil\"], \"biological_processes\": [\"Type 2 immune response\", \"T-helper 2 cell differentiation\", \"Interleukin-4-mediated signaling pathway\", \"IgE isotype switching\", \"Interleukin-4 production\"], \"genes\": [\"IL4\", \"IL13\", \"IL4R\", \"STAT6\", \"IL5\", \"GATA3\"], \"gene_terms\": [{\"label\": \"IL4\", \"id\": \"hgnc:6014\"}, {\"label\": \"IL13\", \"id\": \"hgnc:5973\"}, {\"label\": \"IL4R\", \"id\": \"hgnc:6015\"}, {\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}, {\"label\": \"IL5\", \"id\": \"hgnc:6016\"}, {\"label\": \"GATA3\", \"id\": \"hgnc:4172\"}]}}, {\"id\": \"Wheezing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030828\"}}], \"edges\": [{\"source\": \"Airway Inflammation\", \"target\": \"Bronchoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway hyperresponsiveness provides the substrate for bronchoconstriction in response to numerous diverse stimuli.\"}, {\"source\": \"Type 2 Immune Response / Th2 Signaling\", \"target\": \"Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type 2 cytokines drive eosinophilic airway inflammation and mast cell activation.\"}, {\"source\": \"Type 2 Immune Response / Th2 Signaling\", \"target\": \"Mucus Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-13 directly induces goblet cell metaplasia and mucin gene expression.\"}, {\"source\": \"Bronchoconstriction\", \"target\": \"Wheezing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bronchoconstriction and airflow limitation produce wheeze as a frequent asthma symptom.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchoconstriction\", \"target\": \"Chest Tightness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airflow limitation from bronchoconstriction contributes to chest tightness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchoconstriction\", \"target\": \"Rapid Breathing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe acute asthma can produce hyperventilation with increased breathing rate and depth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe acute asthma exacerbation\", \"metabolic acidosis with hyperventilation\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe bronchoconstriction and acute asthma exacerbation can progress to respiratory distress and respiratory failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe acute asthma exacerbation\", \"progressive hypoxia\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe asthma with progressive hypoxia can produce cyanosis as a hypoxemia-related manifestation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe acute asthma exacerbation\", \"progressive hypoxia\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exertion can trigger or magnify asthma symptoms, limiting physical activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"exertional symptom triggering\", \"physical activity limitation\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Reduced Exercise Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exertion-triggered asthma symptoms reduce exercise tolerance and physical activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"exertional symptom triggering\", \"physical activity limitation\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asthma symptom burden and dyspnea correlate with fatigue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"asthma symptom burden\", \"dyspnea\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sudden asthma attacks and anticipation of future attacks generate anxiety.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired breathing attacks\", \"anticipation of future attacks\"]}, {\"source\": \"Mucus Overproduction\", \"target\": \"Coughing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess mucus production contributes to recurrent cough in asthma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucus Overproduction\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nocturnal airway narrowing and mucus-related cough can disrupt sleep.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"nocturnal airway narrowing\", \"nighttime cough\"]}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1-mediated deacetylation inhibits NF-\\u03baB and STAT3 signaling, reducing Th2 cell differentiation and type 2 cytokine production.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Mucus Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses IL-13-induced goblet cell metaplasia and mucin gene expression.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Airway Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses TGF-\\u03b2/Smad pro-fibrotic signaling and extracellular matrix remodeling.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Bronchoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 reduces airway smooth muscle proliferation and contractility.\"}, {\"source\": \"Early-Life Rhinovirus Wheezing Illness and Asthma Inception\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-life rhinovirus wheezing illness, in interaction with allergic sensitization, biases the developing airway toward the type 2 immune program that drives established allergic asthma.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling\", \"target\": \"Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Allergen-protease-driven epithelial ROS generation and ADAM10-dependent chemokine shedding amplify the airway inflammatory response that characterizes allergic asthma.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Wheezing\", \"target\": \"Respiratory Distress\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Wheezing\", \"target\": \"Reduced Exercise Tolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"IL4\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL13\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ADAM33\", \"target\": \"Airway Remodeling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDHR3\", \"target\": \"Early-Life Rhinovirus Wheezing Illness and Asthma Inception\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAM33\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Associated\"}}, {\"id\": \"Air Pollution\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Airway Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation leads to airway hyperresponsiveness and recurrent episodes of wheezing, breathlessness, chest tightness, and coughing.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"Mast Cell\", \"Eosinophil\", \"T-Lymphocyte\", \"Bronchial Epithelial Cell\", \"Basophil\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory response\", \"Inflammatory response to antigenic stimulus\"]}}, {\"id\": \"Airway Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-standing inflammation can lead to structural changes in the airway, permanently affecting lung function.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Fibroblast\", \"Smooth Muscle Cell\", \"Bronchial Epithelial Cell\"], \"biological_processes\": [\"Tissue remodeling\"], \"genes\": [\"ADAM33\"], \"gene_terms\": [{\"label\": \"ADAM33\", \"id\": \"hgnc:15478\"}]}}, {\"id\": \"Allergens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9}}, {\"id\": \"Anxiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000739\"}}, {\"id\": \"Bronchoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During an asthma attack, smooth muscles around the airways tighten and narrow the airway.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Smooth Muscle Cells\"], \"biological_processes\": [\"Smooth muscle contraction\"]}}, {\"id\": \"CDHR3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CDHR3\"], \"gene_terms\": [{\"label\": \"CDHR3\", \"id\": \"hgnc:26308\"}], \"association\": \"GWAS\"}}, {\"id\": \"Chest Tightness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031352\"}}, {\"id\": \"Coughing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000961\"}}, {\"id\": \"Early-Life Rhinovirus Wheezing Illness and Asthma Inception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral lower respiratory wheezing illnesses in infancy and early childhood, particularly those caused by human rhinovirus (and to a lesser extent respiratory syncytial virus), are among the strongest early-life predictors of subsequent childhood asthma. In a high-risk prospective birth cohort, wheezing with rhinovirus in the first three years of life conferred an almost ten-fold increase in the odds of asthma at age 6, an effect that grew stronger when wheezing occurred later in early childhood. Rhinovirus infection of the developing airway epithelium interacts with allergic (type 2) sensitization to injure and remodel the epithelium and bias the immune response toward the Th2 program, contributing to asthma inception rather than acting purely as a marker of pre-existing susceptibility. This positions early respiratory infection as an upstream, potentially modifiable contributor to the chronic airway inflammation that defines established asthma.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Bronchial Epithelial Cell\"], \"biological_processes\": [\"defense response to virus\", \"type 2 immune response\"], \"genes\": [\"CDHR3\"], \"gene_terms\": [{\"label\": \"CDHR3\", \"id\": \"hgnc:26308\"}], \"locations\": [\"lung\"]}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Group 1 house dust mite (HDM) allergens, exemplified by the cysteine peptidase Der p 1, are potent triggers of intracellular reactive oxygen species (ROS) generation in airway epithelial cells, an event relevant to asthma because the disease is associated with deficits in antioxidant defences and because ROS amplify inflammation through transcription-factor and chromatin regulation. Der p 1 behaves as a prothrombinase, generating thrombin that activates protease-activated receptors (PAR1/PAR4); the resulting signaling, converging with purinoceptor (P2X7/P2Y) activation by ATP released through pannexons, drives sheddase activity of the metalloprotease ADAM10. ADAM10 in turn sustains further prothrombin activation, establishing a self-amplifying thrombin-ROS signaling cycle. As the principal sheddase of the adherens-junction protein E-cadherin, ADAM10 activation also compounds the epithelial-barrier disruption caused by direct cleavage of tight junctions by group 1 HDM allergens, and ADAM10 liberates chemokines (CCL20, CCL2, CCL5, CXCL8) and promotes TH2 bias and IgE synthesis (via CD23 shedding) - tying allergen-protease sensing to the type 2 inflammatory program of allergic asthma.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Airway Epithelial Cell\"], \"biological_processes\": [\"Reactive oxygen species production\", \"ADAM10 ectodomain shedding\", \"Purinoceptor (P2X7/P2Y) signaling\"], \"locations\": [\"lung\"]}}, {\"id\": \"IL13\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Associated\"}}, {\"id\": \"IL4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Associated\"}}, {\"id\": \"Mucus Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cells infiltrate the airways, increasing mucus production, which can block airways and further impair breathing.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Goblet Cell\", \"Bronchial Epithelial Cell\", \"Mucosal Epithelial Cell\"], \"biological_processes\": [\"Mucus secretion\"]}}, {\"id\": \"Occupational Exposures\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Prenatal Acid-Suppressive Medication Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal use of acid-suppressive medications (proton pump inhibitors and histamine-2 receptor antagonists) during pregnancy is associated with an increased risk of asthma in the offspring. Proposed mechanisms include impaired maternal digestion of labile dietary antigens (increasing fetal allergen exposure and TH2-skewed sensitization) and acid-suppression-induced shifts in the maternal/infant intestinal microbiota that favor TH2-mediated allergic conditions. Pooled meta-analytic estimates show an ~1.3-1.5-fold increased relative risk of childhood asthma for any acid-suppressive drug, with both PPI and H2-receptor-antagonist subclasses implicated; the GRADE certainty of this prenatal asthma association has been rated moderate, and residual confounding by indication has not been fully excluded.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Rapid Breathing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002883\"}}, {\"id\": \"Reduced Exercise Tolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002098\"}}, {\"id\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIRT1 (Sirtuin 1), an NAD+-dependent deacetylase, exerts protective effects in asthma by inhibiting pro-inflammatory signaling pathways (NF-\\u03baB, STAT3) while activating stress-response transcription factors (Nrf2, FOXO3) and suppressing pro-fibrotic TGF-\\u03b2/Smad signaling. SIRT1 activation attenuates Th2 inflammation, suppresses mucus hypersecretion and goblet cell metaplasia, and reduces airway smooth muscle proliferation. SIRT1 also mitigates oxidative stress and mitochondrial dysfunction.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Airway Smooth Muscle Cell\", \"Goblet Cell\", \"T-helper 2 Cell\"], \"biological_processes\": [\"protein deacetylation\", \"response to oxidative stress\", \"transcriptional regulation\"], \"genes\": [\"SIRT1\", \"NFKB1\", \"STAT3\", \"NFE2L2\", \"FOXO3\", \"TGFB1\"], \"gene_terms\": [{\"label\": \"SIRT1\", \"id\": \"hgnc:14929\"}, {\"label\": \"NFKB1\", \"id\": \"hgnc:7794\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"NFE2L2\", \"id\": \"hgnc:7782\"}, {\"label\": \"FOXO3\", \"id\": \"hgnc:3821\"}, {\"label\": \"TGFB1\", \"id\": \"hgnc:11766\"}]}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002360\"}}, {\"id\": \"Tobacco Smoke\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Type 2 Immune Response / Th2 Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Allergic asthma is driven by a type 2 immune response in which allergen-activated dendritic cells promote Th2 cell differentiation. Th2 cells and ILC2s produce IL-4, IL-5, and IL-13, which drive IgE class switching, eosinophil recruitment, goblet cell metaplasia, and airway hyperresponsiveness. IL-4/IL-13 signal through STAT6 to amplify the type 2 program.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T-helper 2 cell\", \"Group 2 innate lymphoid cell\", \"Mast Cell\", \"Eosinophil\"], \"biological_processes\": [\"Type 2 immune response\", \"T-helper 2 cell differentiation\", \"Interleukin-4-mediated signaling pathway\", \"IgE isotype switching\", \"Interleukin-4 production\"], \"genes\": [\"IL4\", \"IL13\", \"IL4R\", \"STAT6\", \"IL5\", \"GATA3\"], \"gene_terms\": [{\"label\": \"IL4\", \"id\": \"hgnc:6014\"}, {\"label\": \"IL13\", \"id\": \"hgnc:5973\"}, {\"label\": \"IL4R\", \"id\": \"hgnc:6015\"}, {\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}, {\"label\": \"IL5\", \"id\": \"hgnc:6016\"}, {\"label\": \"GATA3\", \"id\": \"hgnc:4172\"}]}}, {\"id\": \"Wheezing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030828\"}}], \"edges\": [{\"source\": \"Airway Inflammation\", \"target\": \"Bronchoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airway hyperresponsiveness provides the substrate for bronchoconstriction in response to numerous diverse stimuli.\"}, {\"source\": \"Type 2 Immune Response / Th2 Signaling\", \"target\": \"Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type 2 cytokines drive eosinophilic airway inflammation and mast cell activation.\"}, {\"source\": \"Type 2 Immune Response / Th2 Signaling\", \"target\": \"Mucus Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-13 directly induces goblet cell metaplasia and mucin gene expression.\"}, {\"source\": \"Bronchoconstriction\", \"target\": \"Wheezing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bronchoconstriction and airflow limitation produce wheeze as a frequent asthma symptom.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchoconstriction\", \"target\": \"Chest Tightness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Airflow limitation from bronchoconstriction contributes to chest tightness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchoconstriction\", \"target\": \"Rapid Breathing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe acute asthma can produce hyperventilation with increased breathing rate and depth.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe acute asthma exacerbation\", \"metabolic acidosis with hyperventilation\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe bronchoconstriction and acute asthma exacerbation can progress to respiratory distress and respiratory failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe acute asthma exacerbation\", \"progressive hypoxia\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe asthma with progressive hypoxia can produce cyanosis as a hypoxemia-related manifestation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe acute asthma exacerbation\", \"progressive hypoxia\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exertion can trigger or magnify asthma symptoms, limiting physical activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"exertional symptom triggering\", \"physical activity limitation\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Reduced Exercise Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exertion-triggered asthma symptoms reduce exercise tolerance and physical activity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"exertional symptom triggering\", \"physical activity limitation\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Asthma symptom burden and dyspnea correlate with fatigue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"asthma symptom burden\", \"dyspnea\"]}, {\"source\": \"Bronchoconstriction\", \"target\": \"Anxiety\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sudden asthma attacks and anticipation of future attacks generate anxiety.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired breathing attacks\", \"anticipation of future attacks\"]}, {\"source\": \"Mucus Overproduction\", \"target\": \"Coughing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess mucus production contributes to recurrent cough in asthma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucus Overproduction\", \"target\": \"Sleep Disturbance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nocturnal airway narrowing and mucus-related cough can disrupt sleep.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"nocturnal airway narrowing\", \"nighttime cough\"]}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1-mediated deacetylation inhibits NF-\\u03baB and STAT3 signaling, reducing Th2 cell differentiation and type 2 cytokine production.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Mucus Overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses IL-13-induced goblet cell metaplasia and mucin gene expression.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Airway Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses TGF-\\u03b2/Smad pro-fibrotic signaling and extracellular matrix remodeling.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Bronchoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 reduces airway smooth muscle proliferation and contractility.\"}, {\"source\": \"Early-Life Rhinovirus Wheezing Illness and Asthma Inception\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-life rhinovirus wheezing illness, in interaction with allergic sensitization, biases the developing airway toward the type 2 immune program that drives established allergic asthma.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling\", \"target\": \"Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Allergen-protease-driven epithelial ROS generation and ADAM10-dependent chemokine shedding amplify the airway inflammatory response that characterizes allergic asthma.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Wheezing\", \"target\": \"Respiratory Distress\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Wheezing\", \"target\": \"Reduced Exercise Tolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Allergens\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Allergen exposure in a sensitized airway drives the type 2 programme this node describes, by way of epithelial alarmin release and antigen presentation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Air Pollution\", \"target\": \"Airway Inflammation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Pollution acts on airways that are already inflamed rather than creating the disease, which is why the cited association is with aggravation of existing asthma rather than with its onset.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tobacco Smoke\", \"target\": \"Airway Inflammation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Environmental tobacco smoke both raises the risk of childhood asthma onset and worsens established disease; this edge records the severity effect, for which the cited evidence is direct.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Occupational Exposures\", \"target\": \"Airway Inflammation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Occupational asthma is distinctive in that the workplace sensitizer or irritant causes disease in previously unaffected adults, rather than aggravating pre-existing asthma. The responsible step differs between sensitizers and irritants, so the link is left indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal Acid-Suppressive Medication Exposure\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"An in-utero exposure associated with modestly increased childhood asthma risk, hypothesised to act through altered allergen digestion and early immune priming. The effect size is small and the mediating step unestablished, so this is recorded as predisposing.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"IL4\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL13\", \"target\": \"Type 2 Immune Response / Th2 Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ADAM33\", \"target\": \"Airway Remodeling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDHR3\", \"target\": \"Early-Life Rhinovirus Wheezing Illness and Asthma Inception\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9312,14 +9979,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000961">HP:0000961</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-86">HP:0000961</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9382,14 +10056,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-87">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9485,14 +10166,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-88">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9595,14 +10283,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wheezing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030828">HP:0030828</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-89">HP:0030828</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9705,14 +10400,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-90">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coughing, annotated with Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9804,14 +10506,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperventilation
+
+                        <span class="phenotype-term-label">Hyperventilation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002883">HP:0002883</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-91">HP:0002883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rapid Breathing, annotated with Hyperventilation (HP:0002883). HP:0002883 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9885,14 +10596,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory distress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002098">HP:0002098</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0002098</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory Distress (HP:0002098). HP:0002098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9955,14 +10673,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest tightness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031352">HP:0031352</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-93">HP:0031352</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest Tightness (HP:0031352). HP:0031352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10056,14 +10781,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-94">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10137,14 +10869,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-95">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise Intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10240,14 +10979,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
+
+                        <span class="phenotype-term-label">Exercise intolerance</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-96">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced Exercise Tolerance, annotated with Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10965,13 +11713,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDHR3
 
 
-    <a href="https://bioregistry.io/hgnc:26308" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26308">hgnc:26308</a>
+    <a href="https://bioregistry.io/hgnc:26308" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-97">hgnc:26308</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDHR3 (hgnc:26308). hgnc:26308 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -11060,7 +11813,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">respiratory tract agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-98">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-98">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -11178,7 +11936,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">respiratory tract agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-99">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-99">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -11294,7 +12057,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">respiratory tract agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-100">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-100">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -11404,7 +12172,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">respiratory tract agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-101">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-101">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -11522,7 +12295,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">biologic immunotherapy for severe asthma</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">biologic immunotherapy for severe asthma<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic immunotherapy for severe asthma, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -11600,7 +12378,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">respiratory tract agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-103">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-103">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -11729,21 +12512,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Allergen exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000726">ECTO:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-104">ECTO:0000726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-104">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Allergen exposure, annotated with exposure to allergen (ECTO:0000726). ECTO:0000726 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Triggering factor for allergic asthma</div>
@@ -11825,6 +12617,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Type 2 Immune Response / Th2 Signaling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Allergen exposure in a sensitized airway drives the type 2 programme this node describes, by way of epithelial alarmin release and antigen presentation.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20406590" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20406590" target="_blank">PMID:20406590</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Focus is placed on aspects of the innate immune system, including inherent properties of allergens, the active role of airway epithelium, and the central importance of dendritic cells together with the pathophysiological processes in which these factors interact."</div>
+
+
+                <div class="evidence-explanation">Names the airway epithelium and dendritic cells as the steps through which aeroallergen exposure acts, which are the epithelial and antigen-presenting intermediates this link asserts. Evidence source is OTHER because the source is a narrative review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-air-pollution" data-dismech-node="Air Pollution" data-dismech-type="environmental">
@@ -11832,21 +12676,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Air pollution exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000036">ECTO:8000036</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-105">ECTO:8000036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-105">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Exacerbates symptoms</div>
@@ -11928,6 +12781,56 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pollution acts on airways that are already inflamed rather than creating the disease, which is why the cited association is with aggravation of existing asthma rather than with its onset.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10518814" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10518814" target="_blank">PMID:10518814</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Air pollution is convincingly associated with many signs of asthma aggravation."</div>
+
+
+                <div class="evidence-explanation">States that air pollution is convincingly associated with signs of asthma aggravation, which is worsening of established disease rather than causation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoke" data-dismech-node="Tobacco Smoke" data-dismech-type="environmental">
@@ -11935,21 +12838,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Tobacco smoke exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000029">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-106">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-106">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Tobacco smoke exposure, annotated with exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Major risk factor for symptom severity</div>
@@ -12031,6 +12943,56 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Environmental tobacco smoke both raises the risk of childhood asthma onset and worsens established disease; this edge records the severity effect, for which the cited evidence is direct.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29292313" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29292313" target="_blank">PMID:29292313</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Exposure to environmental tobacco smoke increases pediatric asthma severity."</div>
+
+
+                <div class="evidence-explanation">Reports that environmental tobacco smoke exposure increases paediatric asthma severity, an effect on established disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-occupational-exposures" data-dismech-node="Occupational Exposures" data-dismech-type="environmental">
@@ -12038,21 +13000,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Occupational chemical exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000231">ECTO:0000231</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-107">ECTO:0000231</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-107">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Occupational chemical exposure, annotated with exposure to chemical (ECTO:0000231). ECTO:0000231 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Exposure to dust, chemicals, or gases in the workplace can trigger asthma symptoms.</div>
@@ -12134,6 +13105,56 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Occupational asthma is distinctive in that the workplace sensitizer or irritant causes disease in previously unaffected adults, rather than aggravating pre-existing asthma. The responsible step differs between sensitizers and irritants, so the link is left indirect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15579371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15579371" target="_blank">PMID:15579371</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of occupational asthma is rising, possibly due to the introduction of different chemicals and substances in the workplace. Etiologic agents include organic and inorganic compounds that are encountered in a variety of industries."</div>
+
+
+                <div class="evidence-explanation">Attributes rising occupational asthma prevalence to the introduction of new chemicals and sensitizers in workplaces, that is, new-onset disease caused by the exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-prenatal-acid-suppressive-medication-exposure" data-dismech-node="Prenatal Acid-Suppressive Medication Exposure" data-dismech-type="environmental">
@@ -12141,21 +13162,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Maternal acid-suppressive drug exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0900043" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0900043">ECTO:0900043</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0900043" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-108">ECTO:0900043</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Maternal acid-suppressive drug exposure, annotated with exposure to drug via maternal (ECTO:0900043). ECTO:0900043 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">A separate JACI systematic review and meta-analysis (Devine et al, PMID:28081850) similarly reported pooled increased asthma risk for any acid-suppressive medication (RR 1.36), H2RA (HR 1.46), and PPI (HR 1.30) use in pregnancy; that letter has no PubMed abstract, so the validated evidence here is quoted from the concordant Lai et al meta-analysis (PMID:29326337).
@@ -12244,6 +13274,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Type 2 Immune Response / Th2 Signaling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; An in-utero exposure associated with modestly increased childhood asthma risk, hypothesised to act through altered allergen digestion and early immune priming. The effect size is small and the mediating step unestablished, so this is recorded as predisposing.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29326337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29326337" target="_blank">PMID:29326337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall risk of asthma in childhood increased among proton pump inhibitor users (RR = 1.34; 95% CI 1.18-1.52; I2 = 46%; P &lt; .00001) and histamine-2 receptor antagonist users (RR = 1.57; 95% CI 1.46-1.69; I2 = 0%; P &lt; .00001)."</div>
+
+
+                <div class="evidence-explanation">Reports a relative risk of 1.34 for childhood asthma with maternal proton pump inhibitor use, a modest association without a demonstrated mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -12617,16 +13699,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         bronchial epithelial cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-109">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-109">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples bronchial epithelial cells, annotated with bronchial epithelial cell (CL:0002328). CL:0002328 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -12687,16 +13776,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         bronchial epithelial cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-110">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-110">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples bronchial epithelial cells, annotated with bronchial epithelial cell (CL:0002328). CL:0002328 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -12751,9 +13847,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         nasal epithelial cells
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001826" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-111">UBERON:0001826</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-111">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples nasal epithelial cells, annotated with nasal cavity mucosa (UBERON:0001826). UBERON:0001826 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -12804,16 +13914,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         airway epithelial cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002202" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002202">CL:0002202</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-112">CL:0002202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-112">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples airway epithelial cells, annotated with epithelial cell of tracheobronchial tree (CL:0002202). CL:0002202 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -12864,16 +13981,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         primary bronchial epithelial cells (ALI culture)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-113">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples primary bronchial epithelial cells (ALI culture), annotated with bronchial epithelial cell (CL:0002328). CL:0002328 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -12896,16 +14020,21 @@
                 <div class="item-meta" style="margin-top: 6px;">
                     <strong style="font-size: 0.8rem; color: #0d9488;">Exposures:</strong>
 
+
+
                     <span class="tag tag-env">
                         tobacco smoke exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000029">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-114">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this dataset covers this exposure
+This dataset covers tobacco smoke exposure, annotated with exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
                 </div>
@@ -12947,9 +14076,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         whole lung tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-115">UBERON:0002048</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-115">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples whole lung tissue, annotated with lung (UBERON:0002048). UBERON:0002048 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -12968,16 +14111,21 @@
                 <div class="item-meta" style="margin-top: 6px;">
                     <strong style="font-size: 0.8rem; color: #0d9488;">Exposures:</strong>
 
+
+
                     <span class="tag tag-env">
                         ovalbumin allergen challenge
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000726">ECTO:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-116">ECTO:0000726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-116">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this dataset covers this exposure
+This dataset covers ovalbumin allergen challenge, annotated with exposure to allergen (ECTO:0000726). ECTO:0000726 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
                 </div>
@@ -13019,9 +14167,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         lung tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-117">UBERON:0002048</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-117">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples lung tissue, annotated with lung (UBERON:0002048). UBERON:0002048 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -13084,17 +14246,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Wheezing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030828">HP:0030828</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-118">HP:0030828</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-118">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Breathlessness
@@ -13102,11 +14271,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-119">HP:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-119">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Breathlessness, annotated with Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chest Tightness
@@ -13114,11 +14288,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031352">HP:0031352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-120">HP:0031352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-120">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Chest Tightness (HP:0031352). HP:0031352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coughing
@@ -13126,10 +14305,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-121">HP:0012735</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-121">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coughing, annotated with Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13175,6 +14357,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -13191,7 +14376,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Asthma
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-05-21T04:04:17Z&#39;
 description: &gt;-
   Asthma is a chronic inflammatory disease of the airways characterized by
   variable, reversible airflow obstruction, bronchial hyperresponsiveness, and
@@ -14631,6 +15815,25 @@ genetic:
     explanation: Confirms CDHR3 as a GWAS-identified candidate gene for early childhood asthma with severe exacerbations.
 environmental:
 - name: Allergens
+  influences_mechanisms:
+  - target: Type 2 Immune Response / Th2 Signaling
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Allergen exposure in a sensitized airway drives the type 2 programme
+      this node describes, by way of epithelial alarmin release and antigen
+      presentation.
+    evidence:
+    - reference: PMID:20406590
+      reference_title: &#34;Aeroallergen sensitization in asthma: genetics, environment, and pathophysiology.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Focus is placed on aspects of the innate immune system, including inherent properties of allergens, the active role of airway epithelium, and the central importance of dendritic cells together with the pathophysiological processes in which these factors interact.&#34;
+      explanation: &gt;-
+        Names the airway epithelium and dendritic cells as the steps through
+        which aeroallergen exposure acts, which are the epithelial and
+        antigen-presenting intermediates this link asserts. Evidence source is
+        OTHER because the source is a narrative review.
   notes: Triggering factor for allergic asthma
   evidence:
   - reference: PMID:26788835
@@ -14684,6 +15887,23 @@ environmental:
       id: ECTO:0000726
       label: exposure to allergen
 - name: Air Pollution
+  influences_mechanisms:
+  - target: Airway Inflammation
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pollution acts on airways that are already inflamed rather than creating
+      the disease, which is why the cited association is with aggravation of
+      existing asthma rather than with its onset.
+    evidence:
+    - reference: PMID:10518814
+      reference_title: &#34;Air pollution and asthma.&#34;
+      supports: SUPPORT
+      snippet: &#34;Air pollution is convincingly associated with many signs of asthma aggravation.&#34;
+      explanation: &gt;-
+        States that air pollution is convincingly associated with signs of
+        asthma aggravation, which is worsening of established disease rather
+        than causation.
   notes: Exacerbates symptoms
   evidence:
   - reference: PMID:10518814
@@ -14722,6 +15942,22 @@ environmental:
       id: ECTO:8000036
       label: exposure to air pollution
 - name: Tobacco Smoke
+  influences_mechanisms:
+  - target: Airway Inflammation
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Environmental tobacco smoke both raises the risk of childhood asthma
+      onset and worsens established disease; this edge records the severity
+      effect, for which the cited evidence is direct.
+    evidence:
+    - reference: PMID:29292313
+      reference_title: &#34;Tobacco Control Laws and Pediatric Asthma.&#34;
+      supports: SUPPORT
+      snippet: &#34;Exposure to environmental tobacco smoke increases pediatric asthma severity.&#34;
+      explanation: &gt;-
+        Reports that environmental tobacco smoke exposure increases paediatric
+        asthma severity, an effect on established disease.
   notes: Major risk factor for symptom severity
   evidence:
   - reference: PMID:25584912
@@ -14755,6 +15991,24 @@ environmental:
       id: ECTO:6000029
       label: exposure to tobacco smoking
 - name: Occupational Exposures
+  influences_mechanisms:
+  - target: Airway Inflammation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Occupational asthma is distinctive in that the workplace sensitizer or
+      irritant causes disease in previously unaffected adults, rather than
+      aggravating pre-existing asthma. The responsible step differs between
+      sensitizers and irritants, so the link is left indirect.
+    evidence:
+    - reference: PMID:15579371
+      reference_title: &#34;Occupational exposures as triggers of asthma.&#34;
+      supports: SUPPORT
+      snippet: &#34;The prevalence of occupational asthma is rising, possibly due to the introduction of different chemicals and substances in the workplace. Etiologic agents include organic and inorganic compounds that are encountered in a variety of industries.&#34;
+      explanation: &gt;-
+        Attributes rising occupational asthma prevalence to the introduction
+        of new chemicals and sensitizers in workplaces, that is, new-onset
+        disease caused by the exposure.
   notes: Exposure to dust, chemicals, or gases in the workplace can trigger asthma symptoms.
   evidence:
   - reference: PMID:15579371
@@ -14793,6 +16047,25 @@ environmental:
       id: ECTO:0000231
       label: exposure to chemical
 - name: Prenatal Acid-Suppressive Medication Exposure
+  influences_mechanisms:
+  - target: Type 2 Immune Response / Th2 Signaling
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      An in-utero exposure associated with modestly increased childhood asthma
+      risk, hypothesised to act through altered allergen digestion and early
+      immune priming. The effect size is small and the mediating step
+      unestablished, so this is recorded as predisposing.
+    evidence:
+    - reference: PMID:29326337
+      reference_title: &#34;Acid-Suppressive Drug Use During Pregnancy and the Risk of Childhood Asthma: A Meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The overall risk of asthma in childhood increased among proton pump inhibitor users (RR = 1.34; 95% CI 1.18-1.52; I2 = 46%; P &lt; .00001) and histamine-2 receptor antagonist users (RR = 1.57; 95% CI 1.46-1.69; I2 = 0%; P &lt; .00001).&#34;
+      explanation: &gt;-
+        Reports a relative risk of 1.34 for childhood asthma with maternal
+        proton pump inhibitor use, a modest association without a demonstrated
+        mechanism.
   description: &gt;
     Maternal use of acid-suppressive medications (proton pump inhibitors and
     histamine-2 receptor antagonists) during pregnancy is associated with an
@@ -16203,7 +17476,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Asthma", "mondoId": "MONDO:0004979", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Asthma", "yamlRevision": "a74991429f07"};
+        const OS_CONFIG = {"diseaseName": "Asthma", "mondoId": "MONDO:0004979", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Asthma", "yamlRevision": "39642b199aa1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -16622,5 +17895,73 @@ clinical_trials:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

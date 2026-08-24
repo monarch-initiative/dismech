@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=CFAP418-related%20retinal%20ciliopathy"
@@ -3699,6 +3865,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3723,7 +3891,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3744,7 +3912,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3778,7 +3946,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3797,36 +3965,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">ciliopathy</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4070,7 +4323,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cfap418-loss-of-function-at-the-photoreceptor-ciliary-base" data-dismech-node="CFAP418 Loss of Function at the Photoreceptor Ciliary Base" data-dismech-type="pathophysiology">
@@ -4081,6 +4334,47 @@
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CFAP418
+
+
+    <a href="https://bioregistry.io/hgnc:27232" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:27232</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFAP418 (hgnc:27232). hgnc:27232 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4089,16 +4383,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein localization to cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061512">GO:0061512</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061512" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0061512</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein localization to cilium (GO:0061512). GO:0061512 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4124,19 +4423,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4147,9 +4452,9 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Photoreceptor Connecting Cilium Dysfunction</span>
+	                            <span class="crosslink-meta">Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure</span>
 
-	                            <span class="crosslink-desc">Loss of CFAP418 function at the ciliary base impairs the photoreceptor connecting cilium through which all outer-segment cargo is trafficked.</span>
+	                            <span class="crosslink-desc">Loss of CFAP418 lipid binding disturbs membrane lipid homeostasis, membrane-protein associations, and vesicular trafficking in photoreceptors.</span>
 
 
 	                        </div>
@@ -4224,6 +4529,168 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-membrane-lipid-homeostasis-disruption-and-vesicular-trafficking-failure" data-dismech-node="Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure" data-dismech-type="pathophysiology">
+                <div class="item-name">Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure</div>
+
+                <div class="item-desc">CFAP418 binds phosphatidic acid and cardiolipin. Its loss disrupts membrane lipid homeostasis and membrane-protein associations, producing membrane remodeling abnormalities across photoreceptor vesicular-trafficking pathways, especially the ESCRT pathway.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        photoreceptor cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000210</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        glycerolipid metabolic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046486" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046486</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves glycerolipid metabolic process (GO:0046486). GO:0046486 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        retina
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000966</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Photoreceptor Connecting Cilium Dysfunction</span>
+
+	                            <span class="crosslink-desc">Abnormal membrane remodeling and vesicular trafficking compromise the connecting-cilium pathway required to maintain the photoreceptor outer segment.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37971880" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37971880" target="_blank">PMID:37971880</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of Cfap418 in mice disturbs membrane lipid homeostasis and membrane-protein associations, which subsequently causes mitochondrial defects and membrane-remodeling abnormalities across multiple vesicular trafficking pathways in photoreceptors, especially the endosomal sorting complexes..."</div>
+
+
+                <div class="evidence-explanation">Multi-omic analysis of Cfap418-null mouse retina directly identifies the lipid-homeostasis and vesicular-trafficking defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-connecting-cilium-dysfunction" data-dismech-node="Photoreceptor Connecting Cilium Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Connecting Cilium Dysfunction</div>
 
@@ -4233,16 +4700,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000210">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4272,19 +4744,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4350,17 +4828,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal rod cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000604">CL:0000604</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000604</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal rod cell (CL:0000604). CL:0000604 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4381,10 +4866,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4414,19 +4902,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4439,6 +4933,22 @@
 	                            <span class="crosslink-meta">Cone-rod dystrophy</span>
 
 	                            <span class="crosslink-desc">Rod and cone photoreceptor loss manifests clinically as cone-rod dystrophy or retinitis pigmentosa.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rod-cone dystrophy</span>
+
+	                            <span class="crosslink-desc">Rod-predominant photoreceptor degeneration manifests as progressive rod-cone dystrophy in the syndromic BBS21 presentation.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Macular degeneration</span>
+
+	                            <span class="crosslink-desc">CFAP418 retinal dystrophy characteristically includes early macular involvement downstream of photoreceptor degeneration.</span>
 
 
 	                        </div>
@@ -4462,10 +4972,10 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36233334" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:22177090" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36233334" target="_blank">PMID:36233334</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22177090" target="_blank">PMID:22177090</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -4475,10 +4985,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Mutations in C8orf37 cause Bardet-Biedl syndrome (BBS), retinitis pigmentosa (RP), and cone-rod dystrophy (CRD), all manifest in photoreceptor degeneration."</div>
+                <div class="evidence-snippet">"Clinical assessment revealed CRD in four individuals and RP with early macular involvement in two individuals."</div>
 
 
-                <div class="evidence-explanation">Establishes photoreceptor degeneration as the convergent outcome across the full CFAP418 phenotypic spectrum.</div>
+                <div class="evidence-explanation">Human clinical assessment directly establishes the cone-rod and rod-cone degeneration phenotypes represented by this node.</div>
 
 
 
@@ -4500,16 +5010,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         ciliated cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000064">CL:0000064</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated cell (CL:0000064). CL:0000064 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4539,6 +5054,38 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Postaxial polydactyly</span>
+
+	                            <span class="crosslink-desc">Systemic CFAP418-related ciliopathy disrupts limb patterning and can produce postaxial polydactyly.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Obesity</span>
+
+	                            <span class="crosslink-desc">Systemic CFAP418-related ciliopathy includes the BBS metabolic phenotype.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Horseshoe kidney</span>
+
+	                            <span class="crosslink-desc">Systemic CFAP418-related ciliopathy can disrupt renal development.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4624,7 +5171,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CFAP418/C8orf37 is a cilium-associated protein enriched at the base of the photoreceptor connecting cilium, where it interacts with the ciliary protein FAM161A. Biallelic loss-of-function or missense variants disrupt this ciliary-base function, compromising the gating and trafficking machinery on which the highly cilium-dependent photoreceptor relies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein localization to cilium\"]}}, {\"id\": \"Cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cone-rod dystrophy (CORD16) is one of the defining non-syndromic retinal presentations of CFAP418-related disease, with early macular involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000548\"}}, {\"id\": \"Extra-Retinal Ciliary Pleiotropy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the severe (typically null) end of the CFAP418 allelic series, ciliary dysfunction extends beyond the retina to the systemic branches of the ciliopathy spectrum, producing the Bardet-Biedl syndrome phenotype (obesity, postaxial polydactyly, renal anomalies, cognitive impairment) - BBS21.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated cell\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obesity is a cardinal Bardet-Biedl syndrome feature present at the syndromic end of the CFAP418 spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photoreceptor Connecting Cilium Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The photoreceptor outer segment is a specialized sensory cilium connected to the cell body by the connecting cilium, through which all phototransduction cargo passes. CFAP418-related ciliary-base dysfunction impairs outer-segment morphogenesis and maintenance, the retinal arm shared across the CFAP418 allelic series.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Rod and Cone Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degeneration of rod and cone photoreceptors is the shared final common pathway of CFAP418-related disease, manifesting as cone-rod dystrophy, retinitis pigmentosa with early macular involvement, or the retinal component of Bardet-Biedl syndrome depending on the allele.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Setmelanotide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MC4R agonist (IMCIVREE) approved for the treatment of obesity and hyperphagia in Bardet-Biedl syndrome. It is relevant to the syndromic BBS21 arm of the CFAP418 allelic series, in which extra-retinal ciliary pleiotropy produces early-onset obesity; setmelanotide pharmacologically mitigates the hyperphagia and obesity rather than correcting the underlying ciliary defect.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"setmelanotide\"]}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced visual acuity from progressive photoreceptor degeneration across the CFAP418 spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"target\": \"Photoreceptor Connecting Cilium Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CFAP418 function at the ciliary base impairs the photoreceptor connecting cilium through which all outer-segment cargo is trafficked.\"}, {\"source\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"target\": \"Extra-Retinal Ciliary Pleiotropy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At the severe (typically null) end of the allelic series, the same proximal ciliary-base loss of function extends beyond the photoreceptor to systemic ciliated tissues, producing the Bardet-Biedl (BBS21) multisystem phenotype.\"}, {\"source\": \"Photoreceptor Connecting Cilium Dysfunction\", \"target\": \"Rod and Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connecting-cilium dysfunction drives progressive death of rod and cone photoreceptors.\"}, {\"source\": \"Rod and Cone Photoreceptor Degeneration\", \"target\": \"Cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod and cone photoreceptor loss manifests clinically as cone-rod dystrophy or retinitis pigmentosa.\"}, {\"source\": \"Rod and Cone Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive photoreceptor loss reduces visual acuity and field.\"}, {\"source\": \"Setmelanotide\", \"target\": \"Extra-Retinal Ciliary Pleiotropy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Setmelanotide\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CFAP418\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CFAP418\"], \"gene_terms\": [{\"label\": \"CFAP418\", \"id\": \"hgnc:27232\"}], \"association\": \"Pathogenic biallelic loss-of-function and missense variants\"}}, {\"id\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CFAP418/C8orf37 is a cilium-associated protein enriched at the base of the photoreceptor connecting cilium, where it interacts with the ciliary protein FAM161A. Biallelic loss-of-function or missense variants disrupt this ciliary-base function, compromising the gating and trafficking machinery on which the highly cilium-dependent photoreceptor relies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein localization to cilium\"], \"genes\": [\"CFAP418\"], \"gene_terms\": [{\"label\": \"CFAP418\", \"id\": \"hgnc:27232\"}]}}, {\"id\": \"Cone-rod dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cone-rod dystrophy (CORD16) is one of the defining non-syndromic retinal presentations of CFAP418-related disease, with early macular involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000548\"}}, {\"id\": \"Extra-Retinal Ciliary Pleiotropy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the severe (typically null) end of the CFAP418 allelic series, ciliary dysfunction extends beyond the retina to the systemic branches of the ciliopathy spectrum, producing the Bardet-Biedl syndrome phenotype (obesity, postaxial polydactyly, renal anomalies, cognitive impairment) - BBS21.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"ciliated cell\"]}}, {\"id\": \"Horseshoe kidney\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal anomalies (here, horseshoe kidney) are part of the syndromic BBS21 presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000085\"}}, {\"id\": \"Macular degeneration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early macular involvement is a characteristic feature of the non-syndromic CFAP418 retinal dystrophies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000608\"}}, {\"id\": \"Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CFAP418 binds phosphatidic acid and cardiolipin. Its loss disrupts membrane lipid homeostasis and membrane-protein associations, producing membrane remodeling abnormalities across photoreceptor vesicular-trafficking pathways, especially the ESCRT pathway.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"biological_processes\": [\"glycerolipid metabolic process\"], \"locations\": [\"retina\"]}}, {\"id\": \"Obesity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obesity is a cardinal Bardet-Biedl syndrome feature present at the syndromic end of the CFAP418 spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001513\"}}, {\"id\": \"Photoreceptor Connecting Cilium Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The photoreceptor outer segment is a specialized sensory cilium connected to the cell body by the connecting cilium, through which all phototransduction cargo passes. CFAP418-related ciliary-base dysfunction impairs outer-segment morphogenesis and maintenance, the retinal arm shared across the CFAP418 allelic series.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"photoreceptor cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Postaxial polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postaxial polydactyly is part of the syndromic (BBS21) end of the spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100259\"}}, {\"id\": \"Rod and Cone Photoreceptor Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degeneration of rod and cone photoreceptors is the shared final common pathway of CFAP418-related disease, manifesting as cone-rod dystrophy, retinitis pigmentosa with early macular involvement, or the retinal component of Bardet-Biedl syndrome depending on the allele.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal rod cell\", \"retinal cone cell\"], \"locations\": [\"retina\"]}}, {\"id\": \"Rod-cone dystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinitis pigmentosa / rod-cone dystrophy (RP64) is the other defining non-syndromic retinal presentation, and the retinal component of BBS21.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000510\"}}, {\"id\": \"Setmelanotide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MC4R agonist (IMCIVREE) approved for the treatment of obesity and hyperphagia in Bardet-Biedl syndrome. It is relevant to the syndromic BBS21 arm of the CFAP418 allelic series, in which extra-retinal ciliary pleiotropy produces early-onset obesity; setmelanotide pharmacologically mitigates the hyperphagia and obesity rather than correcting the underlying ciliary defect.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"setmelanotide\"]}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced visual acuity from progressive photoreceptor degeneration across the CFAP418 spectrum.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"target\": \"Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CFAP418 lipid binding disturbs membrane lipid homeostasis, membrane-protein associations, and vesicular trafficking in photoreceptors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"target\": \"Extra-Retinal Ciliary Pleiotropy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At the severe (typically null) end of the allelic series, the same proximal ciliary-base loss of function extends beyond the photoreceptor to systemic ciliated tissues, producing the Bardet-Biedl (BBS21) multisystem phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure\", \"target\": \"Photoreceptor Connecting Cilium Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal membrane remodeling and vesicular trafficking compromise the connecting-cilium pathway required to maintain the photoreceptor outer segment.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Photoreceptor Connecting Cilium Dysfunction\", \"target\": \"Rod and Cone Photoreceptor Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connecting-cilium dysfunction drives progressive death of rod and cone photoreceptors.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Rod and Cone Photoreceptor Degeneration\", \"target\": \"Cone-rod dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod and cone photoreceptor loss manifests clinically as cone-rod dystrophy or retinitis pigmentosa.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rod and Cone Photoreceptor Degeneration\", \"target\": \"Rod-cone dystrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rod-predominant photoreceptor degeneration manifests as progressive rod-cone dystrophy in the syndromic BBS21 presentation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rod and Cone Photoreceptor Degeneration\", \"target\": \"Macular degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CFAP418 retinal dystrophy characteristically includes early macular involvement downstream of photoreceptor degeneration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rod and Cone Photoreceptor Degeneration\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive photoreceptor loss reduces visual acuity and field.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-Retinal Ciliary Pleiotropy\", \"target\": \"Postaxial polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic CFAP418-related ciliopathy disrupts limb patterning and can produce postaxial polydactyly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-Retinal Ciliary Pleiotropy\", \"target\": \"Obesity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic CFAP418-related ciliopathy includes the BBS metabolic phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Extra-Retinal Ciliary Pleiotropy\", \"target\": \"Horseshoe kidney\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic CFAP418-related ciliopathy can disrupt renal development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Setmelanotide\", \"target\": \"Obesity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFAP418\", \"target\": \"CFAP418 Loss of Function at the Photoreceptor Ciliary Base\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4669,14 +5216,21 @@
                         Rod-cone dystrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rod-cone dystrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000510">HP:0000510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rod-cone dystrophy (HP:0000510), qualified as course progressive. HP:0000510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4746,14 +5300,21 @@
                         Visual impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4836,14 +5397,21 @@
                         Horseshoe kidney
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Horseshoe kidney
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000085">HP:0000085</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000085</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Horseshoe kidney (HP:0000085). HP:0000085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4871,7 +5439,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"horseshoe kidney"</div>
+                <div class="evidence-snippet">"The proband was overweight (body mass index 29.1) with a slowly progressive rod-cone dystrophy, a mild learning difficulty, high myopia, three limb post-axial polydactyly, horseshoe kidney, abnormally positioned uterus and elevated liver enzymes."</div>
 
 
                 <div class="evidence-explanation">Documents the renal anomaly in the CFAP418-related BBS21 proband.</div>
@@ -4904,14 +5472,21 @@
                         Postaxial polydactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Postaxial polydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100259">HP:0100259</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100259</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4939,7 +5514,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"three limb post-axial polydactyly"</div>
+                <div class="evidence-snippet">"The proband was overweight (body mass index 29.1) with a slowly progressive rod-cone dystrophy, a mild learning difficulty, high myopia, three limb post-axial polydactyly, horseshoe kidney, abnormally positioned uterus and elevated liver enzymes."</div>
 
 
                 <div class="evidence-explanation">Documents postaxial polydactyly in the CFAP418-related BBS21 proband.</div>
@@ -4972,14 +5547,21 @@
                         Obesity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5040,14 +5622,23 @@
                         Cone-rod dystrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cone/cone-rod dystrophy
+
+                        <span class="phenotype-term-label">Cone/cone-rod dystrophy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000548">HP:0000548</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000548</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cone/cone-rod dystrophy (HP:0000548), qualified as course progressive. HP:0000548 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5117,14 +5708,21 @@
                         Macular degeneration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macular degeneration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000608" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000608">HP:0000608</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000608</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macular degeneration (HP:0000608). HP:0000608 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5222,13 +5820,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFAP418
 
 
-    <a href="https://bioregistry.io/hgnc:27232" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27232">hgnc:27232</a>
+    <a href="https://bioregistry.io/hgnc:27232" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:27232</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFAP418 (hgnc:27232). hgnc:27232 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5319,7 +5922,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5349,16 +5957,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         setmelanotide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152349" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152349">NCIT:C152349</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152349" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C152349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses setmelanotide (NCIT:C152349). NCIT:C152349 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5368,27 +5981,11 @@
                 <div class="item-desc">MC4R agonist (IMCIVREE) approved for the treatment of obesity and hyperphagia in Bardet-Biedl syndrome. It is relevant to the syndromic BBS21 arm of the CFAP418 allelic series, in which extra-retinal ciliary pleiotropy produces early-onset obesity; setmelanotide pharmacologically mitigates the hyperphagia and obesity rather than correcting the underlying ciliary defect.</div>
 
 
-                <div class="item-meta" style="margin-top: 8px;">
-                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-
-                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
-                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            MODULATES
-                        </span>
-                        <strong style="color: #5b21b6;">Extra-Retinal Ciliary Pleiotropy</strong>
-
-                        <span style="color: #7c3aed;"> &mdash; Setmelanotide restores melanocortin-4 receptor signalling downstream of the hypothalamic ciliary dysfunction, mitigating the hyperphagia and obesity that arise from extra-retinal ciliary pleiotropy in the BBS21 arm.</span>
-
-
-
-
-                    </div>
-
-                </div>
-
 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obesity
@@ -5396,10 +5993,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001513</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5450,7 +6050,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5542,6 +6147,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5584,8 +6192,31 @@ disease_term:
 classifications:
   harrisons_chapter:
   - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    evidence:
+    - reference: PMID:22177090
+      reference_title: &#34;Mutations in C8orf37, encoding a ciliary protein, are associated with autosomal-recessive retinal dystrophies with early macular involvement.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        By using homozygosity mapping in an individual with autosomal-recessive
+        (ar) RP from a consanguineous family
+      explanation: &gt;-
+        The inherited biallelic association supports classification in the
+        genetics and disease chapter.
   mechanistic_category:
   - classification_value: ciliopathy
+    evidence:
+    - reference: PMID:22177090
+      reference_title: &#34;Mutations in C8orf37, encoding a ciliary protein, are associated with autosomal-recessive retinal dystrophies with early macular involvement.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Immunohistochemical studies revealed C8orf37 localization at the base
+        of the primary cilium of human retinal pigment epithelium cells and at
+        the base of connecting cilia of mouse photoreceptors.
+      explanation: &gt;-
+        Localization of CFAP418/C8orf37 at the ciliary base supports the
+        mechanistic ciliopathy classification.
 mappings:
   mondo_mappings:
   - term:
@@ -5700,6 +6331,11 @@ pathophysiology:
     FAM161A. Biallelic loss-of-function or missense variants disrupt this
     ciliary-base function, compromising the gating and trafficking machinery on
     which the highly cilium-dependent photoreceptor relies.
+  gene:
+    preferred_term: CFAP418
+    term:
+      id: hgnc:27232
+      label: CFAP418
   cellular_components:
   - preferred_term: cilium
     term:
@@ -5736,15 +6372,95 @@ pathophysiology:
       Identifies a photoreceptor-cilium interactor of CFAP418, tying the protein
       to a ciliary complex required for photoreceptor survival.
   downstream:
-  - target: Photoreceptor Connecting Cilium Dysfunction
+  - target: Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure
     description: &gt;-
-      Loss of CFAP418 function at the ciliary base impairs the photoreceptor
-      connecting cilium through which all outer-segment cargo is trafficked.
+      Loss of CFAP418 lipid binding disturbs membrane lipid homeostasis,
+      membrane-protein associations, and vesicular trafficking in photoreceptors.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37971880
+      reference_title: Disruption of CFAP418 interaction with lipids causes widespread abnormal membrane-associated cellular processes in retinal degenerations.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Loss of Cfap418 in mice disturbs membrane lipid homeostasis and
+        membrane-protein associations, which subsequently causes mitochondrial
+        defects and membrane-remodeling abnormalities across multiple vesicular
+        trafficking pathways in photoreceptors, especially the endosomal sorting
+        complexes required for transport (ESCRT) pathway.
+      explanation: &gt;-
+        Cfap418-null mouse photoreceptors directly demonstrate the membrane-lipid
+        and trafficking lesion downstream of CFAP418 loss.
   - target: Extra-Retinal Ciliary Pleiotropy
     description: &gt;-
       At the severe (typically null) end of the allelic series, the same proximal
       ciliary-base loss of function extends beyond the photoreceptor to systemic
       ciliated tissues, producing the Bardet-Biedl (BBS21) multisystem phenotype.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27008867
+      reference_title: &#34;Mutations in C8ORF37 cause Bardet Biedl syndrome (BBS21).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The proband was overweight (body mass index 29.1) with a slowly
+        progressive rod-cone dystrophy, a mild learning difficulty, high
+        myopia, three limb post-axial polydactyly, horseshoe kidney, abnormally
+        positioned uterus and elevated liver enzymes.
+      explanation: &gt;-
+        A biallelic CFAP418 case with retinal, metabolic, skeletal, renal, and
+        neurodevelopmental findings supports systemic ciliary pleiotropy.
+- name: Membrane Lipid Homeostasis Disruption and Vesicular Trafficking Failure
+  description: &gt;-
+    CFAP418 binds phosphatidic acid and cardiolipin. Its loss disrupts membrane
+    lipid homeostasis and membrane-protein associations, producing membrane
+    remodeling abnormalities across photoreceptor vesicular-trafficking pathways,
+    especially the ESCRT pathway.
+  cell_types:
+  - preferred_term: photoreceptor cell
+    term:
+      id: CL:0000210
+      label: photoreceptor cell
+  locations:
+  - preferred_term: retina
+    term:
+      id: UBERON:0000966
+      label: retina
+  biological_processes:
+  - preferred_term: glycerolipid metabolic process
+    term:
+      id: GO:0046486
+      label: glycerolipid metabolic process
+  evidence:
+  - reference: PMID:37971880
+    reference_title: Disruption of CFAP418 interaction with lipids causes widespread abnormal membrane-associated cellular processes in retinal degenerations.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Loss of Cfap418 in mice disturbs membrane lipid homeostasis and
+      membrane-protein associations, which subsequently causes mitochondrial
+      defects and membrane-remodeling abnormalities across multiple vesicular
+      trafficking pathways in photoreceptors, especially the endosomal sorting
+      complexes required for transport (ESCRT) pathway.
+    explanation: Multi-omic analysis of Cfap418-null mouse retina directly identifies the lipid-homeostasis and vesicular-trafficking defect.
+  downstream:
+  - target: Photoreceptor Connecting Cilium Dysfunction
+    description: &gt;-
+      Abnormal membrane remodeling and vesicular trafficking compromise the
+      connecting-cilium pathway required to maintain the photoreceptor outer segment.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:37971880
+      reference_title: Disruption of CFAP418 interaction with lipids causes widespread abnormal membrane-associated cellular processes in retinal degenerations.
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Loss of Cfap418 in mice disturbs membrane lipid homeostasis and
+        membrane-protein associations, which subsequently causes mitochondrial
+        defects and membrane-remodeling abnormalities across multiple vesicular
+        trafficking pathways in photoreceptors, especially the endosomal sorting
+        complexes required for transport (ESCRT) pathway.
+      explanation: The study directly establishes trafficking failure in Cfap418-null photoreceptors; connecting-cilium dysfunction is the intervening ciliary consequence inferred from the localization evidence.
 - name: Photoreceptor Connecting Cilium Dysfunction
   conforms_to: &#34;ciliopathy_dysfunction#Photoreceptor Connecting Cilium Degeneration&#34;
   description: &gt;-
@@ -5780,6 +6496,19 @@ pathophysiology:
     description: &gt;-
       Connecting-cilium dysfunction drives progressive death of rod and cone
       photoreceptors.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:36233334
+      reference_title: &#34;Interactions between C8orf37 and FAM161A, Two Ciliary Proteins Essential for Photoreceptor Survival.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        FAM161A, a microtubule-binding protein localized at the photoreceptor
+        cilium required for photoreceptor survival, was identified as one of the
+        preys.
+      explanation: &gt;-
+        The CFAP418 interaction with a ciliary protein required for photoreceptor
+        survival supports, but does not by itself prove, the degeneration edge.
 - name: Rod and Cone Photoreceptor Degeneration
   conforms_to: &#34;photoreceptor_degeneration#Rod Photoreceptor Apoptosis&#34;
   description: &gt;-
@@ -5802,24 +6531,71 @@ pathophysiology:
       id: UBERON:0000966
       label: retina
   evidence:
-  - reference: PMID:36233334
-    reference_title: &#34;Interactions between C8orf37 and FAM161A, Two Ciliary Proteins Essential for Photoreceptor Survival.&#34;
+  - reference: PMID:22177090
+    reference_title: &#34;Mutations in C8orf37, encoding a ciliary protein, are associated with autosomal-recessive retinal dystrophies with early macular involvement.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Mutations in C8orf37 cause Bardet-Biedl syndrome (BBS), retinitis
-      pigmentosa (RP), and cone-rod dystrophy (CRD), all manifest in
-      photoreceptor degeneration.
+      Clinical assessment revealed CRD in four individuals and RP with early
+      macular involvement in two individuals.
     explanation: &gt;-
-      Establishes photoreceptor degeneration as the convergent outcome across
-      the full CFAP418 phenotypic spectrum.
+      Human clinical assessment directly establishes the cone-rod and rod-cone
+      degeneration phenotypes represented by this node.
   downstream:
   - target: Cone-rod dystrophy
     description: &gt;-
       Rod and cone photoreceptor loss manifests clinically as cone-rod
       dystrophy or retinitis pigmentosa.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22177090
+      reference_title: &#34;Mutations in C8orf37, encoding a ciliary protein, are associated with autosomal-recessive retinal dystrophies with early macular involvement.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical assessment revealed CRD in four individuals and RP with early
+        macular involvement in two individuals.
+      explanation: The cohort directly documents cone-rod dystrophy after CFAP418-related photoreceptor degeneration.
+  - target: Rod-cone dystrophy
+    description: &gt;-
+      Rod-predominant photoreceptor degeneration manifests as progressive
+      rod-cone dystrophy in the syndromic BBS21 presentation.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:27008867
+      reference_title: &#34;Mutations in C8ORF37 cause Bardet Biedl syndrome (BBS21).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The proband was overweight (body mass index 29.1) with a slowly
+        progressive rod-cone dystrophy
+      explanation: The BBS21 proband directly exhibited progressive rod-cone dystrophy.
+  - target: Macular degeneration
+    description: &gt;-
+      CFAP418 retinal dystrophy characteristically includes early macular
+      involvement downstream of photoreceptor degeneration.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:22177090
+      reference_title: &#34;Mutations in C8orf37, encoding a ciliary protein, are associated with autosomal-recessive retinal dystrophies with early macular involvement.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Clinical assessment revealed CRD in four individuals and RP with early
+        macular involvement in two individuals.
+      explanation: The retinal-dystrophy cohort directly documents early macular involvement.
   - target: Visual impairment
     description: Progressive photoreceptor loss reduces visual acuity and field.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27008867
+      reference_title: &#34;Mutations in C8ORF37 cause Bardet Biedl syndrome (BBS21).&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Knockdown of c8orf37 resulted in impaired visual behavior and
+        BBS-related phenotypes
+      explanation: CFAP418 loss causes impaired visual behavior downstream of retinal degeneration.
 - name: Extra-Retinal Ciliary Pleiotropy
   conforms_to: &#34;ciliopathy_dysfunction#Multisystem Pleiotropic Ciliopathy Phenotype&#34;
   description: &gt;-
@@ -5856,6 +6632,45 @@ pathophysiology:
     explanation: &gt;-
       Zebrafish functional validation links CFAP418 loss to BBS-related ciliary
       phenotypes, supporting the systemic ciliopathy arm.
+  downstream:
+  - target: Postaxial polydactyly
+    description: Systemic CFAP418-related ciliopathy disrupts limb patterning and can produce postaxial polydactyly.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27008867
+      reference_title: &#34;Mutations in C8ORF37 cause Bardet Biedl syndrome (BBS21).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The proband was overweight (body mass index 29.1) with a slowly
+        progressive rod-cone dystrophy, a mild learning difficulty, high myopia,
+        three limb post-axial polydactyly, horseshoe kidney, abnormally positioned
+        uterus and elevated liver enzymes.
+      explanation: The BBS21 proband directly exhibited postaxial polydactyly.
+  - target: Obesity
+    description: Systemic CFAP418-related ciliopathy includes the BBS metabolic phenotype.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27008867
+      reference_title: &#34;Mutations in C8ORF37 cause Bardet Biedl syndrome (BBS21).&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The proband was overweight (body mass index 29.1)&#34;
+      explanation: The proband had the BBS metabolic phenotype, although the reported measurement is overweight rather than severe obesity.
+  - target: Horseshoe kidney
+    description: Systemic CFAP418-related ciliopathy can disrupt renal development.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:27008867
+      reference_title: &#34;Mutations in C8ORF37 cause Bardet Biedl syndrome (BBS21).&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        The proband was overweight (body mass index 29.1) with a slowly
+        progressive rod-cone dystrophy, a mild learning difficulty, high myopia,
+        three limb post-axial polydactyly, horseshoe kidney, abnormally positioned
+        uterus and elevated liver enzymes.
+      explanation: The BBS21 proband directly exhibited a horseshoe kidney.
 phenotypes:
 - name: Cone-rod dystrophy
   category: Ocular
@@ -5937,7 +6752,10 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      three limb post-axial polydactyly
+      The proband was overweight (body mass index 29.1) with a slowly progressive
+      rod-cone dystrophy, a mild learning difficulty, high myopia, three limb
+      post-axial polydactyly, horseshoe kidney, abnormally positioned uterus and
+      elevated liver enzymes.
     explanation: &gt;-
       Documents postaxial polydactyly in the CFAP418-related BBS21 proband.
 - name: Obesity
@@ -5976,7 +6794,10 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      horseshoe kidney
+      The proband was overweight (body mass index 29.1) with a slowly progressive
+      rod-cone dystrophy, a mild learning difficulty, high myopia, three limb
+      post-axial polydactyly, horseshoe kidney, abnormally positioned uterus and
+      elevated liver enzymes.
     explanation: &gt;-
       Documents the renal anomaly in the CFAP418-related BBS21 proband.
 - name: Visual impairment
@@ -6087,13 +6908,6 @@ treatments:
     term:
       id: HP:0001513
       label: Obesity
-  target_mechanisms:
-  - target: Extra-Retinal Ciliary Pleiotropy
-    treatment_effect: MODULATES
-    description: &gt;-
-      Setmelanotide restores melanocortin-4 receptor signalling downstream of the
-      hypothalamic ciliary dysfunction, mitigating the hyperphagia and obesity
-      that arise from extra-retinal ciliary pleiotropy in the BBS21 arm.
   evidence:
   - reference: PMID:38383825
     reference_title: &#34;Bardet-Biedl syndrome: A clinical overview focusing on diagnosis, outcomes and best-practice management.&#34;
@@ -6143,6 +6957,11 @@ references:
     Interactions between C8orf37 and FAM161A, Two Ciliary Proteins Essential for
     Photoreceptor Survival.
   findings: []
+- reference: PMID:37971880
+  title: &gt;-
+    Disruption of CFAP418 interaction with lipids causes widespread abnormal
+    membrane-associated cellular processes in retinal degenerations.
+  findings: []
 </pre>
             </div>
         </div>
@@ -6158,7 +6977,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">4</span>
+                    <span class="card-count">5</span>
                 </div>
 
                 <div class="reference-entry">
@@ -6220,6 +7039,23 @@ references:
                             </div>
 
                             <div class="reference-title">Interactions between C8orf37 and FAM161A, Two Ciliary Proteins Essential for Photoreceptor Survival.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37971880" target="_blank">PMID:37971880</a>
+                            </div>
+
+                            <div class="reference-title">Disruption of CFAP418 interaction with lipids causes widespread abnormal membrane-associated cellular processes in retinal degenerations.</div>
 
                         </div>
 
@@ -6632,7 +7468,7 @@ additional biological processes:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CFAP418-related retinal ciliopathy", "mondoId": "MONDO:0700374", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CFAP418-related_retinal_ciliopathy", "yamlRevision": "838efc3d84e3"};
+        const OS_CONFIG = {"diseaseName": "CFAP418-related retinal ciliopathy", "mondoId": "MONDO:0700374", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CFAP418-related_retinal_ciliopathy", "yamlRevision": "b285e51ed446"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7051,5 +7887,73 @@ additional biological processes:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

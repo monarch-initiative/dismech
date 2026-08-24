@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3859,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3810,7 +3978,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3839,34 +4007,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Melanoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4824,15 +5079,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1097</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4861,16 +5123,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein serine/threonine kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004674" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004674">GO:0004674</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004674" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0004674</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased protein serine/threonine kinase activity (GO:0004674). GO:0004674 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4911,6 +5178,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5045,16 +5313,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0070371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5075,6 +5348,7 @@
 
 
                 </div>
+
 
 
 
@@ -5165,16 +5439,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5201,16 +5480,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5230,16 +5514,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5266,19 +5555,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin of body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5355,16 +5650,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5391,16 +5691,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular senescence
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090398">GO:0090398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0090398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5421,6 +5726,7 @@
 
 
                 </div>
+
 
 
 
@@ -5514,15 +5820,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PTEN
 
 
-    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9588">hgnc:9588</a>
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:9588</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5550,16 +5863,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         intracellular signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035556">GO:0035556</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035556" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0035556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased intracellular signal transduction (GO:0035556). GO:0035556 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5580,6 +5898,7 @@
 
 
                 </div>
+
 
 
 
@@ -5688,16 +6007,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030335">GO:0030335</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030335" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030335</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of cell migration (GO:0030335). GO:0030335 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5718,6 +6042,7 @@
 
 
                 </div>
+
 
 
 
@@ -5794,16 +6119,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5830,16 +6160,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002710">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0002710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5860,6 +6195,7 @@
 
 
                 </div>
+
 
 
 
@@ -5953,16 +6289,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ERK1 and ERK2 cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070371">GO:0070371</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0070371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5982,16 +6323,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         response to xenobiotic stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0009410</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal response to xenobiotic stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6012,6 +6358,7 @@
 
 
                 </div>
+
 
 
 
@@ -6185,7 +6532,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquired MAPK Reactivation and Adaptive Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under BRAF- or BRAF/MEK-inhibitor selection, progressing lesions can restore ERK signaling through secondary NRAS or MAP2K1 alterations and other MAPK routes. Parallel PI3K-AKT signaling and reversible transcriptional or metabolic adaptation can also sustain drug-tolerant states. Resistance is therefore mechanistically heterogeneous.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"response to xenobiotic stimulus\"], \"role\": \"consequence\"}}, {\"id\": \"Adjuvant Dabrafenib Plus Trametinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Twelve months of dabrafenib plus trametinib is an adjuvant option after complete resection of high-risk stage-III BRAF V600E/K melanoma. Final COMBI-AD follow-up showed durable relapse-free and distant-metastasis-free benefit; the overall-survival comparison did not meet conventional statistical significance in the full population.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dabrafenib\", \"trametinib\"]}}, {\"id\": \"BRAF p.Val600Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF p.Val600Glu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF p.Val600Lys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF p.Val600Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial metastasis is an important advanced-disease phenotype that changes local and systemic treatment planning. COMBI-MB established intracranial activity of dabrafenib plus trametinib, but responses were often less durable than needed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030692\"}}, {\"id\": \"Cutaneous Melanoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malignant melanoma arising in skin is the defining tumor phenotype for this entry. The BRAF V600 result subdivides cutaneous melanoma but does not substitute for its clinicopathologic diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0012056\"}}, {\"id\": \"Dabrafenib Plus Trametinib for Unresectable or Metastatic Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dual BRAF/MEK inhibition produces rapid responses in BRAF V600E/K unresectable or metastatic melanoma. Pooled COMBI-d/COMBI-v follow-up showed five-year survival in a subset, while COMBI-MB demonstrated intracranial activity with comparatively limited response duration.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dabrafenib\", \"trametinib\"]}}, {\"id\": \"Encorafenib Plus Binimetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Encorafenib plus binimetinib is a combined BRAF/MEK option for locally advanced unresectable or metastatic BRAF V600E/K melanoma. The seven-year COLUMBUS analysis provides the longest phase-III follow-up among the represented targeted combinations.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"encorafenib\", \"binimetinib\"]}}, {\"id\": \"Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1-based therapy, alone or in combination with CTLA-4 or LAG-3 blockade, is a major systemic option regardless of BRAF status. In treatment-naive metastatic BRAF V600 melanoma, DREAMseq and SECOMBIT support beginning with nivolumab plus ipilimumab for most trial-eligible patients, while urgent disease control, contraindications, prior adjuvant therapy, toxicity, and patient preference can alter individual sequencing.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"nivolumab\", \"ipilimumab\"]}}, {\"id\": \"Immune-Checkpoint-Mediated Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF-mutant melanoma exists within an immune-responsive but suppressive microenvironment. BRAF inhibition can increase CD8-positive T-cell infiltration while also increasing PD-L1, creating a rationale for checkpoint blockade. Immune phenotype varies among tumors and is not determined by BRAF status alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"negative regulation of T cell mediated immunity\"], \"role\": \"modifier\"}}, {\"id\": \"Intermittent Ultraviolet-Exposure Context\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ultraviolet exposure is a background cause of cutaneous melanoma, and one primary-tumor cohort found BRAF mutation enriched with intermittent sun exposure. This association does not establish that UV directly creates the BRAF V600 nucleotide change, nor does it make exposure necessary for this molecular subtype.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Invasive and Metastatic Melanoma Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Melanoma progression entails invasion, regional or distant dissemination, and survival in metastatic sites. BRAF V600 is a driver and treatment biomarker, but it does not by itself define the anatomic pattern or stage; co-alterations, immune context, and tumor-cell state modify progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of cell migration\"], \"role\": \"consequence\"}}, {\"id\": \"MAPK-Dependent Melanocyte Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent ERK signaling expands and sustains transformed melanocytes. This output is necessary but not always sufficient for invasive melanoma: experimental BRAF expression can stop at a benign hyperplasia, whereas additional survival and tumor-suppressor lesions permit progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"role\": \"consequence\", \"locations\": [\"skin of body\"]}}, {\"id\": \"NIH3T3 Mutant-BRAF Transformation Assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Expression of melanoma-derived mutant BRAF proteins in NIH3T3 fibroblasts demonstrates elevated kinase activity and transforming capacity. This is a reductionist driver-function assay, not a melanocyte-lineage or immune-competent model of cutaneous melanoma.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Wild-type BRAF expression\", \"Melanoma-derived mutant BRAF expression\"], \"publication\": \"PMID:12068308\"}}, {\"id\": \"Oncogene-Induced Melanocytic Growth-Arrest Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Strong oncogenic BRAF signaling can evoke a senescence-like arrest rather than continuous malignant growth. This helps explain why BRAF V600E is found in benign melanocytic proliferations and why additional genetic or cell-state changes are required for invasive cancer.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"cellular senescence\"], \"role\": \"regulatory\"}}, {\"id\": \"PTEN-Loss and PI3K-AKT-mTOR Cooperation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PTEN provides a cooperating survival pathway that permits BRAF-initiated melanocytes to escape the benign growth-arrest state and progress. This is a validated experimental route rather than a claim that PTEN loss is obligatory in every human BRAF V600 melanoma.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intracellular signal transduction\"], \"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}], \"role\": \"modifier\"}}, {\"id\": \"Progressive Metastatic Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stage III or IV disease can progress through regional or distant tumor growth. During targeted therapy, molecularly heterogeneous resistant lesions can restore MAPK signaling and resume growth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002664\"}}, {\"id\": \"Somatic BRAF Codon-600 Driver\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A tumor-acquired missense substitution at BRAF codon 600 destabilizes the inactive kinase configuration. Codon-600 mutants constitute class-I BRAF: they are active without upstream RAS, signal as monomers, and differ mechanistically from class-II dimers and RAS-dependent class-III mutants.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"NIH3T3 Mutant-BRAF Transformation Assay\", \"model_type\": \"CELL_LINE\", \"description\": \"Tests kinase activation and transforming capacity conferred by melanoma-derived BRAF mutations.\"}]}}, {\"id\": \"Surgical Excision of Resectable Cutaneous Melanoma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Complete excision with a stage-appropriate margin is the foundation for resectable primary disease. Sentinel-node biopsy is a staging procedure in selected tumors and should not be described as having a proven survival benefit. Subsequent adjuvant treatment depends on stage, BRAF allele, risk, and patient context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sustained MEK-ERK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive mutant-BRAF output maintains the RAF-MEK-ERK cascade, which controls proliferative and survival programs in the melanocytic lineage. The pathway remains pharmacologically actionable because inhibition at both BRAF and MEK reduces pathway output and delays, but does not eliminate, resistance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ERK1 and ERK2 cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"Vemurafenib Plus Cobimetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vemurafenib plus cobimetinib is a combined BRAF/MEK option for BRAF V600 advanced melanoma. Five-year coBRIM follow-up confirmed longer median progression-free and overall survival than vemurafenib alone, with regimen-specific toxicity and patient factors informing selection.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"vemurafenib\", \"cobimetinib\"]}}], \"edges\": [{\"source\": \"Somatic BRAF Codon-600 Driver\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive class-I BRAF kinase output activates the downstream MEK-ERK cascade without an upstream RAS requirement.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic BRAF Codon-600 Driver\", \"target\": \"Oncogene-Induced Melanocytic Growth-Arrest Barrier\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In melanocytes, BRAF V600E can initiate benign hyperplasia followed by a durable growth-arrest barrier.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"excessive oncogenic signaling\", \"cellular senescence program\"]}, {\"source\": \"Sustained MEK-ERK Signaling\", \"target\": \"MAPK-Dependent Melanocyte Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ERK output maintains cell-cycle progression and survival in BRAF-driven melanoma cells.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK-Dependent Melanocyte Proliferation and Survival\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK-dependent expansion contributes to the cutaneous melanoma phenotype when cooperating progression barriers are overcome.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal melanocyte expansion\", \"escape from oncogene-induced growth arrest\", \"malignant transformation\"]}, {\"source\": \"PTEN-Loss and PI3K-AKT-mTOR Cooperation\", \"target\": \"Invasive and Metastatic Melanoma Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the conditional model, PTEN loss converts BRAF-initiated hyperplasia into rapidly penetrant metastatic melanoma.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"escape from growth arrest\", \"enhanced tumor-cell survival\", \"invasive clonal expansion\"]}, {\"source\": \"Invasive and Metastatic Melanoma Progression\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced BRAF V600 melanoma can disseminate to the brain, although a unique BRAF-dependent brain-homing route is not established here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hematogenous dissemination\", \"blood-brain barrier transit\", \"intracranial colonization\"]}, {\"source\": \"Invasive and Metastatic Melanoma Progression\", \"target\": \"Progressive Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued invasive growth and dissemination produce clinically progressive metastatic melanoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acquired MAPK Reactivation and Adaptive Resistance\", \"target\": \"Progressive Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restored or bypass signaling permits renewed tumor growth during targeted therapy.\", \"hypothesis_groups\": [\"acquired_mapk_inhibitor_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"restoration of tumor-cell proliferation\", \"survival of drug-tolerant clones\", \"expansion of resistant lesions\"]}, {\"source\": \"Intermittent Ultraviolet-Exposure Context\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Deliberately not TRIGGERS. Intermittent sun exposure is associated with this tumour type, but this entry\u0027s own evidence notes the BRAF V600E mutation arises in anatomically sun-shielded naevi too, so ultraviolet light is a risk context rather than the mutational cause. The mutation does not carry a UV signature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Surgical Excision of Resectable Cutaneous Melanoma\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Adjuvant Dabrafenib Plus Trametinib\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Dabrafenib Plus Trametinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dabrafenib Plus Trametinib for Unresectable or Metastatic Disease\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dabrafenib Plus Trametinib for Unresectable or Metastatic Disease\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vemurafenib Plus Cobimetinib\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vemurafenib Plus Cobimetinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune Checkpoint Blockade\", \"target\": \"Immune-Checkpoint-Mediated Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NIH3T3 Mutant-BRAF Transformation Assay\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Glu\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Lys\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Arg\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Met\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquired MAPK Reactivation and Adaptive Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under BRAF- or BRAF/MEK-inhibitor selection, progressing lesions can restore ERK signaling through secondary NRAS or MAP2K1 alterations and other MAPK routes. Parallel PI3K-AKT signaling and reversible transcriptional or metabolic adaptation can also sustain drug-tolerant states. Resistance is therefore mechanistically heterogeneous.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ERK1 and ERK2 cascade\", \"response to xenobiotic stimulus\"], \"role\": \"consequence\"}}, {\"id\": \"Adjuvant Dabrafenib Plus Trametinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Twelve months of dabrafenib plus trametinib is an adjuvant option after complete resection of high-risk stage-III BRAF V600E/K melanoma. Final COMBI-AD follow-up showed durable relapse-free and distant-metastasis-free benefit; the overall-survival comparison did not meet conventional statistical significance in the full population.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dabrafenib\", \"trametinib\"]}}, {\"id\": \"BRAF p.Val600Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF p.Val600Glu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF p.Val600Lys\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF p.Val600Met\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic Activating Driver Mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Brain Metastases\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial metastasis is an important advanced-disease phenotype that changes local and systemic treatment planning. COMBI-MB established intracranial activity of dabrafenib plus trametinib, but responses were often less durable than needed.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030692\"}}, {\"id\": \"Cutaneous Melanoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malignant melanoma arising in skin is the defining tumor phenotype for this entry. The BRAF V600 result subdivides cutaneous melanoma but does not substitute for its clinicopathologic diagnosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0012056\"}}, {\"id\": \"Dabrafenib Plus Trametinib for Unresectable or Metastatic Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dual BRAF/MEK inhibition produces rapid responses in BRAF V600E/K unresectable or metastatic melanoma. Pooled COMBI-d/COMBI-v follow-up showed five-year survival in a subset, while COMBI-MB demonstrated intracranial activity with comparatively limited response duration.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dabrafenib\", \"trametinib\"]}}, {\"id\": \"Encorafenib Plus Binimetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Encorafenib plus binimetinib is a combined BRAF/MEK option for locally advanced unresectable or metastatic BRAF V600E/K melanoma. The seven-year COLUMBUS analysis provides the longest phase-III follow-up among the represented targeted combinations.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"encorafenib\", \"binimetinib\"]}}, {\"id\": \"Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1-based therapy, alone or in combination with CTLA-4 or LAG-3 blockade, is a major systemic option regardless of BRAF status. In treatment-naive metastatic BRAF V600 melanoma, DREAMseq and SECOMBIT support beginning with nivolumab plus ipilimumab for most trial-eligible patients, while urgent disease control, contraindications, prior adjuvant therapy, toxicity, and patient preference can alter individual sequencing.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"nivolumab\", \"ipilimumab\"]}}, {\"id\": \"Immune-Checkpoint-Mediated Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BRAF-mutant melanoma exists within an immune-responsive but suppressive microenvironment. BRAF inhibition can increase CD8-positive T-cell infiltration while also increasing PD-L1, creating a rationale for checkpoint blockade. Immune phenotype varies among tumors and is not determined by BRAF status alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"negative regulation of T cell mediated immunity\"], \"role\": \"modifier\"}}, {\"id\": \"Intermittent Ultraviolet-Exposure Context\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ultraviolet exposure is a background cause of cutaneous melanoma, and one primary-tumor cohort found BRAF mutation enriched with intermittent sun exposure. This association does not establish that UV directly creates the BRAF V600 nucleotide change, nor does it make exposure necessary for this molecular subtype.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Invasive and Metastatic Melanoma Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Melanoma progression entails invasion, regional or distant dissemination, and survival in metastatic sites. BRAF V600 is a driver and treatment biomarker, but it does not by itself define the anatomic pattern or stage; co-alterations, immune context, and tumor-cell state modify progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of cell migration\"], \"role\": \"consequence\"}}, {\"id\": \"MAPK-Dependent Melanocyte Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent ERK signaling expands and sustains transformed melanocytes. This output is necessary but not always sufficient for invasive melanoma: experimental BRAF expression can stop at a benign hyperplasia, whereas additional survival and tumor-suppressor lesions permit progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"cell population proliferation\", \"apoptotic process\"], \"role\": \"consequence\", \"locations\": [\"skin of body\"]}}, {\"id\": \"NIH3T3 Mutant-BRAF Transformation Assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Expression of melanoma-derived mutant BRAF proteins in NIH3T3 fibroblasts demonstrates elevated kinase activity and transforming capacity. This is a reductionist driver-function assay, not a melanocyte-lineage or immune-competent model of cutaneous melanoma.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"Wild-type BRAF expression\", \"Melanoma-derived mutant BRAF expression\"], \"publication\": \"PMID:12068308\"}}, {\"id\": \"Oncogene-Induced Melanocytic Growth-Arrest Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Strong oncogenic BRAF signaling can evoke a senescence-like arrest rather than continuous malignant growth. This helps explain why BRAF V600E is found in benign melanocytic proliferations and why additional genetic or cell-state changes are required for invasive cancer.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"cellular senescence\"], \"role\": \"regulatory\"}}, {\"id\": \"PTEN-Loss and PI3K-AKT-mTOR Cooperation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of PTEN provides a cooperating survival pathway that permits BRAF-initiated melanocytes to escape the benign growth-arrest state and progress. This is a validated experimental route rather than a claim that PTEN loss is obligatory in every human BRAF V600 melanoma.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intracellular signal transduction\"], \"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}], \"role\": \"modifier\"}}, {\"id\": \"Progressive Metastatic Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stage III or IV disease can progress through regional or distant tumor growth. During targeted therapy, molecularly heterogeneous resistant lesions can restore MAPK signaling and resume growth.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002664\"}}, {\"id\": \"Somatic BRAF Codon-600 Driver\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A tumor-acquired missense substitution at BRAF codon 600 destabilizes the inactive kinase configuration. Codon-600 mutants constitute class-I BRAF: they are active without upstream RAS, signal as monomers, and differ mechanistically from class-II dimers and RAS-dependent class-III mutants.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"NIH3T3 Mutant-BRAF Transformation Assay\", \"model_type\": \"CELL_LINE\", \"description\": \"Tests kinase activation and transforming capacity conferred by melanoma-derived BRAF mutations.\"}]}}, {\"id\": \"Surgical Excision of Resectable Cutaneous Melanoma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Complete excision with a stage-appropriate margin is the foundation for resectable primary disease. Sentinel-node biopsy is a staging procedure in selected tumors and should not be described as having a proven survival benefit. Subsequent adjuvant treatment depends on stage, BRAF allele, risk, and patient context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sustained MEK-ERK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive mutant-BRAF output maintains the RAF-MEK-ERK cascade, which controls proliferative and survival programs in the melanocytic lineage. The pathway remains pharmacologically actionable because inhibition at both BRAF and MEK reduces pathway output and delays, but does not eliminate, resistance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ERK1 and ERK2 cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"Vemurafenib Plus Cobimetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vemurafenib plus cobimetinib is a combined BRAF/MEK option for BRAF V600 advanced melanoma. Five-year coBRIM follow-up confirmed longer median progression-free and overall survival than vemurafenib alone, with regimen-specific toxicity and patient factors informing selection.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"vemurafenib\", \"cobimetinib\"]}}], \"edges\": [{\"source\": \"Somatic BRAF Codon-600 Driver\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive class-I BRAF kinase output activates the downstream MEK-ERK cascade without an upstream RAS requirement.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic BRAF Codon-600 Driver\", \"target\": \"Oncogene-Induced Melanocytic Growth-Arrest Barrier\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In melanocytes, BRAF V600E can initiate benign hyperplasia followed by a durable growth-arrest barrier.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"excessive oncogenic signaling\", \"cellular senescence program\"]}, {\"source\": \"Sustained MEK-ERK Signaling\", \"target\": \"MAPK-Dependent Melanocyte Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ERK output maintains cell-cycle progression and survival in BRAF-driven melanoma cells.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK-Dependent Melanocyte Proliferation and Survival\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK-dependent expansion contributes to the cutaneous melanoma phenotype when cooperating progression barriers are overcome.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal melanocyte expansion\", \"escape from oncogene-induced growth arrest\", \"malignant transformation\"]}, {\"source\": \"PTEN-Loss and PI3K-AKT-mTOR Cooperation\", \"target\": \"Invasive and Metastatic Melanoma Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the conditional model, PTEN loss converts BRAF-initiated hyperplasia into rapidly penetrant metastatic melanoma.\", \"hypothesis_groups\": [\"canonical_braf_v600_melanoma_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"escape from growth arrest\", \"enhanced tumor-cell survival\", \"invasive clonal expansion\"]}, {\"source\": \"Invasive and Metastatic Melanoma Progression\", \"target\": \"Brain Metastases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced BRAF V600 melanoma can disseminate to the brain, although a unique BRAF-dependent brain-homing route is not established here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hematogenous dissemination\", \"blood-brain barrier transit\", \"intracranial colonization\"]}, {\"source\": \"Invasive and Metastatic Melanoma Progression\", \"target\": \"Progressive Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued invasive growth and dissemination produce clinically progressive metastatic melanoma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acquired MAPK Reactivation and Adaptive Resistance\", \"target\": \"Progressive Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Restored or bypass signaling permits renewed tumor growth during targeted therapy.\", \"hypothesis_groups\": [\"acquired_mapk_inhibitor_resistance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"restoration of tumor-cell proliferation\", \"survival of drug-tolerant clones\", \"expansion of resistant lesions\"]}, {\"source\": \"Intermittent Ultraviolet-Exposure Context\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Deliberately not TRIGGERS. Intermittent sun exposure is associated with this tumour type, but this entry\u0027s own evidence notes the BRAF V600E mutation arises in anatomically sun-shielded naevi too, so ultraviolet light is a risk context rather than the mutational cause. The mutation does not carry a UV signature.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Surgical Excision of Resectable Cutaneous Melanoma\", \"target\": \"Cutaneous Melanoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Adjuvant Dabrafenib Plus Trametinib\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Dabrafenib Plus Trametinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dabrafenib Plus Trametinib for Unresectable or Metastatic Disease\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dabrafenib Plus Trametinib for Unresectable or Metastatic Disease\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vemurafenib Plus Cobimetinib\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vemurafenib Plus Cobimetinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Encorafenib Plus Binimetinib\", \"target\": \"Sustained MEK-ERK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune Checkpoint Blockade\", \"target\": \"Immune-Checkpoint-Mediated Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"NIH3T3 Mutant-BRAF Transformation Assay\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests kinase activation and transforming capacity conferred by melanoma-derived BRAF mutations.\"}, {\"source\": \"BRAF p.Val600Glu\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Lys\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Arg\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF p.Val600Met\", \"target\": \"Somatic BRAF Codon-600 Driver\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6228,14 +6575,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cutaneous melanoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012056" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012056">HP:0012056</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012056" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012056</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutaneous melanoma (HP:0012056). HP:0012056 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6296,14 +6650,23 @@
                         Progressive Metastatic Disease
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm
+
+                        <span class="phenotype-term-label">Neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002664">HP:0002664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6364,14 +6727,23 @@
                         Brain Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brain neoplasm
+
+                        <span class="phenotype-term-label">Brain neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030692">HP:0030692</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030692</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brain metastasis, annotated with Brain neoplasm (HP:0030692). HP:0030692 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6469,13 +6841,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:1097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6559,13 +6936,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:1097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6649,13 +7031,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:1097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6739,13 +7126,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:1097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6818,7 +7210,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6855,16 +7252,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cutaneous melanoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012056" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012056">HP:0012056</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012056" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012056</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cutaneous melanoma (HP:0012056). HP:0012056 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6915,7 +7317,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -6946,17 +7353,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dabrafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75045" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75045">CHEBI:75045</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75045" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:75045</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dabrafenib (CHEBI:75045). CHEBI:75045 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         trametinib
@@ -6964,10 +7378,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75998">CHEBI:75998</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:75998</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7119,7 +7536,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -7150,17 +7572,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dabrafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75045" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75045">CHEBI:75045</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75045" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:75045</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dabrafenib (CHEBI:75045). CHEBI:75045 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         trametinib
@@ -7168,10 +7597,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:75998">CHEBI:75998</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_75998" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:75998</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses trametinib (CHEBI:75998). CHEBI:75998 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7345,7 +7777,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -7376,17 +7813,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vemurafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63637" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63637">CHEBI:63637</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63637" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:63637</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vemurafenib (CHEBI:63637). CHEBI:63637 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cobimetinib
@@ -7394,10 +7838,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_90851" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:90851">CHEBI:90851</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_90851" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:90851</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cobimetinib (CHEBI:90851). CHEBI:90851 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7549,7 +7996,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -7580,17 +8032,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         encorafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C98283" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C98283">NCIT:C98283</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C98283" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C98283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses encorafenib (NCIT:C98283). NCIT:C98283 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         binimetinib
@@ -7598,10 +8057,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_145371" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:145371">CHEBI:145371</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145371" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:145371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses binimetinib (CHEBI:145371). CHEBI:145371 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7753,7 +8215,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -7784,17 +8251,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         nivolumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C68814">NCIT:C68814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C68814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ipilimumab
@@ -7802,10 +8276,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_231679" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:231679">CHEBI:231679</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231679" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:231679</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ipilimumab (CHEBI:231679). CHEBI:231679 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7962,6 +8439,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-intermittent-ultraviolet-exposure-context" data-dismech-node="Intermittent Ultraviolet-Exposure Context" data-dismech-type="environmental">
                 <div class="item-name">Intermittent Ultraviolet-Exposure Context</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ultraviolet radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:0000006</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -8923,15 +9427,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-42">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-42">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8964,14 +9473,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-somatic-braf-codon-600-driver">Somatic BRAF Codon-600 Driver</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests kinase activation and transforming capacity conferred by melanoma-derived BRAF mutations.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-somatic-braf-codon-600-driver">Somatic BRAF Codon-600 Driver</a>
+
+
+
+                <span class="crosslink-desc">Tests kinase activation and transforming capacity conferred by melanoma-derived BRAF mutations.</span>
+
+
 
 
 
@@ -9008,10 +9522,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9106,6 +9621,529 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-melanocyte-specific-conditional-braf-v600e-with-or-without-pten-silencing-mus-musculus" data-dismech-node="Melanocyte-specific conditional Braf(V600E), with or without Pten silencing Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Melanocyte-specific conditional Braf(V600E), with or without Pten silencing Mus musculus
+
+                </div>
+
+                <div class="item-desc">Conditional melanocyte-specific Braf V600E produces benign melanocytic hyperplasia without melanoma over prolonged observation. Adding Pten loss produces rapid, fully penetrant melanoma with lymph-node and lung metastases, modeling oncogene initiation, progression restraint, and PI3K-pathway cooperation.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Benign melanocytic hyperplasia with Braf V600E alone</span>
+
+                    <span class="tag tag-phenotype">Rapid melanoma after combined Braf V600E and Pten loss</span>
+
+                    <span class="tag tag-phenotype">Lymph-node and lung metastases</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Melanocyte-specific conditional Braf(V600E), with or without Pten silencing</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:1097</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PTEN
+
+
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:9588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19282848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19282848" target="_blank">PMID:19282848</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Expression of BRaf(V600E) combined with Pten tumor suppressor gene silencing elicited development of melanoma with 100% penetrance."</div>
+
+
+                <div class="evidence-explanation">The study directly defines the conditional cooperative model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-syngeneic-braf-v600e-pten-null-melanoma-graft-in-immunocompetent-mice-mus-musculus" data-dismech-node="Syngeneic Braf(V600E)/Pten-null melanoma graft in immunocompetent mice Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Syngeneic Braf(V600E)/Pten-null melanoma graft in immunocompetent mice Mus musculus
+
+                </div>
+
+                <div class="item-desc">An immunocompetent syngeneic Braf V600E/Pten-null graft model reproduces increased intratumoral CD8-positive T-cell density after BRAF inhibition and permits testing of combined targeted and checkpoint therapy.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Syngeneic melanoma growth</span>
+
+                    <span class="tag tag-phenotype">Increased CD8-positive tumor infiltration after BRAF inhibition</span>
+
+                    <span class="tag tag-phenotype">Enhanced response to combined BRAF and PD-1 or PD-L1 blockade</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Syngeneic Braf(V600E)/Pten-null melanoma graft in immunocompetent mice</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:1097</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PTEN
+
+
+    <a href="https://bioregistry.io/hgnc:9588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:9588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns PTEN (hgnc:9588). hgnc:9588 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24903021" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24903021" target="_blank">PMID:24903021</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we developed a BRAF(V600E)/Pten(-/-) syngeneic tumor graft immunocompetent mouse model"</div>
+
+
+                <div class="evidence-explanation">The publication explicitly defines the immune-competent graft model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-transgenic-braf-v600e-driven-melanoma-with-cooperating-germline-drivers-including-p53-loss-danio-rerio" data-dismech-node="Transgenic BRAF(V600E)-driven melanoma with cooperating germline drivers including p53 loss Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Transgenic BRAF(V600E)-driven melanoma with cooperating germline drivers including p53 loss Danio rerio
+
+                </div>
+
+                <div class="item-desc">Engineered zebrafish melanomas initiated by BRAF V600E with cooperating drivers model multi-hit tumorigenesis in the absence of ultraviolet exposure. Tumors have low overall mutation burden but remain genetically heterogeneous, which helps separate driver cooperation from UV-associated human mutational burden.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Variable melanoma onset and pathology</span>
+
+                    <span class="tag tag-phenotype">Low mutation burden</span>
+
+                    <span class="tag tag-phenotype">Genetically heterogeneous tumors</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Transgenic BRAF(V600E)-driven melanoma with cooperating germline drivers including p53 loss</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        BRAF
+
+
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:1097</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:11998</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24148783" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24148783" target="_blank">PMID:24148783</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Engineered zebrafish melanomas show an overall low mutation burden."</div>
+
+
+                <div class="evidence-explanation">Exome sequencing directly characterizes the BRAF-driven zebrafish tumors.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -9122,7 +10160,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: BRAF V600 Mutant Melanoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-07-23T00:00:00Z&#39;
 description: &gt;-
   BRAF V600-mutant melanoma is a molecularly defined subtype of cutaneous
   melanoma in which tumor cells carry an activating somatic substitution at
@@ -9247,6 +10284,11 @@ has_subtypes:
 
 environmental:
 - name: Intermittent Ultraviolet-Exposure Context
+  exposure_term:
+    preferred_term: exposure to ultraviolet radiation
+    term:
+      id: ECTO:0000006
+      label: exposure to ultraviolet radiation
   influences_mechanisms:
   - target: Somatic BRAF Codon-600 Driver
     environmental_effect: PREDISPOSES
@@ -9625,6 +10667,7 @@ pathophysiology:
       explanation: The trial documents limited response durability in advanced brain-metastatic disease.
 
 - name: Immune-Checkpoint-Mediated Evasion
+  conforms_to: &#34;immune_checkpoint_blockade#Adaptive Immune Resistance&#34;
   role: modifier
   biological_scale: CELLULAR
   description: &gt;-
@@ -13571,7 +14614,7 @@ MAPK Reactivation    PI3K/AKT/FAK         Metabolic Shift
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BRAF V600 Mutant Melanoma", "mondoId": "MONDO:0005012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF_V600_Mutant_Melanoma", "yamlRevision": "c27700db1833"};
+        const OS_CONFIG = {"diseaseName": "BRAF V600 Mutant Melanoma", "mondoId": "MONDO:0005012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF_V600_Mutant_Melanoma", "yamlRevision": "073b0c578fb2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13990,5 +15033,73 @@ MAPK Reactivation    PI3K/AKT/FAK         Metabolic Shift
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

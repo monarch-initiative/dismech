@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3859,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3810,7 +3978,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3839,34 +4007,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Sarcoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4977,10 +5232,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         isogenic dependency mapping experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type isogenic dependency mapping experiment.</span>
     </span>
 
 
@@ -5034,15 +5295,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -5071,15 +5339,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         skeletal muscle myoblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000515">CL:0000515</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000515</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses skeletal muscle myoblast (CL:0000515). CL:0000515 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -5359,16 +5634,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         chromatin remodeling
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006338</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -5396,10 +5682,13 @@
         positive regulation of transcription by RNA polymerase II
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045944">GO:0045944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0045944</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5430,10 +5719,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         ATAC-seq
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by ATAC-seq.</span>
     </span>
 
 
@@ -5457,10 +5752,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         CUT&amp;Tag
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by CUT&amp;Tag.</span>
     </span>
 
 
@@ -5484,10 +5785,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         single-cell RNA-seq
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+This readout is measured by single-cell RNA-seq.</span>
     </span>
 
 
@@ -5544,15 +5851,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         positive regulation of transcription by RNA polymerase II
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045944">GO:0045944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0045944</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5583,10 +5897,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         CUT&amp;Tag
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
+This readout is measured by CUT&amp;Tag.</span>
     </span>
 
 
@@ -5610,10 +5930,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-11">
 
         RNA sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this readout is measured by this assay
+This readout is measured by RNA sequencing.</span>
     </span>
 
 
@@ -5637,10 +5963,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-12">
 
         immunoblot
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Relation: this readout is measured by this assay
+This readout is measured by immunoblot.</span>
     </span>
 
 
@@ -5697,15 +6029,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         cell differentiation
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030154">GO:0030154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030154</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5736,10 +6075,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-14">
 
         differentiation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Relation: this readout is measured by this assay
+This readout is measured by differentiation assay.</span>
     </span>
 
 
@@ -5763,10 +6108,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-15">
 
         cell viability assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this readout is measured by this assay
+This readout is measured by cell viability assay.</span>
     </span>
 
 
@@ -5790,10 +6141,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-16">
 
         invasion assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Relation: this readout is measured by this assay
+This readout is measured by invasion assay.</span>
     </span>
 
 
@@ -5850,15 +6207,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         response to xenobiotic stimulus
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0009410</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on response to xenobiotic stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -5889,10 +6253,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         cell viability assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by cell viability assay.</span>
     </span>
 
 
@@ -5916,10 +6286,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-19">
 
         chemotherapy response assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Relation: this readout is measured by this assay
+This readout is measured by chemotherapy response assay.</span>
     </span>
 
 
@@ -6309,10 +6685,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-20">
 
         functional precision-oncology biomarker experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Relation: this experiment is of type this experiment type
+This experiment is of type functional precision-oncology biomarker experiment.</span>
     </span>
 
 
@@ -6366,15 +6748,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-21">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -6511,15 +6900,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         chromatin remodeling
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006338</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -6550,10 +6946,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-23">
 
         ATAC-seq
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">Relation: this readout is measured by this assay
+This readout is measured by ATAC-seq.</span>
     </span>
 
 
@@ -6577,10 +6979,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-24">
 
         CUT&amp;Tag
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">Relation: this readout is measured by this assay
+This readout is measured by CUT&amp;Tag.</span>
     </span>
 
 
@@ -6604,10 +7012,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-25">
 
         RNA sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">Relation: this readout is measured by this assay
+This readout is measured by RNA sequencing.</span>
     </span>
 
 
@@ -6664,15 +7078,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         fibroblast growth factor receptor signaling pathway
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0008543</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -6703,10 +7124,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-27">
 
         phosphoproteomics
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">Relation: this readout is measured by this assay
+This readout is measured by phosphoproteomics.</span>
     </span>
 
 
@@ -6730,10 +7157,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-28">
 
         RNA sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Relation: this readout is measured by this assay
+This readout is measured by RNA sequencing.</span>
     </span>
 
 
@@ -6793,10 +7226,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-29">
 
         cell viability assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Relation: this readout is measured by this assay
+This readout is measured by cell viability assay.</span>
     </span>
 
 
@@ -6820,10 +7259,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-30">
 
         tumor growth assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">Relation: this readout is measured by this assay
+This readout is measured by tumor growth assay.</span>
     </span>
 
 
@@ -7125,10 +7570,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-31">
 
         tumor microenvironment immunotherapy resistance experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">Relation: this experiment is of type this experiment type
+This experiment is of type tumor microenvironment immunotherapy resistance experiment.</span>
     </span>
 
 
@@ -7182,15 +7633,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-32">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -7219,16 +7677,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         cancer-associated fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000057</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -7256,10 +7725,13 @@
         T cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000084</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -7431,16 +7903,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         antigen processing and presentation
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019882">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0019882</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -7468,10 +7951,13 @@
         immune response
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0006955</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -7502,10 +7988,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-37">
 
         ATAC-seq
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">Relation: this readout is measured by this assay
+This readout is measured by ATAC-seq.</span>
     </span>
 
 
@@ -7529,10 +8021,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-38">
 
         single-cell RNA-seq
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">Relation: this readout is measured by this assay
+This readout is measured by single-cell RNA-seq.</span>
     </span>
 
 
@@ -7556,10 +8054,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-39">
 
         flow cytometry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">Relation: this readout is measured by this assay
+This readout is measured by flow cytometry.</span>
     </span>
 
 
@@ -7583,10 +8087,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-40">
 
         cytokine profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">Relation: this readout is measured by this assay
+This readout is measured by cytokine profiling.</span>
     </span>
 
 
@@ -7610,10 +8120,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-41">
 
         cell killing assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">Relation: this readout is measured by this assay
+This readout is measured by cell killing assay.</span>
     </span>
 
 
@@ -7673,10 +8189,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-42">
 
         cell viability assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">Relation: this readout is measured by this assay
+This readout is measured by cell viability assay.</span>
     </span>
 
 
@@ -7700,10 +8222,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-43">
 
         cytotoxicity assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">Relation: this readout is measured by this assay
+This readout is measured by cytotoxicity assay.</span>
     </span>
 
 
@@ -7999,16 +8527,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle myoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000515">CL:0000515</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0000515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle myoblast (CL:0000515). CL:0000515 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8035,16 +8568,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8617">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:8617</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8072,11 +8616,18 @@
         PAX7
 
 
-    <a href="https://bioregistry.io/hgnc:8621" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8621">hgnc:8621</a>
+    <a href="https://bioregistry.io/hgnc:8621" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:8621</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX7 (hgnc:8621). hgnc:8621 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8104,10 +8655,13 @@
         FOXO1
 
 
-    <a href="https://bioregistry.io/hgnc:3819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3819">hgnc:3819</a>
+    <a href="https://bioregistry.io/hgnc:3819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:3819</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXO1 (hgnc:3819). hgnc:3819 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8135,16 +8689,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045944">GO:0045944</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0045944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal positive regulation of transcription by RNA polymerase II (GO:0045944). GO:0045944 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8171,19 +8730,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -8314,16 +8879,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle myoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000515">CL:0000515</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-50">CL:0000515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle myoblast (CL:0000515). CL:0000515 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8350,16 +8920,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-51">GO:0006338</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8379,16 +8954,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010628" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010628">GO:0010628</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010628" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-52">GO:0010628</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal positive regulation of gene expression (GO:0010628). GO:0010628 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8409,6 +8989,7 @@
 
 
                 </div>
+
 
 
 
@@ -8589,16 +9170,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006338">GO:0006338</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-53">GO:0006338</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin remodeling (GO:0006338). GO:0006338 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8618,16 +9204,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010628" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010628">GO:0010628</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010628" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-54">GO:0010628</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal positive regulation of gene expression (GO:0010628). GO:0010628 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8648,6 +9239,7 @@
 
 
                 </div>
+
 
 
 
@@ -8790,15 +9382,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MYCN
 
 
-    <a href="https://bioregistry.io/hgnc:7559" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7559">hgnc:7559</a>
+    <a href="https://bioregistry.io/hgnc:7559" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:7559</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYCN (hgnc:7559). hgnc:7559 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8826,16 +9425,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein stabilization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050821" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050821">GO:0050821</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050821" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-56">GO:0050821</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein stabilization (GO:0050821). GO:0050821 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8855,16 +9459,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010628" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010628">GO:0010628</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010628" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-57">GO:0010628</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of gene expression (GO:0010628). GO:0010628 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8885,6 +9494,7 @@
 
 
                 </div>
+
 
 
 
@@ -9001,16 +9611,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051726">GO:0051726</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-58">GO:0051726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9030,16 +9645,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         epigenetic regulation of gene expression
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0040029">GO:0040029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-59">GO:0040029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal epigenetic regulation of gene expression (GO:0040029). GO:0040029 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9060,6 +9680,7 @@
 
 
                 </div>
+
 
 
 
@@ -9146,16 +9767,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to xenobiotic stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-60">GO:0009410</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal response to xenobiotic stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9176,6 +9802,7 @@
 
 
                 </div>
+
 
 
 
@@ -9247,16 +9874,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         fibroblast growth factor receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008543">GO:0008543</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008543" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-61">GO:0008543</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibroblast growth factor receptor signaling pathway (GO:0008543). GO:0008543 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9277,6 +9909,7 @@
 
 
                 </div>
+
 
 
 
@@ -9374,16 +10007,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Ras protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007265">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-62">GO:0007265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9403,16 +10041,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         PI3K/AKT signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043491">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-63">GO:0043491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased PI3K/AKT signal transduction, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9433,6 +10076,7 @@
 
 
                 </div>
+
 
 
 
@@ -9523,17 +10167,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cancer-associated fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-64">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -9554,10 +10205,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-65">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -9584,16 +10238,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019882">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-66">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9613,16 +10272,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006955">GO:0006955</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-67">GO:0006955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased immune response (GO:0006955). GO:0006955 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9664,6 +10328,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -9806,16 +10471,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030154">GO:0030154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-68">GO:0030154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9857,6 +10527,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -9913,15 +10584,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CDK4
 
 
-    <a href="https://bioregistry.io/hgnc:1773" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1773">hgnc:1773</a>
+    <a href="https://bioregistry.io/hgnc:1773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:1773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDK4 (hgnc:1773). hgnc:1773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -9949,16 +10627,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-70">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9979,6 +10662,7 @@
 
 
                 </div>
+
 
 
 
@@ -10117,7 +10801,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant growth is the convergent output of multiple now-explicit upstream mechanisms: PAX-FOXO1 enhancer reprogramming, ETS1/KDM3A chromatin cofactor dependence, YOD1/N-Myc feedback and protein stabilization, FGFR/RAS/PI3K signaling, and treatment-resistant relapse states.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"CDK4\"], \"gene_terms\": [{\"label\": \"CDK4\", \"id\": \"hgnc:1773\"}]}}, {\"id\": \"Blocked Myogenic Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fusion-driven transcriptional and enhancer reprogramming impairs the normal terminal myogenic differentiation program. Tumor cells retain skeletal muscle lineage markers but remain trapped in a malignant, incompletely differentiated state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell differentiation\"], \"experimental_models\": [{\"name\": \"Patient-derived ARMS single-cell culture model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Tests whether tumor-cell states can be redirected toward myogenic differentiation.\"}]}}, {\"id\": \"CDK4 Amplification\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK4\"], \"gene_terms\": [{\"label\": \"CDK4\", \"id\": \"hgnc:1773\"}], \"association\": \"Secondary Genetic Event\"}}, {\"id\": \"Chemotherapy Resistance and Relapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A clinically important disease state in which initially chemotherapy- responsive PAX3::FOXO1-positive ARMS survives treatment pressure, relapses, and becomes resistant. In this pathograph it is modeled as a downstream output of specific mechanisms, especially the HDAC3-SMARCA4-miR-27a checkpoint-adaptation circuit and microenvironmental support, rather than as an unexplained late clinical outcome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to xenobiotic stimulus\"]}}, {\"id\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KDM3A and ETS1 form a disease-promoting chromatin cofactor axis with PAX3-FOXO1. ETS1 is induced by PAX3-FOXO1 and KDM3A, complexes with PAX3-FOXO1, augments fusion occupancy at enhancers, and helps maintain disease-promoting target genes including FGF8, IL4R, MEST, and PODXL. This is a direct mechanistic handle because YK-4-279 disrupts the PAX3-FOXO1/ETS1 complex and displaces PAX3-FOXO1 from chromatin.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin remodeling\", \"positive regulation of gene expression\"]}}, {\"id\": \"FGFR Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational FGFR-directed therapy may be relevant in fusion-positive ARMS with high FGFR4/FGF8 signaling activity. Preclinical models and early translational evidence support FGFR4-selective and multikinase FGFR inhibition as precision-therapy approaches in this molecular subset.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"FGF401 (roblitinib)\", \"lenvatinib\"]}}, {\"id\": \"FGFR-Driven RTK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One branch of the fusion-positive ARMS program is receptor tyrosine kinase signaling centered on FGFR4, driven by high FGFR4 and FGF8 expression and FGFR4 phosphoactivation. This is a directly druggable downstream output branch, not currently a proven maintainer of the upstream fusion-dependent chromatin state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"]}}, {\"id\": \"Fusion-positive RMS cancer-associated fibroblast coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human coculture model tests fibroblast-secreted support of FP-RMS growth, migration, immune-checkpoint expression, and cyclophosphamide resistance. It represents one metastatic microenvironment and does not establish the prevalence of this state across patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cancer-associated fibroblast\", \"skeletal muscle myoblast\"], \"model_type\": \"CO_CULTURE\", \"publication\": \"PMID:41131073\"}}, {\"id\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation creates a relapse and chemotherapy-resistance branch mediated by an HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 circuit. This is the mechanistic target of HDAC3-directed epigenetic therapy with entinostat-like class I HDAC inhibition, not merely a generic \\\"HDAC inhibitor\\\" rationale.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Histone Deacetylase Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational class I histone deacetylase inhibition, exemplified by entinostat in PAX3::FOXO1-positive ARMS PDX models, targets the HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 chemotherapy-resistance circuit and may resensitize relapsed or resistant disease to RMS chemotherapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"entinostat\"]}}, {\"id\": \"Immune-Evasive Tumor Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fusion-positive rhabdomyosarcoma can develop an immune-cold and fibroblast-supported tumor microenvironment, with reduced T-cell infiltration, impaired antigen presentation, immune-checkpoint expression, cancer-associated fibroblast cytokine support, and resistance to chemotherapy or immunotherapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cancer-associated fibroblast\", \"T cell\"], \"biological_processes\": [\"antigen processing and presentation\", \"immune response\"], \"experimental_models\": [{\"name\": \"Fusion-positive RMS cancer-associated fibroblast coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"Tests CAF-mediated growth and treatment-resistance effects.\"}]}}, {\"id\": \"Intracranial Extension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial extension occurs in a subset of parameningeal ARMS and is an adverse prognostic feature. This site-specific cohort estimate is not generalized to ARMS at other primary sites, and no overly broad HPO term is assigned.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MYCN Amplification\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYCN\"], \"gene_terms\": [{\"label\": \"MYCN\", \"id\": \"hgnc:7559\"}], \"association\": \"Secondary Genetic Event\"}}, {\"id\": \"Metastatic Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metastasis and recurrence are major clinical features of fusion-positive ARMS. Their incidence varies by fusion status, primary site, stage, and ascertainment time, so this entry does not assign a single frequency band.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX-FOXO1 does not act as a generic \\\"oncogene\\\" in the pathograph; it rewires chromatin occupancy, enhancer activity, and transcriptional output. This node is the inferred regulatory program, not the ATAC-seq/open chromatin measurement itself. Disease-specific open chromatin is an assayable projection of this program and can be used to test whether perturbing candidate maintenance machinery changes the regulatory state itself, as opposed to changing downstream or branch-specific outputs such as FGFR signaling, immune evasion, or chemotherapy resistance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"chromatin remodeling\", \"positive regulation of gene expression\"]}}, {\"id\": \"PAX-FOXO1 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(2;13) or t(1;13) translocations fuse the DNA-binding domain of PAX3 or PAX7 with the transactivation domain of FOXO1. The resulting fusion protein functions as a potent aberrant transcription factor that activates PAX target genes to supraphysiological levels, driving proliferation while blocking terminal myogenic differentiation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"PAX3\", \"PAX7\", \"FOXO1\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}, {\"label\": \"PAX7\", \"id\": \"hgnc:8621\"}, {\"label\": \"FOXO1\", \"id\": \"hgnc:3819\"}], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"PAX-FOXO1/ETS1 Complex Disruption\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational small-molecule disruption of the PAX3-FOXO1/ETS1 complex is a direct chromatin-handle strategy: it aims to displace PAX3-FOXO1 from disease enhancers and suppress fusion-dependent gene regulation rather than treating the fusion as an untargetable upstream abstraction.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"YK-4-279\"]}}, {\"id\": \"PAX3-FOXO1 Fusion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX3\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}], \"association\": \"Somatic Fusion Oncogene\"}}, {\"id\": \"PAX7-FOXO1 Fusion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAX7\"], \"gene_terms\": [{\"label\": \"PAX7\", \"id\": \"hgnc:8621\"}], \"association\": \"Somatic Fusion Oncogene\"}}, {\"id\": \"Patient-derived ARMS single-cell culture model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived aRMS cultures resolve cycling progenitor, muscle stem-like, and differentiated states and enable perturbational testing of RAF/MEK inhibitors. Culture-state findings require confirmation in clinical tumors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle myoblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:36753540\"}}, {\"id\": \"Proptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orbital rhabdomyosarcoma can present with eyelid edema followed by proptosis. The cited cohort includes both pediatric and adult orbital RMS and does not establish an ARMS-specific frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"RAS/PI3K Effector Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Receptor tyrosine kinase input converges on the downstream RAS-MAPK and PI3K-AKT effector pathways. Genomic profiling shows the combined RTK/RAS/PIK3CA axis is altered in the large majority of rhabdomyosarcomas; this effector branch is therefore a curated downstream signaling state, not a claim that RAS/PI3K activation is the only or universal route to ARMS proliferation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\", \"PI3K/AKT signal transduction\"]}}, {\"id\": \"Regional Nodal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional lymph-node involvement is a clinically important staging and prognostic feature in ARMS. The cited cohort is limited to parameningeal disease; no page-wide frequency is assigned. No sufficiently specific HPO term for regional nodal metastasis is used in place of the broader lymphadenopathy phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Soft Tissue Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ARMS is a pediatric soft-tissue sarcoma; the local presentation depends on the primary anatomic site. A mass should therefore trigger tissue diagnosis rather than serve as a subtype-specific finding by itself.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031459\"}}, {\"id\": \"YOD1 Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational YOD1 inhibition is modeled as a feedback-loop intervention: inhibiting YOD1 destabilizes both PAX-FOXO1 and N-Myc, reducing the reciprocal oncogenic amplification loop rather than targeting only a downstream proliferation phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-Myc is both a downstream target and a reciprocal activator of PAX-FOXO1. YOD1 stabilizes both PAX-FOXO1 and N-Myc, maintaining a positive feedback loop that amplifies oncogenic signaling. This creates a second targetable handle upstream of generic proliferation: destabilize the two oncogenic proteins together rather than treating N-Myc as only a downstream proliferation marker.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein stabilization\", \"positive regulation of gene expression\"], \"genes\": [\"MYCN\"], \"gene_terms\": [{\"label\": \"MYCN\", \"id\": \"hgnc:7559\"}]}}], \"edges\": [{\"source\": \"PAX-FOXO1 Fusion Oncogene\", \"target\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion oncogene establishes an aberrant enhancer and super-enhancer transcriptional program that sits between the chromosomal fusion and phenotype-level outputs.\", \"hypothesis_groups\": [\"canonical_fusion_regulatory_program\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion regulatory program induces ETS1 and intersects with KDM3A; this edge marks the entry into a feedback/cofactor module, not a claim that measured open chromatin causes the cofactor state.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3-FOXO1-dependent ETS1 induction\", \"KDM3A-dependent ETS1 induction\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven transcription induces an N-Myc feedback state in which N-Myc also activates PAX-FOXO1 expression and complexes with the fusion protein.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"N-Myc induction downstream of PAX-FOXO1\", \"reciprocal PAX3-FOXO1/N-Myc transcriptional activation\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation creates a treatment-resistance branch mediated by the HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 circuit.\", \"hypothesis_groups\": [\"therapy_resistance_branch_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation\", \"HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 circuit\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"Blocked Myogenic Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven enhancer reprogramming impairs the terminal skeletal muscle differentiation program.\", \"hypothesis_groups\": [\"canonical_fusion_regulatory_program\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fusion-dependent transcriptional reprogramming\", \"suppression of terminal myogenic differentiation programs\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"Immune-Evasive Tumor Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion oncogene activity contributes to reduced antigen presentation and immune-cell infiltration, creating an immune-evasive tumor state.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered antigen presentation\", \"reduced immune-cell infiltration\", \"specific fusion-regulated immune-evasion targets remain incompletely resolved\"]}, {\"source\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"target\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ETS1/KDM3A cofactor activity is modeled as a candidate maintenance input into the fusion-dependent enhancer program, not as a downstream consequence of the ATAC-seq accessibility measurement.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"target\": \"FGFR-Driven RTK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cofactor module occupies and regulates disease-promoting enhancers including FGF8, which links the fusion/cofactor chromatin program to the FGF8/FGFR4 output branch. This does not by itself prove that FGFR signaling maintains the upstream chromatin state.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\", \"fgfr_downstream_output_dependency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3-FOXO1/ETS1/KDM3A occupancy at the FGF8 enhancer\", \"FGF8 expression in the FGFR4/FGF8 branch\", \"FGFR4 phosphorylation in responsive fusion-positive RMS models\"]}, {\"source\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupting the PAX3-FOXO1/ETS1 complex inhibits growth and invasive properties, implying that this cofactor module sustains malignant tumor cell behavior.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3-FOXO1/ETS1 complex disruption\", \"reduced PAX3-FOXO1 chromatin occupancy\", \"altered FGF8, IL4R, MEST, and PODXL expression\"]}, {\"source\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"target\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilizing PAX-FOXO1 and N-Myc is modeled as a feedback input into the fusion-dependent regulatory state. The cited work supports reciprocal transcriptional activation and malignancy dependence; whether the full ARMS open-chromatin signature collapses after YOD1 inhibition remains an explicit open test.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"YOD1-dependent PAX-FOXO1 and N-Myc protein stabilization\", \"reciprocal PAX3-FOXO1/N-Myc transcriptional activation\"]}, {\"source\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"YOD1-dependent stabilization of PAX-FOXO1 and N-Myc sustains FP-RMS growth.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"degradation of PAX-FOXO1 and N-Myc after YOD1 knockdown or inhibition\", \"collapse of PAX3-FOXO1/N-Myc positive feedback\"]}, {\"source\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"target\": \"Chemotherapy Resistance and Relapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The HDAC3-linked checkpoint adaptation circuit permits tumor cells to survive cytotoxic treatment pressure and contributes to relapse.\", \"hypothesis_groups\": [\"therapy_resistance_branch_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation\", \"HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 resistance circuit\", \"survival under cytotoxic chemotherapy pressure\"]}, {\"source\": \"FGFR-Driven RTK Signaling\", \"target\": \"RAS/PI3K Effector Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGFR4 signaling is curated as an RTK input to downstream RAS-MAPK and PI3K-AKT effector arms. The canonical receptor-to-effector mechanism is supported, while ARMS-specific dependence remains context-dependent.\", \"hypothesis_groups\": [\"fgfr_downstream_output_dependency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"FRS2 phosphorylation\", \"GRB2 adaptor recruitment\"]}, {\"source\": \"RAS/PI3K Effector Pathway Activation\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAS-MAPK and PI3K-AKT effector pathway activation is modeled as a pro-proliferative and survival output of the RTK/RAS/PIK3CA axis. The edge preserves pathograph connectivity but remains qualified: the cited ARMS/RMS evidence supports recurrent pathway involvement, not a direct or universal ARMS-specific causal step.\", \"hypothesis_groups\": [\"fgfr_downstream_output_dependency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"MAPK-dependent cell-cycle entry\", \"AKT-dependent survival signaling\"]}, {\"source\": \"Immune-Evasive Tumor Microenvironment\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblast secreted factors support fusion-positive RMS tumor-cell growth, migration, and treatment resistance.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Evasive Tumor Microenvironment\", \"target\": \"Chemotherapy Resistance and Relapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblast support can add a microenvironmental treatment-resistance layer on top of tumor-cell-intrinsic resistance circuitry.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Evasive Tumor Microenvironment\", \"target\": \"Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast-supported migration is a plausible contributor to metastatic progression in fusion-positive RMS. The edge is deliberately indirect: the cited coculture study measures migration, while the clinical source establishes metastasis as a frequent outcome of the fusion-positive alveolar subtype.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fibroblast-secreted promigratory factors\", \"invasion and dissemination\"]}, {\"source\": \"Aberrant Cell Proliferation\", \"target\": \"Soft Tissue Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained malignant proliferation produces the soft-tissue tumor mass that defines rhabdomyosarcoma clinically. This is a disease-level output, not a claim about a particular primary anatomic site.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal tumor-cell expansion\"]}, {\"source\": \"Soft Tissue Neoplasm\", \"target\": \"Proptosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"When the primary soft-tissue tumor is orbital, local tumor growth and mass effect can manifest as proptosis. This link applies to the orbital subset and is not an ARMS-wide frequency claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"orbital primary tumor growth\", \"orbital mass effect\"]}, {\"source\": \"Soft Tissue Neoplasm\", \"target\": \"Regional Nodal Disease\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Local ARMS can spread through regional lymphatics. This is an indirect clinical edge and does not imply that every primary tumor develops nodal disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"lymphatic invasion\", \"regional lymphatic dissemination\"]}, {\"source\": \"Soft Tissue Neoplasm\", \"target\": \"Intracranial Extension\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Parameningeal tumor growth can extend intracranially because of local anatomic continuity. This edge is restricted to the parameningeal subset.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local invasion from a parameningeal primary\"]}, {\"source\": \"PAX-FOXO1/ETS1 Complex Disruption\", \"target\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"YOD1 Inhibition\", \"target\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FGFR Inhibitor Therapy\", \"target\": \"FGFR-Driven RTK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Histone Deacetylase Inhibitor Therapy\", \"target\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived ARMS single-cell culture model\", \"target\": \"Blocked Myogenic Differentiation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Fusion-positive RMS cancer-associated fibroblast coculture\", \"target\": \"Immune-Evasive Tumor Microenvironment\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PAX3-FOXO1 Fusion\", \"target\": \"PAX-FOXO1 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX7-FOXO1 Fusion\", \"target\": \"PAX-FOXO1 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYCN Amplification\", \"target\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK4 Amplification\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant growth is the convergent output of multiple now-explicit upstream mechanisms: PAX-FOXO1 enhancer reprogramming, ETS1/KDM3A chromatin cofactor dependence, YOD1/N-Myc feedback and protein stabilization, FGFR/RAS/PI3K signaling, and treatment-resistant relapse states.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"CDK4\"], \"gene_terms\": [{\"label\": \"CDK4\", \"id\": \"hgnc:1773\"}]}}, {\"id\": \"Blocked Myogenic Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fusion-driven transcriptional and enhancer reprogramming impairs the normal terminal myogenic differentiation program. Tumor cells retain skeletal muscle lineage markers but remain trapped in a malignant, incompletely differentiated state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell differentiation\"], \"experimental_models\": [{\"name\": \"Patient-derived ARMS single-cell culture model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Tests whether tumor-cell states can be redirected toward myogenic differentiation.\"}]}}, {\"id\": \"CDK4 Amplification\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDK4\"], \"gene_terms\": [{\"label\": \"CDK4\", \"id\": \"hgnc:1773\"}], \"association\": \"Secondary Genetic Event\"}}, {\"id\": \"Chemotherapy Resistance and Relapse\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A clinically important disease state in which initially chemotherapy- responsive PAX3::FOXO1-positive ARMS survives treatment pressure, relapses, and becomes resistant. In this pathograph it is modeled as a downstream output of specific mechanisms, especially the HDAC3-SMARCA4-miR-27a checkpoint-adaptation circuit and microenvironmental support, rather than as an unexplained late clinical outcome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to xenobiotic stimulus\"]}}, {\"id\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KDM3A and ETS1 form a disease-promoting chromatin cofactor axis with PAX3-FOXO1. ETS1 is induced by PAX3-FOXO1 and KDM3A, complexes with PAX3-FOXO1, augments fusion occupancy at enhancers, and helps maintain disease-promoting target genes including FGF8, IL4R, MEST, and PODXL. This is a direct mechanistic handle because YK-4-279 disrupts the PAX3-FOXO1/ETS1 complex and displaces PAX3-FOXO1 from chromatin.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromatin remodeling\", \"positive regulation of gene expression\"]}}, {\"id\": \"FGFR Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational FGFR-directed therapy may be relevant in fusion-positive ARMS with high FGFR4/FGF8 signaling activity. Preclinical models and early translational evidence support FGFR4-selective and multikinase FGFR inhibition as precision-therapy approaches in this molecular subset.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"FGF401 (roblitinib)\", \"lenvatinib\"]}}, {\"id\": \"FGFR-Driven RTK Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One branch of the fusion-positive ARMS program is receptor tyrosine kinase signaling centered on FGFR4, driven by high FGFR4 and FGF8 expression and FGFR4 phosphoactivation. This is a directly druggable downstream output branch, not currently a proven maintainer of the upstream fusion-dependent chromatin state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"fibroblast growth factor receptor signaling pathway\"]}}, {\"id\": \"Fusion-positive RMS cancer-associated fibroblast coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A human coculture model tests fibroblast-secreted support of FP-RMS growth, migration, immune-checkpoint expression, and cyclophosphamide resistance. It represents one metastatic microenvironment and does not establish the prevalence of this state across patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cancer-associated fibroblast\", \"skeletal muscle myoblast\"], \"model_type\": \"CO_CULTURE\", \"publication\": \"PMID:41131073\"}}, {\"id\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation creates a relapse and chemotherapy-resistance branch mediated by an HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 circuit. This is the mechanistic target of HDAC3-directed epigenetic therapy with entinostat-like class I HDAC inhibition, not merely a generic \\\"HDAC inhibitor\\\" rationale.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Histone Deacetylase Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational class I histone deacetylase inhibition, exemplified by entinostat in PAX3::FOXO1-positive ARMS PDX models, targets the HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 chemotherapy-resistance circuit and may resensitize relapsed or resistant disease to RMS chemotherapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"entinostat\"]}}, {\"id\": \"Immune-Evasive Tumor Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fusion-positive rhabdomyosarcoma can develop an immune-cold and fibroblast-supported tumor microenvironment, with reduced T-cell infiltration, impaired antigen presentation, immune-checkpoint expression, cancer-associated fibroblast cytokine support, and resistance to chemotherapy or immunotherapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cancer-associated fibroblast\", \"T cell\"], \"biological_processes\": [\"antigen processing and presentation\", \"immune response\"], \"experimental_models\": [{\"name\": \"Fusion-positive RMS cancer-associated fibroblast coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"Tests CAF-mediated growth and treatment-resistance effects.\"}]}}, {\"id\": \"Intracranial Extension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial extension occurs in a subset of parameningeal ARMS and is an adverse prognostic feature. This site-specific cohort estimate is not generalized to ARMS at other primary sites, and no overly broad HPO term is assigned.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MYCN Amplification\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYCN\"], \"gene_terms\": [{\"label\": \"MYCN\", \"id\": \"hgnc:7559\"}], \"association\": \"Secondary Genetic Event\"}}, {\"id\": \"Metastatic Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metastasis and recurrence are major clinical features of fusion-positive ARMS. Their incidence varies by fusion status, primary site, stage, and ascertainment time, so this entry does not assign a single frequency band.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX-FOXO1 does not act as a generic \\\"oncogene\\\" in the pathograph; it rewires chromatin occupancy, enhancer activity, and transcriptional output. This node is the inferred regulatory program, not the ATAC-seq/open chromatin measurement itself. Disease-specific open chromatin is an assayable projection of this program and can be used to test whether perturbing candidate maintenance machinery changes the regulatory state itself, as opposed to changing downstream or branch-specific outputs such as FGFR signaling, immune evasion, or chemotherapy resistance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"chromatin remodeling\", \"positive regulation of gene expression\"]}}, {\"id\": \"PAX-FOXO1 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(2;13) or t(1;13) translocations fuse the DNA-binding domain of PAX3 or PAX7 with the transactivation domain of FOXO1. The resulting fusion protein functions as a potent aberrant transcription factor that activates PAX target genes to supraphysiological levels, driving proliferation while blocking terminal myogenic differentiation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle myoblast\"], \"biological_processes\": [\"positive regulation of transcription by RNA polymerase II\"], \"genes\": [\"PAX3\", \"PAX7\", \"FOXO1\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}, {\"label\": \"PAX7\", \"id\": \"hgnc:8621\"}, {\"label\": \"FOXO1\", \"id\": \"hgnc:3819\"}], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"PAX-FOXO1/ETS1 Complex Disruption\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational small-molecule disruption of the PAX3-FOXO1/ETS1 complex is a direct chromatin-handle strategy: it aims to displace PAX3-FOXO1 from disease enhancers and suppress fusion-dependent gene regulation rather than treating the fusion as an untargetable upstream abstraction.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"YK-4-279\"]}}, {\"id\": \"PAX3-FOXO1 Fusion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX3\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}], \"association\": \"Somatic Fusion Oncogene\"}}, {\"id\": \"PAX7-FOXO1 Fusion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAX7\"], \"gene_terms\": [{\"label\": \"PAX7\", \"id\": \"hgnc:8621\"}], \"association\": \"Somatic Fusion Oncogene\"}}, {\"id\": \"Patient-derived ARMS single-cell culture model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived aRMS cultures resolve cycling progenitor, muscle stem-like, and differentiated states and enable perturbational testing of RAF/MEK inhibitors. Culture-state findings require confirmation in clinical tumors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle myoblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:36753540\"}}, {\"id\": \"Proptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orbital rhabdomyosarcoma can present with eyelid edema followed by proptosis. The cited cohort includes both pediatric and adult orbital RMS and does not establish an ARMS-specific frequency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"RAS/PI3K Effector Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Receptor tyrosine kinase input converges on the downstream RAS-MAPK and PI3K-AKT effector pathways. Genomic profiling shows the combined RTK/RAS/PIK3CA axis is altered in the large majority of rhabdomyosarcomas; this effector branch is therefore a curated downstream signaling state, not a claim that RAS/PI3K activation is the only or universal route to ARMS proliferation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Ras protein signal transduction\", \"PI3K/AKT signal transduction\"]}}, {\"id\": \"Regional Nodal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Regional lymph-node involvement is a clinically important staging and prognostic feature in ARMS. The cited cohort is limited to parameningeal disease; no page-wide frequency is assigned. No sufficiently specific HPO term for regional nodal metastasis is used in place of the broader lymphadenopathy phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Soft Tissue Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ARMS is a pediatric soft-tissue sarcoma; the local presentation depends on the primary anatomic site. A mass should therefore trigger tissue diagnosis rather than serve as a subtype-specific finding by itself.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031459\"}}, {\"id\": \"YOD1 Inhibition\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Investigational YOD1 inhibition is modeled as a feedback-loop intervention: inhibiting YOD1 destabilizes both PAX-FOXO1 and N-Myc, reducing the reciprocal oncogenic amplification loop rather than targeting only a downstream proliferation phenotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-Myc is both a downstream target and a reciprocal activator of PAX-FOXO1. YOD1 stabilizes both PAX-FOXO1 and N-Myc, maintaining a positive feedback loop that amplifies oncogenic signaling. This creates a second targetable handle upstream of generic proliferation: destabilize the two oncogenic proteins together rather than treating N-Myc as only a downstream proliferation marker.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein stabilization\", \"positive regulation of gene expression\"], \"genes\": [\"MYCN\"], \"gene_terms\": [{\"label\": \"MYCN\", \"id\": \"hgnc:7559\"}]}}], \"edges\": [{\"source\": \"PAX-FOXO1 Fusion Oncogene\", \"target\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion oncogene establishes an aberrant enhancer and super-enhancer transcriptional program that sits between the chromosomal fusion and phenotype-level outputs.\", \"hypothesis_groups\": [\"canonical_fusion_regulatory_program\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion regulatory program induces ETS1 and intersects with KDM3A; this edge marks the entry into a feedback/cofactor module, not a claim that measured open chromatin causes the cofactor state.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3-FOXO1-dependent ETS1 induction\", \"KDM3A-dependent ETS1 induction\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven transcription induces an N-Myc feedback state in which N-Myc also activates PAX-FOXO1 expression and complexes with the fusion protein.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"N-Myc induction downstream of PAX-FOXO1\", \"reciprocal PAX3-FOXO1/N-Myc transcriptional activation\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation creates a treatment-resistance branch mediated by the HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 circuit.\", \"hypothesis_groups\": [\"therapy_resistance_branch_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation\", \"HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 circuit\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"Blocked Myogenic Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven enhancer reprogramming impairs the terminal skeletal muscle differentiation program.\", \"hypothesis_groups\": [\"canonical_fusion_regulatory_program\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fusion-dependent transcriptional reprogramming\", \"suppression of terminal myogenic differentiation programs\"]}, {\"source\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"target\": \"Immune-Evasive Tumor Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion oncogene activity contributes to reduced antigen presentation and immune-cell infiltration, creating an immune-evasive tumor state.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered antigen presentation\", \"reduced immune-cell infiltration\", \"specific fusion-regulated immune-evasion targets remain incompletely resolved\"]}, {\"source\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"target\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ETS1/KDM3A cofactor activity is modeled as a candidate maintenance input into the fusion-dependent enhancer program, not as a downstream consequence of the ATAC-seq accessibility measurement.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"target\": \"FGFR-Driven RTK Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cofactor module occupies and regulates disease-promoting enhancers including FGF8, which links the fusion/cofactor chromatin program to the FGF8/FGFR4 output branch. This does not by itself prove that FGFR signaling maintains the upstream chromatin state.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\", \"fgfr_downstream_output_dependency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3-FOXO1/ETS1/KDM3A occupancy at the FGF8 enhancer\", \"FGF8 expression in the FGFR4/FGF8 branch\", \"FGFR4 phosphorylation in responsive fusion-positive RMS models\"]}, {\"source\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupting the PAX3-FOXO1/ETS1 complex inhibits growth and invasive properties, implying that this cofactor module sustains malignant tumor cell behavior.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3-FOXO1/ETS1 complex disruption\", \"reduced PAX3-FOXO1 chromatin occupancy\", \"altered FGF8, IL4R, MEST, and PODXL expression\"]}, {\"source\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"target\": \"PAX-FOXO1 Disease Enhancer Reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stabilizing PAX-FOXO1 and N-Myc is modeled as a feedback input into the fusion-dependent regulatory state. The cited work supports reciprocal transcriptional activation and malignancy dependence; whether the full ARMS open-chromatin signature collapses after YOD1 inhibition remains an explicit open test.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"YOD1-dependent PAX-FOXO1 and N-Myc protein stabilization\", \"reciprocal PAX3-FOXO1/N-Myc transcriptional activation\"]}, {\"source\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"YOD1-dependent stabilization of PAX-FOXO1 and N-Myc sustains FP-RMS growth.\", \"hypothesis_groups\": [\"chromatin_feedback_maintenance_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"degradation of PAX-FOXO1 and N-Myc after YOD1 knockdown or inhibition\", \"collapse of PAX3-FOXO1/N-Myc positive feedback\"]}, {\"source\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"target\": \"Chemotherapy Resistance and Relapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The HDAC3-linked checkpoint adaptation circuit permits tumor cells to survive cytotoxic treatment pressure and contributes to relapse.\", \"hypothesis_groups\": [\"therapy_resistance_branch_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PAX3::FOXO1-mediated cell-cycle checkpoint adaptation\", \"HDAC3-SMARCA4-miR-27a-PAX3::FOXO1 resistance circuit\", \"survival under cytotoxic chemotherapy pressure\"]}, {\"source\": \"FGFR-Driven RTK Signaling\", \"target\": \"RAS/PI3K Effector Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FGFR4 signaling is curated as an RTK input to downstream RAS-MAPK and PI3K-AKT effector arms. The canonical receptor-to-effector mechanism is supported, while ARMS-specific dependence remains context-dependent.\", \"hypothesis_groups\": [\"fgfr_downstream_output_dependency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"FRS2 phosphorylation\", \"GRB2 adaptor recruitment\"]}, {\"source\": \"RAS/PI3K Effector Pathway Activation\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAS-MAPK and PI3K-AKT effector pathway activation is modeled as a pro-proliferative and survival output of the RTK/RAS/PIK3CA axis. The edge preserves pathograph connectivity but remains qualified: the cited ARMS/RMS evidence supports recurrent pathway involvement, not a direct or universal ARMS-specific causal step.\", \"hypothesis_groups\": [\"fgfr_downstream_output_dependency_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"MAPK-dependent cell-cycle entry\", \"AKT-dependent survival signaling\"]}, {\"source\": \"Immune-Evasive Tumor Microenvironment\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblast secreted factors support fusion-positive RMS tumor-cell growth, migration, and treatment resistance.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Evasive Tumor Microenvironment\", \"target\": \"Chemotherapy Resistance and Relapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblast support can add a microenvironmental treatment-resistance layer on top of tumor-cell-intrinsic resistance circuitry.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Immune-Evasive Tumor Microenvironment\", \"target\": \"Metastatic Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast-supported migration is a plausible contributor to metastatic progression in fusion-positive RMS. The edge is deliberately indirect: the cited coculture study measures migration, while the clinical source establishes metastasis as a frequent outcome of the fusion-positive alveolar subtype.\", \"hypothesis_groups\": [\"microenvironment_support_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"fibroblast-secreted promigratory factors\", \"invasion and dissemination\"]}, {\"source\": \"Aberrant Cell Proliferation\", \"target\": \"Soft Tissue Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained malignant proliferation produces the soft-tissue tumor mass that defines rhabdomyosarcoma clinically. This is a disease-level output, not a claim about a particular primary anatomic site.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clonal tumor-cell expansion\"]}, {\"source\": \"Soft Tissue Neoplasm\", \"target\": \"Proptosis\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"When the primary soft-tissue tumor is orbital, local tumor growth and mass effect can manifest as proptosis. This link applies to the orbital subset and is not an ARMS-wide frequency claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"orbital primary tumor growth\", \"orbital mass effect\"]}, {\"source\": \"Soft Tissue Neoplasm\", \"target\": \"Regional Nodal Disease\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Local ARMS can spread through regional lymphatics. This is an indirect clinical edge and does not imply that every primary tumor develops nodal disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"lymphatic invasion\", \"regional lymphatic dissemination\"]}, {\"source\": \"Soft Tissue Neoplasm\", \"target\": \"Intracranial Extension\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Parameningeal tumor growth can extend intracranially because of local anatomic continuity. This edge is restricted to the parameningeal subset.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"local invasion from a parameningeal primary\"]}, {\"source\": \"PAX-FOXO1/ETS1 Complex Disruption\", \"target\": \"ETS1-KDM3A PAX-FOXO1 Chromatin Cofactor Module\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"YOD1 Inhibition\", \"target\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FGFR Inhibitor Therapy\", \"target\": \"FGFR-Driven RTK Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Histone Deacetylase Inhibitor Therapy\", \"target\": \"HDAC3-SMARCA4-miR-27a Chemotherapy Resistance Circuit\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived ARMS single-cell culture model\", \"target\": \"Blocked Myogenic Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests whether tumor-cell states can be redirected toward myogenic differentiation.\"}, {\"source\": \"Fusion-positive RMS cancer-associated fibroblast coculture\", \"target\": \"Immune-Evasive Tumor Microenvironment\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests CAF-mediated growth and treatment-resistance effects.\"}, {\"source\": \"PAX3-FOXO1 Fusion\", \"target\": \"PAX-FOXO1 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX7-FOXO1 Fusion\", \"target\": \"PAX-FOXO1 Fusion Oncogene\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYCN Amplification\", \"target\": \"YOD1-N-Myc PAX-FOXO1 Feedback Loop\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDK4 Amplification\", \"target\": \"Aberrant Cell Proliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -10158,14 +10842,21 @@
                         Proptosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0000520</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10226,14 +10917,21 @@
                         Soft Tissue Neoplasm
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Soft tissue neoplasm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031459">HP:0031459</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031459" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0031459</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft tissue neoplasm (HP:0031459). HP:0031459 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10520,13 +11218,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8617">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:8617</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10584,13 +11287,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX7
 
 
-    <a href="https://bioregistry.io/hgnc:8621" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8621">hgnc:8621</a>
+    <a href="https://bioregistry.io/hgnc:8621" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:8621</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX7 (hgnc:8621). hgnc:8621 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10670,13 +11378,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYCN
 
 
-    <a href="https://bioregistry.io/hgnc:7559" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7559">hgnc:7559</a>
+    <a href="https://bioregistry.io/hgnc:7559" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:7559</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYCN (hgnc:7559). hgnc:7559 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10734,13 +11447,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDK4
 
 
-    <a href="https://bioregistry.io/hgnc:1773" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1773">hgnc:1773</a>
+    <a href="https://bioregistry.io/hgnc:1773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-76">hgnc:1773</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10807,7 +11525,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Combination Chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-77">Combination Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Combination Chemotherapy (NCIT:C191). NCIT:C191 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10831,7 +11554,12 @@
 
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">VAC regimen</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">VAC regimen<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is VAC regimen (NCIT:C67299). NCIT:C67299 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: VAC Regimen</span>
 
 
@@ -10862,17 +11590,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vincristine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28445">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-79">CHEBI:28445</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         actinomycin D
@@ -10880,11 +11615,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27666">CHEBI:27666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-80">CHEBI:27666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cyclophosphamide
@@ -10892,10 +11632,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4026" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4026">CHEBI:4026</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4026" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-81">CHEBI:4026</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide, annotated with cyclophosphamide hydrate (CHEBI:4026). CHEBI:4026 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10950,7 +11693,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Combination Chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">Combination Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Combination Chemotherapy (NCIT:C191). NCIT:C191 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10980,17 +11728,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ifosfamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5864">CHEBI:5864</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-83">CHEBI:5864</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         vincristine
@@ -10998,11 +11753,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28445">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-84">CHEBI:28445</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         actinomycin D
@@ -11010,10 +11770,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27666">CHEBI:27666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-85">CHEBI:27666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -11068,7 +11831,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Combination Chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-86">Combination Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-86">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Combination Chemotherapy (NCIT:C191). NCIT:C191 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11098,17 +11866,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vinorelbine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_480999" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:480999">CHEBI:480999</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_480999" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-87">CHEBI:480999</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vinorelbine (CHEBI:480999). CHEBI:480999 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cyclophosphamide
@@ -11116,10 +11891,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-88">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -11196,7 +11974,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-89">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-89">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11273,7 +12056,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Definitive Surgical Resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-90">Definitive Surgical Resection<span class="pill-tip" role="tooltip" id="pill-tip-90">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11350,7 +12138,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-91">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-91">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11427,7 +12220,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-92">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-92">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11457,16 +12255,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         YK-4-279
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_94301" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:94301">CHEBI:94301</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_94301" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-93">CHEBI:94301</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses YK-4-279 (CHEBI:94301). CHEBI:94301 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -11571,7 +12374,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-94">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-94">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11698,7 +12506,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-95">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-95">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11728,17 +12541,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         FGF401 (roblitinib)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C120102" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C120102">NCIT:C120102</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C120102" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-96">NCIT:C120102</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses FGF401 (roblitinib), annotated with Roblitinib (NCIT:C120102). NCIT:C120102 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         lenvatinib
@@ -11746,10 +12566,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85994">CHEBI:85994</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85994" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-97">CHEBI:85994</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lenvatinib (CHEBI:85994). CHEBI:85994 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -11876,7 +12699,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-98">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-98">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11906,16 +12734,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         entinostat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_132082" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:132082">CHEBI:132082</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_132082" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-99">CHEBI:132082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses entinostat (CHEBI:132082). CHEBI:132082 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -12458,9 +13291,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         alveolar rhabdomyosarcoma cell line
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-100">UBERON:0001134</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples alveolar rhabdomyosarcoma cell line, annotated with skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -12555,9 +13402,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         alveolar rhabdomyosarcoma cell line
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-101">UBERON:0001134</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-101">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples alveolar rhabdomyosarcoma cell line, annotated with skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -12650,9 +13511,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         alveolar rhabdomyosarcoma cell
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-102">UBERON:0001134</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-102">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples alveolar rhabdomyosarcoma cell, annotated with skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -12747,9 +13622,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         rhabdomyosarcoma tumor
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-103">UBERON:0001134</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples rhabdomyosarcoma tumor, annotated with skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -12846,9 +13735,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         rhabdomyosarcoma tumor
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-104">UBERON:0001134</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-104">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples rhabdomyosarcoma tumor, annotated with skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -13003,15 +13906,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         skeletal muscle myoblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000515">CL:0000515</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-105">CL:0000515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-105">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses skeletal muscle myoblast (CL:0000515). CL:0000515 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -13021,30 +13929,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-106">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-106">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             skeletal muscle tissue
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-107">UBERON:0001134</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-107">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -13076,14 +13994,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-blocked-myogenic-differentiation">Blocked Myogenic Differentiation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests whether tumor-cell states can be redirected toward myogenic differentiation.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-blocked-myogenic-differentiation">Blocked Myogenic Differentiation</a>
+
+
+
+                <span class="crosslink-desc">Tests whether tumor-cell states can be redirected toward myogenic differentiation.</span>
+
+
 
 
 
@@ -13120,10 +14043,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -13181,26 +14105,36 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         cancer-associated fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-108">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         skeletal muscle myoblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000515">CL:0000515</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000515" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-109">CL:0000515</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-109">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses skeletal muscle myoblast (CL:0000515). CL:0000515 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -13210,15 +14144,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-110">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-110">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -13251,14 +14190,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immune-evasive-tumor-microenvironment">Immune-Evasive Tumor Microenvironment</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests CAF-mediated growth and treatment-resistance effects.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immune-evasive-tumor-microenvironment">Immune-Evasive Tumor Microenvironment</a>
+
+
+
+                <span class="crosslink-desc">Tests CAF-mediated growth and treatment-resistance effects.</span>
+
+
 
 
 
@@ -13295,10 +14239,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -13344,6 +14289,165 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-patient-derived-xenografts-of-pax3-foxo1-fusion-positive-rhabdomyosarcoma-mus-musculus" data-dismech-node="Patient-derived xenografts of PAX3-FOXO1 fusion-positive rhabdomyosarcoma Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Patient-derived xenografts of PAX3-FOXO1 fusion-positive rhabdomyosarcoma Mus musculus
+
+                    <span class="tag tag-exp-model-type">Patient-derived xenograft</span>
+
+                </div>
+
+                <div class="item-desc">Fusion-positive RMS PDXs preserve patient-tumor context for testing the FGFR4-selective inhibitor roblitinib and multikinase inhibitor lenvatinib. They support preclinical response, not population-level clinical efficacy.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Patient-derived xenografts of PAX3-FOXO1 fusion-positive rhabdomyosarcoma</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42041178" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42041178" target="_blank">PMID:42041178</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrate marked tumor growth inhibition in all FP-RMS PDXs treated with single-agent FGF401 (FGFR4-specific inhibitor) and single-agent lenvatinib (multikinase FGFR inhibitor)"</div>
+
+
+                <div class="evidence-explanation">Directly establishes the FP-RMS PDX treatment model and its preclinical response endpoint.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-pax3-foxo1-positive-alveolar-rhabdomyosarcoma-mouse-and-pdx-models-mus-musculus" data-dismech-node="PAX3::FOXO1-positive alveolar rhabdomyosarcoma mouse and PDX models Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    PAX3::FOXO1-positive alveolar rhabdomyosarcoma mouse and PDX models Mus musculus
+
+                    <span class="tag tag-exp-model-type">Genetically engineered and patient-derived tumor models</span>
+
+                </div>
+
+                <div class="item-desc">Three PAX3::FOXO1-positive ARMS mouse models were used to test entinostat at clinically relevant exposure alone and with relapse-directed chemotherapy. Model-specific synergy does not establish human efficacy.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">PAX3::FOXO1-positive alveolar rhabdomyosarcoma mouse and PDX models</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39147820" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39147820" target="_blank">PMID:39147820</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified single agent, additive or synergistic relationships between relapse-specific chemotherapies and clinically relevant drug exposures of entinostat in three PAX3::FOXO1+ ARMS mouse models."</div>
+
+
+                <div class="evidence-explanation">Directly defines the number, genotype, intervention, and use of the models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -13360,7 +14464,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Alveolar Rhabdomyosarcoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-08-05T05:25:00Z&#39;
 description: &gt;-
   Alveolar rhabdomyosarcoma (ARMS) is an aggressive pediatric soft tissue sarcoma
   characterized by skeletal muscle differentiation and distinctive chromosomal
@@ -19149,7 +20252,7 @@ LEVEL 5: CLINICAL DISEASE
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alveolar Rhabdomyosarcoma", "mondoId": "MONDO:0009994", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_Rhabdomyosarcoma", "yamlRevision": "e778c6143a05"};
+        const OS_CONFIG = {"diseaseName": "Alveolar Rhabdomyosarcoma", "mondoId": "MONDO:0009994", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_Rhabdomyosarcoma", "yamlRevision": "de08572a0160"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -19568,5 +20671,73 @@ LEVEL 5: CLINICAL DISEASE
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Ehlers-Danlos%20Syndrome"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3726,7 +3894,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3761,7 +3929,23 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
+
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -3787,38 +3971,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">collagenopathy</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4356,17 +4626,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         collagen fibril organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4387,10 +4664,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032964">GO:0032964</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0032964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4407,6 +4687,7 @@
 
 
                 </div>
+
 
 
 
@@ -4515,17 +4796,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4546,10 +4834,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4575,6 +4866,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         extracellular matrix organization
@@ -4582,10 +4875,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4608,17 +4904,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         dermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002067">UBERON:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002067</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         blood vessel
@@ -4626,13 +4929,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001981">UBERON:0001981</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001981</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:0001981 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4773,6 +5080,7 @@
                 <div class="item-name">Tissue Injury and Dysfunction</div>
 
                 <div class="item-desc">Fragile tissues are prone to damage, leading to manifestations like joint dislocations, organ ruptures, and poor wound healing.</div>
+
 
 
 
@@ -4935,17 +5243,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         integrin-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007229">GO:0007229</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007229</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves integrin-mediated signaling pathway (GO:0007229). GO:0007229 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4966,10 +5281,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4986,6 +5304,7 @@
 
 
                 </div>
+
 
 
 
@@ -5045,17 +5364,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5076,10 +5402,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006457">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5101,17 +5430,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005764">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         autophagosome
@@ -5119,13 +5455,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005776">GO:0005776</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0005776</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves autophagosome (GO:0005776). GO:0005776 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5175,17 +5515,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         complement activation, classical pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006958">GO:0006958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5206,10 +5553,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5232,19 +5582,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         periodontium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001758" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001758">UBERON:0001758</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001758" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001758</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:0001758 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5302,7 +5658,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial Dissection and Rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"subtypes\": [\"Vascular EDS\"], \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Autophagy and Proteostasis Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular EDS fibroblasts exhibit impaired autophagy-lysosome pathways and cellular stress responses, contributing to abnormal ECM homeostasis and protein quality control.\", \"meta\": {\"biological_processes\": [\"autophagy\", \"protein folding\"], \"subtypes\": [\"Vascular EDS\"]}}, {\"id\": \"Chronic Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Collagen Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding collagen or collagen-modifying enzymes lead to defective collagen synthesis and assembly.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"collagen fibril organization\", \"collagen biosynthetic process\"]}}, {\"id\": \"Complement-Mediated ECM Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular activation of complement C1r/C1s proteases leads to extracellular activated C1s that degrades collagen I, destabilizing the periodontal ECM in periodontal EDS.\", \"meta\": {\"biological_processes\": [\"complement activation, classical pathway\", \"proteolysis\"], \"subtypes\": [\"Periodontal EDS\"], \"locations\": [\"periodontium\"]}}, {\"id\": \"Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal collagen leads to weakened connective tissues throughout the body.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"fibroblast\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"dermis\", \"blood vessel\"]}}, {\"id\": \"Decreased Bone Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"subtypes\": [\"Kyphoscoliotic EDS\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective collagen matrix leads to altered integrin signaling, particularly upregulation of integrin \\u03b1v\\u03b23, contributing to persistent inflammation and impaired wound healing in classical EDS.\", \"meta\": {\"biological_processes\": [\"integrin-mediated signaling pathway\", \"inflammatory response\"], \"subtypes\": [\"Classical EDS\"]}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Keratoconus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000563\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Poor Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001058\"}}, {\"id\": \"Recurrent Joint Dislocations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Skin Hyperextensibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000974\"}}, {\"id\": \"Tissue Injury and Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fragile tissues are prone to damage, leading to manifestations like joint dislocations, organ ruptures, and poor wound healing.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Collagen Abnormalities\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective collagen biosynthesis and fibrillogenesis reduce tensile strength of ECM-rich tissues.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structurally weak connective tissues fail under routine mechanical stress.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lax ligaments and capsules increase range of motion beyond normal limits.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Skin Hyperextensibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dermal collagen integrity permits excessive skin stretch.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Arterial Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vessel wall fragility increases susceptibility to spontaneous arterial tearing.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Valve connective tissue weakness predisposes to leaflet redundancy and prolapse.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Keratoconus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal stromal collagen architecture contributes to progressive corneal ectasia.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Collagen defects impair closure strength and scar maturation.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically unstable joints are prone to repeated subluxation and dislocation.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent tissue injury and instability drive persistent musculoskeletal pain.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visceral connective tissue laxity can compromise gastroesophageal barrier competence.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Decreased Bone Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered connective tissue-bone crosstalk contributes to reduced skeletal mineralization.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Soft tissue laxity and impaired force transmission contribute to reduced baseline tone.\"}, {\"source\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal mechanosignaling reduces tissue resilience during repetitive loading.\"}, {\"source\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated integrin signaling impairs coordinated repair responses.\"}, {\"source\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammatory mechanotransduction amplifies pain signaling in unstable joints.\"}, {\"source\": \"Autophagy and Proteostasis Dysfunction\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired proteostasis worsens collagen and matrix protein quality in fibroblasts.\"}, {\"source\": \"Autophagy and Proteostasis Dysfunction\", \"target\": \"Arterial Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic cellular stress in vascular connective tissue exacerbates vessel wall vulnerability.\"}, {\"source\": \"Complement-Mediated ECM Degradation\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proteolytic collagen degradation further weakens already abnormal extracellular matrix.\"}, {\"source\": \"Complement-Mediated ECM Degradation\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated ECM turnover increases susceptibility to repetitive tissue injury.\"}, {\"source\": \"Joint Hypermobility\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Joint Hypermobility\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial Dissection and Rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"subtypes\": [\"Vascular EDS\"], \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Autophagy and Proteostasis Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular EDS fibroblasts exhibit impaired autophagy-lysosome pathways and cellular stress responses, contributing to abnormal ECM homeostasis and protein quality control.\", \"meta\": {\"biological_processes\": [\"autophagy\", \"protein folding\"], \"subtypes\": [\"Vascular EDS\"]}}, {\"id\": \"Chronic Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Collagen Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding collagen or collagen-modifying enzymes lead to defective collagen synthesis and assembly.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"collagen fibril organization\", \"collagen biosynthetic process\"]}}, {\"id\": \"Complement-Mediated ECM Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular activation of complement C1r/C1s proteases leads to extracellular activated C1s that degrades collagen I, destabilizing the periodontal ECM in periodontal EDS.\", \"meta\": {\"biological_processes\": [\"complement activation, classical pathway\", \"proteolysis\"], \"subtypes\": [\"Periodontal EDS\"], \"locations\": [\"periodontium\"]}}, {\"id\": \"Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal collagen leads to weakened connective tissues throughout the body.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"fibroblast\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"dermis\", \"blood vessel\"]}}, {\"id\": \"Decreased Bone Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004349\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"subtypes\": [\"Kyphoscoliotic EDS\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective collagen matrix leads to altered integrin signaling, particularly upregulation of integrin \\u03b1v\\u03b23, contributing to persistent inflammation and impaired wound healing in classical EDS.\", \"meta\": {\"biological_processes\": [\"integrin-mediated signaling pathway\", \"inflammatory response\"], \"subtypes\": [\"Classical EDS\"]}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Keratoconus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000563\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Physical Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Poor Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001058\"}}, {\"id\": \"Recurrent Joint Dislocations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Skin Hyperextensibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000974\"}}, {\"id\": \"Tissue Injury and Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fragile tissues are prone to damage, leading to manifestations like joint dislocations, organ ruptures, and poor wound healing.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Collagen Abnormalities\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective collagen biosynthesis and fibrillogenesis reduce tensile strength of ECM-rich tissues.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structurally weak connective tissues fail under routine mechanical stress.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lax ligaments and capsules increase range of motion beyond normal limits.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Skin Hyperextensibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced dermal collagen integrity permits excessive skin stretch.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Arterial Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vessel wall fragility increases susceptibility to spontaneous arterial tearing.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Valve connective tissue weakness predisposes to leaflet redundancy and prolapse.\"}, {\"source\": \"Connective Tissue Fragility\", \"target\": \"Keratoconus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal stromal collagen architecture contributes to progressive corneal ectasia.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Collagen defects impair closure strength and scar maturation.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically unstable joints are prone to repeated subluxation and dislocation.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent tissue injury and instability drive persistent musculoskeletal pain.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Visceral connective tissue laxity can compromise gastroesophageal barrier competence.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Decreased Bone Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered connective tissue-bone crosstalk contributes to reduced skeletal mineralization.\"}, {\"source\": \"Tissue Injury and Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Soft tissue laxity and impaired force transmission contribute to reduced baseline tone.\"}, {\"source\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal mechanosignaling reduces tissue resilience during repetitive loading.\"}, {\"source\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated integrin signaling impairs coordinated repair responses.\"}, {\"source\": \"Integrin-Mediated Mechanotransduction Dysregulation\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammatory mechanotransduction amplifies pain signaling in unstable joints.\"}, {\"source\": \"Autophagy and Proteostasis Dysfunction\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired proteostasis worsens collagen and matrix protein quality in fibroblasts.\"}, {\"source\": \"Autophagy and Proteostasis Dysfunction\", \"target\": \"Arterial Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic cellular stress in vascular connective tissue exacerbates vessel wall vulnerability.\"}, {\"source\": \"Complement-Mediated ECM Degradation\", \"target\": \"Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proteolytic collagen degradation further weakens already abnormal extracellular matrix.\"}, {\"source\": \"Complement-Mediated ECM Degradation\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated ECM turnover increases susceptibility to repetitive tissue injury.\"}, {\"source\": \"Joint Hypermobility\", \"target\": \"Recurrent Joint Dislocations\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Joint Hypermobility\", \"target\": \"Chronic Joint Pain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Physical Trauma\", \"target\": \"Tissue Injury and Dysfunction\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"The node is tissue injury in fragile tissue, and the cited sentence reports exactly that: severe mucocutaneous injury after only minor trauma. Recorded as exacerbating rather than triggering because the fragility is constitutional and present before any trauma; what the exposure changes is how much injury a given force produces.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5355,14 +5711,23 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary hemorrhage
+
+                        <span class="phenotype-term-label">Pulmonary hemorrhage</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040223">HP:0040223</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0040223</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hemosiderosis, annotated with Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5427,14 +5792,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001634">HP:0001634</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001634</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral Valve Prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5537,14 +5909,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastroesophageal reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroesophageal Reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5645,14 +6024,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratoconus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000563">HP:0000563</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000563</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoconus (HP:0000563). HP:0000563 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5746,14 +6132,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratoconus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000563">HP:0000563</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000563</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoconus (HP:0000563). HP:0000563 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5834,14 +6227,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperextensible skin
+
+                        <span class="phenotype-term-label">Hyperextensible skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000974">HP:0000974</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperextensible skin (HP:0000974). HP:0000974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5935,14 +6337,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poor wound healing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001058">HP:0001058</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001058</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor Wound Healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6036,14 +6445,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrophic scars
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001075">HP:0001075</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001075</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6097,14 +6513,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Striae distensae
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001065">HP:0001065</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001065</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Striae distensae (HP:0001065). HP:0001065 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6158,14 +6581,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fragile skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001030" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001030">HP:0001030</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001030</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fragile skin (HP:0001030). HP:0001030 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6228,14 +6658,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint Hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6338,14 +6775,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
+
+                        <span class="phenotype-term-label">Joint hypermobility</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent Joint Dislocations, annotated with Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6367,14 +6813,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced bone mineral density
+
+                        <span class="phenotype-term-label">Reduced bone mineral density</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased Bone Density, annotated with Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6398,14 +6853,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6438,14 +6900,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
+
+                        <span class="phenotype-term-label">Arthralgia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Joint Pain, annotated with Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6476,14 +6947,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cigarette-paper scars
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001073" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001073">HP:0001073</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cigarette-paper scars (HP:0001073). HP:0001073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6537,14 +7015,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Soft, doughy skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001027">HP:0001027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Soft, doughy skin (HP:0001027). HP:0001027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6758,14 +7243,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033608" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033608">HP:0033608</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0033608</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary nodules and fibrosis, annotated with Pulmonary nodule (HP:0033608). HP:0033608 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7427,7 +7919,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -7545,7 +8042,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7660,7 +8162,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Lifestyle Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Lifestyle Therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7755,7 +8262,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7864,6 +8376,10 @@
 
 
 
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7936,10 +8452,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Tissue Injury and Dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node is tissue injury in fragile tissue, and the cited sentence reports exactly that: severe mucocutaneous injury after only minor trauma. Recorded as exacerbating rather than triggering because the fragility is constitutional and present before any trauma; what the exposure changes is how much injury a given force produces.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26452443" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26452443" target="_blank">PMID:26452443</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ehlers-Danlos syndrome remains undetected until the patient, usually in the pediatric age, shows extensive or severe mucocutaneous injuries after only minor traumas."</div>
+
+
+                <div class="evidence-explanation">Reports extensive or severe mucocutaneous injuries after only minor traumas, which is disproportionate injury at this node rather than injury as such.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23095510" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23095510" target="_blank">PMID:23095510</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Optimal therapy for these patients includes the awareness that EDS is a systemic disease involving fragility, bleeding and spontaneous perforations from almost all organ systems."</div>
+
+
+                <div class="evidence-explanation">Systematic review describing systemic fragility with bleeding and spontaneous perforation across organ systems. It supports the fragility this node rests on without addressing trauma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-repetitive-motion" data-dismech-node="Repetitive Motion" data-dismech-type="environmental">
                 <div class="item-name">Repetitive Motion</div>
+
+
+
+
 
 
 
@@ -8106,11 +8700,483 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Deciphering disease signatures and molecular targets in vascular Ehlers-Danlos syndrome through transcriptome sequencing of a large cohort of patients’ dermal fibroblasts
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE239914" target="_blank">geo:GSE239914</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Vascular Ehlers-Danlos syndrome (vEDS) is a severe connective tissue disorder caused by dominant mutations in the COL3A1 gene, which encodes type III collagen (COLLIII). COLLIII is primarily found in blood vessels and hollow organs, and its deficiency causes fragile soft connective tissues, with life-threatening arterial and organ ruptures. There are currently no targeted therapies available. Although disease results from COLLIII misfolding caused by triple helix structure disruption, the underlying pathomechanisms are largely unknown.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=108</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37827202" target="_blank" style="color: var(--secondary);">PMID:37827202</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Ehlers-Danlos Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole-transcriptome analysis of dermal fibroblasts from patients with hypermobile Ehlers-Danlos syndrome and hypermobility spectrum disorders supports their categorization as a single clinical entity with a contribution of inflammatory pathways
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE218012" target="_blank">geo:GSE218012</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Hypermobile Ehlers-Danlos syndrome (hEDS) and hypermobility spectrum disorders (HSD) are clinically overlapping connective tissue disorders of unknown etiology and without any validated diagnostic biomarker and specific therapies. Herein, we in-depth characterized the cellular phenotype and gene expression profile of hEDS and HSD dermal fibroblasts by immunofluorescence, amplicon-based RNA-seq, and qPCR. We demonstrated that both cell types show a common cellular trait, i.e., generalized extracellular matrix (ECM) disarray, myofibroblast differentiation, and dysregulated gene expression.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=200</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36552803" target="_blank" style="color: var(--secondary);">PMID:36552803</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Ehlers-Danlos Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    10 Ehlers-Danlos SYndrome (EDS) patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE277910" target="_blank">geo:GSE277910</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=28</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40345454" target="_blank" style="color: var(--secondary);">PMID:40345454</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Ehlers-Danlos Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Next Generation Mendelian Genetics: Ehlers-Danlos Syndrome Type VIII
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000540" target="_blank">dbgap:phs000540</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The NHGRI Next Generation Mendelian Genetics project uses exome resequencing to identify variants in unsolved Mendelian diseases. Ehlers-Danlos syndrome Type VIII is a dominantly inherited connective tissue disorder that is distinguished from other forms of EDS by significant early-onset periodontal disease. Although the clinical phenotype is well delineated, the underlying molecular basis remains unknown.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Ehlers-Danlos Syndrome&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-col5a1-knockout-mouse" data-dismech-node="Col5a1 knockout Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Col5a1 knockout Mouse
+
+                </div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Skin hyperextensibility</span>
+
+                    <span class="tag tag-phenotype">Joint hypermobility</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Col5a1 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COL5A1
+
+
+    <a href="https://bioregistry.io/hgnc:2209" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:2209</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns COL5A1 (hgnc:2209). hgnc:2209 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20587693" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20587693" target="_blank">PMID:20587693</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"The heterozygous Col3a1 knockout mouse was investigated as a model for this disease... thorough histological examination of the aorta of heterozygous mice revealed the presence of a spectrum of lesions similar to those observed in human patients."</div>
+
+
+                <div class="evidence-explanation">While this study focused on Col3a1 rather than Col5a1, it provides evidence that knockout models can be used to investigate aspects of vascular Ehlers-Danlos syndrome in mice.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20847697" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20847697" target="_blank">PMID:20847697</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"It is currently estimated that approximately 50% of patients with a clinical diagnosis of classic Ehlers-Danlos syndrome harbor mutations in the COL5A1 and the COL5A2 gene... the disease is caused by a mutation leading to a nonfunctional COL5A1 allele and resulting in haploinsufficiency of type..."</div>
+
+
+                <div class="evidence-explanation">While the study confirms the involvement of COL5A1 mutations in Ehlers-Danlos Syndrome, it does not mention specific phenotype outcomes in animal models. Thus, the support for the proposed mouse model is partial.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35627182" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35627182" target="_blank">PMID:35627182</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"We searched for private protein changing variants in known human EDS candidate genes and identified three independent heterozygous COL5A1 variants."</div>
+
+
+                <div class="evidence-explanation">This study identified COL5A1 variants in Ehlers-Danlos Syndrome cases among cats, contributing to the understanding of COL5A1 mutations. However, it does not describe a mouse model specifically, making the support only partial.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-col3a1-heterozygous-mouse" data-dismech-node="Col3a1 heterozygous Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Col3a1 heterozygous Mouse
+
+                </div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Vascular fragility</span>
+
+                    <span class="tag tag-phenotype">Arterial rupture</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Col3a1 heterozygous</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        COL3A1
+
+
+    <a href="https://bioregistry.io/hgnc:2201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:2201</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns COL3A1 (hgnc:2201). hgnc:2201 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20587693" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20587693" target="_blank">PMID:20587693</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Haploinsufficiency for Col3a1 in mice recapitulates features of vascular Ehlers-Danlos syndrome in humans and can be used as an experimental model."</div>
+
+
+                <div class="evidence-explanation">The study shows that haploinsufficient Col3a1 mice exhibit reduced collagen content in the aorta and diminishing wall strength, mirroring vascular EDS in humans, which supports the statement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -8129,7 +9195,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ehlers-Danlos Syndrome
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-28T06:39:31Z&#39;
 description: &gt;-
   Ehlers-Danlos syndrome comprises a group of heritable disorders caused by mutations in genes encoding collagens or collagen-modifying enzymes.
   Defective collagen synthesis and assembly weaken connective tissues throughout the body, producing generalized tissue fragility.
@@ -9178,6 +10243,35 @@ animal_models:
     explanation: The study shows that haploinsufficient Col3a1 mice exhibit reduced collagen content in the aorta and diminishing wall strength, mirroring vascular EDS in humans, which supports the statement.
 environmental:
 - name: Physical Trauma
+  influences_mechanisms:
+  - target: Tissue Injury and Dysfunction
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node is tissue injury in fragile tissue, and the cited sentence
+      reports exactly that: severe mucocutaneous injury after only minor
+      trauma. Recorded as exacerbating rather than triggering because the
+      fragility is constitutional and present before any trauma; what the
+      exposure changes is how much injury a given force produces.
+    evidence:
+    - reference: PMID:26452443
+      reference_title: &#34;Ehlers-Danlos syndrome(s) mimicking child abuse: Is there an impact on clinical practice?&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Ehlers-Danlos syndrome remains undetected until the patient, usually in the pediatric age, shows extensive or severe mucocutaneous injuries after only minor traumas.&#34;
+      explanation: &gt;-
+        Reports extensive or severe mucocutaneous injuries after only minor
+        traumas, which is disproportionate injury at this node rather than
+        injury as such.
+    - reference: PMID:23095510
+      reference_title: &#34;Gastrointestinal surgery and related complications in patients with Ehlers-Danlos syndrome: a systematic review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Optimal therapy for these patients includes the awareness that EDS is a systemic disease involving fragility, bleeding and spontaneous perforations from almost all organ systems.&#34;
+      explanation: &gt;-
+        Systematic review describing systemic fragility with bleeding and
+        spontaneous perforation across organ systems. It supports the
+        fragility this node rests on without addressing trauma.
   effect: Exacerbates Symptoms
   evidence:
   - reference: PMID:26452443
@@ -9329,6 +10423,46 @@ references:
   tags:
   - GeneReviews
   findings: []
+datasets:
+- accession: geo:GSE239914
+  title: Deciphering disease signatures and molecular targets in vascular Ehlers-Danlos syndrome through transcriptome sequencing of a large cohort of patients’ dermal fibroblasts
+  description: Vascular Ehlers-Danlos syndrome (vEDS) is a severe connective tissue disorder caused by dominant mutations in the COL3A1 gene, which encodes type III collagen (COLLIII). COLLIII is primarily found in blood vessels and hollow organs, and its deficiency causes fragile soft connective tissues, with life-threatening arterial and organ ruptures. There are currently no targeted therapies available. Although disease results from COLLIII misfolding caused by triple helix structure disruption, the underlying pathomechanisms are largely unknown.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 108
+  publication: PMID:37827202
+  notes: Identified by GEO DataSets index search for Ehlers-Danlos Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE218012
+  title: Whole-transcriptome analysis of dermal fibroblasts from patients with hypermobile Ehlers-Danlos syndrome and hypermobility spectrum disorders supports their categorization as a single clinical entity with a contribution of inflammatory pathways
+  description: Hypermobile Ehlers-Danlos syndrome (hEDS) and hypermobility spectrum disorders (HSD) are clinically overlapping connective tissue disorders of unknown etiology and without any validated diagnostic biomarker and specific therapies. Herein, we in-depth characterized the cellular phenotype and gene expression profile of hEDS and HSD dermal fibroblasts by immunofluorescence, amplicon-based RNA-seq, and qPCR. We demonstrated that both cell types show a common cellular trait, i.e., generalized extracellular matrix (ECM) disarray, myofibroblast differentiation, and dysregulated gene expression.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 200
+  publication: PMID:36552803
+  notes: Identified by GEO DataSets index search for Ehlers-Danlos Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE277910
+  title: 10 Ehlers-Danlos SYndrome (EDS) patients
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 28
+  publication: PMID:40345454
+  notes: Identified by GEO DataSets index search for Ehlers-Danlos Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: dbgap:phs000540
+  title: &#39;Next Generation Mendelian Genetics: Ehlers-Danlos Syndrome Type VIII&#39;
+  description:  The NHGRI Next Generation Mendelian Genetics project uses exome resequencing to identify variants in unsolved Mendelian diseases. Ehlers-Danlos syndrome Type VIII is a dominantly inherited connective tissue disorder that is distinguished from other forms of EDS by significant early-onset periodontal disease. Although the clinical phenotype is well delineated, the underlying molecular basis remains unknown.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Ehlers-Danlos Syndrome&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9913,7 +11047,7 @@ This is a comprehensive request for a research report on the pathophysiology of 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ehlers-Danlos Syndrome", "mondoId": "MONDO:0020066", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ehlers-Danlos_Syndrome", "yamlRevision": "43587bec2106"};
+        const OS_CONFIG = {"diseaseName": "Ehlers-Danlos Syndrome", "mondoId": "MONDO:0020066", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ehlers-Danlos_Syndrome", "yamlRevision": "1ac4a8a9322f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10332,5 +11466,73 @@ This is a comprehensive request for a research report on the pathophysiology of 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

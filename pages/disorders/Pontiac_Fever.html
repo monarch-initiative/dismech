@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Pontiac%20Fever"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3734,7 +3902,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4005,16 +4173,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to bacterium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009617">GO:0009617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0009617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to bacterium (GO:0009617). GO:0009617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4031,6 +4204,7 @@
 
 
                 </div>
+
 
 
 
@@ -4126,16 +4300,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4152,6 +4331,7 @@
 
 
                 </div>
+
 
 
 
@@ -4275,6 +4455,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4372,7 +4553,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aerosolized Legionella exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aerosol-producing water systems transfer Legionella from colonized water to air, enabling inhalational exposure through aerosols capable of reaching the tracheobronchial tree.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Brisk systemic inflammatory syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pontiac fever develops after a short incubation as an acute febrile, influenza-like illness with constitutional symptoms rather than progressive pneumonia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Chills\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chills may accompany the febrile outbreak syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025143\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a cardinal component of the acute Pontiac fever syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is part of the core influenza-like symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"General malaise is part of the acute systemic syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033834\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain occurs as part of the acute influenza-like illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Non-pneumonic clinical expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After common-source Legionella exposure, Pontiac fever can occur as the mild non-pneumonic clinical expression while other exposed persons develop pneumonic Legionnaires disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Normal chest radiograph in Pontiac fever case\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A normal chest radiograph supports the non-pneumonic clinical distinction in compatible cases, although diagnosis still depends on exposure and laboratory/epidemiologic context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Symptom-directed supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because typical Pontiac fever is self-limited and non-pneumonic, management is framed as symptom-directed supportive care for uncomplicated cases rather than routine disease-specific antimicrobial therapy.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Aerosolized Legionella exposure\", \"target\": \"Brisk systemic inflammatory syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Malaise\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Chills\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Non-pneumonic clinical expression\", \"target\": \"Normal chest radiograph in Pontiac fever case\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Headache\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aerosolized Legionella exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aerosol-producing water systems transfer Legionella from colonized water to air, enabling inhalational exposure through aerosols capable of reaching the tracheobronchial tree.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Biofilm-associated Legionella amplification\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Biofilms and microbial associations can increase Legionella nutrient availability and protect organisms from adverse conditions, allowing persistence in water systems.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Brisk systemic inflammatory syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pontiac fever develops after a short incubation as an acute febrile, influenza-like illness with constitutional symptoms rather than progressive pneumonia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Chills\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chills may accompany the febrile outbreak syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025143\"}}, {\"id\": \"Engineered aquatic reservoirs\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Legionella persists in natural and anthropogenic aquatic environments, including drinking water, whirlpools, and cooling-tower reservoirs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a cardinal component of the acute Pontiac fever syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is part of the core influenza-like symptom complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002315\"}}, {\"id\": \"Malaise\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"General malaise is part of the acute systemic syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033834\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle pain occurs as part of the acute influenza-like illness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003326\"}}, {\"id\": \"Non-pneumonic clinical expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After common-source Legionella exposure, Pontiac fever can occur as the mild non-pneumonic clinical expression while other exposed persons develop pneumonic Legionnaires disease.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Normal chest radiograph in Pontiac fever case\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A normal chest radiograph supports the non-pneumonic clinical distinction in compatible cases, although diagnosis still depends on exposure and laboratory/epidemiologic context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Symptom-directed supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because typical Pontiac fever is self-limited and non-pneumonic, management is framed as symptom-directed supportive care for uncomplicated cases rather than routine disease-specific antimicrobial therapy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Warm, stagnant, sediment-containing water systems\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Hot water temperature, stagnation, sediment, and other microorganisms can amplify Legionellaceae in engineered systems.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Aerosolized Legionella exposure\", \"target\": \"Brisk systemic inflammatory syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Malaise\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brisk systemic inflammatory syndrome\", \"target\": \"Chills\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Non-pneumonic clinical expression\", \"target\": \"Normal chest radiograph in Pontiac fever case\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Engineered aquatic reservoirs\", \"target\": \"Aerosolized Legionella exposure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Drinking water systems, whirlpools, and cooling towers hold the organism the aerosol carries. A reservoir does not itself aerosolize anything, so it is recorded as predisposing rather than triggering, but it supplies the exposure node with no intervening step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biofilm-associated Legionella amplification\", \"target\": \"Aerosolized Legionella exposure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Biofilms raise nutrient availability and shelter the organism, so a colonized system carries a larger population for any aerosol to sample. The intervening steps, growth and then inhaled dose, are understood but are not measured by the cited source.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Warm, stagnant, sediment-containing water systems\", \"target\": \"Aerosolized Legionella exposure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Heat, stagnation, and sediment let a colonized system amplify its Legionella load, raising the dose available to any aerosol it generates. Graded exactly like the biofilm route in this entry because it shares its limitation: amplification is documented, the step from water-system load to inhaled dose is inferred.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Fever\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Symptom-directed supportive care\", \"target\": \"Headache\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4419,14 +4600,21 @@
                         Nausea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002018">HP:0002018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0002018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea (HP:0002018), qualified as temporality acute. HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4505,14 +4693,21 @@
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4591,14 +4786,21 @@
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315), qualified as temporality acute. HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4677,14 +4879,21 @@
                         Cough
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cough (HP:0012735), qualified as temporality acute. HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4763,14 +4972,21 @@
                         Myalgia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326), qualified as temporality acute. HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4840,14 +5056,21 @@
                         Malaise
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Malaise
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033834">HP:0033834</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0033834</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malaise (HP:0033834), qualified as temporality acute. HP:0033834 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4917,14 +5140,21 @@
                         Chills
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chills
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025143">HP:0025143</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0025143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chills (HP:0025143), qualified as temporality acute. HP:0025143 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4994,14 +5224,21 @@
                         Chest pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749), qualified as temporality acute. HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5175,7 +5412,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5212,17 +5454,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Fever
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001945</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myalgia
@@ -5230,11 +5479,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Headache
@@ -5242,10 +5496,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002315</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5327,6 +5584,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Legionella persists in natural and anthropogenic aquatic environments, including drinking water, whirlpools, and cooling-tower reservoirs.</div>
 
 
@@ -5365,10 +5626,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Aerosolized Legionella exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Drinking water systems, whirlpools, and cooling towers hold the organism the aerosol carries. A reservoir does not itself aerosolize anything, so it is recorded as predisposing rather than triggering, but it supplies the exposure node with no intervening step.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18633335" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18633335" target="_blank">PMID:18633335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Consequently, they are also prevalent in anthropogenic water such as drinking water, whirlpools, and cooling tower reservoirs."</div>
+
+
+                <div class="evidence-explanation">Names the engineered water systems in which Legionella is prevalent, and those are the same systems that generate the aerosols described at the target node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-biofilm-associated-legionella-amplification" data-dismech-node="Biofilm-associated Legionella amplification" data-dismech-type="environmental">
                 <div class="item-name">Biofilm-associated Legionella amplification</div>
+
+
+
+
 
 
 
@@ -5410,10 +5727,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Aerosolized Legionella exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Biofilms raise nutrient availability and shelter the organism, so a colonized system carries a larger population for any aerosol to sample. The intervening steps, growth and then inhaled dose, are understood but are not measured by the cited source.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18633335" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18633335" target="_blank">PMID:18633335</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When Legionella co-exist with algae and other bacteria, especially in biofilms, the availability of nutrients increases."</div>
+
+
+                <div class="evidence-explanation">Establishes that co-existence with algae and other bacteria in biofilms increases nutrient availability for Legionella. It stops at amplification and does not reach the aerosol step, which is why the link is recorded as partial.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-warm-stagnant-sediment-containing-water-systems" data-dismech-node="Warm, stagnant, sediment-containing water systems" data-dismech-type="environmental">
                 <div class="item-name">Warm, stagnant, sediment-containing water systems</div>
+
+
+
+
 
 
 
@@ -5454,6 +5827,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Aerosolized Legionella exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Heat, stagnation, and sediment let a colonized system amplify its Legionella load, raising the dose available to any aerosol it generates. Graded exactly like the biofilm route in this entry because it shares its limitation: amplification is documented, the step from water-system load to inhaled dose is inferred.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3328890" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3328890" target="_blank">PMID:3328890</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hot water temperature, stagnant water, sediment, and the presence of other microorganisms are important factors in the amplification of the Legionellaceae."</div>
+
+
+                <div class="evidence-explanation">Names hot water, stagnation, sediment, and accompanying microorganisms as important amplification factors for the Legionellaceae. Amplification is what is measured; the aerosol step this link connects it to is not.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -5559,6 +5984,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5575,7 +6003,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pontiac Fever
 creation_date: &#39;2026-05-06T22:18:19Z&#39;
-updated_date: &#39;2026-05-06T22:18:19Z&#39;
 category: Infectious Disease
 description: &gt;-
   Pontiac fever is the acute, self-limited, non-pneumonic form of
@@ -5765,6 +6192,25 @@ transmission:
     explanation: Supports cooling-tower exposure as a source for pneumonic and non-pneumonic legionellosis.
 environmental:
 - name: Engineered aquatic reservoirs
+  influences_mechanisms:
+  - target: Aerosolized Legionella exposure
+    environmental_effect: PREDISPOSES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Drinking water systems, whirlpools, and cooling towers hold the organism
+      the aerosol carries. A reservoir does not itself aerosolize anything, so
+      it is recorded as predisposing rather than triggering, but it supplies
+      the exposure node with no intervening step.
+    evidence:
+    - reference: PMID:18633335
+      reference_title: &#34;[Occurrence and pathogenicity of the family of Legionellaceae].&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Consequently, they are also prevalent in anthropogenic water such as drinking water, whirlpools, and cooling tower reservoirs.&#34;
+      explanation: &gt;-
+        Names the engineered water systems in which Legionella is prevalent,
+        and those are the same systems that generate the aerosols described at
+        the target node.
   description: &gt;-
     Legionella persists in natural and anthropogenic aquatic environments,
     including drinking water, whirlpools, and cooling-tower reservoirs.
@@ -5776,6 +6222,26 @@ environmental:
     snippet: &#34;Consequently, they are also prevalent in anthropogenic water such as drinking water, whirlpools, and cooling tower reservoirs.&#34;
     explanation: Supports engineered water systems as environmental reservoirs relevant to exposure.
 - name: Biofilm-associated Legionella amplification
+  influences_mechanisms:
+  - target: Aerosolized Legionella exposure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Biofilms raise nutrient availability and shelter the organism, so a
+      colonized system carries a larger population for any aerosol to sample.
+      The intervening steps, growth and then inhaled dose, are understood but
+      are not measured by the cited source.
+    evidence:
+    - reference: PMID:18633335
+      reference_title: &#34;[Occurrence and pathogenicity of the family of Legionellaceae].&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;When Legionella co-exist with algae and other bacteria, especially in biofilms, the availability of nutrients increases.&#34;
+      explanation: &gt;-
+        Establishes that co-existence with algae and other bacteria in
+        biofilms increases nutrient availability for Legionella. It stops at
+        amplification and does not reach the aerosol step, which is why the
+        link is recorded as partial.
   description: &gt;-
     Biofilms and microbial associations can increase Legionella nutrient
     availability and protect organisms from adverse conditions, allowing
@@ -5788,6 +6254,27 @@ environmental:
     snippet: &#34;When Legionella co-exist with algae and other bacteria, especially in biofilms, the availability of nutrients increases.&#34;
     explanation: Supports biofilm-associated environmental amplification.
 - name: Warm, stagnant, sediment-containing water systems
+  influences_mechanisms:
+  - target: Aerosolized Legionella exposure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Heat, stagnation, and sediment let a colonized system amplify its
+      Legionella load, raising the dose available to any aerosol it generates.
+      Graded exactly like the biofilm route in this entry because it shares
+      its limitation: amplification is documented, the step from water-system
+      load to inhaled dose is inferred.
+    evidence:
+    - reference: PMID:3328890
+      reference_title: &#34;The epidemiology of Legionella pneumophila infections.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Hot water temperature, stagnant water, sediment, and the presence of other microorganisms are important factors in the amplification of the Legionellaceae.&#34;
+      explanation: &gt;-
+        Names hot water, stagnation, sediment, and accompanying microorganisms
+        as important amplification factors for the Legionellaceae.
+        Amplification is what is measured; the aerosol step this link connects
+        it to is not.
   description: &gt;-
     Hot water temperature, stagnation, sediment, and other microorganisms can
     amplify Legionellaceae in engineered systems.
@@ -6859,7 +7346,7 @@ In the retrieved evidence, Pontiac fever is described as not strongly discrimina
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pontiac Fever", "mondoId": "MONDO:0020487", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pontiac_Fever", "yamlRevision": "1bc281a48344"};
+        const OS_CONFIG = {"diseaseName": "Pontiac Fever", "mondoId": "MONDO:0020487", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pontiac_Fever", "yamlRevision": "9765f562f3e2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7278,5 +7765,73 @@ In the retrieved evidence, Pontiac fever is described as not strongly discrimina
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

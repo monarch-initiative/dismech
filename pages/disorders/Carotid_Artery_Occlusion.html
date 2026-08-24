@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Carotid%20Artery%20Occlusion"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3703,7 +3871,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3724,7 +3892,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3805,17 +3973,19 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">6</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-carotid-plaque-formation" data-dismech-node="Atherosclerotic carotid plaque formation" data-dismech-type="pathophysiology">
-                <div class="item-name">Atherosclerotic carotid plaque formation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-carotid-intimal-apob-lipoprotein-retention" data-dismech-node="Carotid Intimal ApoB Lipoprotein Retention" data-dismech-type="pathophysiology">
+                <div class="item-name">Carotid Intimal ApoB Lipoprotein Retention</div>
 
-                <div class="item-desc">Endothelial injury, lipid retention, foam-cell accumulation, vascular smooth muscle remodeling, and inflammatory matrix remodeling generate carotid atherosclerotic plaque. Progressive plaque growth narrows the lumen and creates the substrate for later thrombosis or complete occlusion.</div>
+                <div class="item-desc">Endothelial injury in the carotid arterial wall permits infiltration and retention of apoB-containing lipoproteins in the intima. Local modification of retained LDL initiates the inflammatory plaque-forming branch that can progress toward atherosclerotic carotid occlusion.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         endothelial cell
@@ -3823,10 +3993,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3839,20 +4012,163 @@
 
 
 
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        cholesterol homeostasis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042632" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042632</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cholesterol homeostasis (GO:0042632). GO:0042632 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        internal carotid artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001532</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Carotid Monocyte Recruitment and Macrophage Foam Cell Formation</span>
+
+	                            <span class="crosslink-desc">Modified retained lipoproteins activate endothelium, recruit monocytes, and supply the substrate internalized by intimal macrophages.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26844337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"infiltration and retention of apoB containing lipoproteins in the artery wall is a critical initiating event that sparks an inflammatory response and promotes the development of atherosclerosis."</div>
+
+
+                <div class="evidence-explanation">Establishes arterial-wall apoB-lipoprotein retention as the conserved initiating event; the internal carotid artery is the disease-specific site.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-carotid-monocyte-recruitment-and-macrophage-foam-cell-formation" data-dismech-node="Carotid Monocyte Recruitment and Macrophage Foam Cell Formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Carotid Monocyte Recruitment and Macrophage Foam Cell Formation</div>
+
+                <div class="item-desc">Recruited carotid-intimal monocytes become macrophages, internalize modified apoB lipoproteins, and form lipid-laden foam cells. Macrophage inflammation amplifies LDL oxidation, endothelial activation, and additional monocyte recruitment in the plaque-forming branch.</div>
+
+
+
+                <div class="item-meta">
 
 
 
                     <span class="tag tag-cell">
-                        vascular smooth muscle cell
+                        macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3873,35 +4189,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000891">CL:0000891</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000891</a>
 
 
 
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-cell">
-                        macrophage
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
-
-
-
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves foam cell (CL:0000891). CL:0000891 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3928,16 +4222,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        inflammatory response
+                        foam cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090077" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0090077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased foam cell differentiation (GO:0090077). GO:0090077 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3957,23 +4256,250 @@
 
 
 
+
+
                     <span class="tag tag-bio">
-                        extracellular matrix organization
+                        inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
     <span class="tag tag-modifier">
-        ⚠ ABNORMAL
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        internal carotid artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001532</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atherosclerotic carotid plaque formation</span>
+
+	                            <span class="crosslink-desc">Foam-cell inflammatory mediators recruit and stimulate vascular smooth muscle cells, which switch phenotype and assemble the plaque matrix.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26844337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Internalization of the apoB containing lipoproteins by macrophages promotes foam cell formation, which is the hallmark of the fatty streak phase of atherosclerosis."</div>
+
+
+                <div class="evidence-explanation">Directly supports macrophage apoB-lipoprotein uptake and foam-cell differentiation in the conserved amplifier.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26844337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Macrophage inflammation results in enhanced oxidative stress and cytokine/chemokine secretion, causing more LDL/remnant oxidation, endothelial cell activation, monocyte recruitment, and foam cell formation."</div>
+
+
+                <div class="evidence-explanation">Documents the feed-forward inflammatory loop that amplifies foam-cell formation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-carotid-plaque-formation" data-dismech-node="Atherosclerotic carotid plaque formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Atherosclerotic carotid plaque formation</div>
+
+                <div class="item-desc">Vascular smooth-muscle-cell phenotypic switching, proliferation, and extracellular-matrix secretion assemble a fibrofatty plaque with a fibrous cap in the carotid arterial wall. Progressive plaque growth creates the substrate for later stenosis and occlusion.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000359</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        smooth muscle cell proliferation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048661</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased smooth muscle cell proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        extracellular matrix organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030198</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
     </span>
 
 
@@ -3994,14 +4520,23 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Advanced carotid atheroma with necrotic core and fibrous cap</span>
+
+	                            <span class="crosslink-desc">Continued lipid accumulation, foam-cell death, and matrix remodeling mature the formed carotid plaque into a cap-and-core atheroma.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Thrombotic carotid occlusion</span>
 
-	                            <span class="crosslink-desc">Plaque growth and vulnerability can progress to flow-limiting stenosis, thrombosis, or complete occlusion.</span>
+	                            <span class="crosslink-desc">Progressive atherosclerotic plaque can culminate in non-acute internal carotid occlusion, but the cohort does not resolve whether rupture, thrombosis, or chronic occlusive remodeling supplies the intermediates.</span>
 
 
 	                        </div>
@@ -4013,7 +4548,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4061,6 +4596,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:37595697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"vascular smooth muscle cell phenotypic switching through transdifferentiation and stem/progenitor cell activation resulting in the promotion of inflammation, calcification, and secretion of extracellular matrix, altering fibrous cap structure, and necrotic core growth."</div>
+
+
+                <div class="evidence-explanation">This histopathology review supports the conserved smooth-muscle-cell switching and matrix-secretion program that builds the fibrous cap and enlarges the necrotic core of an atheroma.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4068,12 +4625,46 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombotic-carotid-occlusion" data-dismech-node="Thrombotic carotid occlusion" data-dismech-type="pathophysiology">
-                <div class="item-name">Thrombotic carotid occlusion</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-advanced-carotid-atheroma-with-necrotic-core-and-fibrous-cap" data-dismech-node="Advanced carotid atheroma with necrotic core and fibrous cap" data-dismech-type="pathophysiology">
+                <div class="item-name">Advanced carotid atheroma with necrotic core and fibrous cap</div>
 
-                <div class="item-desc">Advanced atherosclerotic plaque and associated thrombus can produce non-acute or chronic long-segment occlusion of the internal carotid artery. Occlusion anatomy and plaque location influence recanalization feasibility and re-occlusion risk.</div>
+                <div class="item-desc">Continued lipid accumulation, foam-cell death, and matrix remodeling produce an advanced carotid atheroma with a lipid-rich necrotic core enclosed by a fibrous cap. Neovascularization, intraplaque hemorrhage, cap thinning, and surface ulceration can destabilize the lesion. This optional mature-plaque stage is represented without assuming that it caused every chronic or non-acute occlusion in the cited cohorts.</div>
 
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000359</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4084,16 +4675,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        blood coagulation
+                        extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4114,6 +4710,146 @@
 
 
                 </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        internal carotid artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001532" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001532</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in internal carotid artery (UBERON:0001532). UBERON:0001532 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/ijms25084351" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms25084351" target="_blank">DOI:10.3390/ijms25084351</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In macroscopic evaluation, vulnerable plaques are characterized by one or more of the following features: microcalcification; neovascularization; lipid-rich necrotic cores (LRNCs); intraplaque hemorrhage (IPH); thin fibrous caps; plaque surface ulceration; huge dimensions, suggesting stenosis;..."</div>
+
+
+                <div class="evidence-explanation">Directly establishes the necrotic-core, fibrous-cap, hemorrhagic, and surface features of an advanced carotid atheroma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37595697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the local arterial microenvironment of a stable atheroma promotes destabilizing conditions that result in the transition to an unstable atheroma."</div>
+
+
+                <div class="evidence-explanation">Supports maturation and destabilization of a formed atheroma without asserting that destabilization is the only route to chronic occlusion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombotic-carotid-occlusion" data-dismech-node="Thrombotic carotid occlusion" data-dismech-type="pathophysiology">
+                <div class="item-name">Thrombotic carotid occlusion</div>
+
+                <div class="item-desc">Atherosclerotic plaque growth and associated thrombotic or occlusive remodeling can produce non-acute or chronic long-segment occlusion of the internal carotid artery. Occlusion anatomy and plaque location influence recanalization feasibility and re-occlusion risk. The available cohort evidence does not distinguish acute rupture or erosion from chronic plaque growth and occlusive remodeling, so this node is not restricted to the rupture-driven atherogenesis consequence.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        blood coagulation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007596</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4217,6 +4953,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -4299,7 +5036,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atherosclerotic carotid plaque formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endothelial injury, lipid retention, foam-cell accumulation, vascular smooth muscle remodeling, and inflammatory matrix remodeling generate carotid atherosclerotic plaque. Progressive plaque growth narrows the lumen and creates the substrate for later thrombosis or complete occlusion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\", \"foam cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"extracellular matrix organization\"]}}, {\"id\": \"Cerebral and retinal ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced perfusion pressure from carotid occlusion, especially when collateral circulation is inadequate, and embolic obstruction from carotid plaque or thrombus can cause transient or permanent cerebral and retinal ischemic manifestations.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombotic carotid occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced atherosclerotic plaque and associated thrombus can produce non-acute or chronic long-segment occlusion of the internal carotid artery. Occlusion anatomy and plaque location influence recanalization feasibility and re-occlusion risk.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}], \"edges\": [{\"source\": \"Atherosclerotic carotid plaque formation\", \"target\": \"Thrombotic carotid occlusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Plaque growth and vulnerability can progress to flow-limiting stenosis, thrombosis, or complete occlusion.\"}, {\"source\": \"Thrombotic carotid occlusion\", \"target\": \"Cerebral and retinal ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Completed carotid occlusion can reduce downstream blood flow or generate embolic ischemia in cerebral and retinal territories.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Advanced carotid atheroma with necrotic core and fibrous cap\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continued lipid accumulation, foam-cell death, and matrix remodeling produce an advanced carotid atheroma with a lipid-rich necrotic core enclosed by a fibrous cap. Neovascularization, intraplaque hemorrhage, cap thinning, and surface ulceration can destabilize the lesion. This optional mature-plaque stage is represented without assuming that it caused every chronic or non-acute occlusion in the cited cohorts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"role\": \"effector\", \"locations\": [\"internal carotid artery\"]}}, {\"id\": \"Atherosclerotic carotid plaque formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular smooth-muscle-cell phenotypic switching, proliferation, and extracellular-matrix secretion assemble a fibrofatty plaque with a fibrous cap in the carotid arterial wall. Progressive plaque growth creates the substrate for later stenosis and occlusion.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell proliferation\", \"extracellular matrix organization\"], \"role\": \"central_effector\"}}, {\"id\": \"Carotid Intimal ApoB Lipoprotein Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endothelial injury in the carotid arterial wall permits infiltration and retention of apoB-containing lipoproteins in the intima. Local modification of retained LDL initiates the inflammatory plaque-forming branch that can progress toward atherosclerotic carotid occlusion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"cholesterol homeostasis\"], \"role\": \"trigger\", \"locations\": [\"internal carotid artery\"]}}, {\"id\": \"Carotid Monocyte Recruitment and Macrophage Foam Cell Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recruited carotid-intimal monocytes become macrophages, internalize modified apoB lipoproteins, and form lipid-laden foam cells. Macrophage inflammation amplifies LDL oxidation, endothelial activation, and additional monocyte recruitment in the plaque-forming branch.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"foam cell\"], \"biological_processes\": [\"foam cell differentiation\", \"inflammatory response\"], \"role\": \"amplifier\", \"locations\": [\"internal carotid artery\"]}}, {\"id\": \"Cerebral and retinal ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced perfusion pressure from carotid occlusion, especially when collateral circulation is inadequate, and embolic obstruction from carotid plaque or thrombus can cause transient or permanent cerebral and retinal ischemic manifestations.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Smoking and diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Thrombotic carotid occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic plaque growth and associated thrombotic or occlusive remodeling can produce non-acute or chronic long-segment occlusion of the internal carotid artery. Occlusion anatomy and plaque location influence recanalization feasibility and re-occlusion risk. The available cohort evidence does not distinguish acute rupture or erosion from chronic plaque growth and occlusive remodeling, so this node is not restricted to the rupture-driven atherogenesis consequence.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}], \"edges\": [{\"source\": \"Carotid Intimal ApoB Lipoprotein Retention\", \"target\": \"Carotid Monocyte Recruitment and Macrophage Foam Cell Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Modified retained lipoproteins activate endothelium, recruit monocytes, and supply the substrate internalized by intimal macrophages.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"oxidative or enzymatic modification of retained apoB lipoproteins\", \"endothelial activation and monocyte recruitment into the carotid intima\"]}, {\"source\": \"Carotid Monocyte Recruitment and Macrophage Foam Cell Formation\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foam-cell inflammatory mediators recruit and stimulate vascular smooth muscle cells, which switch phenotype and assemble the plaque matrix.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"macrophage chemoattractant and cytokine signaling\", \"vascular smooth muscle cell recruitment and phenotypic switching\"]}, {\"source\": \"Atherosclerotic carotid plaque formation\", \"target\": \"Advanced carotid atheroma with necrotic core and fibrous cap\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued lipid accumulation, foam-cell death, and matrix remodeling mature the formed carotid plaque into a cap-and-core atheroma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Continued lipid accumulation and foam-cell death enlarge the necrotic core.\", \"Smooth-muscle-cell switching and matrix remodeling build and reshape the fibrous cap.\"]}, {\"source\": \"Atherosclerotic carotid plaque formation\", \"target\": \"Thrombotic carotid occlusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive atherosclerotic plaque can culminate in non-acute internal carotid occlusion, but the cohort does not resolve whether rupture, thrombosis, or chronic occlusive remodeling supplies the intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Thrombotic carotid occlusion\", \"target\": \"Cerebral and retinal ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Completed carotid occlusion can reduce downstream blood flow or generate embolic ischemia in cerebral and retinal territories.\"}, {\"source\": \"Hypertension\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Raised pressure and shear injure the endothelium, and the lipid retention, foam-cell accumulation, and inflammatory remodelling that follow are the steps this node already sets out. Those intermediates are known, which is why the link is indirect rather than direct.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Diabetes mellitus\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Diabetes drives atherogenesis through hyperglycemic endothelial injury and dyslipidemia, reaching carotid plaque by the same intermediates this node describes. The cited case-control study is carotid specific, though the quoted sentence states the determinant relationship for atherosclerosis generally.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Smoking and diet\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Modifiable lifestyle exposures feeding the same endothelial injury and lipid retention sequence as hypertension. Graded identically to the hypertension link in this entry because both rest on the same sentence of the same review.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4338,14 +5075,21 @@
                         Ischemic stroke
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ischemic stroke
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002140</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4428,14 +5172,21 @@
                         Carotid artery occlusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Carotid artery occlusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012474" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012474">HP:0012474</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012474</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Carotid artery occlusion (HP:0012474). HP:0012474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4487,14 +5238,21 @@
                         Carotid artery stenosis or near-occlusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Carotid artery stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100546">HP:0100546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Carotid artery stenosis (HP:0100546). HP:0100546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4546,14 +5304,21 @@
                         Transient ischemic attack
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Transient ischemic attack
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002326">HP:0002326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Transient ischemic attack (HP:0002326). HP:0002326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4605,14 +5370,21 @@
                         Amaurosis fugax
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Amaurosis fugax
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100576" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100576">HP:0100576</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100576" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100576</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Amaurosis fugax (HP:0100576). HP:0100576 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4664,14 +5436,21 @@
                         Cerebral ischemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral ischemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002637" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002637">HP:0002637</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002637" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002637</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral ischemia (HP:0002637). HP:0002637 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4872,7 +5651,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4971,7 +5755,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5071,7 +5860,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5181,6 +5975,10 @@
                 <div class="item-name">Hypertension</div>
 
 
+
+
+
+
                 <div class="item-desc">Major atherosclerotic and stroke risk factor associated with carotid plaque development.</div>
 
 
@@ -5220,10 +6018,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic carotid plaque formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Raised pressure and shear injure the endothelium, and the lipid retention, foam-cell accumulation, and inflammatory remodelling that follow are the steps this node already sets out. Those intermediates are known, which is why the link is indirect rather than direct.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37303351" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"comorbid hypertension, diabetes, and chronic kidney disease (CKD), and lifestyle aspects, including smoking and diet, played the most salient role in plaque development."</div>
+
+
+                <div class="evidence-explanation">Review naming comorbid hypertension among the factors that played the most salient role in plaque development, connecting the exposure to this node&#39;s own process rather than to the disease in general.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-diabetes-mellitus" data-dismech-node="Diabetes mellitus" data-dismech-type="environmental">
                 <div class="item-name">Diabetes mellitus</div>
+
+
+
+
 
 
                 <div class="item-desc">Diabetes is a cardiometabolic risk factor for carotid plaque and atherosclerotic disease.</div>
@@ -5265,10 +6119,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic carotid plaque formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Diabetes drives atherogenesis through hyperglycemic endothelial injury and dyslipidemia, reaching carotid plaque by the same intermediates this node describes. The cited case-control study is carotid specific, though the quoted sentence states the determinant relationship for atherosclerosis generally.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36894991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36894991" target="_blank">PMID:36894991</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diabetes mellitus (DM) is a well-established determinant of atherosclerosis and cardiovascular diseases (CVD)."</div>
+
+
+                <div class="evidence-explanation">States that diabetes is a well-established determinant of atherosclerosis, the process this node carries, in a study whose subject is carotid atherosclerosis specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-smoking-and-diet" data-dismech-node="Smoking and diet" data-dismech-type="environmental">
                 <div class="item-name">Smoking and diet</div>
+
+
+
+
 
 
                 <div class="item-desc">Smoking and diet are modifiable lifestyle factors contributing to carotid plaque development.</div>
@@ -5310,6 +6220,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic carotid plaque formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Modifiable lifestyle exposures feeding the same endothelial injury and lipid retention sequence as hypertension. Graded identically to the hypertension link in this entry because both rest on the same sentence of the same review.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37303351" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"lifestyle aspects, including smoking and diet, played the most salient role in plaque development."</div>
+
+
+                <div class="evidence-explanation">The same review names smoking and diet as the lifestyle aspects playing the most salient role in plaque development, which is the process at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -5350,16 +6312,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Ischemic stroke
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002140">HP:0002140</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002140</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5418,16 +6385,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Carotid artery occlusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012474" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012474">HP:0012474</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012474</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Carotid artery occlusion (HP:0012474). HP:0012474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5486,16 +6458,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Carotid artery occlusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012474" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012474">HP:0012474</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012474</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Carotid artery occlusion (HP:0012474). HP:0012474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5543,6 +6520,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5559,7 +6539,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Carotid Artery Occlusion
 creation_date: &#34;2026-05-06T03:11:16Z&#34;
-updated_date: &#34;2026-05-06T03:41:59Z&#34;
 description: &gt;-
   Carotid artery occlusion is a cerebrovascular disorder in which complete
   obstruction of the extracranial or intracranial carotid arterial lumen,
@@ -5581,37 +6560,162 @@ synonyms:
 - Chronic carotid artery occlusion
 - Non-acute carotid artery occlusion
 pathophysiology:
-- name: Atherosclerotic carotid plaque formation
+- name: Carotid Intimal ApoB Lipoprotein Retention
+  role: trigger
+  conforms_to: &#34;atherogenesis#Endothelial Dysfunction and Subendothelial LDL Retention&#34;
   description: &gt;-
-    Endothelial injury, lipid retention, foam-cell accumulation, vascular
-    smooth muscle remodeling, and inflammatory matrix remodeling generate
-    carotid atherosclerotic plaque. Progressive plaque growth narrows the
-    lumen and creates the substrate for later thrombosis or complete occlusion.
+    Endothelial injury in the carotid arterial wall permits infiltration and
+    retention of apoB-containing lipoproteins in the intima. Local modification
+    of retained LDL initiates the inflammatory plaque-forming branch that can
+    progress toward atherosclerotic carotid occlusion.
   cell_types:
   - preferred_term: endothelial cell
     term:
       id: CL:0000115
       label: endothelial cell
-  - preferred_term: vascular smooth muscle cell
+  locations:
+  - preferred_term: internal carotid artery
     term:
-      id: CL:0000359
-      label: vascular associated smooth muscle cell
-  - preferred_term: foam cell
+      id: UBERON:0001532
+      label: internal carotid artery
+  biological_processes:
+  - preferred_term: cholesterol homeostasis
     term:
-      id: CL:0000891
-      label: foam cell
+      id: GO:0042632
+      label: cholesterol homeostasis
+    modifier: DYSREGULATED
+  evidence:
+  - reference: PMID:26844337
+    reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      infiltration and retention of apoB containing lipoproteins in the artery
+      wall is a critical initiating event that sparks an inflammatory response
+      and promotes the development of atherosclerosis.
+    explanation: &gt;-
+      Establishes arterial-wall apoB-lipoprotein retention as the conserved
+      initiating event; the internal carotid artery is the disease-specific site.
+  downstream:
+  - target: Carotid Monocyte Recruitment and Macrophage Foam Cell Formation
+    description: &gt;-
+      Modified retained lipoproteins activate endothelium, recruit monocytes,
+      and supply the substrate internalized by intimal macrophages.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - oxidative or enzymatic modification of retained apoB lipoproteins
+    - endothelial activation and monocyte recruitment into the carotid intima
+    evidence:
+    - reference: PMID:26844337
+      reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Internalization of the apoB containing lipoproteins by macrophages promotes
+        foam cell formation, which is the hallmark of the fatty streak phase of
+        atherosclerosis.
+      explanation: &gt;-
+        Supports macrophage uptake of retained apoB lipoproteins and subsequent
+        foam-cell formation across the explicit recruitment intermediate.
+- name: Carotid Monocyte Recruitment and Macrophage Foam Cell Formation
+  role: amplifier
+  conforms_to: &#34;atherogenesis#Monocyte Recruitment and Macrophage Foam Cell Formation&#34;
+  description: &gt;-
+    Recruited carotid-intimal monocytes become macrophages, internalize modified
+    apoB lipoproteins, and form lipid-laden foam cells. Macrophage inflammation
+    amplifies LDL oxidation, endothelial activation, and additional monocyte
+    recruitment in the plaque-forming branch.
+  cell_types:
   - preferred_term: macrophage
     term:
       id: CL:0000235
       label: macrophage
+  - preferred_term: foam cell
+    term:
+      id: CL:0000891
+      label: foam cell
+  locations:
+  - preferred_term: internal carotid artery
+    term:
+      id: UBERON:0001532
+      label: internal carotid artery
   biological_processes:
-  - preferred_term: inflammatory response
+  - preferred_term: foam cell differentiation
+    term:
+      id: GO:0090077
+      label: foam cell differentiation
     modifier: INCREASED
+  - preferred_term: inflammatory response
     term:
       id: GO:0006954
       label: inflammatory response
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:26844337
+    reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Internalization of the apoB containing lipoproteins by macrophages promotes
+      foam cell formation, which is the hallmark of the fatty streak phase of
+      atherosclerosis.
+    explanation: &gt;-
+      Directly supports macrophage apoB-lipoprotein uptake and foam-cell
+      differentiation in the conserved amplifier.
+  - reference: PMID:26844337
+    reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Macrophage inflammation results in enhanced oxidative stress and
+      cytokine/chemokine secretion, causing more LDL/remnant oxidation,
+      endothelial cell activation, monocyte recruitment, and foam cell formation.
+    explanation: &gt;-
+      Documents the feed-forward inflammatory loop that amplifies foam-cell
+      formation.
+  downstream:
+  - target: Atherosclerotic carotid plaque formation
+    description: &gt;-
+      Foam-cell inflammatory mediators recruit and stimulate vascular smooth
+      muscle cells, which switch phenotype and assemble the plaque matrix.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - macrophage chemoattractant and cytokine signaling
+    - vascular smooth muscle cell recruitment and phenotypic switching
+    evidence:
+    - reference: PMID:26844337
+      reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Macrophage inflammatory chemoattractants stimulate infiltration and
+        proliferation of smooth muscle cells. Smooth muscle cells produce the
+        extracellular matrix providing a stable fibrous barrier between plaque
+        prothrombotic factors and platelets.
+      explanation: &gt;-
+        Connects macrophage inflammation to smooth-muscle-cell proliferation and
+        extracellular-matrix production in the conserved central effector.
+- name: Atherosclerotic carotid plaque formation
+  role: central_effector
+  conforms_to: &#34;atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation&#34;
+  description: &gt;-
+    Vascular smooth-muscle-cell phenotypic switching, proliferation, and
+    extracellular-matrix secretion assemble a fibrofatty plaque with a fibrous
+    cap in the carotid arterial wall. Progressive plaque growth creates the
+    substrate for later stenosis and occlusion.
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  biological_processes:
+  - preferred_term: smooth muscle cell proliferation
+    modifier: INCREASED
+    term:
+      id: GO:0048661
+      label: positive regulation of smooth muscle cell proliferation
   - preferred_term: extracellular matrix organization
-    modifier: ABNORMAL
+    modifier: INCREASED
     term:
       id: GO:0030198
       label: extracellular matrix organization
@@ -5630,15 +6734,107 @@ pathophysiology:
     snippet: &gt;-
       They were enriched in pathways related to cellular response to external stimulus and regulation of the phosphate metabolic process and were highly expressed in endothelial cells, epithelial cells, and smooth muscle cells.
     explanation: This multi-trait genetic analysis supports endothelial and smooth-muscle cell involvement in related carotid/cerebrovascular atherosclerotic biology.
+  - reference: PMID:37595697
+    reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      vascular smooth muscle cell phenotypic switching through transdifferentiation and stem/progenitor cell activation resulting in the promotion of inflammation, calcification, and secretion of extracellular matrix, altering fibrous cap structure, and necrotic core growth.
+    explanation: &gt;-
+      This histopathology review supports the conserved smooth-muscle-cell
+      switching and matrix-secretion program that builds the fibrous cap and
+      enlarges the necrotic core of an atheroma.
   downstream:
+  - target: Advanced carotid atheroma with necrotic core and fibrous cap
+    description: &gt;-
+      Continued lipid accumulation, foam-cell death, and matrix remodeling
+      mature the formed carotid plaque into a cap-and-core atheroma.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - Continued lipid accumulation and foam-cell death enlarge the necrotic core.
+    - Smooth-muscle-cell switching and matrix remodeling build and reshape the fibrous cap.
+    evidence:
+    - reference: PMID:37595697
+      reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        vascular smooth muscle cell phenotypic switching through transdifferentiation and stem/progenitor cell activation resulting in the promotion of inflammation, calcification, and secretion of extracellular matrix, altering fibrous cap structure, and necrotic core growth.
+      explanation: &gt;-
+        Supports smooth-muscle-cell switching and matrix secretion as
+        intermediates that alter the fibrous cap and enlarge the necrotic core
+        between initial plaque formation and advanced atheroma.
   - target: Thrombotic carotid occlusion
-    description: Plaque growth and vulnerability can progress to flow-limiting stenosis, thrombosis, or complete occlusion.
+    description: &gt;-
+      Progressive atherosclerotic plaque can culminate in non-acute internal
+      carotid occlusion, but the cohort does not resolve whether rupture,
+      thrombosis, or chronic occlusive remodeling supplies the intermediates.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:38740919
+      reference_title: Significance of atherosclerotic plaque location in recanalizing non-acute long-segment occlusion of the internal carotid artery.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        patients with ICA occlusion caused by either proximal or distal
+        atherosclerotic plaques
+      explanation: &gt;-
+        Directly associates proximal or distal atherosclerotic plaque with ICA
+        occlusion while leaving the intervening occlusive mechanism unresolved.
+- name: Advanced carotid atheroma with necrotic core and fibrous cap
+  role: effector
+  conforms_to: &#34;atherogenesis#Advanced Atheroma with Necrotic Core and Fibrous Cap&#34;
+  description: &gt;-
+    Continued lipid accumulation, foam-cell death, and matrix remodeling produce
+    an advanced carotid atheroma with a lipid-rich necrotic core enclosed by a
+    fibrous cap. Neovascularization, intraplaque hemorrhage, cap thinning, and
+    surface ulceration can destabilize the lesion. This optional mature-plaque
+    stage is represented without assuming that it caused every chronic or
+    non-acute occlusion in the cited cohorts.
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  locations:
+  - preferred_term: internal carotid artery
+    term:
+      id: UBERON:0001532
+      label: internal carotid artery
+  biological_processes:
+  - preferred_term: extracellular matrix organization
+    modifier: INCREASED
+    term:
+      id: GO:0030198
+      label: extracellular matrix organization
+  evidence:
+  - reference: DOI:10.3390/ijms25084351
+    reference_title: &#34;Molecular Pathways of Vulnerable Carotid Plaques at Risk of Ischemic Stroke: A Narrative Review&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In macroscopic evaluation, vulnerable plaques are characterized by one or more of the following features: microcalcification; neovascularization; lipid-rich necrotic cores (LRNCs); intraplaque hemorrhage (IPH); thin fibrous caps; plaque surface ulceration; huge dimensions, suggesting stenosis; and plaque rupture.
+    explanation: &gt;-
+      Directly establishes the necrotic-core, fibrous-cap, hemorrhagic, and
+      surface features of an advanced carotid atheroma.
+  - reference: PMID:37595697
+    reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the local arterial microenvironment of a stable atheroma promotes destabilizing conditions that result in the transition to an unstable atheroma.
+    explanation: &gt;-
+      Supports maturation and destabilization of a formed atheroma without
+      asserting that destabilization is the only route to chronic occlusion.
 - name: Thrombotic carotid occlusion
   description: &gt;-
-    Advanced atherosclerotic plaque and associated thrombus can produce
-    non-acute or chronic long-segment occlusion of the internal carotid artery.
-    Occlusion anatomy and plaque location influence recanalization feasibility
-    and re-occlusion risk.
+    Atherosclerotic plaque growth and associated thrombotic or occlusive
+    remodeling can produce non-acute or chronic long-segment occlusion of the
+    internal carotid artery. Occlusion anatomy and plaque location influence
+    recanalization feasibility and re-occlusion risk. The available cohort
+    evidence does not distinguish acute rupture or erosion from chronic plaque
+    growth and occlusive remodeling, so this node is not restricted to the
+    rupture-driven atherogenesis consequence.
   biological_processes:
   - preferred_term: blood coagulation
     modifier: INCREASED
@@ -5833,6 +7029,25 @@ genetic:
     explanation: This human community case-control study links diabetes-associated SNPs with carotid plaque.
 environmental:
 - name: Hypertension
+  influences_mechanisms:
+  - target: Atherosclerotic carotid plaque formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Raised pressure and shear injure the endothelium, and the lipid
+      retention, foam-cell accumulation, and inflammatory remodelling that
+      follow are the steps this node already sets out. Those intermediates are
+      known, which is why the link is indirect rather than direct.
+    evidence:
+    - reference: PMID:37303351
+      reference_title: &#34;Carotid Artery Stenosis: A Look Into the Diagnostic and Management Strategies, and Related Complications.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;comorbid hypertension, diabetes, and chronic kidney disease (CKD), and lifestyle aspects, including smoking and diet, played the most salient role in plaque development.&#34;
+      explanation: &gt;-
+        Review naming comorbid hypertension among the factors that played the
+        most salient role in plaque development, connecting the exposure to
+        this node&#39;s own process rather than to the disease in general.
   presence: Positive
   notes: Major atherosclerotic and stroke risk factor associated with carotid plaque development.
   evidence:
@@ -5844,6 +7059,26 @@ environmental:
       comorbid hypertension, diabetes, and chronic kidney disease (CKD), and lifestyle aspects, including smoking and diet, played the most salient role in plaque development.
     explanation: The review explicitly identifies hypertension among the salient factors in carotid plaque development.
 - name: Diabetes mellitus
+  influences_mechanisms:
+  - target: Atherosclerotic carotid plaque formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Diabetes drives atherogenesis through hyperglycemic endothelial injury
+      and dyslipidemia, reaching carotid plaque by the same intermediates this
+      node describes. The cited case-control study is carotid specific, though
+      the quoted sentence states the determinant relationship for
+      atherosclerosis generally.
+    evidence:
+    - reference: PMID:36894991
+      reference_title: &#34;Associations of genetic markers of diabetes mellitus with carotid atherosclerosis: a community-based case-control study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Diabetes mellitus (DM) is a well-established determinant of atherosclerosis and cardiovascular diseases (CVD).&#34;
+      explanation: &gt;-
+        States that diabetes is a well-established determinant of
+        atherosclerosis, the process this node carries, in a study whose
+        subject is carotid atherosclerosis specifically.
   presence: Positive
   notes: Diabetes is a cardiometabolic risk factor for carotid plaque and atherosclerotic disease.
   evidence:
@@ -5855,6 +7090,25 @@ environmental:
       Diabetes mellitus (DM) is a well-established determinant of atherosclerosis and cardiovascular diseases (CVD).
     explanation: This supports diabetes as a determinant of atherosclerosis relevant to carotid plaque formation.
 - name: Smoking and diet
+  influences_mechanisms:
+  - target: Atherosclerotic carotid plaque formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Modifiable lifestyle exposures feeding the same endothelial injury and
+      lipid retention sequence as hypertension. Graded identically to the
+      hypertension link in this entry because both rest on the same sentence
+      of the same review.
+    evidence:
+    - reference: PMID:37303351
+      reference_title: &#34;Carotid Artery Stenosis: A Look Into the Diagnostic and Management Strategies, and Related Complications.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;lifestyle aspects, including smoking and diet, played the most salient role in plaque development.&#34;
+      explanation: &gt;-
+        The same review names smoking and diet as the lifestyle aspects
+        playing the most salient role in plaque development, which is the
+        process at this node.
   presence: Positive
   notes: Smoking and diet are modifiable lifestyle factors contributing to carotid plaque development.
   evidence:
@@ -6599,7 +7853,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Carotid Artery Occlusion", "mondoId": "MONDO:0004450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carotid_Artery_Occlusion", "yamlRevision": "3fc81b279391"};
+        const OS_CONFIG = {"diseaseName": "Carotid Artery Occlusion", "mondoId": "MONDO:0004450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carotid_Artery_Occlusion", "yamlRevision": "e99131560c83"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7018,5 +8272,73 @@ review_notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

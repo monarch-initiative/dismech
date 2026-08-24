@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3859,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3789,6 +3957,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3802,7 +3978,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3831,34 +4007,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Leukemia</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -5684,16 +5947,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         megakaryocyte progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000553">CL:0000553</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000553</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves megakaryocyte progenitor cell (CL:0000553). CL:0000553 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5720,15 +5988,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GATA1
 
 
-    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4170">hgnc:4170</a>
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4170</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5774,6 +6049,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5856,15 +6132,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GATA1
 
 
-    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4170">hgnc:4170</a>
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4170</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5884,6 +6167,7 @@
 
 
                 </div>
+
 
 
 
@@ -5964,16 +6248,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         megakaryocyte progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000553">CL:0000553</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000553</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves megakaryocyte progenitor cell (CL:0000553). CL:0000553 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6000,15 +6289,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         STAG2
 
 
-    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11355">hgnc:11355</a>
+    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11355</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAG2 (hgnc:11355). hgnc:11355 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6054,6 +6350,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -6121,16 +6418,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RBM15
 
 
-    <a href="https://bioregistry.io/hgnc:14959" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14959">hgnc:14959</a>
+    <a href="https://bioregistry.io/hgnc:14959" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:14959</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBM15 (hgnc:14959). hgnc:14959 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6158,10 +6466,13 @@
         MRTFA
 
 
-    <a href="https://bioregistry.io/hgnc:14334" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14334">hgnc:14334</a>
+    <a href="https://bioregistry.io/hgnc:14334" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:14334</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MRTFA (hgnc:14334). hgnc:14334 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6181,6 +6492,7 @@
 
 
                 </div>
+
 
 
 
@@ -6283,16 +6595,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CBFA2T3
 
 
-    <a href="https://bioregistry.io/hgnc:1537" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1537">hgnc:1537</a>
+    <a href="https://bioregistry.io/hgnc:1537" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:1537</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CBFA2T3 (hgnc:1537). hgnc:1537 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6320,10 +6643,13 @@
         GLIS2
 
 
-    <a href="https://bioregistry.io/hgnc:29450" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29450">hgnc:29450</a>
+    <a href="https://bioregistry.io/hgnc:29450" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:29450</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GLIS2 (hgnc:29450). hgnc:29450 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6351,16 +6677,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030509">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6380,16 +6711,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         stem cell population maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019827">GO:0019827</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0019827</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased stem cell population maintenance (GO:0019827). GO:0019827 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6410,6 +6746,7 @@
 
 
                 </div>
+
 
 
 
@@ -6507,16 +6844,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NUP98
 
 
-    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8068">hgnc:8068</a>
+    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:8068</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NUP98 (hgnc:8068). hgnc:8068 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6544,10 +6892,13 @@
         KDM5A
 
 
-    <a href="https://bioregistry.io/hgnc:9886" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9886">hgnc:9886</a>
+    <a href="https://bioregistry.io/hgnc:9886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:9886</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KDM5A (hgnc:9886). hgnc:9886 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6593,6 +6944,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -6686,16 +7038,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KMT2A
 
 
-    <a href="https://bioregistry.io/hgnc:7132" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7132">hgnc:7132</a>
+    <a href="https://bioregistry.io/hgnc:7132" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:7132</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KMT2A (hgnc:7132). hgnc:7132 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6723,10 +7086,13 @@
         NUP98
 
 
-    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8068">hgnc:8068</a>
+    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:8068</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NUP98 (hgnc:8068). hgnc:8068 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6746,6 +7112,7 @@
 
 
                 </div>
+
 
 
 
@@ -6848,15 +7215,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MPL
 
 
-    <a href="https://bioregistry.io/hgnc:7217" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7217">hgnc:7217</a>
+    <a href="https://bioregistry.io/hgnc:7217" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:7217</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MPL (hgnc:7217). hgnc:7217 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6876,6 +7250,7 @@
 
 
                 </div>
+
 
 
 
@@ -7000,15 +7375,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GATA1
 
 
-    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4170">hgnc:4170</a>
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:4170</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7028,6 +7410,7 @@
 
 
                 </div>
+
 
 
 
@@ -7119,16 +7502,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TET2
 
 
-    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25941">hgnc:25941</a>
+    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:25941</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TET2 (hgnc:25941). hgnc:25941 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7156,11 +7550,18 @@
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7188,11 +7589,18 @@
         JAK2
 
 
-    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6192">hgnc:6192</a>
+    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:6192</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JAK2 (hgnc:6192). hgnc:6192 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7220,11 +7628,18 @@
         PTPN11
 
 
-    <a href="https://bioregistry.io/hgnc:9644" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9644">hgnc:9644</a>
+    <a href="https://bioregistry.io/hgnc:9644" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:9644</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PTPN11 (hgnc:9644). hgnc:9644 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -7252,10 +7667,13 @@
         RUNX1
 
 
-    <a href="https://bioregistry.io/hgnc:10471" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10471">hgnc:10471</a>
+    <a href="https://bioregistry.io/hgnc:10471" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:10471</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RUNX1 (hgnc:10471). hgnc:10471 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7275,6 +7693,7 @@
 
 
                 </div>
+
 
 
 
@@ -7333,16 +7752,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         megakaryocyte progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000553">CL:0000553</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000553</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves megakaryocyte progenitor cell (CL:0000553). CL:0000553 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7372,16 +7796,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7423,6 +7852,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -7533,16 +7963,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         megakaryocyte progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000553">CL:0000553</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000553" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000553</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves megakaryocyte progenitor cell (CL:0000553). CL:0000553 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7572,19 +8007,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone marrow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002371">UBERON:0002371</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0002371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:0002371 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7645,6 +8086,7 @@
                 <div class="item-name">Extramedullary Leukemic Infiltration</div>
 
                 <div class="item-desc">Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.</div>
+
 
 
 
@@ -7839,7 +8281,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adult cohort data describe allogeneic HSCT as the only potentially curative option, but selection bias is unavoidable and post-transplant relapse remains high.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Potentially curative consolidation or salvage\"}}, {\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HCT may be considered for selected high-risk or poorly responding non-DS AMKL, but it is not a uniformly established CR1 standard. Comparative cohorts have not established a net CR1 survival benefit, while registry data among transplanted patients show better outcomes in CR1 than later or outside remission.\", \"meta\": {\"evidence_count\": 5, \"role\": \"Risk-adapted consolidation or salvage\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia is documented across adult and infant AMKL series. The finding is retained without a universal frequency because the available cohorts are small and differently selected.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"CBFA2T3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CBFA2T3\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fusion-transduced human cord-blood HSPCs maintained with endothelial cells recapitulate fusion-positive AML transcriptional, morphologic, and immunophenotypic features.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CO_CULTURE\", \"conditions\": [\"CBFA2T3::GLIS2-Positive AMKL\", \"CBFA2T3-GLIS2 expression\", \"endothelial niche\"], \"publication\": \"PMID:36136600\"}}, {\"id\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cryptic inv(16)(p13.3q24.3) CBFA2T3::GLIS2 fusion increases BMP signaling and self-renewal in experimental hematopoietic progenitors. Human transcriptomic studies also associate the fusion with Hippo, TGF-beta, and Hedgehog pathway dysregulation, but those associations are not modeled here as individually proven causal edges.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"stem cell population maintenance\"], \"genes\": [\"CBFA2T3\", \"GLIS2\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}, {\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"]}}, {\"id\": \"Extramedullary Leukemic Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"GATA1 Somatic Truncating Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"GATA1s-generating truncation is a somatic driver in TAM/ML-DS and in a distinct pediatric non-DS AMKL subgroup.\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAM is a neonatal clonal myeloid proliferation restricted to infants with trisomy 21 and GATA1s. It often resolves spontaneously and is not itself AMKL, but it is the recognized precursor from which a subset of ML-DS cases later emerge.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"]}}, {\"id\": \"GLIS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLIS2\"], \"gene_terms\": [{\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Germline GATA1s-Generating Susceptibility Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"Rare germline GATA1s-generating variants predispose to early-childhood AMKL after acquired trisomy 21 or tetrasomy 21.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HOX-rearranged pediatric AMKL is enriched for activating MPL mutations. Experimental co-expression of a HOX rearrangement and mutant MPL produces a cytokine-independent growth advantage with phosphorylated JAK2 and STAT5, supporting subgroup-specific signaling cooperation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver and spleen enlargement is especially characteristic of infant t(1;22) RBM15::MRTFA-rearranged AMKL.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"term_id\": \"HP:0001433\"}}, {\"id\": \"Immature Megakaryocytic Leukemic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL is defined by an acute leukemic blast population with megakaryocytic differentiation. The cells can retain multilineage potential; available human evidence does not establish one universal maturation block or require assignment to a fully committed megakaryocyte-erythroid progenitor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Measures enhanced production of an immature megakaryocytic population in vitro.\"}, {\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Recapitulates maturation arrest and sustained progenitor capacity.\"}, {\"name\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"Recapitulates fusion-positive AML morphology and immunophenotype.\"}]}}, {\"id\": \"Intensive Chemotherapy for Fit Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fit adults may receive intensive AML chemotherapy, but dedicated AMKL data show low complete-remission rates and very short survival. This is a treatment option with limited effectiveness rather than a favorable evidence-based expectation.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Remission induction\"}}, {\"id\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pediatric non-DS AMKL is treated with intensive multi-agent AML therapy. Survival improved substantially between AML-BFM 98 and AML-BFM 04, but molecular subgroup and early response remain important risk variables.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\"}}, {\"id\": \"KDM5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KDM5A\"], \"gene_terms\": [{\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner of NUP98\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\"], \"association\": \"Mutually exclusive somatic driver rearrangement in pediatric non-DS AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KMT2A (historically MLL) and NUP98 fusions define distinct pediatric subgroups but converge at the level of HOXA-cluster upregulation. This node models the shared transcriptional program without treating KMT2A as a cooperating lesion of another fusion subgroup.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\", \"NUP98\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}, {\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\", \"NUP98::KDM5A-Positive AMKL\"]}}, {\"id\": \"MPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"], \"association\": \"Activating cooperating alteration enriched in HOX-rearranged AMKL\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MRTFA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MRTFA\"], \"gene_terms\": [{\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner, historically named MKL1 or MAL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Myelofibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow reticulin fibrosis is a characteristic pathologic and clinical feature in reported AMKL cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011974\"}}, {\"id\": \"NUP98\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner, most commonly with KDM5A in AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lentiviral NUP98::KDM5A expression in human cord-blood HSPCs creates a synthetic model of fusion-driven maturation arrest and progenitor persistence.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"NUP98::KDM5A-Positive AMKL\", \"NUP98-KDM5A expression\", \"maturation arrest\"], \"publication\": \"PMID:31698461\"}}, {\"id\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A is a potent driver of maturation arrest and long-term proliferative/progenitor capacity in engineered human hematopoietic cells. Model systems also show JAK-STAT upregulation and drug sensitivity, but these preclinical dependencies are not established clinical treatments.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\", \"KDM5A\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}, {\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"experimental_models\": [{\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models the fusion-driven leukemic state.\"}]}}, {\"id\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-DS pediatric subgroup carries somatic GATA1 truncation without constitutional trisomy 21. Most reported cases had acquired amplification of the Down syndrome critical region and a transcriptional profile closely resembling DS-AMKL.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"GATA1-Mutant Non-Down Syndrome AMKL\"]}}, {\"id\": \"PDGF-Associated Marrow Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL marrow commonly shows reticulin fibrosis. In a clinicopathologic series, PDGF-BB staining in megakaryoblasts and some fibroblasts tracked with the presence of fibrosis, supporting a growth-factor-associated stromal response while leaving additional mediators unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"RBM15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner in t(1;22) AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(1;22) fusion joins RBM15 to MRTFA (formerly MKL1). In a knock-in mouse model the fusion deregulates RBPJ-mediated canonical Notch transcription and abnormal fetal megakaryopoiesis; cooperation with activating MPL is required for short-latency model disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\", \"MRTFA\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}, {\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with ML-DS are treated with reduced-intensity AML regimens tailored to their high cytotoxic-drug susceptibility. In ML-DS 2006, reducing cumulative etoposide, reducing intrathecal prophylaxis, and omitting maintenance preserved excellent survival relative to the historical reduced-intensity control. This evidence supports a specific tested regimen, not arbitrary further deintensification, and applies to the ML-DS trial population rather than a morphology-stratified DS-AMKL subset.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\", \"therapeutic_agents\": [\"cytarabine\", \"etoposide\"]}}, {\"id\": \"STAG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"association\": \"Cooperating cohesin alteration recurrent in DS-ML but not TAM; functional cooperation is supported in a trisomy-21/GATA1s iPSC model.\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gene-targeted trisomy-21/GATA1-mutant iPSCs, STAG2 loss enhanced production of an immature megakaryocytic population relative to GATA1 mutation alone. This is one progression model; it does not establish that STAG2 loss alone converts TAM into overt ML-DS or AMKL in vivo.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platelet counts are often low, although normal counts can occur. Frequency is intentionally omitted because available cohorts do not support one universal AMKL-wide category.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the usual Down syndrome-associated sequence, an acquired GATA1 mutation introduces a premature stop in the N-terminal activation domain. Full-length GATA1 is lost while a shorter downstream-initiated GATA1s protein is retained. The trisomy-21 fetal hematopoietic context and GATA1s cooperate to establish the precursor clone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.\"}]}}, {\"id\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Hematopoietic differentiation of gene-targeted trisomy-21 iPSCs models a progression-like, DS-ML-like immature megakaryocytic phenotype in vitro; it does not demonstrate overt AMKL in a patient or animal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"TAM/ML-DS progression model\", \"trisomy 21\", \"GATA1 mutation\", \"STAG2 knockout\"], \"publication\": \"PMID:35203280\"}}], \"edges\": [{\"source\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a trisomy-21 hematopoietic background, GATA1s is sufficient to produce the preleukemic TAM state in experimental models.\", \"hypothesis_groups\": [\"ml_ds_multistep_leukemogenesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven RBPJ dysregulation, together with engineered activating MPL signaling, produced an immature megakaryoblastic leukemia in the model.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-induced self-renewal and transformation can produce an immature leukemic state, although the cited experiment does not establish every component of megakaryocytic lineage specification.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A directly causes maturation arrest in engineered cells, while the path from that state to megakaryocytic leukemia remains model- and context-dependent.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-associated HOXA program is present in these AMKL cohorts, but the expression association alone does not establish a causal route to the megakaryocytic leukemic phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating MPL supplies a JAK-STAT-dependent growth advantage to the HOX-rearranged experimental system and may contribute to leukemic-cell persistence.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GATA1 mutation and acquired chromosome-21 gain are associated with a DS-AMKL-like expression program, but the cohort does not resolve a causal path to the clinical blast phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"PDGF-Associated Marrow Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF-BB positivity in megakaryoblasts is associated with marrow fibrosis; direction and causality are unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Extramedullary Leukemic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megakaryoblastic tissue infiltration co-occurs with the leukemic blast state in infant t(1;22) disease; the observational series does not establish a direct causal transition.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia accompanies the leukemic marrow state, but the cached clinical evidence does not resolve the relative effects of marrow replacement, fibrosis, inflammation, and treatment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low platelet counts are common in reported pediatric cohorts, but AMKL can also present with normal counts and the mechanism is not captured by one universal causal route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PDGF-Associated Marrow Fibrosis\", \"target\": \"Myelofibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF positivity and myelofibrosis co-occurred in the examined cases; this edge records the unresolved association rather than a proven direct effect.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Extramedullary Leukemic Infiltration\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue infiltration and liver/spleen enlargement co-occurred in the six reported infants; direction and causality were not tested.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Chemotherapy for Fit Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM15\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MRTFA\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CBFA2T3\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLIS2\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM5A\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KMT2A\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MPL\", \"target\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAG2\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adult cohort data describe allogeneic HSCT as the only potentially curative option, but selection bias is unavoidable and post-transplant relapse remains high.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Potentially curative consolidation or salvage\"}}, {\"id\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HCT may be considered for selected high-risk or poorly responding non-DS AMKL, but it is not a uniformly established CR1 standard. Comparative cohorts have not established a net CR1 survival benefit, while registry data among transplanted patients show better outcomes in CR1 than later or outside remission.\", \"meta\": {\"evidence_count\": 5, \"role\": \"Risk-adapted consolidation or salvage\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia is documented across adult and infant AMKL series. The finding is retained without a universal frequency because the available cohorts are small and differently selected.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"CBFA2T3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CBFA2T3\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Fusion-transduced human cord-blood HSPCs maintained with endothelial cells recapitulate fusion-positive AML transcriptional, morphologic, and immunophenotypic features.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CO_CULTURE\", \"conditions\": [\"CBFA2T3::GLIS2-Positive AMKL\", \"CBFA2T3-GLIS2 expression\", \"endothelial niche\"], \"publication\": \"PMID:36136600\"}}, {\"id\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cryptic inv(16)(p13.3q24.3) CBFA2T3::GLIS2 fusion increases BMP signaling and self-renewal in experimental hematopoietic progenitors. Human transcriptomic studies also associate the fusion with Hippo, TGF-beta, and Hedgehog pathway dysregulation, but those associations are not modeled here as individually proven causal edges.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"BMP signaling pathway\", \"stem cell population maintenance\"], \"genes\": [\"CBFA2T3\", \"GLIS2\"], \"gene_terms\": [{\"label\": \"CBFA2T3\", \"id\": \"hgnc:1537\"}, {\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"]}}, {\"id\": \"Extramedullary Leukemic Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leukemic megakaryoblasts may form cohesive infiltrates in liver, lymph node, and other tissues. This is particularly well documented in infant t(1;22) AMKL and can resemble a nonhematopoietic small-round-cell tumor.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"GATA1 Somatic Truncating Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"GATA1s-generating truncation is a somatic driver in TAM/ML-DS and in a distinct pediatric non-DS AMKL subgroup.\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TAM is a neonatal clonal myeloid proliferation restricted to infants with trisomy 21 and GATA1s. It often resolves spontaneously and is not itself AMKL, but it is the recognized precursor from which a subset of ML-DS cases later emerge.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"]}}, {\"id\": \"GLIS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLIS2\"], \"gene_terms\": [{\"label\": \"GLIS2\", \"id\": \"hgnc:29450\"}], \"subtypes\": [\"CBFA2T3::GLIS2-Positive AMKL\"], \"association\": \"Somatic driver fusion partner in cryptic inv(16)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Germline GATA1s-Generating Susceptibility Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"association\": \"Rare germline GATA1s-generating variants predispose to early-childhood AMKL after acquired trisomy 21 or tetrasomy 21.\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HOX-rearranged pediatric AMKL is enriched for activating MPL mutations. Experimental co-expression of a HOX rearrangement and mutant MPL produces a cytokine-independent growth advantage with phosphorylated JAK2 and STAT5, supporting subgroup-specific signaling cooperation.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"]}}, {\"id\": \"Hepatosplenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver and spleen enlargement is especially characteristic of infant t(1;22) RBM15::MRTFA-rearranged AMKL.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"term_id\": \"HP:0001433\"}}, {\"id\": \"Immature Megakaryocytic Leukemic State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL is defined by an acute leukemic blast population with megakaryocytic differentiation. The cells can retain multilineage potential; available human evidence does not establish one universal maturation block or require assignment to a fully committed megakaryocyte-erythroid progenitor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Measures enhanced production of an immature megakaryocytic population in vitro.\"}, {\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Recapitulates maturation arrest and sustained progenitor capacity.\"}, {\"name\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"model_type\": \"CO_CULTURE\", \"description\": \"Recapitulates fusion-positive AML morphology and immunophenotype.\"}]}}, {\"id\": \"Intensive Chemotherapy for Fit Adults\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Fit adults may receive intensive AML chemotherapy, but dedicated AMKL data show low complete-remission rates and very short survival. This is a treatment option with limited effectiveness rather than a favorable evidence-based expectation.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Remission induction\"}}, {\"id\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pediatric non-DS AMKL is treated with intensive multi-agent AML therapy. Survival improved substantially between AML-BFM 98 and AML-BFM 04, but molecular subgroup and early response remain important risk variables.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\"}}, {\"id\": \"KDM5A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KDM5A\"], \"gene_terms\": [{\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner of NUP98\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\"], \"association\": \"Mutually exclusive somatic driver rearrangement in pediatric non-DS AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KMT2A (historically MLL) and NUP98 fusions define distinct pediatric subgroups but converge at the level of HOXA-cluster upregulation. This node models the shared transcriptional program without treating KMT2A as a cooperating lesion of another fusion subgroup.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KMT2A\", \"NUP98\"], \"gene_terms\": [{\"label\": \"KMT2A\", \"id\": \"hgnc:7132\"}, {\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"KMT2A-Rearranged AMKL\", \"NUP98::KDM5A-Positive AMKL\"]}}, {\"id\": \"MPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MPL\"], \"gene_terms\": [{\"label\": \"MPL\", \"id\": \"hgnc:7217\"}], \"subtypes\": [\"HOX-Rearranged AMKL\"], \"association\": \"Activating cooperating alteration enriched in HOX-rearranged AMKL\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MRTFA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MRTFA\"], \"gene_terms\": [{\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner, historically named MKL1 or MAL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Myelofibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marrow reticulin fibrosis is a characteristic pathologic and clinical feature in reported AMKL cohorts.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011974\"}}, {\"id\": \"NUP98\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"association\": \"Somatic driver fusion partner, most commonly with KDM5A in AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Lentiviral NUP98::KDM5A expression in human cord-blood HSPCs creates a synthetic model of fusion-driven maturation arrest and progenitor persistence.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"NUP98::KDM5A-Positive AMKL\", \"NUP98-KDM5A expression\", \"maturation arrest\"], \"publication\": \"PMID:31698461\"}}, {\"id\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A is a potent driver of maturation arrest and long-term proliferative/progenitor capacity in engineered human hematopoietic cells. Model systems also show JAK-STAT upregulation and drug sensitivity, but these preclinical dependencies are not established clinical treatments.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NUP98\", \"KDM5A\"], \"gene_terms\": [{\"label\": \"NUP98\", \"id\": \"hgnc:8068\"}, {\"label\": \"KDM5A\", \"id\": \"hgnc:9886\"}], \"subtypes\": [\"NUP98::KDM5A-Positive AMKL\"], \"experimental_models\": [{\"name\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Models the fusion-driven leukemic state.\"}]}}, {\"id\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A non-DS pediatric subgroup carries somatic GATA1 truncation without constitutional trisomy 21. Most reported cases had acquired amplification of the Down syndrome critical region and a transcriptional profile closely resembling DS-AMKL.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"GATA1-Mutant Non-Down Syndrome AMKL\"]}}, {\"id\": \"PDGF-Associated Marrow Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AMKL marrow commonly shows reticulin fibrosis. In a clinicopathologic series, PDGF-BB staining in megakaryoblasts and some fibroblasts tracked with the presence of fibrosis, supporting a growth-factor-associated stromal response while leaving additional mediators unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"locations\": [\"bone marrow\"]}}, {\"id\": \"RBM15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"], \"association\": \"Somatic driver fusion partner in t(1;22) AMKL\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(1;22) fusion joins RBM15 to MRTFA (formerly MKL1). In a knock-in mouse model the fusion deregulates RBPJ-mediated canonical Notch transcription and abnormal fetal megakaryopoiesis; cooperation with activating MPL is required for short-latency model disease.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"RBM15\", \"MRTFA\"], \"gene_terms\": [{\"label\": \"RBM15\", \"id\": \"hgnc:14959\"}, {\"label\": \"MRTFA\", \"id\": \"hgnc:14334\"}], \"subtypes\": [\"RBM15::MRTFA-Rearranged AMKL\"]}}, {\"id\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Children with ML-DS are treated with reduced-intensity AML regimens tailored to their high cytotoxic-drug susceptibility. In ML-DS 2006, reducing cumulative etoposide, reducing intrathecal prophylaxis, and omitting maintenance preserved excellent survival relative to the historical reduced-intensity control. This evidence supports a specific tested regimen, not arbitrary further deintensification, and applies to the ML-DS trial population rather than a morphology-stratified DS-AMKL subset.\", \"meta\": {\"evidence_count\": 4, \"role\": \"First-line\", \"therapeutic_agents\": [\"cytarabine\", \"etoposide\"]}}, {\"id\": \"STAG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"association\": \"Cooperating cohesin alteration recurrent in DS-ML but not TAM; functional cooperation is supported in a trisomy-21/GATA1s iPSC model.\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gene-targeted trisomy-21/GATA1-mutant iPSCs, STAG2 loss enhanced production of an immature megakaryocytic population relative to GATA1 mutation alone. This is one progression model; it does not establish that STAG2 loss alone converts TAM into overt ML-DS or AMKL in vivo.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"STAG2\"], \"gene_terms\": [{\"label\": \"STAG2\", \"id\": \"hgnc:11355\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.\"}]}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platelet counts are often low, although normal counts can occur. Frequency is intentionally omitted because available cohorts do not support one universal AMKL-wide category.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the usual Down syndrome-associated sequence, an acquired GATA1 mutation introduces a premature stop in the N-terminal activation domain. Full-length GATA1 is lost while a shorter downstream-initiated GATA1s protein is retained. The trisomy-21 fetal hematopoietic context and GATA1s cooperate to establish the precursor clone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"megakaryocyte progenitor cell\"], \"genes\": [\"GATA1\"], \"gene_terms\": [{\"label\": \"GATA1\", \"id\": \"hgnc:4170\"}], \"subtypes\": [\"Down Syndrome-Associated AMKL\"], \"experimental_models\": [{\"name\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.\"}]}}, {\"id\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Hematopoietic differentiation of gene-targeted trisomy-21 iPSCs models a progression-like, DS-ML-like immature megakaryocytic phenotype in vitro; it does not demonstrate overt AMKL in a patient or animal.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"TAM/ML-DS progression model\", \"trisomy 21\", \"GATA1 mutation\", \"STAG2 knockout\"], \"publication\": \"PMID:35203280\"}}], \"edges\": [{\"source\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a trisomy-21 hematopoietic background, GATA1s is sufficient to produce the preleukemic TAM state in experimental models.\", \"hypothesis_groups\": [\"ml_ds_multistep_leukemogenesis\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-driven RBPJ dysregulation, together with engineered activating MPL signaling, produced an immature megakaryoblastic leukemia in the model.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fusion-induced self-renewal and transformation can produce an immature leukemic state, although the cited experiment does not establish every component of megakaryocytic lineage specification.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NUP98::KDM5A directly causes maturation arrest in engineered cells, while the path from that state to megakaryocytic leukemia remains model- and context-dependent.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-associated HOXA program is present in these AMKL cohorts, but the expression association alone does not establish a causal route to the megakaryocytic leukemic phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activating MPL supplies a JAK-STAT-dependent growth advantage to the HOX-rearranged experimental system and may contribute to leukemic-cell persistence.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GATA1 mutation and acquired chromosome-21 gain are associated with a DS-AMKL-like expression program, but the cohort does not resolve a causal path to the clinical blast phenotype.\", \"hypothesis_groups\": [\"pediatric_non_ds_genomic_subgroups\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"PDGF-Associated Marrow Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF-BB positivity in megakaryoblasts is associated with marrow fibrosis; direction and causality are unresolved.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Extramedullary Leukemic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Megakaryoblastic tissue infiltration co-occurs with the leukemic blast state in infant t(1;22) disease; the observational series does not establish a direct causal transition.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia accompanies the leukemic marrow state, but the cached clinical evidence does not resolve the relative effects of marrow replacement, fibrosis, inflammation, and treatment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immature Megakaryocytic Leukemic State\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low platelet counts are common in reported pediatric cohorts, but AMKL can also present with normal counts and the mechanism is not captured by one universal causal route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"PDGF-Associated Marrow Fibrosis\", \"target\": \"Myelofibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PDGF positivity and myelofibrosis co-occurred in the examined cases; this edge records the unresolved association rather than a proven direct effect.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Extramedullary Leukemic Infiltration\", \"target\": \"Hepatosplenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue infiltration and liver/spleen enlargement co-occurred in the six reported infants; direction and causality were not tested.\", \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Reduced-Intensity Cytarabine-Based Chemotherapy for ML-DS\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Pediatric AML Chemotherapy for Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Selected Pediatric Non-DS AMKL\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intensive Chemotherapy for Fit Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation for Eligible Adults\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.\"}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.\"}, {\"source\": \"Trisomy-21 GATA1/STAG2 Double-Mutant iPSC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures enhanced production of an immature megakaryocytic population in vitro.\"}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models the fusion-driven leukemic state.\"}, {\"source\": \"NUP98-KDM5A Cord-Blood HSPC Model\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates maturation arrest and sustained progenitor capacity.\"}, {\"source\": \"CBFA2T3-GLIS2 Cord-Blood HSPC Endothelial Coculture\", \"target\": \"Immature Megakaryocytic Leukemic State\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Recapitulates fusion-positive AML morphology and immunophenotype.\"}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA1 Somatic Truncating Mutations\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"GATA1s-Driven Transient Abnormal Myelopoiesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Non-DS GATA1 Mutation Cooperates with Chromosome 21 Gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Germline GATA1s-Generating Susceptibility Variants\", \"target\": \"Trisomy 21 and GATA1 Truncation Generate GATA1s\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM15\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MRTFA\", \"target\": \"RBM15::MRTFA Fusion Deregulates RBPJ Transcription\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CBFA2T3\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLIS2\", \"target\": \"CBFA2T3::GLIS2 Induces BMP Signaling and Progenitor Self-Renewal\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NUP98\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KDM5A\", \"target\": \"NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KMT2A\", \"target\": \"KMT2A- and NUP98-Rearranged HOXA Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MPL\", \"target\": \"HOX Rearrangement and MPL/JAK-STAT Cooperation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAG2\", \"target\": \"STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7880,14 +8322,21 @@
                         Anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7961,14 +8410,21 @@
                         Thrombocytopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thrombocytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8051,14 +8507,21 @@
                         Hepatosplenomegaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatosplenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001433">HP:0001433</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001433</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8121,14 +8584,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myelofibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011974" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011974">HP:0011974</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0011974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myelofibrosis (HP:0011974). HP:0011974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8226,13 +8696,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATA1
 
 
-    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4170">hgnc:4170</a>
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:4170</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8340,13 +8815,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATA1
 
 
-    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4170">hgnc:4170</a>
+    <a href="https://bioregistry.io/hgnc:4170" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:4170</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA1 (hgnc:4170). hgnc:4170 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8408,13 +8888,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBM15
 
 
-    <a href="https://bioregistry.io/hgnc:14959" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14959">hgnc:14959</a>
+    <a href="https://bioregistry.io/hgnc:14959" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:14959</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBM15 (hgnc:14959). hgnc:14959 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8476,13 +8961,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MRTFA
 
 
-    <a href="https://bioregistry.io/hgnc:14334" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14334">hgnc:14334</a>
+    <a href="https://bioregistry.io/hgnc:14334" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:14334</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MRTFA (hgnc:14334). hgnc:14334 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8544,13 +9034,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CBFA2T3
 
 
-    <a href="https://bioregistry.io/hgnc:1537" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1537">hgnc:1537</a>
+    <a href="https://bioregistry.io/hgnc:1537" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:1537</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CBFA2T3 (hgnc:1537). hgnc:1537 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8612,13 +9107,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GLIS2
 
 
-    <a href="https://bioregistry.io/hgnc:29450" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29450">hgnc:29450</a>
+    <a href="https://bioregistry.io/hgnc:29450" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:29450</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLIS2 (hgnc:29450). hgnc:29450 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8680,13 +9180,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NUP98
 
 
-    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8068">hgnc:8068</a>
+    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:8068</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NUP98 (hgnc:8068). hgnc:8068 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8748,13 +9253,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KDM5A
 
 
-    <a href="https://bioregistry.io/hgnc:9886" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9886">hgnc:9886</a>
+    <a href="https://bioregistry.io/hgnc:9886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:9886</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KDM5A (hgnc:9886). hgnc:9886 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8816,13 +9326,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KMT2A
 
 
-    <a href="https://bioregistry.io/hgnc:7132" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7132">hgnc:7132</a>
+    <a href="https://bioregistry.io/hgnc:7132" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:7132</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KMT2A (hgnc:7132). hgnc:7132 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8884,13 +9399,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MPL
 
 
-    <a href="https://bioregistry.io/hgnc:7217" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7217">hgnc:7217</a>
+    <a href="https://bioregistry.io/hgnc:7217" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:7217</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MPL (hgnc:7217). hgnc:7217 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8974,13 +9494,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: STAG2
 
 
-    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11355">hgnc:11355</a>
+    <a href="https://bioregistry.io/hgnc:11355" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11355</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9064,13 +9589,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TET2
 
 
-    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25941">hgnc:25941</a>
+    <a href="https://bioregistry.io/hgnc:25941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:25941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TET2 (hgnc:25941). hgnc:25941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9132,13 +9662,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9200,13 +9735,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: JAK2
 
 
-    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6192">hgnc:6192</a>
+    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:6192</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JAK2 (hgnc:6192). hgnc:6192 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9268,13 +9808,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PTPN11
 
 
-    <a href="https://bioregistry.io/hgnc:9644" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9644">hgnc:9644</a>
+    <a href="https://bioregistry.io/hgnc:9644" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:9644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTPN11 (hgnc:9644). hgnc:9644 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9336,13 +9881,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RUNX1
 
 
-    <a href="https://bioregistry.io/hgnc:10471" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10471">hgnc:10471</a>
+    <a href="https://bioregistry.io/hgnc:10471" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:10471</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RUNX1 (hgnc:10471). hgnc:10471 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9415,7 +9965,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -9446,17 +10001,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cytarabine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28680" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28680">CHEBI:28680</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28680" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:28680</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cytarabine (CHEBI:28680). CHEBI:28680 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -9464,10 +10026,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9620,7 +10185,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -9796,7 +10366,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -9972,7 +10547,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -10102,7 +10682,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -10733,6 +11318,85 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Pediatric Non-Down Syndrome Acute Megakaryoblastic Leukemia is Characterized by Distinct Genomic Subsets with Varying Outcomes
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002183" target="_blank">ega:EGAS00001002183</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Acute Megakaryoblastic Leukemia (AMKL) is a subtype of acute myeloid leukemia (AML) in which cells morphologically resemble abnormal megakaryoblasts. While extremely rare in adults, AMKL accounts for 4-15% of newly diagnosed childhood AML1-3. A significant proportion of pediatric AMKL cases occur in children with Down syndrome (DS). These patients have excellent outcomes and are characterized at the genomic level by a founding GATA1 mutation4-6. In contrast, AMKL in patients without DS (non-DS-AMKL) is frequently associated with poor outcomes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Acute Megakaryoblastic Leukemia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single cell transcriptome analysis of pediatric acute megakaryoblastic leukemia
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000000612" target="_blank">ega:EGAS50000000612</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Pediatric acute megakaryoblastic leukemia presenting fusion oncogene is generally associated with a poor prognosis. We performed single transcriptome analyses on bone marrow samples from pediatric acute megakaryoblastic leukemia patients presenting the ETO2-GLIS2 fusion oncogene.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Acute Megakaryoblastic Leukemia&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -10950,15 +11614,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-54">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-54">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -10991,14 +11660,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-trisomy-21-and-gata1-truncation-generate-gata1s">Trisomy 21 and GATA1 Truncation Generate GATA1s</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-trisomy-21-and-gata1-truncation-generate-gata1s">Trisomy 21 and GATA1 Truncation Generate GATA1s</a>
+
+
+
+                <span class="crosslink-desc">Recapitulates GATA1s production in trisomy-21 hematopoietic progenitors.</span>
+
+
 
 
 
@@ -11035,12 +11709,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-stag2-loss-enhances-immature-megakaryopoiesis-in-a-trisomy-21-gata1s-ipsc-model">STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-stag2-loss-enhances-immature-megakaryopoiesis-in-a-trisomy-21-gata1s-ipsc-model">STAG2 Loss Enhances Immature Megakaryopoiesis in a Trisomy-21/GATA1s iPSC Model</a>
 
-                            <span class="crosslink-desc">Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.</span>
+
+
+                <span class="crosslink-desc">Models the incremental effect of engineered STAG2 loss beyond GATA1 mutation alone.</span>
+
+
 
 
 
@@ -11077,12 +11755,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
 
-                            <span class="crosslink-desc">Measures enhanced production of an immature megakaryocytic population in vitro.</span>
+
+
+                <span class="crosslink-desc">Measures enhanced production of an immature megakaryocytic population in vitro.</span>
+
+
 
 
 
@@ -11119,10 +11801,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -11242,15 +11925,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-55">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-55">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -11283,14 +11971,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-nup98-kdm5a-sustains-progenitor-capacity-and-maturation-arrest">NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models the fusion-driven leukemic state.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-nup98-kdm5a-sustains-progenitor-capacity-and-maturation-arrest">NUP98::KDM5A Sustains Progenitor Capacity and Maturation Arrest</a>
+
+
+
+                <span class="crosslink-desc">Models the fusion-driven leukemic state.</span>
+
+
 
 
 
@@ -11327,12 +12020,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
 
-                            <span class="crosslink-desc">Recapitulates maturation arrest and sustained progenitor capacity.</span>
+
+
+                <span class="crosslink-desc">Recapitulates maturation arrest and sustained progenitor capacity.</span>
+
+
 
 
 
@@ -11369,10 +12066,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -11492,15 +12190,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-56">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-56">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -11533,14 +12236,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Recapitulates fusion-positive AML morphology and immunophenotype.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-immature-megakaryocytic-leukemic-state">Immature Megakaryocytic Leukemic State</a>
+
+
+
+                <span class="crosslink-desc">Recapitulates fusion-positive AML morphology and immunophenotype.</span>
+
+
 
 
 
@@ -11577,10 +12285,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -11675,6 +12384,671 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-ott-mal-knock-in-donor-marrow-retrovirally-transduced-ex-vivo-with-mplw515l-and-transplanted-into-lethally-irradiated-wt-c57bl-6-recipients-mouse" data-dismech-node="Ott-Mal knock-in donor marrow retrovirally transduced ex vivo with MPLW515L and transplanted into lethally irradiated WT C57BL/6 recipients mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Ott-Mal knock-in donor marrow retrovirally transduced ex vivo with MPLW515L and transplanted into lethally irradiated WT C57BL/6 recipients mouse
+
+                    <span class="tag tag-exp-model-type">Transduction/transplant cooperation model</span>
+
+                </div>
+
+                <div class="item-desc">Primary marrow from nonleukemic Ott-Mal knock-in donors is transduced ex vivo with MPLW515L and transplanted into lethally irradiated wild-type recipients. This is a two-hit transduction/transplant cooperation model, not a mouse carrying an inherited activating Mpl allele.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Megakaryoblast hyperproliferation and maturation block</span>
+
+                    <span class="tag tag-phenotype">Thrombocytopenia</span>
+
+                    <span class="tag tag-phenotype">Organomegaly</span>
+
+                    <span class="tag tag-phenotype">Extensive fibrosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Ott-Mal knock-in donor marrow retrovirally transduced ex vivo with MPLW515L and transplanted into lethally irradiated WT C57BL/6 recipients</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">C57BL/6</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RBM15
+
+
+    <a href="https://bioregistry.io/hgnc:14959" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:14959</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns RBM15 (hgnc:14959). hgnc:14959 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MRTFA
+
+
+    <a href="https://bioregistry.io/hgnc:14334" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:14334</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns MRTFA (hgnc:14334). hgnc:14334 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MPL
+
+
+    <a href="https://bioregistry.io/hgnc:7217" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:7217</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns MPL (hgnc:7217). hgnc:7217 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19287095" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19287095" target="_blank">PMID:19287095</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BM cells from 2-month-old nonleukemic OM or WT littermates ... retroviruses harboring the MPL W515L allele ... lethally irradiated WT C57BL/6 recipients"</div>
+
+
+                <div class="evidence-explanation">This directly identifies the ex-vivo transduction and recipient-transplant construction of the cooperation model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19287095" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19287095" target="_blank">PMID:19287095</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cooperation between OTT-MAL and an activating mutation of the thrombopoietin receptor myeloproliferative leukemia virus oncogene (MPL) efficiently induced a short-latency AMKL that recapitulated all the features of human AMKL, including megakaryoblast hyperproliferation and maturation block,..."</div>
+
+
+                <div class="evidence-explanation">This supports the associated model phenotypes while retaining the requirement for forced MPL cooperation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-human-pediatric-amkl-patient-cell-xenotransplant-mouse" data-dismech-node="Human pediatric AMKL patient-cell xenotransplant mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Human pediatric AMKL patient-cell xenotransplant mouse
+
+                    <span class="tag tag-exp-model-type">Patient-derived xenograft</span>
+
+                </div>
+
+                <div class="item-desc">Patient-derived pediatric non-DS AMKL xenografts reproduce human leukemic growth and provide an in-vivo platform for molecular discovery and preclinical drug screening.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Human pediatric AMKL patient-cell xenotransplant</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">NOD.Cg-Prkdcscid Il2rgtm1Wjl/SzJ (NSG)</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23045605" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23045605" target="_blank">PMID:23045605</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Finally, we show that AMKL xenograft models constitute a relevant in vivo preclinical screening platform to validate the efficacy of novel therapies such as Aurora A kinase inhibitors."</div>
+
+
+                <div class="evidence-explanation">This establishes the patient-derived xenograft as a screening platform, not a clinical treatment recommendation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-nup98-kdm5a-transduced-human-cord-blood-hspc-xenograft-mouse" data-dismech-node="NUP98-KDM5A-transduced human cord-blood HSPC xenograft mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    NUP98-KDM5A-transduced human cord-blood HSPC xenograft mouse
+
+                    <span class="tag tag-exp-model-type">Synthetic human xenograft model</span>
+
+                </div>
+
+                <div class="item-desc">Synthetic NUP98::KDM5A human-cell xenografts can generate AMKL-like disease and expose preclinical signaling vulnerabilities.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">NUP98-KDM5A-transduced human cord-blood HSPC xenograft</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">immunodeficient</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NUP98
+
+
+    <a href="https://bioregistry.io/hgnc:8068" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:8068</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns NUP98 (hgnc:8068). hgnc:8068 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KDM5A
+
+
+    <a href="https://bioregistry.io/hgnc:9886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:9886</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns KDM5A (hgnc:9886). hgnc:9886 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31698461" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31698461" target="_blank">PMID:31698461</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adoptive transfer of NUP98-KDM5A-transformed cells into immunodeficient mice led to multiple subtypes of leukemia, including AMKL, that phenocopy human disease phenotypically and molecularly."</div>
+
+
+                <div class="evidence-explanation">The synthetic xenograft phenocopies human NUP98::KDM5A AMKL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cbfa2t3-glis2-transduced-human-cord-blood-hspc-xenograft-mouse" data-dismech-node="CBFA2T3-GLIS2-transduced human cord-blood HSPC xenograft mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    CBFA2T3-GLIS2-transduced human cord-blood HSPC xenograft mouse
+
+                    <span class="tag tag-exp-model-type">Synthetic human xenograft model</span>
+
+                </div>
+
+                <div class="item-desc">Fusion-transduced human cord-blood progenitors generate aggressive CBFA2T3::GLIS2-positive leukemia in xenografts and support preclinical target evaluation.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">CBFA2T3-GLIS2-transduced human cord-blood HSPC xenograft</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">NSG-SGM3</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CBFA2T3
+
+
+    <a href="https://bioregistry.io/hgnc:1537" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:1537</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CBFA2T3 (hgnc:1537). hgnc:1537 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLIS2
+
+
+    <a href="https://bioregistry.io/hgnc:29450" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:29450</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns GLIS2 (hgnc:29450). hgnc:29450 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36136600" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36136600" target="_blank">PMID:36136600</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the expression of the C/G oncogenic fusion protein promotes the transformation of human cord blood hematopoietic stem and progenitor cells (CB HSPCs) in an endothelial cell coculture system that recapitulates the transcriptome, morphology, and immunophenotype of C/G acute myeloid leukemia (AML)..."</div>
+
+
+                <div class="evidence-explanation">The engineered human cells induce aggressive fusion-positive leukemia in vivo.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -11691,7 +13065,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Megakaryoblastic Leukemia
 creation_date: &#34;2026-05-08T12:00:00Z&#34;
-updated_date: &#34;2026-07-17T23:03:47Z&#34;
 description: &gt;-
   Acute megakaryoblastic leukemia (AMKL, historically FAB M7) is an acute
   myeloid leukemia defined by megakaryocytic differentiation of the blasts.
@@ -14637,6 +16010,25 @@ classifications:
     classification_value: Leukemia
   harrisons_chapter:
   - classification_value: ONCOLOGY_HEMATOLOGY
+datasets:
+- accession: ega:EGAS00001002183
+  title: Pediatric Non-Down Syndrome Acute Megakaryoblastic Leukemia is Characterized by Distinct Genomic Subsets with Varying Outcomes
+  description: Acute Megakaryoblastic Leukemia (AMKL) is a subtype of acute myeloid leukemia (AML) in which cells morphologically resemble abnormal megakaryoblasts. While extremely rare in adults, AMKL accounts for 4-15% of newly diagnosed childhood AML1-3. A significant proportion of pediatric AMKL cases occur in children with Down syndrome (DS). These patients have excellent outcomes and are characterized at the genomic level by a founding GATA1 mutation4-6. In contrast, AMKL in patients without DS (non-DS-AMKL) is frequently associated with poor outcomes.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Acute Megakaryoblastic Leukemia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS50000000612
+  title: Single cell transcriptome analysis of pediatric acute megakaryoblastic leukemia
+  description: Pediatric acute megakaryoblastic leukemia presenting fusion oncogene is generally associated with a poor prognosis. We performed single transcriptome analyses on bone marrow samples from pediatric acute megakaryoblastic leukemia patients presenting the ETO2-GLIS2 fusion oncogene.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Acute Megakaryoblastic Leukemia&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -14993,7 +16385,7 @@ evidenced by PMID:12172547.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Megakaryoblastic Leukemia", "mondoId": "MONDO:0018872", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Megakaryoblastic_Leukemia", "yamlRevision": "e87e467a0a21"};
+        const OS_CONFIG = {"diseaseName": "Acute Megakaryoblastic Leukemia", "mondoId": "MONDO:0018872", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Megakaryoblastic_Leukemia", "yamlRevision": "30fe1e52dbb2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15412,5 +16804,73 @@ evidenced by PMID:12172547.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Tuberculosis"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3703,7 +3871,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3724,7 +3892,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3733,7 +3901,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -3750,6 +3918,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -3805,7 +3981,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phagocytosis" data-dismech-node="Phagocytosis" data-dismech-type="pathophysiology">
@@ -3817,17 +3993,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3848,11 +4031,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T Cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3873,11 +4061,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3898,10 +4091,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3928,17 +4124,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         type I interferon signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0060337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves type I interferon signaling pathway, annotated with type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3959,11 +4162,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3984,10 +4192,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090382">GO:0090382</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0090382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves phagosome maturation (GO:0090382). GO:0090382 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4011,9 +4222,18 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">GBP4-Mediated Autophagy-Dependent TB Restriction</span>
+
+	                            <span class="crosslink-desc">Phagocytosis of M. tuberculosis triggers type I interferon signaling, which induces GBP4 expression as a host-directed restriction mechanism.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Granuloma Formation</span>
@@ -4103,6 +4323,204 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gbp4-mediated-autophagy-dependent-tb-restriction" data-dismech-node="GBP4-Mediated Autophagy-Dependent TB Restriction" data-dismech-type="pathophysiology">
+                <div class="item-name">GBP4-Mediated Autophagy-Dependent TB Restriction</div>
+
+                <div class="item-desc">Type I interferon-inducible GBP4 (guanylate-binding protein 4) mediates autophagy-dependent restriction of Mycobacterium tuberculosis through a TRIM21-dependent autophagy pathway that prevents SORT1-mediated progranulin degradation. This activates TFEB and FOXO3a, driving lysosomal acidification and phagosome-lysosome fusion to enhance intracellular bacterial killing.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        type I interferon signaling pathway
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0060337</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type I interferon signaling pathway, annotated with type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        autophagy
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006914</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        phagosome maturation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0090382</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phagosome maturation (GO:0090382). GO:0090382 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42501331" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42501331" target="_blank">PMID:42501331</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study uncovers a key role for GBP4 in regulating cell-autonomous resistance in human macrophages and may facilitate the development of host-directed therapies against tuberculosis"</div>
+
+
+                <div class="evidence-explanation">This study characterizes GBP4 as a type I IFN-inducible host factor specifically mediating autophagy-dependent TB restriction in human macrophages, a previously incompletely characterized effector mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granuloma-formation" data-dismech-node="Granuloma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Granuloma Formation</div>
 
@@ -4112,17 +4530,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4143,10 +4568,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T Cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4173,17 +4601,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         lipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006629">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4204,11 +4639,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030301" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030301">GO:0030301</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030301" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030301</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cholesterol transport (GO:0030301). GO:0030301 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4229,10 +4669,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4255,19 +4698,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4373,16 +4822,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4409,17 +4863,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neutrophil degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043312">GO:0043312</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0043312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4440,10 +4901,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140645">GO:0140645</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0140645</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neutrophil extracellular trap formation (GO:0140645). GO:0140645 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4466,19 +4930,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4522,19 +4992,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4636,6 +5112,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4695,17 +5172,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4726,10 +5210,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T Cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4756,17 +5243,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         type I interferon signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0060337</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves type I interferon signaling pathway, annotated with type I interferon-mediated signaling pathway (GO:0060337). GO:0060337 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4787,10 +5281,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4807,6 +5304,7 @@
 
 
                 </div>
+
 
 
 
@@ -4884,7 +5382,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Drug Resistance Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Development of multidrug-resistant (MDR) and extensively drug-resistant (XDR) TB through genetic mutations that confer resistance to first-line and second-line antitubercular drugs, driven by ineffective treatment regimens and irregular antibiotic exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells form a granuloma to contain the infection, but sometimes the bacteria can break out, causing active TB.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Macrophage\", \"T Cell\"], \"biological_processes\": [\"lipid metabolic process\", \"cholesterol transport\", \"inflammatory response\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Neutrophil Activation and NETosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I interferon-linked neutrophil programs drive NET formation contributing to tissue pathology, caseating necrosis, and vascular occlusion in progressive TB.\", \"meta\": {\"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\", \"neutrophil extracellular trap formation\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Phagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycobacterium tuberculosis is engulfed by alveolar macrophages but resists destruction, leading to granuloma formation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Macrophage\", \"T Cell\", \"neutrophil\", \"dendritic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"autophagy\", \"phagosome maturation\"]}}, {\"id\": \"Tissue Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active TB can cause cavitation and destruction of lung tissue.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"Lung\"]}}, {\"id\": \"Treatment Failure\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Phagocytosis\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected macrophages differentiate into foamy macrophages which form the cellular core of TB granulomas.\"}, {\"source\": \"Granuloma Formation\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granuloma necrosis leads to cavitation and destruction of lung parenchyma.\"}, {\"source\": \"Neutrophil Activation and NETosis\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NETs contribute to immunopathology, tissue injury, and relapse risk in TB.\"}, {\"source\": \"Drug Resistance Mechanisms\", \"target\": \"Treatment Failure\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Drug-resistant TB strains render standard treatment regimens ineffective, leading to persistent infection and continued disease transmission.\"}], \"orphan_targets\": [\"Treatment Failure\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Drug Resistance Mechanisms\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Development of multidrug-resistant (MDR) and extensively drug-resistant (XDR) TB through genetic mutations that confer resistance to first-line and second-line antitubercular drugs, driven by ineffective treatment regimens and irregular antibiotic exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GBP4-Mediated Autophagy-Dependent TB Restriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I interferon-inducible GBP4 (guanylate-binding protein 4) mediates autophagy-dependent restriction of Mycobacterium tuberculosis through a TRIM21-dependent autophagy pathway that prevents SORT1-mediated progranulin degradation. This activates TFEB and FOXO3a, driving lysosomal acidification and phagosome-lysosome fusion to enhance intracellular bacterial killing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"autophagy\", \"phagosome maturation\"]}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells form a granuloma to contain the infection, but sometimes the bacteria can break out, causing active TB.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"Macrophage\", \"T Cell\"], \"biological_processes\": [\"lipid metabolic process\", \"cholesterol transport\", \"inflammatory response\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Neutrophil Activation and NETosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I interferon-linked neutrophil programs drive NET formation contributing to tissue pathology, caseating necrosis, and vascular occlusion in progressive TB.\", \"meta\": {\"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\", \"neutrophil extracellular trap formation\"], \"locations\": [\"Lung\"]}}, {\"id\": \"Phagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mycobacterium tuberculosis is engulfed by alveolar macrophages but resists destruction, leading to granuloma formation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Macrophage\", \"T Cell\", \"neutrophil\", \"dendritic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"autophagy\", \"phagosome maturation\"]}}, {\"id\": \"Tissue Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active TB can cause cavitation and destruction of lung tissue.\", \"meta\": {\"evidence_count\": 4, \"locations\": [\"Lung\"]}}, {\"id\": \"Treatment Failure\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"Phagocytosis\", \"target\": \"GBP4-Mediated Autophagy-Dependent TB Restriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Phagocytosis of M. tuberculosis triggers type I interferon signaling, which induces GBP4 expression as a host-directed restriction mechanism.\"}, {\"source\": \"Phagocytosis\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected macrophages differentiate into foamy macrophages which form the cellular core of TB granulomas.\"}, {\"source\": \"Granuloma Formation\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Granuloma necrosis leads to cavitation and destruction of lung parenchyma.\"}, {\"source\": \"Neutrophil Activation and NETosis\", \"target\": \"Tissue Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NETs contribute to immunopathology, tissue injury, and relapse risk in TB.\"}, {\"source\": \"Drug Resistance Mechanisms\", \"target\": \"Treatment Failure\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Drug-resistant TB strains render standard treatment regimens ineffective, leading to persistent infection and continued disease transmission.\"}], \"orphan_targets\": [\"Treatment Failure\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4931,14 +5429,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5041,14 +5546,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5149,14 +5661,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034315">HP:0034315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0034315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Cough (HP:0034315). HP:0034315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5248,14 +5767,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemoptysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002105">HP:0002105</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002105</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5309,14 +5835,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5399,14 +5932,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Night sweats
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030166">HP:0030166</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030166</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5498,14 +6038,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5599,14 +6146,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5658,14 +6212,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Back pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003418">HP:0003418</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003418</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Back Pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5770,14 +6331,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5904,7 +6472,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-trem2" data-dismech-node="TREM2" data-dismech-type="genetic">
@@ -5919,13 +6487,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TREM2
 
 
-    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17761">hgnc:17761</a>
+    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:17761</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TREM2 (hgnc:17761). hgnc:17761 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5951,13 +6524,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: APOE
 
 
-    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:613">hgnc:613</a>
+    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5983,13 +6561,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPC2
 
 
-    <a href="https://bioregistry.io/hgnc:14537" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14537">hgnc:14537</a>
+    <a href="https://bioregistry.io/hgnc:14537" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:14537</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPC2 (hgnc:14537). hgnc:14537 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6015,13 +6598,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PLIN2
 
 
-    <a href="https://bioregistry.io/hgnc:248" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:248">hgnc:248</a>
+    <a href="https://bioregistry.io/hgnc:248" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:248</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLIN2 (hgnc:248). hgnc:248 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6047,13 +6635,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LIPA
 
 
-    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6617">hgnc:6617</a>
+    <a href="https://bioregistry.io/hgnc:6617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:6617</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LIPA (hgnc:6617). hgnc:6617 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6079,13 +6672,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBK1
 
 
-    <a href="https://bioregistry.io/hgnc:11584" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11584">hgnc:11584</a>
+    <a href="https://bioregistry.io/hgnc:11584" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11584</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBK1 (hgnc:11584). hgnc:11584 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6111,13 +6709,55 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IRF3
 
 
-    <a href="https://bioregistry.io/hgnc:6118" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6118">hgnc:6118</a>
+    <a href="https://bioregistry.io/hgnc:6118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:6118</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF3 (hgnc:6118). hgnc:6118 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-gbp4" data-dismech-node="GBP4" data-dismech-type="genetic">
+                <div class="item-name">
+                    GBP4
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Type I interferon-inducible autophagy-dependent TB restriction)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GBP4
+
+
+    <a href="https://bioregistry.io/hgnc:20480" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:20480</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GBP4 (hgnc:20480). hgnc:20480 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6152,7 +6792,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6182,16 +6827,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         isoniazid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6030" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6030">CHEBI:6030</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6030" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:6030</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses isoniazid, annotated with isoniazide (CHEBI:6030). CHEBI:6030 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6264,7 +6914,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6294,16 +6949,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rifampicin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28077">CHEBI:28077</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:28077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rifampicin (CHEBI:28077). CHEBI:28077 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6398,7 +7058,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6428,16 +7093,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ethambutol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4877" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4877">CHEBI:4877</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4877" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:4877</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ethambutol (CHEBI:4877). CHEBI:4877 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6530,7 +7200,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6560,17 +7235,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bedaquiline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_72292" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:72292">CHEBI:72292</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_72292" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:72292</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bedaquiline (CHEBI:72292). CHEBI:72292 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         linezolid
@@ -6578,11 +7260,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63607" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63607">CHEBI:63607</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63607" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:63607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses linezolid (CHEBI:63607). CHEBI:63607 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         moxifloxacin
@@ -6590,10 +7277,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63611" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63611">CHEBI:63611</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63611" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:63611</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses moxifloxacin (CHEBI:63611). CHEBI:63611 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6670,7 +7360,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6787,7 +7482,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6902,7 +7602,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6948,7 +7653,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6978,16 +7688,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         SQ109
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_188155" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:188155">CHEBI:188155</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_188155" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:188155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses SQ109, annotated with SQ109(1+) (CHEBI:188155). CHEBI:188155 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7040,7 +7755,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7115,7 +7835,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7190,7 +7915,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7220,16 +7950,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         largazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_212400" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:212400">CHEBI:212400</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_212400" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-63">CHEBI:212400</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses largazole (CHEBI:212400). CHEBI:212400 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7282,7 +8017,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7312,16 +8052,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         auranofin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2922" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2922">CHEBI:2922</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2922" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-65">CHEBI:2922</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses auranofin (CHEBI:2922). CHEBI:2922 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7374,7 +8119,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7449,7 +8199,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7524,7 +8279,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7599,7 +8359,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7826,6 +8591,344 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Spatial transcriptomic profiling of alveoli and granuloma regions in patients with active pulmonary tuberculosis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301876" target="_blank">geo:GSE301876</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Spatial transcriptomic profiling was performed using the GeoMx DSP Whole Transcriptome Atlas to measure expression of over 18,000 genes in alveoli and granuloma core and mantle regions from patients with active pulmonary tuberculosis. Differential gene expression revealed region-specific transcriptional profiles, including signatures related to antimicrobial response and lipid metabolism.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SPATIAL TRANSCRIPTOMICS</span>
+
+
+                    <span class="tag tag-dataset">n=180</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40791339" target="_blank" style="color: var(--secondary);">PMID:40791339</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Tuberculosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Diabetes mellitus is associated with a shared hyper-inflammatory immune response in melioidosis and tuberculosis patients: an observational case-control study
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE296546" target="_blank">geo:GSE296546</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Melioidosis is a serious infection caused by the bacterium Burkholderia pseudomallei (Bp) with a case fatality rate of up to 40% in Northeast Thailand. Diabetes increases the risk of developing melioidosis by 12-fold. A similar, but less marked, relationship with diabetes is seen in tuberculosis (TB) patients, with a 3-fold increased risk of developing TB in people with diabetes. However, the mechanisms underlying increased susceptibility are not fully understood. Whole blood samples of 81 acute melioidosis patients from Northeast Thailand and 151 TB patients from South Africa, Indonesia, Romania and Peru alongside uninfected control cohorts were studied by whole blood RNA sequencing.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=110</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42318305" target="_blank" style="color: var(--secondary);">PMID:42318305</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Tuberculosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A unique Mitochondrial Quality Control (MQC) mechanism reverses the phagosome maturation arrest caused by Mycobacterium tuberculosis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE216985" target="_blank">geo:GSE216985</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Phagosome maturation arrest (PMA) imposed by Mycobacterium tuberculosis (Mtb) is among the classic tools that helps Mtb evade macrophage anti-bacterial response. Here we report a unique crosstalk between mitochondrial quality control (MQC) pathways and the phagosome maturation pathway, which unblocks the PMA and results in the efficient killing of Mtb. Depletion of p62/SQSTM1, a major autophagy adaptor, in human macrophages enhances Mtb killing. However, depletion of p62/SQSTM1 does not impact mitochondrial quality, despite an apparent block in mitophagy flux. Interestingly, in p62KD cells, MQC is ensured via TOM20+-mitochondria-derived vesicles (MDVs).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=36</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Tuberculosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Tuberculosis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000027" target="_blank">ega:EGAS00000000027</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Tuberculosis (TB) using the African samples as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Tuberculosis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Russian GWAS of tuberculosis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001001089" target="_blank">ega:EGAS00001001089</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Genome-wide association study of cases of tuberculosis from St. Petersburg and Samara, in Russia, compared to healthy controls from the same two cities. Genotyped using the Affy6 platform.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Tuberculosis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    GWAS of tuberculosis in Russia
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001001090" target="_blank">ega:EGAS00001001090</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Genome-wide association study of cases of tuberculosis from St Petersburg and Samara, in Russia, compared to healthy controls from the same two cities. Genotype data from Affy6 array.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Tuberculosis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Mycobacterium tuberculosis normoxia hypoxia reactivation with ActivX-desthiobiotin FP probe
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000080238" target="_blank">massive:MSV000080238</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Lysates of Mycobacterium tuberculosis (H37Rv auxotroph mc(2)6020) grown under various conditions (normoxia, hypoxia, reactivation from hypoxia) probed the serine hydrolase probe with ActivX-desthiobiotin FP.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Tuberculosis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    The Mycobacterium tuberculosis O-phosphorylation landscape
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000088254" target="_blank">massive:MSV000088254</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">LC-MS/MS tryptic peptide data comprising both label free (phosphoproteome) and TMT10 (global and phosphoproteome) analysis of mycobacterium tuberculosis mutants (WT, GoF, and LoF) grown at stationary phase. Data was searched with MS-GF+ (TMT) and MaxQuant (label free).</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Tuberculosis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    GeLC-MS/MS of H37Rv and two clinical isolates of Mycobacterium tuberculosis
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000081205" target="_blank">massive:MSV000081205</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Clinical isolates were made available from an extensive longitudinal collection of M. tuberculosis isolates circulating in the Western Cape of South Africa. Clinical isolates SAWC3651 and SAWC3517, belonging to the LAM (lineage 4.3) genotype and IS6110 family 14 and 9, respectively, and M. tuberculosis H37Rv were selected for analysis. Proteins were fractionated by SDS-PAGE, using a 4-12% gradient, 1.0 mm NuPage gel (Invitrogen, Carlsbad, CA, USA). Each gel lane was divided into 10 fractions and each fraction was prepared for analysis by mass spectrometry.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Tuberculosis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7889,6 +8992,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -7905,7 +9011,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Tuberculosis
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-02-27T22:30:34Z&#39;
 description: Tuberculosis is a contagious bacterial infection caused by Mycobacterium tuberculosis that primarily affects the lungs but can involve any organ. It spreads through airborne transmission and can exist in latent or active forms, with the active form causing characteristic symptoms including chronic cough, fever, night sweats, and weight loss.
 category: Infectious Disease
 parents:
@@ -8059,6 +9164,14 @@ pathophysiology:
       id: GO:0090382
       label: phagosome maturation
   downstream:
+  - target: GBP4-Mediated Autophagy-Dependent TB Restriction
+    description: Phagocytosis of M. tuberculosis triggers type I interferon signaling, which induces GBP4 expression as a host-directed restriction mechanism.
+    evidence:
+    - reference: PMID:42501331
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Interferons (IFNs) are potent antimicrobial cytokines... guanylate-binding proteins (GBPs) are IFN-inducible&#34;
+      explanation: Demonstrates that GBP4 is induced as an IFN-responsive effector during TB infection.
   - target: Granuloma Formation
     description: Infected macrophages differentiate into foamy macrophages which form the cellular core of TB granulomas.
   evidence:
@@ -8082,6 +9195,36 @@ pathophysiology:
     supports: PARTIAL
     snippet: Upon invading host cells by phagocytosis, M. tuberculosis can replicate within infected cells by arresting the maturation of the phagosome whose function is to target the pathogen for elimination.
     explanation: This reference partially supports the claim by highlighting that M. tuberculosis avoids destruction within host cells, though it does not explicitly mention granuloma formation.
+- name: GBP4-Mediated Autophagy-Dependent TB Restriction
+  description: Type I interferon-inducible GBP4 (guanylate-binding protein 4) mediates autophagy-dependent restriction of Mycobacterium tuberculosis through a TRIM21-dependent autophagy pathway that prevents SORT1-mediated progranulin degradation. This activates TFEB and FOXO3a, driving lysosomal acidification and phagosome-lysosome fusion to enhance intracellular bacterial killing.
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: Macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  biological_processes:
+  - preferred_term: type I interferon signaling pathway
+    modifier: INCREASED
+    term:
+      id: GO:0060337
+      label: type I interferon-mediated signaling pathway
+  - preferred_term: autophagy
+    modifier: INCREASED
+    term:
+      id: GO:0006914
+      label: autophagy
+  - preferred_term: phagosome maturation
+    modifier: INCREASED
+    term:
+      id: GO:0090382
+      label: phagosome maturation
+  evidence:
+  - reference: PMID:42501331
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Our study uncovers a key role for GBP4 in regulating cell-autonomous resistance in human macrophages and may facilitate the development of host-directed therapies against tuberculosis&#34;
+    explanation: This study characterizes GBP4 as a type I IFN-inducible host factor specifically mediating autophagy-dependent TB restriction in human macrophages, a previously incompletely characterized effector mechanism.
 - name: Granuloma Formation
   description: Immune cells form a granuloma to contain the infection, but sometimes the bacteria can break out, causing active TB.
   cell_types:
@@ -8297,6 +9440,14 @@ genetic:
       label: IRF3
   association: Interferon regulatory transcription factor
   notes: Downstream of TBK1; drives type I interferon responses that can be both protective and pathogenic depending on timing and magnitude.
+- name: GBP4
+  gene_term:
+    preferred_term: GBP4
+    term:
+      id: hgnc:20480
+      label: GBP4
+  association: Type I interferon-inducible autophagy-dependent TB restriction
+  notes: Guanylate-binding protein 4 is uniquely among the GBP family (GBP1-5) capable of mediating autophagy-dependent Mycobacterium tuberculosis restriction in human macrophages. Acts via a progranulin-BIP-AKT-TFEB/FOXO3a signaling axis promoting lysosomal acidification and phagosome-lysosome fusion. This represents a host-directed antitubercular mechanism.
 phenotypes:
 - category: Respiratory
   name: Chronic Cough
@@ -9048,6 +10199,81 @@ disease_term:
   term:
     id: MONDO:0018076
     label: tuberculosis
+datasets:
+- accession: geo:GSE301876
+  title: Spatial transcriptomic profiling of alveoli and granuloma regions in patients with active pulmonary tuberculosis
+  data_type: SPATIAL_TRANSCRIPTOMICS
+  description: Spatial transcriptomic profiling was performed using the GeoMx DSP Whole Transcriptome Atlas to measure expression of over 18,000 genes in alveoli and granuloma core and mantle regions from patients with active pulmonary tuberculosis. Differential gene expression revealed region-specific transcriptional profiles, including signatures related to antimicrobial response and lipid metabolism.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 180
+  publication: PMID:40791339
+  notes: Identified by GEO DataSets index search for Tuberculosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE296546
+  title: &#39;Diabetes mellitus is associated with a shared hyper-inflammatory immune response in melioidosis and tuberculosis patients: an observational case-control study&#39;
+  description: Melioidosis is a serious infection caused by the bacterium Burkholderia pseudomallei (Bp) with a case fatality rate of up to 40% in Northeast Thailand. Diabetes increases the risk of developing melioidosis by 12-fold. A similar, but less marked, relationship with diabetes is seen in tuberculosis (TB) patients, with a 3-fold increased risk of developing TB in people with diabetes. However, the mechanisms underlying increased susceptibility are not fully understood. Whole blood samples of 81 acute melioidosis patients from Northeast Thailand and 151 TB patients from South Africa, Indonesia, Romania and Peru alongside uninfected control cohorts were studied by whole blood RNA sequencing.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 110
+  publication: PMID:42318305
+  notes: Identified by GEO DataSets index search for Tuberculosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE216985
+  title: A unique Mitochondrial Quality Control (MQC) mechanism reverses the phagosome maturation arrest caused by Mycobacterium tuberculosis
+  description: Phagosome maturation arrest (PMA) imposed by Mycobacterium tuberculosis (Mtb) is among the classic tools that helps Mtb evade macrophage anti-bacterial response. Here we report a unique crosstalk between mitochondrial quality control (MQC) pathways and the phagosome maturation pathway, which unblocks the PMA and results in the efficient killing of Mtb. Depletion of p62/SQSTM1, a major autophagy adaptor, in human macrophages enhances Mtb killing. However, depletion of p62/SQSTM1 does not impact mitochondrial quality, despite an apparent block in mitophagy flux. Interestingly, in p62KD cells, MQC is ensured via TOM20+-mitochondria-derived vesicles (MDVs).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 36
+  notes: Identified by GEO DataSets index search for Tuberculosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00000000027
+  title: WTCCC case-control study for Tuberculosis
+  description: WTCCC genome-wide case-control association study for Tuberculosis (TB) using the African samples as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Tuberculosis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001001089
+  title: Russian GWAS of tuberculosis
+  description: Genome-wide association study of cases of tuberculosis from St. Petersburg and Samara, in Russia, compared to healthy controls from the same two cities. Genotyped using the Affy6 platform.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Tuberculosis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001001090
+  title: GWAS of tuberculosis in Russia
+  description: Genome-wide association study of cases of tuberculosis from St Petersburg and Samara, in Russia, compared to healthy controls from the same two cities. Genotype data from Affy6 array.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Tuberculosis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: massive:MSV000080238
+  title: Mycobacterium tuberculosis normoxia hypoxia reactivation with ActivX-desthiobiotin FP probe
+  description: Lysates of Mycobacterium tuberculosis (H37Rv auxotroph mc(2)6020) grown under various conditions (normoxia, hypoxia, reactivation from hypoxia) probed the serine hydrolase probe with ActivX-desthiobiotin FP.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Tuberculosis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000088254
+  title: The Mycobacterium tuberculosis O-phosphorylation landscape
+  description: LC-MS/MS tryptic peptide data comprising both label free (phosphoproteome) and TMT10 (global and phosphoproteome) analysis of mycobacterium tuberculosis mutants (WT, GoF, and LoF) grown at stationary phase. Data was searched with MS-GF+ (TMT) and MaxQuant (label free).
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Tuberculosis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000081205
+  title: GeLC-MS/MS of H37Rv and two clinical isolates of Mycobacterium tuberculosis
+  description: Clinical isolates were made available from an extensive longitudinal collection of M. tuberculosis isolates circulating in the Western Cape of South Africa. Clinical isolates SAWC3651 and SAWC3517, belonging to the LAM (lineage 4.3) genotype and IS6110 family 14 and 9, respectively, and M. tuberculosis H37Rv were selected for analysis. Proteins were fractionated by SDS-PAGE, using a 4-12% gradient, 1.0 mm NuPage gel (Invitrogen, Carlsbad, CA, USA). Each gel lane was divided into 10 fractions and each fraction was prepared for analysis by mass spectrometry.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Tuberculosis&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9301,7 +10527,7 @@ Mycobacterium tuberculosis (Mtb) subverts innate immune defenses through special
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Tuberculosis", "mondoId": "MONDO:0018076", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tuberculosis", "yamlRevision": "d7e6438d2d56"};
+        const OS_CONFIG = {"diseaseName": "Tuberculosis", "mondoId": "MONDO:0018076", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Tuberculosis", "yamlRevision": "727bef6d7f99"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9720,5 +10946,73 @@ Mycobacterium tuberculosis (Mtb) subverts innate immune defenses through special
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

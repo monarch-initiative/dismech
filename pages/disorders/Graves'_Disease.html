@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Graves%27%20Disease"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3734,7 +3902,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3761,6 +3929,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3779,29 +3955,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3918,17 +4172,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3949,10 +4210,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3978,6 +4242,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         cAMP-mediated signaling
@@ -3985,10 +4251,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0141156">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cAMP-mediated signaling, annotated with cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4011,19 +4280,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         thyroid gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002046">UBERON:0002046</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0002046 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4121,16 +4396,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         thyroid hormone biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006590" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006590">GO:0006590</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006590" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006590</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves thyroid hormone biosynthetic process, annotated with thyroid hormone generation (GO:0006590). GO:0006590 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4153,19 +4433,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         thyroid gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002046">UBERON:0002046</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0002046 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4267,17 +4553,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4298,11 +4591,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4323,11 +4621,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002038">CL:0002038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T follicular helper cell (CL:0002038). CL:0002038 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4348,11 +4651,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000624">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4373,10 +4681,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000815">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000815</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4403,16 +4714,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042113">GO:0042113</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4429,6 +4745,7 @@
 
 
                 </div>
+
 
 
 
@@ -4522,16 +4839,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4558,17 +4880,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cAMP-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0141156">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cAMP-mediated signaling, annotated with cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4589,11 +4918,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4614,11 +4948,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043491">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0043491</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves phosphatidylinositol 3-kinase signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4639,11 +4978,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045444">GO:0045444</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0045444</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves adipocyte differentiation, annotated with fat cell differentiation (GO:0045444). GO:0045444 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4664,11 +5008,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030213" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030213">GO:0030213</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030213" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030213</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves hyaluronan biosynthetic process (GO:0030213). GO:0030213 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4689,10 +5038,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4715,17 +5067,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         orbit
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001697" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001697">UBERON:0001697</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001697" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0001697</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in orbit, annotated with orbit of skull (UBERON:0001697). UBERON:0001697 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         extraocular muscle
@@ -4733,13 +5092,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001601" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001601">UBERON:0001601</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001601" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0001601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in extraocular muscle, annotated with extra-ocular muscle (UBERON:0001601). UBERON:0001601 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4758,17 +5121,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4789,10 +5159,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002038">CL:0002038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0002038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T follicular helper cell (CL:0002038). CL:0002038 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4819,17 +5192,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042113">GO:0042113</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0042113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4850,11 +5230,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4875,10 +5260,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002467" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002467">GO:0002467</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0002467</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves germinal center formation (GO:0002467). GO:0002467 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4901,19 +5289,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         thyroid gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002046">UBERON:0002046</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0002046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0002046 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4948,7 +5342,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Germinal Center Autoantibody Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD40-CD40L interactions between T follicular helper cells and B cells drive germinal center formation and affinity maturation of TRAb-producing B cells with oligoclonal expansion and epitope spreading.\", \"meta\": {\"cell_types\": [\"B cell\", \"T follicular helper cell\"], \"biological_processes\": [\"B cell activation\", \"adaptive immune response\", \"germinal center formation\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Heat Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002046\"}}, {\"id\": \"Hyperthyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000836\"}}, {\"id\": \"Immune System Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated immune response leads to autoimmune attacks on the thyroid gland.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"B cell\", \"T cell\", \"T follicular helper cell\", \"CD4-positive, alpha-beta T cell\", \"regulatory T cell\"], \"biological_processes\": [\"B cell activation\"]}}, {\"id\": \"Increased Appetite\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002591\"}}, {\"id\": \"Mycophenolate Mofetil\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selective immunosuppressant (inosine monophosphate dehydrogenase inhibitor), used alone or added to glucocorticoids, for active moderate-to-severe Graves ophthalmopathy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"mycophenolate mofetil\"]}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody used as a second-line option for corticosteroid-resistant moderate-to-severe Graves ophthalmopathy; depletes B cells and lowers autoantibody titres.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Sweating\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In thyroid eye disease, cooperative signaling between thyrotropin receptor (TSHR) and insulin-like growth factor 1 receptor (IGF-1R) on orbital fibroblasts drives hyaluronan production, adipogenesis, and tissue remodeling causing proptosis.\", \"meta\": {\"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cAMP-mediated signaling\", \"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"adipocyte differentiation\", \"hyaluronan biosynthetic process\", \"extracellular matrix organization\"], \"locations\": [\"orbit\", \"extraocular muscle\"]}}, {\"id\": \"Teprotumumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FDA-approved anti-IGF-1R monoclonal antibody for moderate-to-severe active thyroid eye disease. Blocks TSHR-IGF1R crosstalk in orbital fibroblasts to reduce proptosis, diplopia, and clinical activity. Validated by the OPTIC Phase III trial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"teprotumumab\"]}}, {\"id\": \"Thyroid Overactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive stimulation of the thyroid gland results in increased production of thyroid hormones (thyroxine, T4, and triiodothyronine, T3).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"thyroid hormone biosynthetic process\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Tocilizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-interleukin-6 receptor monoclonal antibody used for corticosteroid-resistant active moderate-to-severe Graves ophthalmopathy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Thyroid Overactivity\", \"target\": \"Hyperthyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Weight Loss\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Increased Appetite\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Heat Intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Sweating\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Teprotumumab\", \"target\": \"TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Germinal Center Autoantibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab\", \"target\": \"Immune System Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Mofetil\", \"target\": \"Immune System Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Germinal Center Autoantibody Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD40-CD40L interactions between T follicular helper cells and B cells drive germinal center formation and affinity maturation of TRAb-producing B cells with oligoclonal expansion and epitope spreading.\", \"meta\": {\"cell_types\": [\"B cell\", \"T follicular helper cell\"], \"biological_processes\": [\"B cell activation\", \"adaptive immune response\", \"germinal center formation\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Heat Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002046\"}}, {\"id\": \"Hyperthyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000836\"}}, {\"id\": \"Immune System Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated immune response leads to autoimmune attacks on the thyroid gland.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"B cell\", \"T cell\", \"T follicular helper cell\", \"CD4-positive, alpha-beta T cell\", \"regulatory T cell\"], \"biological_processes\": [\"B cell activation\"]}}, {\"id\": \"Increased Appetite\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002591\"}}, {\"id\": \"Mycophenolate Mofetil\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Selective immunosuppressant (inosine monophosphate dehydrogenase inhibitor), used alone or added to glucocorticoids, for active moderate-to-severe Graves ophthalmopathy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"mycophenolate mofetil\"]}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody used as a second-line option for corticosteroid-resistant moderate-to-severe Graves ophthalmopathy; depletes B cells and lowers autoantibody titres.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Stress\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sweating\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In thyroid eye disease, cooperative signaling between thyrotropin receptor (TSHR) and insulin-like growth factor 1 receptor (IGF-1R) on orbital fibroblasts drives hyaluronan production, adipogenesis, and tissue remodeling causing proptosis.\", \"meta\": {\"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cAMP-mediated signaling\", \"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"adipocyte differentiation\", \"hyaluronan biosynthetic process\", \"extracellular matrix organization\"], \"locations\": [\"orbit\", \"extraocular muscle\"]}}, {\"id\": \"Teprotumumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"FDA-approved anti-IGF-1R monoclonal antibody for moderate-to-severe active thyroid eye disease. Blocks TSHR-IGF1R crosstalk in orbital fibroblasts to reduce proptosis, diplopia, and clinical activity. Validated by the OPTIC Phase III trial.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"teprotumumab\"]}}, {\"id\": \"Thyroid Overactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive stimulation of the thyroid gland results in increased production of thyroid hormones (thyroxine, T4, and triiodothyronine, T3).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"thyroid hormone biosynthetic process\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Tocilizumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-interleukin-6 receptor monoclonal antibody used for corticosteroid-resistant active moderate-to-severe Graves ophthalmopathy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Thyroid Overactivity\", \"target\": \"Hyperthyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Weight Loss\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Increased Appetite\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Heat Intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hyperthyroidism\", \"target\": \"Sweating\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Stress\", \"target\": \"Immune System Dysregulation\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Recorded as modulating rather than exacerbating, and the choice of predicate is the whole content of this link. Exacerbates is a causal predicate in this repository, rendering as a causal arrow and counting toward mechanistic explanation in compliance scoring; modulates is non-committal by construction. Nothing available here earns a causal claim. Both items are paper titles rather than sentences from an abstract, so each carries a claim without the result behind it, and they disagree: one revisits stressful life events as a factor, the other reports that chronic recurrent stress from panic disorder does not precipitate the disease. The refuting item is carried here deliberately, since a contested exposure should look contested in the pathograph, but contestedness belongs in the supports values and not in the predicate.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Smoking\", \"target\": \"TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the orbital fibroblast node rather than at the thyroid autoantibody nodes, because that is where this exposure\u0027s evidence actually lands: its strongest sentence is about the eye disease specifically, not about hyperthyroidism. That sentence covers occurrence, progression, and a poorer response to immunosuppression at once, which is a wider claim than the effect value can carry, so the description holds what the grade cannot.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Teprotumumab\", \"target\": \"TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Germinal Center Autoantibody Production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tocilizumab\", \"target\": \"Immune System Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mycophenolate Mofetil\", \"target\": \"Immune System Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5007,14 +5401,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5088,14 +5489,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001962</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5176,14 +5584,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002014</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5264,14 +5679,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperthyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000836">HP:0000836</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000836</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5356,14 +5778,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Goiter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000853" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000853">HP:0000853</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000853" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000853</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Goiter (HP:0000853). HP:0000853 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5468,14 +5897,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000520</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5571,14 +6007,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diplopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000651">HP:0000651</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000651</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5641,14 +6084,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pretibial myxedema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200028">HP:0200028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0200028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pretibial Myxedema (HP:0200028). HP:0200028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5744,14 +6194,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperhidrosis
+
+                        <span class="phenotype-term-label">Hyperhidrosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000975">HP:0000975</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sweating, annotated with Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5803,14 +6262,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flushing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031284">HP:0031284</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0031284</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flushing (HP:0031284). HP:0031284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5871,14 +6337,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Heat intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002046" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002046">HP:0002046</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002046</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Heat Intolerance (HP:0002046). HP:0002046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5930,14 +6403,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6018,14 +6500,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proximal muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003701">HP:0003701</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003701</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6086,14 +6575,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001337">HP:0001337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6167,14 +6663,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6226,14 +6729,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Irritability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000737">HP:0000737</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000737</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6327,14 +6837,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyphagia
+
+                        <span class="phenotype-term-label">Polyphagia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002591">HP:0002591</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002591</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased Appetite, annotated with Polyphagia (HP:0002591). HP:0002591 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6406,14 +6925,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6485,14 +7011,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Insomnia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100785">HP:0100785</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0100785</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insomnia (HP:0100785). HP:0100785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6544,14 +7077,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperactivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000752">HP:0000752</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000752</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperactivity (HP:0000752). HP:0000752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6623,14 +7163,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polydipsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001959">HP:0001959</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001959</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6691,14 +7238,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6759,14 +7313,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight Loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6827,14 +7388,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sinus tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011703" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011703">HP:0011703</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0011703</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sinus tachycardia (HP:0011703). HP:0011703 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6928,14 +7496,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Eyelid retraction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500043" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500043">HP:0500043</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0500043</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eyelid retraction (HP:0500043). HP:0500043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7030,14 +7605,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Emotional lability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000712">HP:0000712</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7109,14 +7691,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Oligomenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000876" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000876">HP:0000876</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000876</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligomenorrhea (HP:0000876). HP:0000876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7461,7 +8050,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hormone modifying therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
@@ -7577,7 +8171,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hormone modifying therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">hormone modifying therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hormone modifying therapy, annotated with Hormone Therapy (NCIT:C15445). NCIT:C15445 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Therapy</span>
 
 
@@ -7693,7 +8292,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Thyroidectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Thyroidectomy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Thyroidectomy (NCIT:C51648). NCIT:C51648 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7808,7 +8412,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta adrenergic agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">beta adrenergic agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta adrenergic agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7839,16 +8448,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         beta-adrenergic agonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C48149" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C48149">NCIT:C48149</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C48149" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C48149</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7941,7 +8555,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -8059,7 +8678,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8089,16 +8713,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         teprotumumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C95797" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C95797">NCIT:C95797</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C95797" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C95797</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses teprotumumab (NCIT:C95797). NCIT:C95797 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8167,7 +8796,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8197,16 +8831,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-64">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8275,7 +8914,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8305,16 +8949,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tocilizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C84217">NCIT:C84217</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84217" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C84217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tocilizumab (NCIT:C84217). NCIT:C84217 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8383,7 +9032,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8413,16 +9067,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8764">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-68">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8491,7 +9150,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">selenium supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">selenium supplementation<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is selenium supplementation, annotated with Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -8522,16 +9186,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         selenium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27568" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27568">CHEBI:27568</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27568" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-70">CHEBI:27568</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses selenium, annotated with selenium atom (CHEBI:27568). CHEBI:27568 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8595,14 +9264,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Psychological stress exposure
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-71">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is Psychological stress exposure, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Can trigger or exacerbate symptoms.</div>
@@ -8662,6 +9347,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Immune System Dysregulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Recorded as modulating rather than exacerbating, and the choice of predicate is the whole content of this link. Exacerbates is a causal predicate in this repository, rendering as a causal arrow and counting toward mechanistic explanation in compliance scoring; modulates is non-committal by construction. Nothing available here earns a causal claim. Both items are paper titles rather than sentences from an abstract, so each carries a claim without the result behind it, and they disagree: one revisits stressful life events as a factor, the other reports that chronic recurrent stress from panic disorder does not precipitate the disease. The refuting item is carried here deliberately, since a contested exposure should look contested in the pathograph, but contestedness belongs in the supports values and not in the predicate.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11453946" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11453946" target="_blank">PMID:11453946</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Stressful life events and Graves&#39; disease revisited."</div>
+
+
+                <div class="evidence-explanation">Revisits stressful life events in this disease. The snippet is the paper&#39;s title, so it records that the question was examined rather than what was found.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9972676" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9972676" target="_blank">PMID:9972676</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic recurrent stress due to panic disorder does not precipitate Graves&#39; disease."</div>
+
+
+                <div class="evidence-explanation">Reports that chronic recurrent stress from panic disorder does not precipitate the disease. Also a title, but a title that states its negative result, and it is the reason this link is graded as low as it is.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
@@ -8669,21 +9428,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Tobacco smoking exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000029">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-72">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Tobacco smoking exposure, annotated with exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Increases the risk of developing and worsening Graves’ ophthalmopathy.</div>
@@ -8742,6 +9510,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the orbital fibroblast node rather than at the thyroid autoantibody nodes, because that is where this exposure&#39;s evidence actually lands: its strongest sentence is about the eye disease specifically, not about hyperthyroidism. That sentence covers occurrence, progression, and a poorer response to immunosuppression at once, which is a wider claim than the effect value can carry, so the description holds what the grade cannot.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22632372" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22632372" target="_blank">PMID:22632372</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Smoking is the most important risk factor for the occurrence/progression of Graves&#39; ophthalmopathy (GO), as well as for its lower/slower response to immunosuppression."</div>
+
+
+                <div class="evidence-explanation">Names smoking the most important risk factor for the occurrence and progression of the eye disease, and for its poorer response to immunosuppression. The eye disease is what this node models.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32107168" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32107168" target="_blank">PMID:32107168</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among environmental risk factors, smoking, iodine excess, selenium and vitamin D deficiency, and the occupational exposure to Agent Orange have been associated with GD."</div>
+
+
+                <div class="evidence-explanation">Lists smoking among the environmental risk factors associated with the disease, alongside iodine excess and selenium and vitamin D deficiency. Category level.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9117,11 +9959,150 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Epigenetic profiling in CD4 and CD8 T cells from Graves disease patients reveals changes in genes associated with T cell receptor signaling
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE71957" target="_blank">geo:GSE71957</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MULTI OMICS</span>
+
+
+                    <span class="tag tag-dataset">n=305</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/26459776" target="_blank" style="color: var(--secondary);">PMID:26459776</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Graves&#39; Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Study on peripheral blood methylation and transcriptome in patients with Graves&#39; disease and Graves&#39; ophthalmopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE272832" target="_blank">geo:GSE272832</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">By studying the differences in transcriptional and methylation levels between the GO (Graves&#39; ophthalmopathy) patient group and the GH (Graves&#39; hyperthyroidism) patient group, we aim to explore the pathogenic mechanisms of GO in patients with GH, and provide intervention guidance for the prevention of GO.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">METHYLATION</span>
+
+
+                    <span class="tag tag-dataset">n=54</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40215267" target="_blank" style="color: var(--secondary);">PMID:40215267</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Graves&#39; Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Pathogenesis of Graves&#39; Disease Using Single-Cell Sequencing with Thyroid Autoantigens Peptides Stimulation in B Cells
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE285196" target="_blank">geo:GSE285196</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We used the latest technology, BD Rhapsody, to analyze BCR of PBMCs and intrathyroidal blood mononuclear cells from patients with Graves&#39; disease at the single-cell level.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40710355" target="_blank" style="color: var(--secondary);">PMID:40710355</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Graves&#39; Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9140,7 +10121,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Graves&#39; Disease
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-30T12:00:00Z&#39;
 description: &gt;-
   Graves&#39; disease is an autoimmune thyroid disorder and the most common cause of
   hyperthyroidism, driven by stimulating autoantibodies (thyroid-stimulating
@@ -10077,6 +11057,43 @@ genetic:
     explanation: This meta-analysis demonstrates that TSHR gene polymorphisms are significantly associated with Graves&#39; disease susceptibility across Asian, European, and South American populations.
 environmental:
 - name: Stress
+  influences_mechanisms:
+  - target: Immune System Dysregulation
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Recorded as modulating rather than exacerbating, and the choice of
+      predicate is the whole content of this link. Exacerbates is a causal
+      predicate in this repository, rendering as a causal arrow and counting
+      toward mechanistic explanation in compliance scoring; modulates is
+      non-committal by construction. Nothing available here earns a causal
+      claim. Both items are paper titles rather than sentences from an
+      abstract, so each carries a claim without the result behind it, and they
+      disagree: one revisits stressful life events as a factor, the other
+      reports that chronic recurrent stress from panic disorder does not
+      precipitate the disease. The refuting item is carried here deliberately,
+      since a contested exposure should look contested in the pathograph, but
+      contestedness belongs in the supports values and not in the predicate.
+    evidence:
+    - reference: PMID:11453946
+      reference_title: &#34;Stressful life events and Graves&#39; disease revisited.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Stressful life events and Graves&#39; disease revisited.&#34;
+      explanation: &gt;-
+        Revisits stressful life events in this disease. The snippet is the
+        paper&#39;s title, so it records that the question was examined rather
+        than what was found.
+    - reference: PMID:9972676
+      reference_title: &#34;Chronic recurrent stress due to panic disorder does not precipitate Graves&#39; disease.&#34;
+      supports: REFUTE
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Chronic recurrent stress due to panic disorder does not precipitate Graves&#39; disease.&#34;
+      explanation: &gt;-
+        Reports that chronic recurrent stress from panic disorder does not
+        precipitate the disease. Also a title, but a title that states its
+        negative result, and it is the reason this link is graded as low as it
+        is.
   notes: Can trigger or exacerbate symptoms.
   evidence:
   - reference: PMID:11453946
@@ -10091,7 +11108,41 @@ environmental:
     explanation: This study found that recurrent endogenous stress due to panic disorder did not precipitate Graves&#39; hyperthyroidism, suggesting that not all forms of stress trigger or exacerbate Graves&#39; disease.
   exposure_term:
     preferred_term: Psychological stress exposure
+    term:
+      id: XCO:0001265
+      label: stress
 - name: Smoking
+  influences_mechanisms:
+  - target: TSHR-IGF1R Receptor Crosstalk in Orbital Fibroblasts
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the orbital fibroblast node rather than at the thyroid
+      autoantibody nodes, because that is where this exposure&#39;s evidence
+      actually lands: its strongest sentence is about the eye disease
+      specifically, not about hyperthyroidism. That sentence covers
+      occurrence, progression, and a poorer response to immunosuppression at
+      once, which is a wider claim than the effect value can carry, so the
+      description holds what the grade cannot.
+    evidence:
+    - reference: PMID:22632372
+      reference_title: &#34;Prevention of Graves&#39; ophthalmopathy.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Smoking is the most important risk factor for the occurrence/progression of Graves&#39; ophthalmopathy (GO), as well as for its lower/slower response to immunosuppression.&#34;
+      explanation: &gt;-
+        Names smoking the most important risk factor for the occurrence and
+        progression of the eye disease, and for its poorer response to
+        immunosuppression. The eye disease is what this node models.
+    - reference: PMID:32107168
+      reference_title: &#34;Graves&#39; disease: Epidemiology, genetic and environmental risk factors and viruses.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Among environmental risk factors, smoking, iodine excess, selenium and vitamin D deficiency, and the occupational exposure to Agent Orange have been associated with GD.&#34;
+      explanation: &gt;-
+        Lists smoking among the environmental risk factors associated with the
+        disease, alongside iodine excess and selenium and vitamin D
+        deficiency. Category level.
   notes: Increases the risk of developing and worsening Graves’ ophthalmopathy.
   evidence:
   - reference: PMID:22632372
@@ -10408,6 +11459,42 @@ classifications:
   harrisons_chapter:
   - classification_value: ENDOCRINOLOGY_METABOLISM
   - classification_value: IMMUNE_RHEUMATOLOGIC
+datasets:
+- accession: geo:GSE71957
+  title: Epigenetic profiling in CD4 and CD8 T cells from Graves disease patients reveals changes in genes associated with T cell receptor signaling
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MULTI_OMICS
+  sample_count: 305
+  publication: PMID:26459776
+  notes: Identified by GEO DataSets index search for Graves&#39; Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE272832
+  title: Study on peripheral blood methylation and transcriptome in patients with Graves&#39; disease and Graves&#39; ophthalmopathy
+  description: By studying the differences in transcriptional and methylation levels between the GO (Graves&#39; ophthalmopathy) patient group and the GH (Graves&#39; hyperthyroidism) patient group, we aim to explore the pathogenic mechanisms of GO in patients with GH, and provide intervention guidance for the prevention of GO.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: METHYLATION
+  sample_count: 54
+  publication: PMID:40215267
+  notes: Identified by GEO DataSets index search for Graves&#39; Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE285196
+  title: Pathogenesis of Graves&#39; Disease Using Single-Cell Sequencing with Thyroid Autoantigens Peptides Stimulation in B Cells
+  description: We used the latest technology, BD Rhapsody, to analyze BCR of PBMCs and intrathyroidal blood mononuclear cells from patients with Graves&#39; disease at the single-cell level.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 10
+  publication: PMID:40710355
+  notes: Identified by GEO DataSets index search for Graves&#39; Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -10990,7 +12077,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Graves\u0027 Disease", "mondoId": "MONDO:0005364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Graves\u0027_Disease", "yamlRevision": "e60f5e75bc9a"};
+        const OS_CONFIG = {"diseaseName": "Graves\u0027 Disease", "mondoId": "MONDO:0005364", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Graves\u0027_Disease", "yamlRevision": "9c955122e674"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11409,5 +12496,73 @@ classifications:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3564,7 +3730,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=IDH-Mutant%20and%201p/19q-Codeleted%20Oligodendroglioma"
@@ -3693,7 +3859,21 @@
 
 
 
+
+
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3701,7 +3881,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3730,7 +3910,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3749,7 +3929,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3766,6 +3946,14 @@
 
 
 
+            <a class="stat-link" href="#trials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Trials</div>
+            </div>
+            </a>
+
 
 
 
@@ -3781,7 +3969,7 @@
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔭</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Deep Research</div>
             </div>
             </a>
@@ -3791,37 +3979,181 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Glioma</span>
+
                 </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- Mappings -->
+
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0016695" target="_blank" class="missing-ontology-link">MONDO:0016695</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">oligodendroglioma</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:broadMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0859592 is a direct descendant of MONDO:0016695. Under the 2021 WHO CNS5 classification the clinical name &#34;oligodendroglioma&#34; is reserved for tumors that are IDH-mutant and 1p/19q-codeleted, so in current practice the two labels pick out the same patients. The mapping is nonetheless recorded as broadMatch rather than exactMatch because MONDO:0016695 is defined morphologically and by grade (&#34;A well-differentiated (WHO grade II), diffusely infiltrating neuroglial tumor... cells which morphologically resemble oligodendroglia&#34;), which admits the retired pre-2016 histology-only concept and excludes grade 3 disease. Treating that as an exact match would assert an equivalence MONDO&#39;s own definition does not carry.</div>
+
+                </div>
+
             </div>
 
 
 
 
+
         </div>
-
-
-        <!-- Mappings -->
 
 
         <!-- Definitions -->
@@ -3929,7 +4261,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-idh1-2-neomorphic-mutation" data-dismech-node="IDH1/2 Neomorphic Mutation" data-dismech-type="pathophysiology">
@@ -3941,16 +4273,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3977,16 +4314,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tricarboxylic acid cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006099">GO:0006099</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006099" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal tricarboxylic acid cycle (GO:0006099). GO:0006099 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4013,19 +4355,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4096,16 +4444,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromosome organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051276" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051276">GO:0051276</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051276" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0051276</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromosome organization (GO:0051276). GO:0051276 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4126,6 +4479,7 @@
 
 
                 </div>
+
 
 
 
@@ -4199,16 +4553,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA methylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006304">GO:0006304</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006304" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006304</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased DNA methylation, annotated with DNA modification (GO:0006304). GO:0006304 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4229,6 +4588,7 @@
 
 
                 </div>
+
 
 
 
@@ -4257,16 +4617,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008285">GO:0008285</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008285</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of cell population proliferation (GO:0008285). GO:0008285 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4294,6 +4659,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4314,41 +4680,12 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendroglial-tumorigenesis" data-dismech-node="Oligodendroglial Tumorigenesis" data-dismech-type="pathophysiology">
-                <div class="item-name">Oligodendroglial Tumorigenesis</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tert-promoter-mutation-and-telomerase-reactivation" data-dismech-node="TERT Promoter Mutation and Telomerase Reactivation" data-dismech-type="pathophysiology">
+                <div class="item-name">TERT Promoter Mutation and Telomerase Reactivation</div>
 
-                <div class="item-desc">The combination of IDH mutation, 1p/19q codeletion, and CIC/FUBP1 mutations drives oligodendroglioma formation. These tumors retain oligodendroglial differentiation markers and maintain sensitivity to DNA-damaging agents, likely due to intact DNA damage response pathways.</div>
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-cell">
-                        oligodendrocyte
+                <div class="item-desc">Mutually exclusive hotspot mutations at C228T or C250T in the TERT promoter create de novo ETS transcription factor binding sites, upregulating TERT expression and reactivating telomerase. This is the disorder-specific telomere-maintenance lesion that lets the tumor clone escape replicative senescence. TERT promoter mutation is near-universal in tumors carrying both 1p/19q codeletion and IDH1/2 mutation, and is therefore effectively part of the molecular signature of this entity rather than a late progression event.</div>
 
 
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
 
 
 
@@ -4358,17 +4695,22 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
-                        cell population proliferation
+                        telomere maintenance via telomerase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007004" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased telomere maintenance via telomerase (GO:0007004). GO:0007004 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4389,6 +4731,196 @@
 
 
                 </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Oligodendroglial Tumorigenesis</span>
+
+	                            <span class="crosslink-desc">Telomerase reactivation removes the replicative limit on the tumor clone, permitting the sustained proliferation that produces a macroscopic tumor.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23764841" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23764841" target="_blank">PMID:23764841</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TERT promoter mutations were observed in almost all tumors harboring concurrent total 1p19q loss and IDH1/2 mutations (98 %)."</div>
+
+
+                <div class="evidence-explanation">Establishes that TERT promoter mutation co-occurs with the defining 1p/19q-codeleted, IDH-mutant genotype in essentially every case, supporting its inclusion as a core node of this entity&#39;s pathograph rather than an incidental finding.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23764841" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23764841" target="_blank">PMID:23764841</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The expression level of TERT in tumors carrying those mutations was on average 6.1 times higher than that of wild-type tumors, indicating that the mutated promoter leads to upregulation of TERT."</div>
+
+
+                <div class="evidence-explanation">Provides the mechanistic link from promoter mutation to TERT upregulation, which is the step this node asserts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23764841" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23764841" target="_blank">PMID:23764841</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data indicate that mutation of the TERT promoter is one of the major mechanisms of telomerase activation in gliomas."</div>
+
+
+                <div class="evidence-explanation">Supports telomerase reactivation as the functional consequence, the conserved endpoint this node conforms to in the enabling_replicative_immortality module.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendroglial-tumorigenesis" data-dismech-node="Oligodendroglial Tumorigenesis" data-dismech-type="pathophysiology">
+                <div class="item-name">Oligodendroglial Tumorigenesis</div>
+
+                <div class="item-desc">The combination of IDH mutation, 1p/19q codeletion, and CIC/FUBP1 mutations drives oligodendroglioma formation. These tumors retain oligodendroglial differentiation markers and maintain sensitivity to DNA-damaging agents, likely due to intact DNA damage response pathways.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        oligodendrocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000128</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        cell population proliferation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008283</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4480,7 +5012,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"1p/19q Codeletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 1p/19q codeletion results from an unbalanced translocation t(1;19)(q10;p10) occurring early in tumorigenesis. This leads to loss of tumor suppressor genes including CIC on 19q and FUBP1 on 1p. The codeletion is associated with oligodendroglial differentiation and exceptional chemosensitivity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromosome organization\"]}}, {\"id\": \"CIC/FUBP1 Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIC (Capicua) on 19q13 is mutated in approximately 70% of oligodendrogliomas. FUBP1 on 1p31 is mutated in approximately 30%. These mutations cooperate with IDH mutation and 1p/19q codeletion to drive oligodendroglioma formation.\", \"meta\": {\"biological_processes\": [\"negative regulation of cell population proliferation\"]}}, {\"id\": \"G-CIMP Hypermethylation Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glioma CpG island methylator phenotype (G-CIMP) results from 2-HG-mediated inhibition of TET enzymes and histone demethylases. This leads to widespread promoter hypermethylation, altered gene expression, and blocked differentiation. G-CIMP is associated with favorable prognosis.\", \"meta\": {\"biological_processes\": [\"DNA methylation\"]}}, {\"id\": \"IDH1/2 Neomorphic Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous IDH1 R132 or IDH2 R172 mutations produce D-2-hydroxyglutarate (2-HG), an oncometabolite causing epigenetic dysregulation through inhibition of alpha-ketoglutarate-dependent dioxygenases. This is an early clonal event shared with IDH-mutant astrocytomas.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"tricarboxylic acid cycle\"], \"locations\": [\"brain\"]}}, {\"id\": \"Oligodendroglial Tumorigenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of IDH mutation, 1p/19q codeletion, and CIC/FUBP1 mutations drives oligodendroglioma formation. These tumors retain oligodendroglial differentiation markers and maintain sensitivity to DNA-damaging agents, likely due to intact DNA damage response pathways.\", \"meta\": {\"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"cell population proliferation\"]}}], \"edges\": [{\"source\": \"IDH1/2 Neomorphic Mutation\", \"target\": \"G-CIMP Hypermethylation Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"2-HG accumulation causes global DNA hypermethylation\"}, {\"source\": \"1p/19q Codeletion\", \"target\": \"CIC/FUBP1 Tumor Suppressor Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Codeletion removes key tumor suppressors on 1p and 19q\"}, {\"source\": \"CIC/FUBP1 Tumor Suppressor Loss\", \"target\": \"Oligodendroglial Tumorigenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tumor suppressors promotes oligodendroglioma formation\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"1p/19q Codeletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 1p/19q codeletion results from an unbalanced translocation t(1;19)(q10;p10) occurring early in tumorigenesis. This leads to loss of tumor suppressor genes including CIC on 19q and FUBP1 on 1p. The codeletion is associated with oligodendroglial differentiation and exceptional chemosensitivity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chromosome organization\"]}}, {\"id\": \"CIC/FUBP1 Tumor Suppressor Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CIC (Capicua) on 19q13 is mutated in approximately 70% of oligodendrogliomas. FUBP1 on 1p31 is mutated in approximately 30%. These mutations cooperate with IDH mutation and 1p/19q codeletion to drive oligodendroglioma formation.\", \"meta\": {\"biological_processes\": [\"negative regulation of cell population proliferation\"]}}, {\"id\": \"G-CIMP Hypermethylation Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glioma CpG island methylator phenotype (G-CIMP) results from 2-HG-mediated inhibition of TET enzymes and histone demethylases. This leads to widespread promoter hypermethylation, altered gene expression, and blocked differentiation. G-CIMP is associated with favorable prognosis.\", \"meta\": {\"biological_processes\": [\"DNA methylation\"]}}, {\"id\": \"IDH1/2 Neomorphic Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous IDH1 R132 or IDH2 R172 mutations produce D-2-hydroxyglutarate (2-HG), an oncometabolite causing epigenetic dysregulation through inhibition of alpha-ketoglutarate-dependent dioxygenases. This is an early clonal event shared with IDH-mutant astrocytomas.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"tricarboxylic acid cycle\"], \"locations\": [\"brain\"]}}, {\"id\": \"Oligodendroglial Tumorigenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of IDH mutation, 1p/19q codeletion, and CIC/FUBP1 mutations drives oligodendroglioma formation. These tumors retain oligodendroglial differentiation markers and maintain sensitivity to DNA-damaging agents, likely due to intact DNA damage response pathways.\", \"meta\": {\"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are the most common presenting symptom, occurring in 70-90% of patients. The high seizure frequency is attributed to cortical involvement and slow growth pattern. Seizure control often improves with tumor treatment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"TERT Promoter Mutation and Telomerase Reactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutually exclusive hotspot mutations at C228T or C250T in the TERT promoter create de novo ETS transcription factor binding sites, upregulating TERT expression and reactivating telomerase. This is the disorder-specific telomere-maintenance lesion that lets the tumor clone escape replicative senescence. TERT promoter mutation is near-universal in tumors carrying both 1p/19q codeletion and IDH1/2 mutation, and is therefore effectively part of the molecular signature of this entity rather than a late progression event.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"telomere maintenance via telomerase\"]}}, {\"id\": \"Vorasidenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral, brain-penetrant dual inhibitor of the mutant IDH1 and IDH2 enzymes, FDA-approved in August 2024 for grade 2 astrocytoma or oligodendroglioma with a susceptible IDH1/IDH2 mutation following surgery. It is the first therapy directed at the founding molecular lesion of this disease rather than at tumor bulk, and it is positioned in the post-surgical setting where radiotherapy and chemotherapy are being deferred. Transaminase elevation is the characteristic dose-limiting toxicity and requires liver function monitoring.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"vorasidenib\"]}}], \"edges\": [{\"source\": \"IDH1/2 Neomorphic Mutation\", \"target\": \"G-CIMP Hypermethylation Phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"2-HG accumulation causes global DNA hypermethylation\"}, {\"source\": \"1p/19q Codeletion\", \"target\": \"CIC/FUBP1 Tumor Suppressor Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Codeletion removes key tumor suppressors on 1p and 19q\"}, {\"source\": \"CIC/FUBP1 Tumor Suppressor Loss\", \"target\": \"Oligodendroglial Tumorigenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tumor suppressors promotes oligodendroglioma formation\"}, {\"source\": \"TERT Promoter Mutation and Telomerase Reactivation\", \"target\": \"Oligodendroglial Tumorigenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Telomerase reactivation removes the replicative limit on the tumor clone, permitting the sustained proliferation that produces a macroscopic tumor.\"}, {\"source\": \"Vorasidenib\", \"target\": \"IDH1/2 Neomorphic Mutation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vorasidenib\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4508,13 +5040,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4569,13 +5106,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4600,13 +5142,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4642,6 +5189,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IDH1
+
+
+    <a href="https://bioregistry.io/hgnc:5382" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:5382</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IDH1 (hgnc:5382). hgnc:5382 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4657,6 +5226,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IDH2
+
+
+    <a href="https://bioregistry.io/hgnc:5383" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:5383</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IDH2 (hgnc:5383). hgnc:5383 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4669,6 +5260,28 @@
                     CIC
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CIC
+
+
+    <a href="https://bioregistry.io/hgnc:14214" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:14214</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CIC (hgnc:14214). hgnc:14214 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -4737,6 +5350,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FUBP1
+
+
+    <a href="https://bioregistry.io/hgnc:4004" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:4004</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FUBP1 (hgnc:4004). hgnc:4004 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -4752,8 +5387,62 @@
 
                 </div>
 
+                <div class="item-meta">
 
 
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TERT
+
+
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:11730</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23764841" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23764841" target="_blank">PMID:23764841</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The frequency of mutation was particularly high among primary glioblastomas (70 %) and pure oligodendroglial tumors (74 %), while relatively low in diffuse astrocytomas and anaplastic astrocytomas (19 and 25 %, respectively)."</div>
+
+
+                <div class="evidence-explanation">Source of the histology-defined oligodendroglial frequency, and the basis for distinguishing it from the 98% figure reported for the molecularly defined codeleted, IDH-mutant subset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -4764,6 +5453,28 @@
                     NOTCH1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Somatic Mutation)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NOTCH1
+
+
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7881</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -4786,7 +5497,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-maximal-safe-resection" data-dismech-node="Maximal Safe Resection" data-dismech-type="treatment">
@@ -4795,7 +5506,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Gross Total Resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Gross Total Resection<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gross Total Resection (NCIT:C131672). NCIT:C131672 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4840,7 +5556,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4885,7 +5606,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -4909,9 +5635,95 @@
 
 
 
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">PCV regimen<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is PCV regimen (NCIT:C63491). NCIT:C63491 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: PCV Regimen</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C63491" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C63491">NCIT:C63491</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                     </div>
 
 
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        procarbazine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71417" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:71417</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses procarbazine (CHEBI:71417). CHEBI:71417 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        lomustine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6520" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:6520</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lomustine (CHEBI:6520). CHEBI:6520 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        vincristine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:28445</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -4981,7 +5793,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5009,14 +5826,288 @@
 
 
 
-
-
-                <div class="item-desc">Temozolomide is an alternative to PCV with better tolerability. Often used concurrently with radiation followed by adjuvant cycles. Efficacy appears similar to PCV in 1p/19q-codeleted tumors.</div>
-
-
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
 
+                    <span class="tag tag-treatment">
+                        temozolomide
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_72564" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:72564</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses temozolomide (CHEBI:72564). CHEBI:72564 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Temozolomide is used as a more tolerable alkylating alternative to PCV, often concurrently with radiation followed by adjuvant cycles. Its role as a substitute for radiotherapy is not supported: in the initial CODEL design, grade 3 codeleted patients randomized to temozolomide alone had significantly shorter progression-free survival than those on the radiotherapy arms, and the trial was redesigned to compare radiotherapy plus PCV against radiotherapy plus temozolomide rather than temozolomide alone. Temozolomide monotherapy in place of radiotherapy should therefore not be inferred from this entry.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32678879" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32678879" target="_blank">PMID:32678879</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TMZ-alone patients experienced significantly shorter PFS than patients treated on the RT arms."</div>
+
+
+                <div class="evidence-explanation">Refutes the use of temozolomide monotherapy as an equivalent substitute for radiotherapy in 1p/19q-codeleted disease. Recorded as REFUTE against the substitution claim specifically, not against any use of temozolomide.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32678879" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32678879" target="_blank">PMID:32678879</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ongoing CODEL trial has been redesigned to compare RT + PCV versus RT + TMZ."</div>
+
+
+                <div class="evidence-explanation">Partial support for temozolomide&#39;s continued role in combination with radiotherapy. The redesign establishes that the open question is PCV versus temozolomide as the radiotherapy partner; it does not by itself report an efficacy result for either arm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-vorasidenib" data-dismech-node="Vorasidenib" data-dismech-type="treatment">
+                <div class="item-name">
+                    Vorasidenib
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Targeted Therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Targeted Therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93352" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C93352">NCIT:C93352</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        vorasidenib
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152914" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C152914</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vorasidenib (NCIT:C152914). NCIT:C152914 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Oral, brain-penetrant dual inhibitor of the mutant IDH1 and IDH2 enzymes, FDA-approved in August 2024 for grade 2 astrocytoma or oligodendroglioma with a susceptible IDH1/IDH2 mutation following surgery. It is the first therapy directed at the founding molecular lesion of this disease rather than at tumor bulk, and it is positioned in the post-surgical setting where radiotherapy and chemotherapy are being deferred. Transaminase elevation is the characteristic dose-limiting toxicity and requires liver function monitoring.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">IDH1/2 Neomorphic Mutation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Vorasidenib inhibits the mutant IDH1 and IDH2 enzymes directly, suppressing production of the D-2-hydroxyglutarate oncometabolite that drives the downstream epigenetic cascade. This is the drug-target edge for the entry: the therapy acts at the most upstream node of the pathograph.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37272516" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37272516" target="_blank">PMID:37272516</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vorasidenib, an oral brain-penetrant inhibitor of mutant IDH1 and IDH2 enzymes, showed preliminary activity in IDH-mutant gliomas."</div>
+
+
+                <div class="evidence-explanation">States the molecular target of the drug, establishing that it acts on the mutant IDH enzymes represented by this pathophysiology node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Seizure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001250</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37272516" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37272516" target="_blank">PMID:37272516</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In patients with grade 2 IDH-mutant glioma, vorasidenib significantly improved progression-free survival and delayed the time to the next intervention."</div>
+
+
+                <div class="evidence-explanation">Primary result of the INDIGO phase 3 trial. Graded PARTIAL rather than SUPPORT for this entry because the enrolled population was grade 2 IDH-mutant glioma comprising both oligodendroglioma and astrocytoma; 1p/19q codeletion status was a randomization stratification factor rather than an eligibility criterion, so the result is not specific to codeleted oligodendroglioma. It also does not speak to grade 3 disease or to overall survival.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41175888" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41175888" target="_blank">PMID:41175888</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vorasidenib reduced tumour growth rate and improved seizure control compared with placebo, with no observed negative effects on HRQOL or neurocognition."</div>
+
+
+                <div class="evidence-explanation">Secondary and exploratory INDIGO endpoints. Relevant to this entry because seizure burden is the dominant clinical problem in oligodendroglioma. Graded PARTIAL for the same population reason as the primary INDIGO result, and because seizure activity was an exploratory, self-reported endpoint rather than a prespecified secondary one.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5046,6 +6137,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42133138" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42133138" target="_blank">PMID:42133138</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When combined, the spectroscopy methods achieved 100% sensitivity, 85.7% specificity, and 93.7% overall accuracy in detecting 2HG."</div>
+
+
+                <div class="evidence-explanation">Supports the detectability of 2-HG by proton MR spectroscopy as a non-invasive marker. Graded PARTIAL because the cohort was adult-type diffuse gliomas as a whole rather than codeleted oligodendroglioma specifically, and because the study measures diagnostic accuracy for IDH genotyping rather than validating 2-HG as a treatment-response biomarker, which is the second claim in the note above.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -5060,8 +6183,93 @@
 
         <!-- Clinical Trials -->
 
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT04164901
+
+                    <span class="tag tag-phase">PHASE_III</span>
+
+
+                    <span class="tag tag-status">ACTIVE_NOT_RECRUITING</span>
+
+                </div>
+
+                <div class="item-desc">INDIGO: randomized, double-blind, placebo-controlled phase 3 trial of vorasidenib versus placebo in residual or recurrent grade 2 IDH1/IDH2-mutant glioma treated with surgery only. This is the evidential backbone of the vorasidenib treatment entry. Note the enrolled population spans oligodendroglioma and astrocytoma; 1p/19q codeletion status was a randomization stratification factor rather than an eligibility criterion, so trial results are not specific to the codeleted entity curated here.</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Seizure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT04164901" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT04164901" target="_blank">clinicaltrials:NCT04164901</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Study AG881-C-004 is a phase 3, multicenter, randomized, double-blind, placebo-controlled study comparing the efficacy of vorasidenib to placebo in participants with residual or recurrent Grade 2 glioma with an IDH1 or IDH2 mutation who have undergone surgery as their only treatment."</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov record establishing the design, phase, and eligible population of the trial underpinning the vorasidenib treatment entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5080,7 +6288,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   Oligodendroglioma, IDH-mutant and 1p/19q-codeleted, is a diffuse glioma defined
   by
@@ -5192,6 +6399,54 @@ pathophysiology:
   downstream:
   - target: Oligodendroglial Tumorigenesis
     description: Loss of tumor suppressors promotes oligodendroglioma formation
+- name: TERT Promoter Mutation and Telomerase Reactivation
+  biological_scale: MOLECULAR
+  conforms_to: &#34;enabling_replicative_immortality#Telomere Maintenance Reactivation&#34;
+  description: &gt;-
+    Mutually exclusive hotspot mutations at C228T or C250T in the TERT promoter create
+    de novo ETS transcription factor binding sites, upregulating TERT expression and
+    reactivating telomerase. This is the disorder-specific telomere-maintenance lesion
+    that lets the tumor clone escape replicative senescence. TERT promoter mutation is
+    near-universal in tumors carrying both 1p/19q codeletion and IDH1/2 mutation, and
+    is therefore effectively part of the molecular signature of this entity rather than
+    a late progression event.
+  evidence:
+  - reference: PMID:23764841
+    reference_title: &#34;Upregulating mutations in the TERT promoter commonly occur in adult malignant gliomas and are strongly associated with total 1p19q loss.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;TERT promoter mutations were observed in almost all tumors harboring concurrent total 1p19q loss and IDH1/2 mutations (98 %).&#34;
+    explanation: &gt;-
+      Establishes that TERT promoter mutation co-occurs with the defining 1p/19q-codeleted,
+      IDH-mutant genotype in essentially every case, supporting its inclusion as a core
+      node of this entity&#39;s pathograph rather than an incidental finding.
+  - reference: PMID:23764841
+    reference_title: &#34;Upregulating mutations in the TERT promoter commonly occur in adult malignant gliomas and are strongly associated with total 1p19q loss.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The expression level of TERT in tumors carrying those mutations was on average 6.1 times higher than that of wild-type tumors, indicating that the mutated promoter leads to upregulation of TERT.&#34;
+    explanation: &gt;-
+      Provides the mechanistic link from promoter mutation to TERT upregulation, which is
+      the step this node asserts.
+  - reference: PMID:23764841
+    reference_title: &#34;Upregulating mutations in the TERT promoter commonly occur in adult malignant gliomas and are strongly associated with total 1p19q loss.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our data indicate that mutation of the TERT promoter is one of the major mechanisms of telomerase activation in gliomas.&#34;
+    explanation: &gt;-
+      Supports telomerase reactivation as the functional consequence, the conserved endpoint
+      this node conforms to in the enabling_replicative_immortality module.
+  biological_processes:
+  - preferred_term: telomere maintenance via telomerase
+    modifier: INCREASED
+    term:
+      id: GO:0007004
+      label: telomere maintenance via telomerase
+  downstream:
+  - target: Oligodendroglial Tumorigenesis
+    description: &gt;-
+      Telomerase reactivation removes the replicative limit on the tumor clone, permitting
+      the sustained proliferation that produces a macroscopic tumor.
 - name: Oligodendroglial Tumorigenesis
   description: &gt;-
     The combination of IDH mutation, 1p/19q codeletion, and CIC/FUBP1 mutations
@@ -5268,16 +6523,31 @@ histopathology:
 
 genetic:
 - name: IDH1
+  gene_term:
+    preferred_term: IDH1
+    term:
+      id: hgnc:5382
+      label: IDH1
   association: Somatic Mutation
   notes: &gt;-
     IDH1 R132H is the most common mutation but IDH1 R132C and other variants occur
     more frequently in oligodendrogliomas than astrocytomas.
 - name: IDH2
+  gene_term:
+    preferred_term: IDH2
+    term:
+      id: hgnc:5383
+      label: IDH2
   association: Somatic Mutation
   notes: &gt;-
     IDH2 R172 mutations are more common in oligodendrogliomas (up to 5%) than
     astrocytomas.
 - name: CIC
+  gene_term:
+    preferred_term: CIC
+    term:
+      id: hgnc:14214
+      label: CIC
   association: Somatic Mutation
   notes: &gt;-
     CIC (Capicua transcriptional repressor) on 19q13.2 is mutated in approximately
@@ -5295,17 +6565,46 @@ genetic:
     snippet: &#34;CIC mutations were highly associated with oligodendroglioma histology, 1p/19q co-deletion, and IDH1/2 mutation (p &lt; 0.001)&#34;
     explanation: Establishes strong association between CIC mutations and the defining features of oligodendroglioma.
 - name: FUBP1
+  gene_term:
+    preferred_term: FUBP1
+    term:
+      id: hgnc:4004
+      label: FUBP1
   association: Somatic Mutation
   notes: &gt;-
     FUBP1 (far upstream element binding protein 1) on 1p31.1 is mutated in
     approximately 30% of oligodendrogliomas. Regulates MYC expression.
 - name: TERT
+  gene_term:
+    preferred_term: TERT
+    term:
+      id: hgnc:11730
+      label: TERT
   association: Promoter Mutation
   notes: &gt;-
     TERT promoter mutations (C228T or C250T) occur in approximately 70-80% of
     oligodendrogliomas. Creates ETS binding sites leading to TERT upregulation
-    and telomerase activation.
+    and telomerase activation. The reported frequency depends on how the cohort is
+    defined: around 74% across pure oligodendroglial tumors diagnosed on histology,
+    but 98% once the cohort is restricted to tumors carrying both total 1p/19q loss
+    and IDH1/2 mutation, which is the entity curated here. The higher figure is the
+    one that applies to this entry.
+  evidence:
+  - reference: PMID:23764841
+    reference_title: &#34;Upregulating mutations in the TERT promoter commonly occur in adult malignant gliomas and are strongly associated with total 1p19q loss.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The frequency of mutation was particularly high among primary glioblastomas (70 %) and pure oligodendroglial tumors (74 %), while relatively low in diffuse astrocytomas and anaplastic astrocytomas (19 and 25 %, respectively).&#34;
+    explanation: &gt;-
+      Source of the histology-defined oligodendroglial frequency, and the basis for
+      distinguishing it from the 98% figure reported for the molecularly defined
+      codeleted, IDH-mutant subset.
 - name: NOTCH1
+  gene_term:
+    preferred_term: NOTCH1
+    term:
+      id: hgnc:7881
+      label: NOTCH1
   association: Somatic Mutation
   notes: &gt;-
     NOTCH1 mutations occur in approximately 10-15% of oligodendrogliomas and may
@@ -5315,12 +6614,25 @@ biochemical:
   notes: &gt;-
     D-2-hydroxyglutarate accumulates due to IDH mutation. Detectable by MR
     spectroscopy at 2.25 ppm and serves as a biomarker for response assessment.
+  evidence:
+  - reference: PMID:42133138
+    reference_title: &#34;Diagnostic accuracy of 1H-MRS in detecting the oncometabolite 2-hydroxyglutarate (2HG) in adult-type diffuse gliomas.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;When combined, the spectroscopy methods achieved 100% sensitivity, 85.7% specificity, and 93.7% overall accuracy in detecting 2HG.&#34;
+    explanation: &gt;-
+      Supports the detectability of 2-HG by proton MR spectroscopy as a non-invasive
+      marker. Graded PARTIAL because the cohort was adult-type diffuse gliomas as a
+      whole rather than codeleted oligodendroglioma specifically, and because the study
+      measures diagnostic accuracy for IDH genotyping rather than validating 2-HG as a
+      treatment-response biomarker, which is the second claim in the note above.
 treatments:
 - name: Maximal Safe Resection
   description: &gt;-
     Surgical resection aims to maximize extent of resection while preserving
     function. Complete resection associated with improved survival and seizure
     control.
+  therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: Gross Total Resection
     term:
@@ -5342,11 +6654,30 @@ treatments:
     shows exceptional efficacy in 1p/19q-codeleted oligodendrogliomas. RTOG 9402
     and EORTC 26951 trials demonstrated major survival benefit for PCV added to
     radiation in anaplastic oligodendroglioma.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: chemotherapy
     term:
       id: NCIT:C15632
       label: Chemotherapy
+    therapeutic_agent:
+    - preferred_term: procarbazine
+      term:
+        id: CHEBI:71417
+        label: procarbazine
+    - preferred_term: lomustine
+      term:
+        id: CHEBI:6520
+        label: lomustine
+    - preferred_term: vincristine
+      term:
+        id: CHEBI:28445
+        label: vincristine
+  regimen_term:
+    preferred_term: PCV regimen
+    term:
+      id: NCIT:C63491
+      label: PCV Regimen
   evidence:
   - reference: PMID:23071247
     reference_title: &#34;Phase III trial of chemoradiotherapy for anaplastic oligodendroglioma: long-term results of RTOG 9402.&#34;
@@ -5360,19 +6691,156 @@ treatments:
     explanation: EORTC 26951 phase III trial confirming survival benefit of adjuvant PCV chemotherapy with preferential benefit in 1p/19q-codeleted tumors.
 - name: Temozolomide Chemotherapy
   description: &gt;-
-    Temozolomide is an alternative to PCV with better tolerability. Often used
-    concurrently with radiation followed by adjuvant cycles. Efficacy appears
-    similar to PCV in 1p/19q-codeleted tumors.
+    Temozolomide is used as a more tolerable alkylating alternative to PCV, often
+    concurrently with radiation followed by adjuvant cycles. Its role as a
+    substitute for radiotherapy is not supported: in the initial CODEL design,
+    grade 3 codeleted patients randomized to temozolomide alone had significantly
+    shorter progression-free survival than those on the radiotherapy arms, and the
+    trial was redesigned to compare radiotherapy plus PCV against radiotherapy plus
+    temozolomide rather than temozolomide alone. Temozolomide monotherapy in place
+    of radiotherapy should therefore not be inferred from this entry.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: chemotherapy
     term:
       id: NCIT:C15632
       label: Chemotherapy
+    therapeutic_agent:
+    - preferred_term: temozolomide
+      term:
+        id: CHEBI:72564
+        label: temozolomide
+  evidence:
+  - reference: PMID:32678879
+    reference_title: &#34;CODEL: phase III study of RT, RT + TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma. Analysis from the initial study design.&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;TMZ-alone patients experienced significantly shorter PFS than patients treated on the RT arms.&#34;
+    explanation: &gt;-
+      Refutes the use of temozolomide monotherapy as an equivalent substitute for
+      radiotherapy in 1p/19q-codeleted disease. Recorded as REFUTE against the
+      substitution claim specifically, not against any use of temozolomide.
+  - reference: PMID:32678879
+    reference_title: &#34;CODEL: phase III study of RT, RT + TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma. Analysis from the initial study design.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The ongoing CODEL trial has been redesigned to compare RT + PCV versus RT + TMZ.&#34;
+    explanation: &gt;-
+      Partial support for temozolomide&#39;s continued role in combination with radiotherapy.
+      The redesign establishes that the open question is PCV versus temozolomide as the
+      radiotherapy partner; it does not by itself report an efficacy result for either arm.
+- name: Vorasidenib
+  description: &gt;-
+    Oral, brain-penetrant dual inhibitor of the mutant IDH1 and IDH2 enzymes,
+    FDA-approved in August 2024 for grade 2 astrocytoma or oligodendroglioma with a
+    susceptible IDH1/IDH2 mutation following surgery. It is the first therapy directed
+    at the founding molecular lesion of this disease rather than at tumor bulk, and it
+    is positioned in the post-surgical setting where radiotherapy and chemotherapy are
+    being deferred. Transaminase elevation is the characteristic dose-limiting toxicity
+    and requires liver function monitoring.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Targeted Therapy
+    term:
+      id: NCIT:C93352
+      label: Targeted Therapy
+    therapeutic_agent:
+    - preferred_term: vorasidenib
+      term:
+        id: NCIT:C152914
+        label: Vorasidenib
+  target_mechanisms:
+  - target: IDH1/2 Neomorphic Mutation
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Vorasidenib inhibits the mutant IDH1 and IDH2 enzymes directly, suppressing
+      production of the D-2-hydroxyglutarate oncometabolite that drives the downstream
+      epigenetic cascade. This is the drug-target edge for the entry: the therapy acts
+      at the most upstream node of the pathograph.
+    evidence:
+    - reference: PMID:37272516
+      reference_title: &#34;Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Vorasidenib, an oral brain-penetrant inhibitor of mutant IDH1 and IDH2 enzymes, showed preliminary activity in IDH-mutant gliomas.&#34;
+      explanation: &gt;-
+        States the molecular target of the drug, establishing that it acts on the mutant
+        IDH enzymes represented by this pathophysiology node.
+  evidence:
+  - reference: PMID:37272516
+    reference_title: &#34;Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In patients with grade 2 IDH-mutant glioma, vorasidenib significantly improved progression-free survival and delayed the time to the next intervention.&#34;
+    explanation: &gt;-
+      Primary result of the INDIGO phase 3 trial. Graded PARTIAL rather than SUPPORT for
+      this entry because the enrolled population was grade 2 IDH-mutant glioma comprising
+      both oligodendroglioma and astrocytoma; 1p/19q codeletion status was a randomization
+      stratification factor rather than an eligibility criterion, so the result is not
+      specific to codeleted oligodendroglioma. It also does not speak to grade 3 disease
+      or to overall survival.
+  - reference: PMID:41175888
+    reference_title: &#34;Vorasidenib in IDH1-mutant or IDH2-mutant low-grade glioma (INDIGO): secondary and exploratory endpoints from a randomised, double-blind, placebo-controlled, phase 3 trial.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Vorasidenib reduced tumour growth rate and improved seizure control compared with placebo, with no observed negative effects on HRQOL or neurocognition.&#34;
+    explanation: &gt;-
+      Secondary and exploratory INDIGO endpoints. Relevant to this entry because seizure
+      burden is the dominant clinical problem in oligodendroglioma. Graded PARTIAL for the
+      same population reason as the primary INDIGO result, and because seizure activity was
+      an exploratory, self-reported endpoint rather than a prespecified secondary one.
+  target_phenotypes:
+  - preferred_term: Seizure
+    term:
+      id: HP:0001250
+      label: Seizure
+clinical_trials:
+- name: NCT04164901
+  phase: PHASE_III
+  status: ACTIVE_NOT_RECRUITING
+  description: &gt;-
+    INDIGO: randomized, double-blind, placebo-controlled phase 3 trial of vorasidenib
+    versus placebo in residual or recurrent grade 2 IDH1/IDH2-mutant glioma treated
+    with surgery only. This is the evidential backbone of the vorasidenib treatment
+    entry. Note the enrolled population spans oligodendroglioma and astrocytoma;
+    1p/19q codeletion status was a randomization stratification factor rather than an
+    eligibility criterion, so trial results are not specific to the codeleted entity
+    curated here.
+  target_phenotypes:
+  - preferred_term: Seizure
+    term:
+      id: HP:0001250
+      label: Seizure
+  evidence:
+  - reference: clinicaltrials:NCT04164901
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Study AG881-C-004 is a phase 3, multicenter, randomized, double-blind, placebo-controlled study comparing the efficacy of vorasidenib to placebo in participants with residual or recurrent Grade 2 glioma with an IDH1 or IDH2 mutation who have undergone surgery as their only treatment.&#34;
+    explanation: &gt;-
+      ClinicalTrials.gov record establishing the design, phase, and eligible population
+      of the trial underpinning the vorasidenib treatment entry.
 disease_term:
   preferred_term: IDH-mutant and 1p/19q-codeleted oligodendroglioma
   term:
     id: MONDO:0859592
     label: IDH-mutant and 1p/19q-codeleted oligodendroglioma
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0016695
+      label: oligodendroglioma
+    mapping_predicate: skos:broadMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0859592 is a direct descendant of MONDO:0016695. Under the 2021 WHO CNS5
+      classification the clinical name &#34;oligodendroglioma&#34; is reserved for tumors that
+      are IDH-mutant and 1p/19q-codeleted, so in current practice the two labels pick
+      out the same patients. The mapping is nonetheless recorded as broadMatch rather
+      than exactMatch because MONDO:0016695 is defined morphologically and by grade
+      (&#34;A well-differentiated (WHO grade II), diffusely infiltrating neuroglial tumor...
+      cells which morphologically resemble oligodendroglia&#34;), which admits the retired
+      pre-2016 histology-only concept and excludes grade 3 disease. Treating that as an
+      exact match would assert an equivalence MONDO&#39;s own definition does not carry.
 
 classifications:
   icdo_morphology:
@@ -6493,7 +7961,958 @@ references:
             <div class="grouped-section anchor-target" id="literature-summaries">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">Deep Research</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
+                </div>
+
+                <div style="margin-bottom: 4px;">
+                    <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
+                        <span>Claude Code</span>
+                        <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
+                    </div>
+                    <div class="report-body">
+
+                        <div class="report-meta">
+
+                            <div class="report-subtitle">IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma — Research Report</div>
+
+
+                            <span class="report-badge">claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+
+
+                            <span class="report-badge">48 citations</span>
+
+
+                            <span class="report-meta-text">2026-08-13T16:38:16.569895</span>
+
+                        </div>
+
+                        <div class="report-content">
+                            <h1>IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma — Research Report</h1>
+<p><em>Prepared as a curation input for a dismech <code>Disease</code> entry. Compiled 2026-08-13.</em></p>
+<hr />
+<h2>⚠️ Read this before you copy anything into YAML</h2>
+<p>Everything below is a <strong>lead</strong>, not ground truth. Two specific hazards:</p>
+<ol>
+<li><strong>PMIDs.</strong> IDs I pulled directly out of live search results this session are marked ✅. Everything marked ⚠ came out of my head and <em>must</em> be resolved with <code>just fetch-reference PMID:XXXX</code> before it lands in an evidence block. A real-but-wrong PMID is the nastiest failure mode there is — it sails through existence checks and quietly attributes a claim to a stranger.</li>
+<li><strong>Ontology IDs.</strong> Per the repo's own scar tissue, I am not going to guess CURIEs and let them look authoritative. Terms below are given <strong>label-first</strong>, with a candidate ID only where I'm genuinely confident, and everything gets a <code>runoak</code> verification note. Treat the labels as the payload and the numbers as a hint.</li>
+</ol>
+<p>Direct quotes are given only where I actually retrieved the text; otherwise I paraphrase and say so. Think of this like a tissue sample — useful, but you still stain it yourself before signing the report.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Oligodendroglioma, IDH-mutant and 1p/19q-codeleted is an <strong>adult-type diffuse glioma</strong> — one of exactly three such entities in the 2021 WHO Classification of CNS Tumours (CNS5), alongside astrocytoma IDH-mutant and glioblastoma IDH-wildtype. It is a diffusely infiltrating, slow-growing glial tumour of the cerebral hemispheres, with a strong appetite for the <strong>frontal lobe</strong> and a habit of creeping up into the cortex rather than staying politely in white matter.</p>
+<p>The defining move of CNS5 is that this is no longer a <em>histological</em> diagnosis with molecular garnish. It is a <strong>molecularly defined entity</strong>: you cannot call something an oligodendroglioma in 2026 without both an IDH1/IDH2 mutation <strong>and</strong> whole-arm codeletion of 1p and 19q. A tumour that looks like a textbook fried-egg oligodendroglioma down the microscope but lacks codeletion is something else entirely. This is the single most important framing fact for the whole entry — the name now points at a genotype, and the histology is a supporting witness.</p>
+<p>It is graded <strong>CNS WHO grade 2 or grade 3</strong> (there is no grade 4 oligodendroglioma in CNS5). The word "anaplastic" is retired as a name; grade 3 is just grade 3.</p>
+<h3>Key identifiers</h3>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Value</th>
+<th>Confidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ICD-O-3 morphology</td>
+<td><strong>9450/3</strong> (grade 2), <strong>9451/3</strong> (grade 3)</td>
+<td>High — these are the CNS5 codes</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>C71.x (malignant neoplasm of brain, by lobe); D43.x if behaviour uncertain</td>
+<td>High</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>2A00 series (gliomas of brain); exact stem code ⚠ verify</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td><strong>D009837</strong> "Oligodendroglioma"</td>
+<td>Medium-high ⚠ verify</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><strong>⚠ Do not guess.</strong> Look up "oligodendroglioma" and the CNS5-era "oligodendroglioma, IDH-mutant and 1p/19q codeleted" child term with <code>runoak -i sqlite:obo:mondo search "oligodendroglioma"</code>. Check obsoletion against <strong>live OLS</strong>, not the local sqlite build — the local one lags.</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>An ORPHA code exists for oligodendroglioma / anaplastic oligodendroglioma ⚠ verify via <code>just fetch-reference ORPHA:&lt;code&gt;</code></td>
+<td>Low</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>No Mendelian entry for this tumour type. <strong>OMIM 137800 (GLIOMA SUSCEPTIBILITY 1)</strong> is the closest germline-susceptibility handle ⚠ verify</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>NCIT</td>
+<td>NCIT has both "Oligodendroglioma" and "Anaplastic Oligodendroglioma" concepts ⚠ look up with <code>runoak -i sqlite:obo:ncit</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3>Synonyms and historical names</h3>
+<ul>
+<li>Oligodendroglioma, IDH-mutant and 1p/19q-codeleted (<strong>current WHO name</strong>)</li>
+<li>Anaplastic oligodendroglioma, IDH-mutant and 1p/19q-codeleted (<strong>grade 3, WHO 2016 name — now discouraged as a name, retained only as a descriptor</strong>)</li>
+<li>Oligodendroglioma NOS (used only when molecular testing is unavailable/inconclusive)</li>
+<li>Oligoastrocytoma / anaplastic oligoastrocytoma — <strong>abolished</strong>. This is worth a <code>notes</code> line: the old "mixed glioma" bucket dissolved once molecular testing showed nearly every one of them was really an oligodendroglioma <em>or</em> an astrocytoma. Diagnoses of "oligoastrocytoma" in pre-2016 literature must be re-read with that in mind, and this is a live source of miscoding in legacy cohorts.</li>
+<li>"1p/19q-codeleted glioma", "codeleted oligodendroglial tumour" (informal)</li>
+</ul>
+<p><strong>NEC risk flag for this entry:</strong> moderate-to-high. Not because of an eponym, but because of the <em>name-vs-entity drift</em> above — much of the classic literature ("anaplastic oligodendroglioma", "oligoastrocytoma", "low-grade glioma") describes cohorts that were assembled on histology and only retrospectively genotyped. Any DR report on this disease needs checking not for "did it find the wrong gene" but for "did it silently blend codeleted and non-codeleted cases". Run <code>just preflight-dr</code> and expect it may <code>SKIP</code> (this is a somatic cancer, so MONDO may not record a single causal gene) — the manual read is the one that matters here.</p>
+<h3>Data provenance</h3>
+<p>Both. Disease-level aggregation (CBTRUS, SEER, Orphanet, WHO) plus a very unusual amount of <strong>individual-patient long-term trial data</strong> — RTOG 9402 and EORTC 26951 followed codeleted patients for two decades, which is rare enough in oncology to be worth citing on its own.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary causal factors</h3>
+<p>This is a <strong>somatic, acquired</strong> neoplasm. There is no meaningful inherited-Mendelian pathway to it. The causal chain, in order of events as best reconstructed from sequencing:</p>
+<ol>
+<li><strong>IDH1 or IDH2 mutation</strong> — the founding event, present in essentially 100% of cases by definition. Predominantly <strong>IDH1 p.R132H</strong>, with IDH1 R132C/R132G/R132S/R132L and IDH2 R172K/R172M/R172W/R172G making up the remainder. Notably, <strong>non-canonical (non-R132H) IDH1 mutations and IDH2 mutations are enriched in oligodendroglioma relative to IDH-mutant astrocytoma</strong> — a practical point, because the standard R132H immunostain misses them and you need sequencing.</li>
+<li><strong>Whole-arm 1p/19q codeletion</strong>, via an unbalanced translocation (below).</li>
+<li><strong>TERT promoter hotspot mutation</strong> (C228T or C250T) — near-universal in adults.</li>
+<li><strong>CIC</strong> (19q13.2) and/or <strong>FUBP1</strong> (1p31.1) inactivation — the "second hit" on the retained arms.</li>
+<li>Variable later hits: <strong>NOTCH1, TCF12, PIK3CA, PIK3R1, ZBTB20, ARID1A, SETD2, CDKN2A/B</strong> (the last being a progression event).</li>
+</ol>
+<p>Two things this tumour conspicuously <strong>lacks</strong>, and their absence is diagnostically load-bearing: <strong>ATRX loss</strong> and <strong>TP53 mutation</strong>. Those two define the <em>astrocytoma</em> branch of IDH-mutant glioma. IDH-mutant gliomas fork early into "codeletion + TERT" vs "ATRX + TP53", and the two roads essentially never meet.</p>
+<h3>The 1p/19q codeletion mechanism (this is the fun part)</h3>
+<p>It is <strong>not</strong> two independent deletions. It's a single event: a <strong>balanced whole-arm translocation t(1;19)(q10;p10)</strong> creating two derivative chromosomes — one made of 1q+19p, the other of 1p+19q — followed by <strong>loss of the der(1p;19q)</strong>, leaving der(1;19)(q10;p10) behind.</p>
+<blockquote>
+<p>"A balanced whole-arm translocation between chromosomes 1 and 19 forms 2 derivative chromosomes, one composed of 1q and 19p, the other of 1p and 19q… the 1p–19q derivative is lost but the 1q–19p derivative is maintained throughout cell replication." — retrieved summary of Jenkins et al., <em>J Neuropathol Exp Neurol</em> 2006 ✅ <strong>PMID:17021403</strong></p>
+</blockquote>
+<p>Think of it as a bad cell division rather than two separate mutations — one clumsy shuffle of the deck, and two whole arms walk out the door together. This is why the codeletion is <em>whole-arm</em> and why partial 1p or 19q loss (common in astrocytomas and glioblastoma) does <strong>not</strong> count and must not be miscalled as codeletion. That distinction is a genuine diagnostic pitfall and belongs in the entry's <code>notes</code>.</p>
+<h3>Genetic risk factors (germline)</h3>
+<p>The standout is <strong>rs55705857</strong>, a low-frequency non-coding SNP at <strong>8q24.21</strong>, near/within <strong>CCDC26</strong>:</p>
+<blockquote>
+<p>"The SNP rs55705857 confers a 6-fold greater risk of IDH-mutant glioma, and a 9-fold risk for oligodendroglioma with 1p19q codeletion, representing one of the highest reported inherited genetic associations with cancer." — retrieved from <em>Neuro-Oncology</em> review "Deciphering gliomagenesis from genome-wide association studies" (2023) ⚠ verify PMID</p>
+</blockquote>
+<p>That is an extraordinary effect size for a GWAS hit — most common-variant associations are odds ratios of 1.1–1.3, and this one is functioning more like a low-penetrance Mendelian allele. And unusually, there's mechanistic follow-through: Yanchus et al., <em>Science</em> 2022, "A noncoding single-nucleotide polymorphism at 8q24 drives IDH1-mutant glioma formation" ⚠ verify PMID — showing the variant acts through an enhancer regulating <strong>MYC</strong> in a brain-lineage-specific way. This is a <strong>strong candidate for a curated <code>genetic:</code> entry with <code>relationship_type: SUSCEPTIBILITY</code></strong> and probably the single most citable germline finding for the entry.</p>
+<p>Other loci: <strong>5p15.33 (TERT)</strong>, <strong>11q23 (PHLDB1)</strong>, <strong>20q13.33 (RTEL1)</strong>, <strong>9p21.3 (CDKN2B-AS1)</strong>, <strong>7p11.2 (EGFR)</strong>, <strong>17p13.1 (TP53)</strong>. The IDH-mutant/non-GBM gliomas cluster preferentially on CCDC26, PHLDB1 and TP53-region variants; EGFR/TERT variants skew toward GBM. A 2023 Australian GWAS additionally reported a <strong>stronger female risk association at 8q24.21</strong> ⚠ verify PMID (PMC10326491) — interesting because the tumour is otherwise male-predominant, so the sex effect runs against the epidemiologic grain and deserves a hedged <code>notes</code> line rather than a confident claim.</p>
+<p><strong>Familial/syndromic:</strong> Rare families with clustering of IDH-mutant glioma exist; germline <strong>POT1</strong>, <strong>TP53</strong> (Li-Fraumeni), and mismatch-repair syndromes raise glioma risk broadly but are <strong>not</strong> specifically enriched for the codeleted phenotype. Do not curate Li-Fraumeni as a risk factor for <em>this</em> entity without a codeletion-specific source.</p>
+<h3>Environmental risk factors</h3>
+<p>Thin, and honesty about that thinness is the correct curation posture.</p>
+<ul>
+<li><strong>Ionizing radiation to the head</strong> — the only firmly established exogenous cause of glioma generally (therapeutic cranial RT, atomic-bomb survivor cohorts). Whether it specifically induces <em>codeleted</em> tumours is not established; radiation-associated gliomas are more often IDH-wildtype and high-grade. <strong>Curate as a risk factor for glioma with an explicit scope caveat.</strong> ECTO has exposure-to-ionizing-radiation terms suitable for <code>influences_mechanisms</code> with <code>environmental_effect: PREDISPOSES</code> — but given the codeletion-specificity gap, <code>MODULATES</code> or simply an unqualified note may be more defensible. (Repo guidance: <code>TRIGGERS</code>/<code>EXACERBATES</code> count toward compliance scoring, so don't reach for them on a contested claim.)</li>
+<li><strong>Mobile phones / RF-EMF</strong> — repeatedly studied, no consistent association. Worth an explicit <code>supports: NO_EVIDENCE</code> or <code>REFUTE</code> evidence item if a good source is available; a well-curated negative is more useful here than silence.</li>
+<li><strong>Occupational/chemical exposures</strong> (pesticides, petrochemicals, formaldehyde, vinyl chloride) — inconsistent, mostly null, small studies.</li>
+<li><strong>Head trauma, diet, smoking, alcohol</strong> — no established association with glioma.</li>
+</ul>
+<h3>Protective factors</h3>
+<p>One genuinely robust and genuinely weird finding: <strong>atopy and allergic disease are inversely associated with glioma risk</strong>. History of asthma, eczema, hay fever, and higher serum IgE all associate with reduced glioma risk across many studies. The mechanistic story — that a hair-trigger immune system is better at clearing nascent transformed glial cells, or that IL-4/IgE signalling is anti-tumorigenic — is unproven, but the epidemiology is consistent enough that it belongs in the entry.</p>
+<ul>
+<li>Also reported: history of <strong>varicella-zoster/chickenpox infection</strong> and VZV IgG positivity, inversely associated with glioma. ⚠ Verify with a recent pooled-analysis source before curating; this is a real literature but the effect sizes wobble.</li>
+</ul>
+<p>Genetic protective factors: none established beyond the protective alleles at the risk loci above (i.e. the reference allele of rs55705857).</p>
+<h3>Gene–environment interactions</h3>
+<p>Sparse. Some work on <strong>immune/atopy genotype × allergy phenotype</strong> interactions in glioma risk, and on DNA-repair genotype × radiation exposure. Nothing I would curate as a structured interaction claim without a specific, verified source. <strong>Flag as a genuine <code>KNOWLEDGE_GAP</code> discussion</strong> rather than leaving it blank — "we looked and it isn't there" is content.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The clinical presentation is essentially "a slow-growing mass in the frontal cortex," and the seizure phenotype dominates. Oligodendrogliomas are the <strong>most epileptogenic</strong> of the diffuse gliomas — cortical location plus slow growth is exactly the recipe for building an irritable epileptic focus rather than crushing tissue outright.</p>
+<table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO label to look up</th>
+<th>Frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Seizure</strong> (usually focal onset ± bilateral tonic-clonic)</td>
+<td>Seizure (HP:0001250, high confidence); consider Focal-onset seizure</td>
+<td><strong>VERY_FREQUENT</strong> — presenting symptom in roughly 60–90%</td>
+<td>The signature finding. Often the <em>only</em> symptom for years.</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Headache (HP:0002315, high confidence)</td>
+<td>FREQUENT</td>
+<td></td>
+</tr>
+<tr>
+<td>Focal neurological deficit (hemiparesis, sensory loss)</td>
+<td>Hemiparesis; Focal neurological deficit ⚠</td>
+<td>OCCASIONAL–FREQUENT</td>
+<td>Depends on location</td>
+</tr>
+<tr>
+<td>Personality/behavioural change, executive dysfunction</td>
+<td>Personality changes; Frontal lobe dysfunction ⚠</td>
+<td>FREQUENT</td>
+<td>Frontal predilection makes this common and frequently under-recognised</td>
+</tr>
+<tr>
+<td>Cognitive impairment</td>
+<td>Cognitive impairment ⚠</td>
+<td>FREQUENT</td>
+<td>Both tumour- and treatment-related</td>
+</tr>
+<tr>
+<td>Aphasia / language disturbance</td>
+<td>Aphasia ⚠</td>
+<td>OCCASIONAL</td>
+<td>Left frontal/temporal</td>
+</tr>
+<tr>
+<td>Nausea and vomiting, papilledema (raised ICP)</td>
+<td>Papilledema ⚠</td>
+<td>OCCASIONAL</td>
+<td>Later/larger tumours</td>
+</tr>
+<tr>
+<td>Visual field defect</td>
+<td>Visual field defect ⚠</td>
+<td>OCCASIONAL</td>
+<td>Temporal/occipital extension</td>
+</tr>
+<tr>
+<td>Intratumoral haemorrhage</td>
+<td>Intracranial hemorrhage ⚠</td>
+<td>RARE-OCCASIONAL</td>
+<td>Oligodendrogliomas have a delicate chicken-wire vasculature and bleed a bit more than other low-grade gliomas</td>
+</tr>
+<tr>
+<td>Hydrocephalus</td>
+<td>Hydrocephalus ⚠</td>
+<td>RARE</td>
+<td>With ventricular/leptomeningeal involvement</td>
+</tr>
+</tbody>
+</table>
+<p><strong>⚠ Frequency-band discipline:</strong> per repo policy, each <code>frequency:</code> value makes its own quantitative claim and needs its own snippet. The seizure figure is well supported by multiple series (the "~80% of oligodendroglioma patients present with seizures" statement is standard in reviews) — but <em>find the sentence with the number in it</em> rather than mapping a review's adjective. For every other row above, <strong>omit <code>frequency:</code> unless you have a cohort figure.</strong> The band is not free.</p>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> adult, median <strong>~45 years at diagnosis</strong> (CBTRUS, all grades) ✅ <strong>PMID:41092086</strong>. Peak 35–55. Paediatric cases exist but are rare and molecularly distinct (see §4, TERT).</li>
+<li><strong>Severity:</strong> variable; many patients are neurologically intact at diagnosis and remain so for years on antiseizure medication alone.</li>
+<li><strong>Progression:</strong> <strong>slowly progressive</strong>, punctuated. <code>clinical_course: PROGRESSIVE</code>; the seizure phenotype itself is often <code>RECURRENT</code>/episodic. A long indolent plateau followed by malignant progression is the characteristic shape.</li>
+<li><strong>Quality of life:</strong> the dominant long-term QoL drivers are (a) <strong>seizure control</strong>, (b) <strong>neurocognitive decline</strong> — which in long survivors is substantially <em>treatment</em>-attributable (cranial radiotherapy, PCV), not just tumour-attributable, and (c) <strong>employment and driving loss</strong> from epilepsy. This is a rare tumour where patients live long enough for late radiation neurotoxicity to become the main quality-of-life story, which is precisely the tension the IDH-inhibitor era is trying to resolve. Instruments in use: EORTC QLQ-C30 + QLQ-BN20, MMSE, and in INDIGO specifically, seizure and neurocognitive endpoints were exploratory outcomes ✅ <strong>PMID:41175888</strong>.</li>
+</ul>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal genes and lesions</h3>
+<table>
+<thead>
+<tr>
+<th>Gene / lesion</th>
+<th>Locus</th>
+<th>Frequency</th>
+<th>Type</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>IDH1</strong> (<code>hgnc:5382</code> ⚠ verify)</td>
+<td>2q34</td>
+<td>~90% of IDH-mutant cases; R132H is ~90% of those in gliomas overall, <strong>less dominant in oligodendroglioma</strong></td>
+<td>Somatic heterozygous missense, arginine at the isocitrate-binding site</td>
+<td><strong>NEOMORPHIC</strong> — the textbook case. Loses normal isocitrate→α-KG activity, gains α-KG→<strong>D-(R)-2-hydroxyglutarate</strong> activity</td>
+</tr>
+<tr>
+<td><strong>IDH2</strong> (<code>hgnc:5383</code> ⚠)</td>
+<td>15q26.1</td>
+<td>~5–10%; R172K/M/W/G</td>
+<td>Somatic heterozygous missense</td>
+<td>Same neomorphic gain</td>
+</tr>
+<tr>
+<td><strong>1p/19q codeletion</strong></td>
+<td>der(1;19)(q10;p10)</td>
+<td>100% by definition</td>
+<td>Whole-arm unbalanced translocation</td>
+<td>Loss of one copy each of 1p and 19q</td>
+</tr>
+<tr>
+<td><strong>TERT promoter</strong></td>
+<td>5p15.33, C228T / C250T</td>
+<td><strong>~98–99% in adults</strong></td>
+<td>Somatic promoter point mutation creating an ETS binding site</td>
+<td><strong>GAIN_OF_FUNCTION</strong> — telomerase reactivation</td>
+</tr>
+<tr>
+<td><strong>CIC</strong> (<code>hgnc:</code> ⚠)</td>
+<td><strong>19q13.2</strong></td>
+<td>~50–70%</td>
+<td>Truncating and missense; on the <em>retained</em> 19q</td>
+<td><strong>LOSS_OF_FUNCTION</strong> tumour suppressor</td>
+</tr>
+<tr>
+<td><strong>FUBP1</strong></td>
+<td><strong>1p31.1</strong></td>
+<td>~15–30%</td>
+<td>Mostly truncating; on the <em>retained</em> 1p</td>
+<td><strong>LOSS_OF_FUNCTION</strong></td>
+</tr>
+<tr>
+<td><strong>NOTCH1</strong></td>
+<td>9q34.3</td>
+<td>~15–30%</td>
+<td>Mixed</td>
+<td>LOF in this context</td>
+</tr>
+<tr>
+<td><strong>TCF12</strong></td>
+<td>15q21</td>
+<td>~7%</td>
+<td>Mixed</td>
+<td>LOF</td>
+</tr>
+<tr>
+<td><strong>PIK3CA / PIK3R1</strong></td>
+<td>3q26 / 5q13</td>
+<td>~10–20% combined</td>
+<td>Missense hotspot</td>
+<td>PI3K activation</td>
+</tr>
+<tr>
+<td><strong>CDKN2A/B</strong></td>
+<td>9p21.3</td>
+<td>~10% overall, rising with grade (~11% in grade 3)</td>
+<td><strong>Homozygous deletion</strong></td>
+<td>LOF; adverse prognosis</td>
+</tr>
+<tr>
+<td><strong>ZBTB20, ARID1A, SETD2</strong></td>
+<td>various</td>
+<td>low</td>
+<td>Mixed</td>
+<td>LOF</td>
+</tr>
+</tbody>
+</table>
+<p>The CIC/FUBP1 geography is elegant and worth stating explicitly in the pathophysiology prose: the codeletion removes <em>one</em> copy of 1p and 19q, and then point mutations knock out <strong>CIC on the surviving 19q</strong> and <strong>FUBP1 on the surviving 1p</strong>. It's Knudson's two-hit hypothesis executed with a chromosome-scale first hit — the translocation halves the dosage of two whole arms, and the second hits then only have to find one target apiece.</p>
+<blockquote>
+<p>"With the exception of a single case, all CIC mutations occurred in tumors with combined 1p/19q losses." — retrieved summary, Sahm et al., <em>Acta Neuropathol</em> 2012 ⚠ verify PMID</p>
+</blockquote>
+<p>Key primary sources:
+- <strong>Bettegowda et al., "Mutations in CIC and FUBP1 contribute to human oligodendroglioma," <em>Science</em> 2011</strong> ✅ <strong>PMID:21817013</strong> — the discovery paper.
+- <strong>Yip et al., "Concurrent CIC mutations, IDH mutations, and 1p/19q loss distinguish oligodendrogliomas from other cancers," <em>J Pathol</em> 2012</strong> ✅ <strong>PMID:22072542</strong>.
+- <strong>Chan et al., "Loss of CIC and FUBP1 expressions are potential markers of shorter time to recurrence in oligodendroglial tumors," <em>Hum Pathol</em> 2014</strong> ✅ <strong>PMID:24030748</strong> — prognostic angle.
+- <strong>Eckel-Passow et al., "Glioma groups based on 1p/19q, IDH, and TERT promoter mutations in tumors," <em>NEJM</em> 2015</strong> ⚠ verify PMID — the "triple-positive" group framing.
+- <strong>TCGA Research Network, "Comprehensive, integrative genomic analysis of diffuse lower-grade gliomas," <em>NEJM</em> 2015</strong> ⚠ verify PMID — the canonical genomic landscape.</p>
+<h3>Variant classification, origin, allele frequency</h3>
+<ul>
+<li><strong>Origin: somatic</strong>, essentially without exception. This should be explicit in <code>GeneticContext.variant_origin</code> — germline IDH1 R132H does not exist as a viable constitutional state (Ollier/Maffucci disease involves somatic <strong>mosaic</strong> IDH1/IDH2 mutation, which is a genuinely interesting adjacent entity but a different disease).</li>
+<li><strong>Zygosity: heterozygous</strong> — and this is mechanistically required, not incidental. The neomorphic reaction consumes α-KG produced by the <em>wild-type</em> subunit; the mutant enzyme works as a heterodimer with WT. Homozygous IDH1 mutation is selected against. Curate <code>zygosity: HETEROZYGOUS</code> with that as the rationale.</li>
+<li><strong><code>functional_impact_category</code>:</strong> use <strong><code>NEOMORPHIC</code></strong> for IDH1/IDH2 (not GAIN_OF_FUNCTION — the enzyme acquires a <em>new reaction</em>, which is exactly what the neomorphic category exists for), <strong><code>LOSS_OF_FUNCTION</code></strong> for CIC/FUBP1/NOTCH1/CDKN2A, <strong><code>GAIN_OF_FUNCTION</code></strong> for TERT promoter and PIK3CA hotspots.</li>
+<li><strong>Population allele frequency:</strong> not applicable (somatic). gnomAD is the wrong database here. For <strong>rs55705857</strong>, gnomAD <em>is</em> appropriate — minor allele frequency is low (~2–5% in European ancestry, near-absent in African ancestry populations), which partly explains the ancestry skew in incidence.</li>
+<li>ClinVar/COSMIC: IDH1 R132H is COSMIC's most-catalogued glioma variant; ClinVar has somatic-oncogenicity classifications now (ClinGen/CGC/VICC oncogenicity framework rather than ACMG/AMP germline criteria — <strong>use the right framework name in the entry</strong>, it's a common miscitation).</li>
+</ul>
+<h3>Epigenetics — the actual engine</h3>
+<p>IDH-mutant gliomas are the defining example of a <strong>metabolic mutation causing a global epigenetic reprogramming event</strong>, and this is where the pathophysiology graph should spend its detail budget:</p>
+<ul>
+<li><strong>G-CIMP</strong> (glioma CpG island methylator phenotype), Noushmehr et al., <em>Cancer Cell</em> 2010 ⚠ verify PMID.</li>
+<li><strong>Turcan et al., "IDH1 mutation is sufficient to establish the glioma hypermethylator phenotype," <em>Nature</em> 2012</strong> ⚠ verify PMID — the causality demonstration, and a strong <code>IN_VITRO</code>/<code>evidence_source</code> item.</li>
+<li><strong>Flavahan et al., "Insulator dysfunction and oncogene activation in IDH mutant gliomas," <em>Nature</em> 2016</strong> ⚠ verify PMID — hypermethylation of CTCF binding sites → loss of insulation → an enhancer illegitimately activates <strong>PDGFRA</strong>. This is a beautiful, concrete, curatable mechanism node.</li>
+<li><strong>Histone hypermethylation</strong> — elevated H3K9me3, H3K27me3, H3K4me3 from KDM inhibition. Note the twist: <strong>loss of H3K27me3 is frequent in IDH1-R132H tumours but not in non-canonical IDH1/2-mutant codeleted oligodendroglioma</strong> (Japanese cohort study, PMC8138926 ⚠ verify PMID) — a nice detail for a <code>distinguishing_features</code> note, and a caution against over-generalising "IDH-mutant = uniform epigenome."</li>
+<li><strong>Oligodendroglioma-specific methylation classes</strong> exist in the DKFZ brain-tumour methylation classifier (<code>O IDH</code>), and methylation profiling is now a diagnostic modality in its own right (§10).</li>
+</ul>
+<h3>Chromosomal abnormalities</h3>
+<ul>
+<li><strong>1p/19q whole-arm codeletion</strong> — definitional (see §2).</li>
+<li><strong>CDKN2A/B homozygous deletion (9p21.3)</strong> — progression event, adverse prognosis. Frequency reaching ~11% in grade 3 ⚠ verify. Appay et al., <em>Neuro Oncol</em> 2019 ✅ <strong>PMID:31832685</strong> ("CDKN2A homozygous deletion is a strong adverse prognosis factor in diffuse malignant IDH-mutant gliomas").</li>
+<li><strong>Important curation caveat:</strong> cIMPACT-NOW/CNS5 use CDKN2A/B homozygous deletion to upgrade <strong>IDH-mutant astrocytoma to grade 4</strong>. It is <strong>not</strong> a formal grading criterion in oligodendroglioma (which caps at grade 3), even though it carries adverse prognostic weight there. Do not let a DR report blur those two.</li>
+<li>Recurrent secondary imbalances: loss of 4, 9p, 15q; gain of 7, 11q. Less stereotyped than in glioblastoma.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> ionizing radiation (established for glioma broadly; codeletion-specificity unproven). No established chemical/toxin cause. CTD will return low-quality co-mention associations here — treat with suspicion.</li>
+<li><strong>Lifestyle factors:</strong> none established. Some reports of an inverse association with higher BMI/height patterns exist but are inconsistent and I would not curate them.</li>
+<li><strong>Infectious agents:</strong> <strong>none.</strong> Explicitly not a viral tumour — do not conform this entry to <code>viral_oncogenesis</code>. CMV in glioma has been proposed repeatedly and repeatedly failed replication; if you curate it at all, curate it as <code>supports: REFUTE</code> or <code>NO_EVIDENCE</code> with a source. The atopy/varicella <em>protective</em> associations (§2) are the only immune-environment signals with legs.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Here's the causal chain, laid out the way a dismech pathograph wants it. I've suggested a <code>biological_scale</code> for each node.</p>
+<h3>The spine of the cascade</h3>
+<p><strong>Node 1 — IDH1/IDH2 neomorphic mutation</strong> (<code>MOLECULAR</code>)
+Heterozygous R132/R172 substitution in the isocitrate-binding pocket. Loses isocitrate→α-KG; gains NADPH-dependent α-KG→<strong>D-2-hydroxyglutarate</strong>.
+- GO: <em>isocitrate dehydrogenase (NADP+) activity</em> — GO:0004450 (medium-high confidence, verify); <em>tricarboxylic acid cycle</em>.
+- <code>modifier: NEOMORPHIC</code> is not a ModifierEnum value — put NEOMORPHIC on <code>GeneticContext.functional_impact_category</code>, and use <code>modifier: DECREASED</code> on the isocitrate-dehydrogenase-activity descriptor. The gained activity is best modelled as a <strong>separate node/molecular function</strong> rather than trying to jam both into one modifier. (This is exactly the "single-value discipline" split the repo asks for.)</p>
+<p><strong>Node 2 — D-2-hydroxyglutarate accumulation</strong> (<code>MOLECULAR</code> / arguably <code>ORGANISM</code> since it's measurable in tumour tissue at millimolar levels)</p>
+<blockquote>
+<p>"…mutations at this position alter the activity of the IDH1 enzyme, which converts α-ketoglutarate to R-2-hydroxyglutarate, leading to the accumulation of R-2HG at millimolar levels in tumors." — retrieved summary
+- CHEBI: <em>(R)-2-hydroxyglutarate</em> / <em>D-2-hydroxyglutaric acid</em> ⚠ look up; <em>2-oxoglutarate</em> CHEBI:16810 (high confidence).
+- Sources: <strong>Dang et al., <em>Nature</em> 2009</strong> ⚠ verify PMID (the discovery that mutant IDH1 produces 2-HG).</p>
+</blockquote>
+<p><strong>Node 3 — Competitive inhibition of α-KG-dependent dioxygenases</strong> (<code>MOLECULAR</code>)
+2-HG is a structural mimic of α-KG and jams the active site of &gt;60 enzymes: <strong>TET1/2/3</strong> (5mC→5hmC), the <strong>JmjC-domain histone demethylases (KDM)</strong>, <strong>prolyl hydroxylases</strong>, <strong>ALKBH/FTO</strong>, <strong>collagen prolyl-4-hydroxylase</strong>.</p>
+<blockquote>
+<p>"2-HG is a competitive inhibitor of multiple α-KG-dependent dioxygenases, including histone demethylases and the TET family of 5-methylcytosine (5mC) hydroxylases. 2-HG occupies the same space as α-KG does in the active site of histone demethylases." — retrieved summary of <strong>Xu et al., <em>Cancer Cell</em> 2011</strong> ⚠ verify PMID
+- The metaphor that actually helps here: 2-HG is a key that fits every lock in a whole family of enzymes and turns none of them. One metabolic typo, and sixty different maintenance crews are locked out of the building at once.</p>
+</blockquote>
+<p><strong>Node 4a — DNA hypermethylation / G-CIMP</strong> (<code>MOLECULAR</code>→<code>CELLULAR</code>)
+TET inhibition → failure to demethylate → CpG island methylator phenotype.
+- GO: <em>DNA methylation</em>; <em>negative regulation of transcription by RNA polymerase II</em>.</p>
+<p><strong>Node 4b — Histone hypermethylation</strong> (<code>MOLECULAR</code>)
+KDM inhibition → elevated H3K9me3/H3K27me3/H3K4me3 → repressive chromatin.
+- GO: <em>histone modification</em>, <em>chromatin organization</em>.</p>
+<p><strong>Node 5 — CTCF insulator dysfunction and aberrant enhancer–oncogene contact</strong> (<code>MOLECULAR</code>)
+Methylation of CTCF sites → loss of topological insulation → enhancer hijack, e.g. <strong>PDGFRA</strong> activation (Flavahan 2016 ⚠).</p>
+<p><strong>Node 6 — Block of glial differentiation / expansion of a stem-like compartment</strong> (<code>CELLULAR</code>)
+The epigenetic freeze locks cells in a progenitor-like state.
+- CL: <em>oligodendrocyte precursor cell</em>, <em>neural stem cell</em>, <em>oligodendrocyte</em>, <em>astrocyte</em> — all ⚠ verify IDs.
+- GO: <em>oligodendrocyte differentiation</em>, <em>glial cell development</em>, <em>stem cell population maintenance</em>.</p>
+<p><strong>Node 7 — CIC loss → derepression of ETV1/4/5 → RTK/RAS/MAPK output</strong> (<code>MOLECULAR</code>→<code>CELLULAR</code>)
+This is the codeletion-specific arm and the reason this entry is <em>not</em> just "IDH-mutant glioma."</p>
+<blockquote>
+<p>"The best-characterized CIC targets in mammalian cells are the oncogenic transcription factors ETV1, ETV4, and ETV5… CIC functions to transduce receptor tyrosine kinase (RTK) signalling into gene expression changes through a mechanism termed default repression, wherein CIC is bound to target gene promoters or enhancers and inhibits transcription in the absence of signal." — retrieved summary, <em>Exp Mol Med</em> 2020 review ⚠ verify PMID
+"In patient-derived oligodendroglioma cells, CIC re-expression or ETV5 blockade decreases lineage bias, proliferation, self-renewal, and tumorigenicity." — retrieved summary ⚠ verify PMID
+- CIC is a <strong>default repressor</strong> — normally sitting on ETV promoters with the brake on, released only when RTK/RAS signalling says so. Delete CIC and you've cut the brake cable; the ETV factors run continuously regardless of upstream signal. This maps cleanly onto the existing <strong><code>sustaining_proliferative_signaling</code></strong> module and, in its adaptor-proximal reading, onto <strong><code>rtk_grb2_signaling_adaptation</code></strong>.
+- GO: <em>negative regulation of transcription by RNA polymerase II</em>, <em>Ras protein signal transduction</em>, <em>ERK1 and ERK2 cascade</em>.</p>
+</blockquote>
+<p><strong>Node 8 — FUBP1 loss → dysregulated MYC and RNA metabolism</strong> (<code>MOLECULAR</code>)
+FUBP1 binds the FUSE element upstream of <strong>MYC</strong> and regulates its transcription; it also has roles in splicing and RNA binding. Its loss in oligodendroglioma is less mechanistically nailed-down than CIC's — worth a <strong><code>KNOWLEDGE_GAP</code> discussion</strong>, honestly, rather than an overconfident causal edge.</p>
+<p><strong>Node 9 — TERT promoter mutation → telomerase reactivation → replicative immortality</strong> (<code>MOLECULAR</code>→<code>CELLULAR</code>)
+C228T/C250T create de novo <strong>ETS/GABP</strong> binding motifs upstream of TERT; GABPA/B recruitment reactivates transcription of an otherwise-silenced telomerase.
+- GO: <em>telomere maintenance</em>, <em>telomerase activity</em>.
+- <strong>Direct conformance target: <code>enabling_replicative_immortality#Telomere Maintenance Reactivation</code>.</strong> This is a textbook fit.</p>
+<p><strong>Node 10 — Cell cycle / checkpoint escape</strong> (<code>CELLULAR</code>)
+CDKN2A/B homozygous deletion (in a minority, enriched at grade 3) → loss of p16INK4a → CDK4/6-cyclin D unrestrained → RB phosphorylation → S-phase entry.
+- <strong>Conformance targets: <code>evading_growth_suppressors#Loss of Cell-Cycle Checkpoint Control</code></strong>, and this is also the mechanistic rationale linking to <strong><code>cdk46_inhibitor_resistance</code></strong>'s dependency node (CDK4/6 inhibitors are under investigation here).
+- Note the counter-current: the same senescence machinery makes <strong><code>senescence_tumor_suppression</code></strong> relevant as the <em>protective</em> arm in low-grade disease.</p>
+<p><strong>Node 11 — Immune quiescence / "cold" microenvironment</strong> (<code>TISSUE</code>)
+D-2-HG is not just an epigenetic agent — it's exported and taken up by immune cells.</p>
+<blockquote>
+<p>"(R)-2-hydroxyglutarate drives immune quiescence in the tumor microenvironment of IDH-mutant gliomas" — <strong>Bunse et al., <em>Nat Med</em> 2018</strong> ⚠ verify PMID (PMC6448779 ✅ retrieved)
+- Mechanism: 2-HG taken up by T cells → inhibits <strong>ATP-dependent T-cell receptor signalling / NFAT activation</strong>, suppresses polyamine metabolism → reduced T-cell proliferation and IFN-γ. Separately, 2-HG dampens microglial activation via <strong>FTO/NF-κB</strong> (<em>Front Oncol</em> 2025 ⚠) and drives DNA hypermethylation at microglial lineage enhancers (bioRxiv 2024 — <strong>preprint, flag as such</strong>).
+- CL: <em>microglial cell</em>, <em>CD8-positive alpha-beta T cell</em>, <em>macrophage</em>.
+- This is the mechanistic explanation for why checkpoint blockade has underperformed in IDH-mutant glioma, and it's a good candidate for a <em>contrasting</em> note against the <code>immune_checkpoint_blockade</code> module rather than a conformance to it.</p>
+</blockquote>
+<p><strong>Node 12 — Diffuse infiltration and secondary structures of Scherer</strong> (<code>TISSUE</code>)
+Perineuronal satellitosis, subpial and perivascular accumulation — the tumour uses existing brain architecture as scaffolding. This is why gross total resection is anatomically impossible and why "cure" isn't the operative concept.
+- UBERON: <em>cerebral cortex</em>, <em>white matter of cerebral hemisphere</em>, <em>frontal cortex</em>.</p>
+<p><strong>Node 13 — Cortical irritation → epileptogenesis</strong> (<code>TISSUE</code>→<code>ORGANISM</code>)
+Peritumoral glutamate excess (glioma cells export glutamate via system xc−), altered GABAergic inhibition, peritumoral acidosis and altered chloride homeostasis → excitation/inhibition imbalance.
+- <strong>Conformance target: <code>epilepsy_excitation_inhibition_imbalance#Excitation-Inhibition Imbalance</code>.</strong> Strong fit and probably an under-exploited one for glioma entries generally.</p>
+<p><strong>Node 14 — Malignant progression</strong> (<code>TISSUE</code>)
+Acquisition of CDKN2A/B loss, increased mitotic activity, microvascular proliferation, necrosis → grade 3 behaviour → mass effect and neurological decline.</p>
+<h3>The tumour's own developmental hierarchy (single-cell)</h3>
+<p>The most important piece of modern biology for this entry:</p>
+<blockquote>
+<p>"…human oligodendrogliomas contain cancer cells specialized into two types of glia, as well as a rare subpopulation of cells that are undifferentiated and display a gene expression program characteristic of neural stem cells… cells displaying proliferation signatures highly enriched in this rare subpopulation, consistent with a cancer stem cell model." — <strong>Tirosh et al., <em>Nature</em> 2016</strong> ✅ <strong>PMID:27806376</strong> (4,347 single cells from six IDH-mutant tumours)</p>
+</blockquote>
+<p>Curate this as a distinct pathophysiology node — <strong>a stem-like NSC-programme subpopulation that does the proliferating, with astrocyte-like and oligodendrocyte-like differentiated progeny</strong> — with <code>evidence_source: IN_VITRO</code> (or a mix; the profiling is on human tumour tissue with functional follow-up in lines). It reframes the tumour from "a lump of one cell type" to "a small, badly-behaved developmental tree," and it directly explains why cytoreduction alone doesn't cure.</p>
+<h3>Metabolic and other omics layers</h3>
+<ul>
+<li><strong>Metabolomics:</strong> the killer signature is <strong>D-2-HG at millimolar concentration</strong>, detectable <em>in vivo</em> by MR spectroscopy (§10). Also: NAD+ dependency (IDH-mutant cells are sensitive to NAMPT inhibition), altered glutamate/glutamine handling, reduced NADPH and heightened oxidative-stress vulnerability. MetaboLights/Metabolomics Workbench will have glioma 2-HG datasets.</li>
+<li><strong>Transcriptomics:</strong> TCGA LGG (<code>tcga:LGG</code>) is the reference cohort; GEO holds the Tirosh single-cell data — <strong>Single Cell Portal study SCP12, "Oligodendroglioma intra-tumor heterogeneity"</strong> ✅ retrieved, a strong candidate for a <code>datasets:</code> record (run <code>just verify-datasets</code> regardless).</li>
+<li><strong>Proteomics:</strong> CPTAC has glioma proteogenomics; less oligodendroglioma-specific depth.</li>
+<li><strong>Functional genomics:</strong> DepMap has few true 1p/19q-codeleted models (see §15 — this is the field's central practical bottleneck).</li>
+<li><strong>DNA repair:</strong> IDH mutation induces a <strong>homologous-recombination defect ("BRCAness")</strong> via 2-HG inhibition of KDM4A/B, creating PARP-inhibitor sensitivity — a real, actively-trialled vulnerability. <strong>Conformance candidate: <code>dna_repair_synthetic_lethality#PARP and Platinum Synthetic Lethality</code>.</strong> Interestingly, there's a counter-finding that IDH1-R132H <em>upregulates</em> the DNA damage response and can act tumour-suppressively (Núñez et al., <em>Sci Transl Med</em> 2019 ⚠ verify PMID) — genuinely contested, and a good candidate for two curated <code>mechanistic_hypotheses</code> rather than one flattened claim.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level</strong>
+- Primary: <strong>brain</strong>, specifically the <strong>cerebral hemispheres</strong> (UBERON: <em>brain</em> UBERON:0000955 — high confidence; <em>cerebral hemisphere</em>, <em>telencephalon</em> ⚠ verify).
+- <strong>Frontal lobe is the strong favourite</strong> (roughly half of cases), then temporal, parietal, occipital. Posterior fossa, brainstem, and spinal cord locations are rare and should raise doubt about the diagnosis.
+- Body system: <strong>nervous system</strong> only. This tumour does not metastasise outside the CNS in any meaningful way (extraneural spread is a vanishing case-report phenomenon).
+- Secondary involvement: leptomeninges (rare, late), ventricular system → hydrocephalus (rare).</p>
+<p><strong>Tissue and cell level</strong>
+- Tissue: <strong>cerebral cortex</strong> and <strong>subcortical white matter</strong> together — the cortical–subcortical straddle is characteristic and radiologically useful (§10).
+- Cell of origin: contested but most evidence points to the <strong>oligodendrocyte precursor cell (OPC)</strong> / <strong>NG2 glia</strong> lineage, or a <strong>neural stem cell</strong> in the subventricular zone acquiring an OPC-like programme. The single-cell hierarchy work (Tirosh) supports an NSC-like apex with OPC/astrocyte-like differentiation. <strong>Curate this as a hypothesis with <code>mechanistic_hypotheses</code>, not as settled fact.</strong>
+- CL terms to look up: <em>oligodendrocyte precursor cell</em>, <em>oligodendrocyte</em> (CL:0000128, high confidence), <em>neural stem cell</em>, <em>astrocyte</em>, <em>microglial cell</em>, <em>neuron</em> (for satellitosis).</p>
+<p><strong>Subcellular level</strong>
+- <strong>Mitochondrion</strong> (IDH2 is mitochondrial; GO:0005739) and <strong>cytosol</strong> (IDH1 is cytosolic/peroxisomal; GO:0005829, GO:0005777) — a nice detail, because the same neomorphic chemistry happens in two different compartments depending on which gene is hit.
+- <strong>Nucleus / chromatin</strong> (GO:0000785 chromatin) — where the actual damage lands.
+- <strong>Telomere</strong> (GO:0000781 chromosomal telomeric region) ⚠.</p>
+<p><strong>Localization</strong>
+- <strong>Unilateral</strong> at presentation in the great majority; supratentorial; often crossing into the corpus callosum with progression. Bilateral/butterfly presentation is uncommon and more suggestive of glioblastoma.
+- UBERON: <em>frontal cortex</em>, <em>temporal lobe</em>, <em>corpus callosum</em>, <em>white matter</em> — all ⚠ verify.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset</strong>
+- Adult, median <strong>~45 years</strong> ✅ <strong>PMID:41092086</strong>. Younger than IDH-wildtype glioblastoma (median ~65) and slightly older than IDH-mutant astrocytoma.
+- Pattern: <strong>insidious</strong>. The tumour has usually been growing for years by the time it announces itself — often with a single seizure in a person who is otherwise entirely well. Volumetric studies of untreated low-grade glioma show slow, roughly linear diameter growth (~4 mm/year) during the indolent phase.
+- Paediatric/teenage cases occur but are molecularly distinct: <strong>TERT promoter mutation is typically absent</strong> in teenage-onset codeleted oligodendroglioma (0/5 cases vs 87/88 adult cases in TCGA) — retrieved from <em>Acta Neuropathol Commun</em> 2018, PMC6145350 ⚠ verify PMID. Excellent candidate for a <code>has_subtypes</code> entry or at minimum a <code>distinguishing_features</code> note.</p>
+<p><strong>Progression</strong>
+- Stages: (i) occult/indolent growth; (ii) symptomatic grade 2 disease; (iii) grade 3 progression; (iv) treatment-refractory disease. Note there is <strong>no formal AJCC/TNM stage</strong> for CNS tumours — grading substitutes for staging, which is a modelling detail worth capturing so nobody goes looking for a stage field.
+- Rate: <strong>slow</strong>, the slowest of the adult diffuse gliomas. Median overall survival in codeleted patients receiving RT+PCV is on the order of <strong>14 years</strong> (§11).
+- Course: <strong>progressive with a long plateau</strong>. Not relapsing-remitting. Malignant transformation is the rule if the patient lives long enough — the question is <em>when</em>, not <em>whether</em>.
+- Duration: <strong>chronic, lifelong</strong>, essentially never self-limited and essentially never cured. This is the framing that makes it, functionally, a chronic disease of young adults that happens to be a cancer.</p>
+<p><strong>Patterns</strong>
+- Spontaneous remission: does not occur.
+- Treatment-induced response: yes — and slowly. Radiographic response to PCV or temozolomide can continue to deepen for <strong>months to years</strong> after treatment ends, which is unusual in oncology and matters for response assessment (RANO-LGG accounts for it).
+- <strong>Critical intervention windows:</strong> (a) at diagnosis — extent of resection matters, and there is evidence that early maximal safe resection improves outcome; (b) the <strong>watch-and-wait vs early-treatment decision</strong> in asymptomatic, fully-resected young patients — historically a genuine equipoise, now being renegotiated by vorasidenib; (c) before malignant transformation — the entire logic of the IDH-inhibitor era is that intervening during the indolent phase might delay the point of no return, and might also let you defer cranial radiotherapy and its late cognitive cost.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology</strong>
+- <strong>Incidence: 0.29 per 100,000 population per year</strong> for IDH-mutant &amp; 1p/19q-codeleted oligodendroglioma, all grades (CBTRUS 2018–2022) ✅ <strong>PMID:41092086</strong>. For a dismech <code>Prevalence</code> record: <code>measure_type: ANNUAL_INCIDENCE</code>, <code>rate_per_100000: 0.29</code>, <code>population: United States</code>, <code>prevalence_class: BAND_1_9_PER_1000000</code> ⚠ (0.29/100,000 = 2.9 per million, so that band is right, but sanity-check the enum boundary yourself).
+- Oligodendrogliomas make up roughly <strong>1–2% of all primary brain tumours</strong> and ~5% of gliomas — considerably less than older histology-based series claimed, because the molecular definition pruned the category hard.
+- Prevalence is higher than incidence would suggest <em>relative to other gliomas</em>, because survival is long — a slow-burning tumour accumulates prevalent cases. Explicit point-prevalence figures are scarce; <strong>flag as a gap</strong> rather than back-calculating one.
+- <strong>Sex ratio:</strong> male predominance, <strong>43.9% female</strong> ✅ <strong>PMID:41092086</strong> — so roughly <strong>1.3:1 M:F</strong>.
+- <strong>Ancestry/ethnicity:</strong> <strong>75.4% non-Hispanic White</strong> ✅ <strong>PMID:41092086</strong>. Incidence is markedly lower in Black and Asian populations. The rs55705857 allele-frequency gradient (§4) is a plausible partial explanation — a rare case where a GWAS variant may actually account for some of an observed incidence disparity, though ascertainment differences absolutely also contribute and the entry should say so.
+- <strong>Age distribution:</strong> median 45 at diagnosis; broad 20–70 range; uncommon under 20 and over 75.
+- <strong>Geographic:</strong> no strong endemic pattern beyond what ancestry composition and diagnostic-access differences predict.</p>
+<p><strong>Inheritance</strong>
+- <strong>Not inherited.</strong> Somatic. Inheritance pattern for the tumour itself: <strong>not applicable</strong> — do not populate an <code>inheritance:</code> block with a Mendelian mode.
+- The germline <strong>susceptibility</strong> story (rs55705857 etc.) is real but polygenic/low-penetrance. If you want to model it, the right HPO anchor is <strong>Polygenic inheritance (HP:0010982)</strong> with <code>relationship_type: SUSCEPTIBILITY</code> on the gene entries — but honestly, for a somatic cancer I'd model the risk allele in <code>genetic:</code> and leave <code>inheritance:</code> empty rather than force it.
+- Penetrance, expressivity, anticipation, germline mosaicism, founder effects, carrier frequency, consanguinity: <strong>all not applicable.</strong> Say so explicitly — an empty field reads as "not yet curated," whereas an explicit N/A is information.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Imaging</h3>
+<ul>
+<li><strong>MRI</strong> is the workhorse. The classic triad, and it's genuinely useful:<blockquote>
+<p>"Lack of T2-FLAIR mismatch, cortical-subcortical involvement in frontal lobe and presence of calcification raises the possibility of an oligodendroglioma." — retrieved</p>
+</blockquote>
+</li>
+<li><strong>Absence of the T2-FLAIR mismatch sign.</strong> The mismatch sign (bright on T2, dark centrally on FLAIR) is a near-specific marker for IDH-mutant, <strong>1p/19q-INTACT</strong> astrocytoma. Its <em>absence</em> in an IDH-mutant tumour therefore argues toward oligodendroglioma. This is a lovely example of a diagnostically useful negative — but note it's a rule-<em>in</em> for astrocytoma, not a rule-in for oligodendroglioma, and shouldn't be over-claimed.</li>
+<li><strong>Calcification</strong> — strongly associated with codeletion; best seen on CT or SWI/GRE. One of the few remaining good reasons to get a CT in a brain-tumour workup.</li>
+<li><strong>Cortical–subcortical, frontal, ill-defined margins, heterogeneous, often T1-hypo/T2-hyper, variable and typically minimal enhancement at grade 2.</strong></li>
+<li><strong>MR spectroscopy for 2-HG</strong> — a genuine non-invasive molecular biomarker. 2-HG-edited MRS detects the oncometabolite in vivo (Choi et al., <em>Nat Med</em> 2012 ⚠ verify PMID). Technically demanding, not universal, but conceptually striking: you can see the mutation's product through the skull.</li>
+<li><strong>PET:</strong> amino-acid tracers (¹¹C-methionine, ¹⁸F-FET, ¹⁸F-FDOPA) outperform FDG for low-grade glioma; higher uptake correlates with grade. Perfusion MRI (rCBV) is often <em>paradoxically elevated</em> in oligodendroglioma even at grade 2 because of that dense chicken-wire capillary network — a classic trap that can make a grade 2 oligodendroglioma look high-grade on perfusion.</li>
+</ul>
+<h3>Histopathology</h3>
+<ul>
+<li>Monotonous round nuclei with perinuclear halos — the <strong>"fried egg"</strong> appearance (a formalin-fixation artifact, absent on frozen section and smears, which trips up intraoperative diagnosis).</li>
+<li><strong>Delicate branching "chicken-wire" capillary network.</strong></li>
+<li><strong>Microcalcifications</strong>, often perivascular.</li>
+<li><strong>Secondary structures of Scherer</strong>: perineuronal satellitosis, subpial and perivascular aggregation.</li>
+<li>Grade 3 features: brisk mitotic activity, microvascular proliferation, necrosis. <strong>CNS5 removed the hard "≥6 mitoses per 10 HPF" cutoff</strong> — retrieved summary — because the literature didn't support a clean threshold by mitotic count or Ki-67.</li>
+<li>IHC: <strong>IDH1 R132H-mutant-specific antibody</strong> (positive in ~90% of IDH-mutant gliomas overall, <strong>but a negative stain does NOT exclude — sequence it</strong>, especially here where non-canonical mutations are enriched); <strong>ATRX retained</strong> (loss argues astrocytoma); <strong>p53 wild-type pattern</strong> (strong diffuse nuclear p53 argues astrocytoma); <strong>OLIG2 positive</strong>; <strong>IDH1/2 + retained ATRX + no p53 overexpression</strong> is the immunophenotypic signature. Loss of CIC and FUBP1 nuclear staining can be assessed by IHC and correlates with mutation (Chan 2014 ✅ <strong>PMID:24030748</strong>).</li>
+</ul>
+<h3>Molecular testing — mandatory, not optional</h3>
+<ol>
+<li><strong>IDH1/IDH2 status</strong> — IHC first, then sequencing (Sanger/NGS) if IHC-negative, especially in patients under 55.</li>
+<li><strong>1p/19q codeletion</strong> — <strong>FISH</strong> (interphase, showing net whole-arm loss; "77% to 92% of cells" showing net loss in one reference set, retrieved), <strong>SNP array / chromosomal microarray</strong>, <strong>NGS with copy-number calling</strong>, or <strong>MLPA</strong>. <strong>Array or NGS-CNV is preferable to FISH</strong> because FISH probes interrogate a couple of loci and can be fooled by partial deletions — the exact error that turns a glioblastoma into a fake oligodendroglioma. This is a genuinely important caveat to curate.</li>
+<li><strong>TERT promoter</strong> (C228T/C250T) — supportive; near-universal in adults, absent in teenagers.</li>
+<li><strong>NGS panel</strong> — CIC, FUBP1, NOTCH1, TCF12, PIK3CA, CDKN2A/B copy number, plus a broad exclusion sweep for EGFR amplification / chromosome 7 gain + 10 loss (which would push toward IDH-wildtype glioblastoma).</li>
+<li><strong>DNA methylation profiling</strong> (EPIC array + DKFZ classifier) — increasingly a tie-breaker for ambiguous cases and now embedded in routine practice at reference centres.</li>
+<li><strong>Liquid biopsy / CSF ctDNA</strong> — emerging. CSF is far more informative than plasma for CNS tumours. Not standard of care; curate as investigational.</li>
+</ol>
+<p><strong>Germline testing:</strong> not routine. Consider only with a striking family history or syndromic features.</p>
+<h3>Clinical criteria and differential diagnosis</h3>
+<p><strong>Diagnosis is by integrated histological + molecular criteria per WHO CNS5</strong> — there is no clinical criteria set, no DSM-analogue. The differential:</p>
+<table>
+<thead>
+<tr>
+<th>Alternative</th>
+<th>How you tell it apart</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Astrocytoma, IDH-mutant</strong></td>
+<td>1p/19q <strong>intact</strong>; <strong>ATRX loss</strong>; <strong>TP53 mutation</strong>; T2-FLAIR mismatch sign often present</td>
+</tr>
+<tr>
+<td><strong>Glioblastoma, IDH-wildtype</strong></td>
+<td>IDH-wildtype; +7/−10; EGFR amplification; TERT promoter mutation <em>without</em> IDH mutation; older patients; necrosis/MVP</td>
+</tr>
+<tr>
+<td><strong>Clear cell ependymoma</strong></td>
+<td>Perivascular pseudorosettes; EMA dot-like positivity; ZFTA fusion; IDH-wildtype</td>
+</tr>
+<tr>
+<td><strong>Central neurocytoma / DNET / other clear-cell neuronal tumours</strong></td>
+<td>Synaptophysin/NeuN positive; intraventricular (neurocytoma); IDH-wildtype</td>
+</tr>
+<tr>
+<td><strong>Pilocytic astrocytoma</strong></td>
+<td>KIAA1549-BRAF fusion; Rosenthal fibres; younger; circumscribed</td>
+</tr>
+<tr>
+<td><strong>Diffuse leptomeningeal glioneuronal tumour</strong></td>
+<td>1p deletion <strong>without 19q</strong>, IDH-wildtype — a real mimic, worth naming</td>
+</tr>
+<tr>
+<td><strong>Metastasis, demyelinating lesion, abscess</strong></td>
+<td>Clinical/radiologic context</td>
+</tr>
+</tbody>
+</table>
+<p>The differential entries are strong candidates for the <code>differentials:</code> block — and per repo memory, <strong>grep the sibling KB entries for their existing MONDO IDs rather than looking up new ones.</strong></p>
+<h3>Screening</h3>
+<p><strong>No population screening exists or is justified</strong> — the incidence is far too low. No newborn screening, no carrier screening. Cascade screening not applicable. Say this explicitly.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p>This tumour has, by a wide margin, <strong>the best prognosis of the adult-type diffuse gliomas</strong> — which makes the survival numbers the most-cited facts about it.</p>
+<p><strong>Survival</strong>
+- <strong>1-year relative survival 96.5%</strong> — highest among adult-type diffuse gliomas ✅ <strong>PMID:41092086</strong>.
+- <strong>5-year relative survival ~74%</strong> (all grades, oligodendroglioma) ⚠ verify against the CBTRUS table directly rather than a secondary source.
+- <strong>Median overall survival with RT + PCV in codeleted patients: ~13–14 years.</strong></p>
+<blockquote>
+<p>"In EORTC 26951, median survival was 3.5 years with PCV versus 2.6 years without PCV, with 1p/19q codeletion showing <strong>14.2 years with PCV versus 9.3 years without</strong>. In RTOG 9402, median survival was 4.8 years in both arms for the overall population, but with codeletion showed <strong>13.2 years with PCV versus 7.3 years without</strong>." — retrieved from the joint final report
+"There was a <strong>40% reduction in the risk of death</strong> in both trials from adding PCV to RT in patients with 1p19q codeleted tumors… estimated PFS and OS probabilities at 20 years from random assignment of <strong>30% and 35%</strong>, respectively." — retrieved
+  - Sources: <strong>Cairncross et al., RTOG 9402 long-term, <em>JCO</em> 2013</strong> ⚠ verify PMID; <strong>van den Bent et al., EORTC 26951 long-term, <em>JCO</em> 2013</strong> ⚠ verify PMID; <strong>Lassman et al., "Joint Final Report of EORTC 26951 and RTOG 9402," <em>JCO</em> 2022</strong> ⚠ verify PMID (<strong>PMC9362869</strong> ✅ retrieved).
+- The 20-year survival figure is the one to lead with. <strong>A third of these patients are alive 20 years after randomisation.</strong> That reframes the whole entry: this is not primarily a survival problem, it's a <em>long-term-toxicity-and-function</em> problem.</p>
+</blockquote>
+<p><strong>Mortality / morbidity</strong>
+- Deaths are overwhelmingly <strong>disease-specific</strong>, following malignant progression.
+- The dominant morbidity in long survivors: <strong>late neurocognitive decline</strong> (radiotherapy-attributable in significant part), <strong>chronic epilepsy</strong>, endocrine dysfunction from hypothalamic-pituitary irradiation, secondary malignancy risk from alkylators and RT, and <strong>PCV-specific toxicity</strong> (myelosuppression, vincristine peripheral neuropathy, procarbazine intolerance) — PCV is a hard regimen and a substantial fraction of patients don't complete it.
+- <strong>Toxicity module conformance candidates:</strong> <code>myelosuppression#Multilineage Peripheral Cytopenias</code> (PCV/temozolomide) and <code>peripheral_axonal_degeneration#Distal Axonal Degeneration and Demyelination</code> (vincristine). These are legitimately curatable and are exactly the "side effect as mechanism" pattern the toxicity modules exist for.</p>
+<p><strong>Prognostic factors</strong>
+- <strong>Favourable:</strong> 1p/19q codeletion (the single strongest), IDH mutation, younger age, high KPS, grade 2 vs 3, greater extent of resection, frontal location, TERT promoter mutation (favourable <em>within</em> IDH-mutant gliomas ⚠ verify — this one is counterintuitive since TERT mutation is adverse in IDH-wildtype tumours, so cite carefully).
+- <strong>Adverse:</strong> <strong>CDKN2A/B homozygous deletion</strong> ✅ <strong>PMID:31832685</strong>; <strong>CIC mutation</strong> (associated with unfavourable survival in codeleted tumours — retrieved summary, and loss of CIC/FUBP1 expression associated with shorter time to recurrence ✅ <strong>PMID:24030748</strong>); higher grade; older age; incomplete resection.
+- Note the tidy irony: CIC mutation is near-defining of the entity <em>and</em> adverse within it. Both statements are true and the entry should carry both without smoothing them together.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>The standard-of-care spine</h3>
+<p><strong>1. Maximal safe surgical resection</strong>
+First move for essentially everyone with accessible disease. Extent of resection correlates with outcome. Awake craniotomy with language/motor mapping is standard for eloquent-area tumours. Cure is not the goal; cytoreduction, tissue for diagnosis, and seizure control are.
+- NCIT: <strong>NCIT:C15329</strong> Surgical Procedure, or a more specific craniotomy/tumour-resection term ⚠ look up. <code>therapeutic_modality: SURGERY</code>.</p>
+<p><strong>2. Radiotherapy + PCV (the long-established regimen)</strong>
+For grade 3 disease, and for grade 2 disease with high-risk features (age &gt;40, subtotal resection, symptomatic).
+- <strong>PCV = Procarbazine + Lomustine (CCNU) + Vincristine.</strong> This is a <strong>named regimen</strong> and should use the <code>regimen_term</code> slot with the NCIT "PCV regimen" concept ⚠ look up under NCIT:C15697/C62634 reachability, plus <code>therapeutic_agent</code> entries for the three drugs (CHEBI: procarbazine ⚠, lomustine ⚠, vincristine ⚠ — verify each with <code>runoak -i sqlite:obo:chebi</code>).
+- <code>treatment_term</code>: <strong>NCIT:C15632</strong> Chemotherapy. <code>therapeutic_modality: SMALL_MOLECULE</code>.
+- Radiotherapy: <strong>NCIT:C15313</strong> Radiation Therapy, <code>therapeutic_modality: RADIOTHERAPY</code>. Typical dose 54 Gy (grade 2) to 59.4 Gy (grade 3) in 1.8–2 Gy fractions; see the <strong>ESTRO-EANO 2024 target-delineation guideline</strong> ⚠ verify PMID.
+- Evidence: RTOG 9402 / EORTC 26951 as above. This is one of the best-evidenced treatment recommendations in all of neuro-oncology.</p>
+<p><strong>3. Temozolomide — and an important negative</strong>
+Widely used as a gentler alternative to PCV, especially in frail patients or where PCV toxicity is prohibitive. <strong>But the direct evidence does not support substituting TMZ monotherapy for radiotherapy:</strong></p>
+<blockquote>
+<p>"Progression-free survival (PFS) was significantly shorter in temozolomide-alone patients compared with RT patients (hazard ratio = 3.12; 95% CI: 1.26, 7.69; P = 0.014)." — CODEL trial initial design analysis, <em>Neuro-Oncology</em> 2021 ⚠ verify PMID
+The accompanying editorial was titled "<strong>Early results from the CODEL trial for anaplastic oligodendrogliomas: is temozolomide futile?</strong>" ⚠ verify PMID — which tells you the field's mood. <strong>Curate the RT-vs-TMZ comparison as a REFUTE/PARTIAL evidence item on the TMZ-monotherapy treatment</strong>, not as a bland "TMZ is used." A well-curated negative result is worth more here than another affirmative.
+- CHEBI: temozolomide <strong>CHEBI:72564</strong> (medium-high confidence ⚠).</p>
+</blockquote>
+<p><strong>4. Vorasidenib — the era-defining new drug</strong>
+Oral, <strong>brain-penetrant dual inhibitor of mutant IDH1 and IDH2</strong>. This is the first therapy that attacks the founding lesion rather than the downstream mass.
+- <strong>INDIGO, phase 3, randomised, double-blind, placebo-controlled</strong>, 331 patients with residual/recurrent grade 2 IDH-mutant glioma (astrocytoma or oligodendroglioma), no prior chemo/RT. Randomised 168 vorasidenib / 163 placebo.</p>
+<blockquote>
+<p>"In patients with grade 2 IDH-mutant glioma, vorasidenib significantly prolonged progression-free survival and delayed time to next intervention with a predominantly low-grade safety profile." — <strong>Mellinghoff et al., <em>NEJM</em> 2023</strong> ✅ <strong>PMID:37272516</strong>
+- <strong>FDA approved August 2024</strong> for grade 2 astrocytoma or oligodendroglioma with a susceptible IDH1/IDH2 mutation, <strong>age 12 and older, following surgery</strong>.
+- <strong>Secondary and exploratory endpoints published 2025</strong> in <em>Lancet Oncology</em> ✅ <strong>PMID:41175888</strong> — worth fetching, as it covers seizure and quality-of-life outcomes, which is exactly the outcome domain that matters for this disease.
+- Key toxicity: <strong>transaminase elevation</strong> (ALT/AST), requiring LFT monitoring — a <code>drug_induced_liver_injury</code> conformance candidate, though the injury here is generally mild/reversible so don't over-claim the full hepatocyte-death cascade.
+- <code>therapeutic_modality: SMALL_MOLECULE</code>; <code>treatment_term</code>: <strong>NCIT:C93352</strong> Targeted Therapy or <strong>NCIT:C15986</strong> Pharmacotherapy; <code>therapeutic_agent</code>: NCIT vorasidenib concept ⚠ look up (CHEBI may not have it — per the repo's own memory, NCIT drug terms often fail <code>therapeutic_agent</code> validation, so <strong>check whether CHEBI has a vorasidenib entry first and be ready to fall back to a free-text <code>preferred_term</code></strong>).
+- <strong><code>target_mechanisms</code> pattern:</strong> vorasidenib <code>INHIBITS</code> the <strong>IDH neomorphic activity / D-2-HG production</strong> node. That's a clean, evidence-bearing drug→mechanism edge and one of the best-justified in the whole entry.
+- <strong>Open question worth a <code>KNOWLEDGE_GAP</code>:</strong> INDIGO enrolled grade 2 tumours only; benefit in grade 3, and overall-survival benefit at all (PFS was the primary endpoint, and this is a disease where median OS is over a decade — OS data will take many years), remain unproven. Also, patient selection is contested; see "Vorasidenib in IDH1/2-mutant low-grade glioma: the grey zone of patient's selection" (PMC10809174 ⚠).</p>
+</blockquote>
+<p><strong>5. Antiseizure medication</strong>
+Not adjunctive trivia — for many patients this <em>is</em> the daily treatment. Levetiracetam is typical first-line (non-enzyme-inducing, so it doesn't perturb chemotherapy pharmacokinetics — an important interaction: enzyme-inducing ASMs like phenytoin and carbamazepine accelerate metabolism of several chemotherapeutics and should be avoided). Worth a curated treatment entry with <code>target_mechanisms</code> pointing at the epileptogenesis node.</p>
+<p><strong>6. Supportive care</strong>
+Corticosteroids (dexamethasone) for peritumoral oedema — use sparingly given long survival and cumulative steroid toxicity. Neuro-rehabilitation, neuropsychology, driving/occupational counselling. <strong>NCIT:C15747</strong> Supportive Care.</p>
+<h3>Investigational</h3>
+<ul>
+<li><strong>Safusidenib</strong> (mutant-IDH1-selective): phase 2 in treatment-naive grade 2 IDH1-mutant glioma reported <strong>ORR 44.4%, clinical benefit rate 81.5%</strong> per RANO-LGG (<em>Neuro-Oncology</em>, late 2025) ⚠ verify PMID; the <strong>SIGMA</strong> study has been amended into a <strong>pivotal phase 3</strong> — though the announced phase 3 focus is <strong>IDH1-mutant astrocytoma</strong>, so read carefully before asserting oligodendroglioma applicability.</li>
+<li><strong>Ivosidenib</strong> (IDH1-selective, approved in AML/cholangiocarcinoma): perioperative phase 1 in low-grade glioma alongside vorasidenib ⚠ (PMC10803248 retrieved as an author-correction record — fetch the primary paper).</li>
+<li><strong>IDH1-R132H peptide vaccine (IDH1-vac / NOA-16).</strong> Landmark concept: the mutation is a <strong>public neoantigen</strong> — one identical epitope shared across patients, which is about as close to an off-the-shelf cancer vaccine target as oncology gets.</li>
+<li><strong>Platten et al., <em>Nature</em> 2021</strong> ✅ <strong>PMID:33762734</strong> — first-in-human phase 1, 33 patients, safe and immunogenic.</li>
+<li><strong>Final 8-year analysis published July 2026 in <em>Nature Cancer</em></strong> ⚠ verify PMID: 8-year PFS 0.42, OS 0.66; grade IV astrocytoma participants reached median OS 106.1 months. <strong>Caveat that matters for this entry: NOA-16 enrolled IDH1-R132H+ <em>astrocytomas</em>, not oligodendrogliomas.</strong> Curate as adjacent/investigational with the population explicitly stated — this is precisely the kind of claim a DR report will over-generalise.</li>
+<li><strong>AMPLIFY-NEOVAC</strong>: IDH1-vac + anti-PD-L1 combination, phase 1 ⚠ verify PMID (PMC9125855).</li>
+<li><strong>PARP inhibitors</strong> exploiting IDH-mutant "BRCAness"; <strong>CDK4/6 inhibitors</strong> for CDKN2A-deleted tumours; <strong>NAMPT/NAD+ pathway inhibitors</strong>; <strong>glutaminase inhibitors</strong>; <strong>checkpoint blockade</strong> (disappointing so far, and §6 Node 11 explains why).</li>
+</ul>
+<h3>Treatment strategy</h3>
+<ul>
+<li><strong>Grade 2, young, gross-total resection, asymptomatic:</strong> historically observation with serial MRI. Now genuinely in flux — vorasidenib is FDA-approved precisely for this post-surgical setting, and the 2025 ASCO-SNO guideline addresses when to apply it ⚠ verify the guideline citation.</li>
+<li><strong>Grade 2 with high-risk features, or grade 3:</strong> RT + PCV remains the evidence-standard.</li>
+<li><strong>The core strategic tension</strong> (state this explicitly in the entry, it's the clinical heart of the disease): with median survival past 13 years, <strong>when</strong> you deploy radiotherapy determines how much of a patient's remaining decades are spent with radiation-induced cognitive decline. Every treatment decision is a trade between tumour control now and brain function in 2040. IDH inhibitors are attractive largely because they offer a way to <em>defer</em> that bill.</li>
+<li><strong>Personalized medicine:</strong> already fully genotype-driven — the diagnosis <em>is</em> a genotype, and IDH-inhibitor eligibility is a genotype. Resources: OncoKB, CIViC, My Cancer Genome.</li>
+<li><strong>Pharmacogenomics:</strong> no strong glioma-specific PGx. <strong>MGMT promoter methylation</strong> is prognostic/predictive in glioblastoma; in IDH-mutant codeleted tumours MGMT methylation is near-universal (it travels with G-CIMP) and therefore <strong>loses discriminatory value</strong> — a common and citable misconception worth heading off in <code>notes</code>.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>Short section, and the honesty is the content.</p>
+<ul>
+<li><strong>Primary prevention: none exists.</strong> No modifiable risk factor of established effect. The only actionable item is <strong>avoiding unnecessary diagnostic/therapeutic cranial irradiation</strong>, particularly in children — which is general radiation-protection practice, not oligodendroglioma prevention.</li>
+<li><strong>Secondary prevention / screening: not indicated.</strong> Incidence far too low for population screening; no screening test exists; screening asymptomatic adults with MRI would produce overwhelming false-positive and incidentaloma harm.</li>
+<li><strong>Tertiary prevention</strong> — this is where the real content is:</li>
+<li><strong>Seizure prevention</strong> with antiseizure medication (the highest-yield intervention for daily function).</li>
+<li><strong>Surveillance MRI</strong> on a defined schedule to catch progression while still treatable.</li>
+<li><strong>Neurocognitive surveillance</strong> and rehabilitation.</li>
+<li><strong>Late-effects monitoring</strong>: endocrine (pituitary axis post-RT), secondary malignancy, cerebrovascular disease post-RT.</li>
+<li>Prophylactic ASM in patients who have <em>never</em> seized is <strong>not</strong> recommended — the evidence doesn't support it and the drugs have costs. A good curatable negative recommendation.</li>
+<li><strong>Immunization:</strong> not applicable (no vaccine-preventable cause; the IDH1 vaccine is <em>therapeutic</em>, not preventive — don't let those two get conflated in the entry).</li>
+<li><strong>Genetic counselling:</strong> not routine. rs55705857 carrier status is <strong>not</strong> clinically actionable and should not be tested for outside research. This deserves an explicit statement, because a 9-fold relative risk sounds alarming until you multiply it by a baseline incidence of 0.29/100,000.</li>
+<li><strong>Public health / environmental interventions:</strong> none applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Genuinely interesting, and better-supported than you'd expect.</p>
+<ul>
+<li><strong>Taxonomy:</strong> <em>Canis lupus familiaris</em> (<strong>NCBITaxon:9615</strong> ⚠ verify) is the important one. Also reported in <em>Felis catus</em> (NCBITaxon:9685 ⚠), cattle, and horses, but dogs dominate.</li>
+<li><strong>Naturally occurring canine oligodendroglioma is a real and relatively common spontaneous tumour</strong> — gliomas are among the commonest primary canine brain tumours, and oligodendroglioma is the most frequent glioma subtype in dogs.</li>
+<li><strong>Breed predisposition:</strong> strongly enriched in <strong>brachycephalic breeds</strong> — Boxer, Boston Terrier, French Bulldog, English Bulldog. VBO has breed terms for all of these ⚠ look up. The brachycephalic skull conformation is a genuine, heritable predisposing factor, which makes dog glioma a natural experiment you cannot run in humans.</li>
+<li><strong>Comparative pathology and the crucial caveat:</strong> canine gliomas are histologically convincing mimics — and the T2-FLAIR mismatch sign has even been validated as an imaging biomarker in dogs:<blockquote>
+<p>"The T2-FLAIR mismatch sign as an imaging biomarker for oligodendrogliomas in dogs" — <em>J Vet Intern Med</em> (PMC10365042 ✅ retrieved) ⚠ verify PMID.</p>
+</blockquote>
+</li>
+</ul>
+<p><strong>But — and this is the load-bearing difference — canine gliomas are largely IDH-wildtype and do not carry the 1p/19q codeletion.</strong> Dog and human genomes don't share the synteny that would make a 1p/19q codeletion meaningful, and IDH1 R132 mutations are rare in canine glioma. So the dog is an excellent model of <em>glioma biology, infiltration, and imaging</em>, and a <strong>poor model of this specific molecular entity</strong>. If you curate canine oligodendroglioma as an <code>animal_models:</code> entry, the honest link is <code>PARTIALLY_RECAPITULATES</code> at best, with <code>fidelity: LOW-MODERATE</code> and <code>limitations</code> spelling out the IDH/1p19q divergence.
+- <strong>Orthologous genes:</strong> IDH1, IDH2, CIC, FUBP1, TERT are all conserved across mammals (NCBI Gene / Alliance of Genome Resources will give the orthologue IDs). Note that <strong>mouse Tert promoter regulation differs substantially from human</strong> — murine cells maintain telomerase far more readily, which is one reason TERT-promoter biology doesn't model well in mice.
+- <strong>Zoonotic potential:</strong> none. Not transmissible. (The transmissible cancers — canine transmissible venereal tumour, Tasmanian devil facial tumour — are a different and unrelated phenomenon.)
+- <strong>Resource:</strong> <strong>OMIA</strong> (Online Mendelian Inheritance in Animals) has canine glioma entries; the Canine Comparative Oncology and Genomics Consortium and NCI's Comparative Brain Tumor Consortium run dog glioma trials as parallel-track studies to human trials.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Here is the uncomfortable truth, and it should be curated as a <strong><code>HUMAN_MODEL_MISMATCH</code> discussion</strong>, not buried:</p>
+<blockquote>
+<p><strong>There is no faithful model of 1p/19q-codeleted oligodendroglioma.</strong></p>
+</blockquote>
+<p>The reasons are structural, not for want of trying:
+1. <strong>The codeletion cannot be reproduced in mouse.</strong> Human 1p and 19q genes are scattered across several mouse chromosomes — there is no syntenic block to delete. You could engineer <em>Cic</em> and <em>Fubp1</em> loss, but not the whole-arm dosage event, and it's plausible the dosage event matters beyond those two genes.
+2. <strong>Mutant IDH1 is growth-<em>suppressive</em> in most engineered systems.</strong> Expressing IDH1-R132H in neural progenitors often reduces proliferation rather than driving tumours; whole-organism knock-in is frequently lethal or produces haemorrhage rather than glioma. There's even a formal claim that it acts as a tumour suppressor via DNA-damage-response upregulation (<strong>Núñez et al., <em>Sci Transl Med</em> 2019</strong> ⚠ verify PMID). The tumour needs the mutation, but the mutation alone doesn't build the tumour.
+3. <strong>Human oligodendroglioma cells are notoriously hard to culture.</strong> They lose the codeletion or fail to establish. The field ran on essentially <strong>two cell lines for a decade</strong>: <strong>BT054</strong> and <strong>BT088</strong>, reported in "Oligodendroglioma cell lines containing t(1;19)(q10;p10)" ✅ <strong>PMID:20388696</strong> — and even these have been questioned for drift and for whether they retain the full genotype. Two lines is not a model system, it's a rumour.</p>
+<p><strong>What actually exists:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>What it captures</th>
+<th>Limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BT054, BT088</strong></td>
+<td>Human cell lines with t(1;19)(q10;p10) ✅ PMID:20388696</td>
+<td>Genuine codeletion + IDH1 mutation</td>
+<td>Very few lines; drift; slow growth; questioned authenticity — check <strong>Cellosaurus</strong> before use</td>
+</tr>
+<tr>
+<td><strong>Diffusely infiltrative xenograft with FUBP1/CIC/IDH1 mutations</strong></td>
+<td>PDX ⚠ (PMC3602110)</td>
+<td>Infiltrative growth pattern <em>and</em> the right genotype</td>
+<td>Single model; immunocompromised host removes the immune arm, which §6 Node 11 says is central</td>
+</tr>
+<tr>
+<td><strong>IDH1-R132H + Tp53 + Atrx loss + NRAS-G12V GEMM</strong></td>
+<td>Genetically engineered mouse ⚠</td>
+<td>IDH-mutant gliomagenesis</td>
+<td>This is an <strong>astrocytoma-genotype</strong> model (TP53/ATRX). <code>FAILS_TO_RECAPITULATE</code> the oligodendroglioma lineage — a legitimate, citable negative link</td>
+</tr>
+<tr>
+<td><strong>Cic conditional knockout mice</strong></td>
+<td>GEMM</td>
+<td>CIC→ETV derepression, NSC proliferation and lineage bias — retrieved: "Capicua regulates neural stem cell proliferation and lineage specification through control of Ets factors" ⚠ verify PMID (PMC6494820)</td>
+<td>No codeletion, no IDH mutation; models one arm only</td>
+</tr>
+<tr>
+<td><strong>Patient-derived organoids / hiPSC-derived neural models</strong></td>
+<td>In vitro NAM</td>
+<td>Human genetic background; tractable for CRISPR</td>
+<td>Nascent for this entity; codeletion still not engineerable</td>
+</tr>
+<tr>
+<td><strong>Mutant-IDH1 expression in astrocytes / NSCs</strong></td>
+<td>In vitro</td>
+<td>G-CIMP establishment (Turcan 2012 ⚠)</td>
+<td>Not a tumour model — models the epigenetic step, which is exactly what it should be linked to</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Curation guidance:</strong> model the strong ones as <code>experimental_models:</code> (cell lines, organoids, iPSC — these are <strong>not</strong> <code>animal_models:</code>) and the mouse/dog ones as <code>animal_models:</code>, each with <code>modeled_mechanisms</code> linking to specific nodes. Use <strong><code>FAILS_TO_RECAPITULATE</code></strong> where honest — the astrocytoma-genotype GEMM against an oligodendroglioma-lineage node is a textbook case, and per repo policy that requires both <code>limitations</code> and <code>evidence</code>, which is fine because the literature says it plainly. The overall "no faithful model exists" claim belongs in a <strong><code>HUMAN_MODEL_MISMATCH</code> discussion</strong> with a <code>prompt</code> phrased as a question and <code>proposed_experiments</code> (engineered syntenic dosage models; conditional Cic/Fubp1 loss on an Idh1-R132H background in an OPC-lineage driver; expanded PDX panels from the codeleted population).</p>
+<p><strong>Databases:</strong> MGI, IMPC, Alliance of Genome Resources, Cellosaurus (for BT054/BT088 provenance), DepMap (thin here), Jackson Labs PDX resources, and the NCI <strong>Comparative Brain Tumor Consortium</strong> for the canine track.</p>
+<hr />
+<h2>Appendix A — Suggested dismech module conformance</h2>
+<p>Given the module inventory, this entry is a strong multi-hallmark conformer. Candidates, roughly ranked by how defensible each is:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Node</th>
+<th>Confidence</th>
+<th>Basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabling_replicative_immortality</code></td>
+<td><code>#Telomere Maintenance Reactivation</code></td>
+<td><strong>High</strong></td>
+<td>TERT promoter mutation in ~98% of adult cases; textbook fit</td>
+</tr>
+<tr>
+<td><code>evading_growth_suppressors</code></td>
+<td><code>#Loss of Cell-Cycle Checkpoint Control</code></td>
+<td><strong>Medium-high</strong></td>
+<td>CDKN2A/B homozygous deletion — but only a minority of cases, so scope the node to the progression arm</td>
+</tr>
+<tr>
+<td><code>deregulated_cellular_energetics</code></td>
+<td><code>#Aerobic Glycolysis (Warburg Effect)</code></td>
+<td><strong>Medium</strong></td>
+<td>The metabolic rewiring here is IDH/2-HG-centred, which is <em>not</em> straightforwardly the Warburg pattern. Read the module before asserting; a forced fit here would be worse than none</td>
+</tr>
+<tr>
+<td><code>sustaining_proliferative_signaling</code></td>
+<td><code>#Constitutive Mitogenic Pathway Activation</code></td>
+<td><strong>Medium-high</strong></td>
+<td>CIC loss → ETV1/4/5 derepression → RAS-MAPK output; also PIK3CA</td>
+</tr>
+<tr>
+<td><code>epilepsy_excitation_inhibition_imbalance</code></td>
+<td><code>#Excitation-Inhibition Imbalance</code></td>
+<td><strong>High</strong></td>
+<td>The presenting phenotype in 60–90%; peritumoral glutamate/GABA mechanism is well described</td>
+</tr>
+<tr>
+<td><code>dna_repair_synthetic_lethality</code></td>
+<td><code>#PARP and Platinum Synthetic Lethality</code></td>
+<td><strong>Medium</strong></td>
+<td>IDH-mutant "BRCAness" is real but the therapeutic arm is investigational; and there's a contradicting DDR-<em>upregulation</em> claim. Curate as a hypothesis with both sides</td>
+</tr>
+<tr>
+<td><code>genome_instability_mutation</code></td>
+<td><code>#Mutator Phenotype and Chromosomal Instability</code></td>
+<td><strong>Low-medium</strong></td>
+<td>These tumours are actually relatively <strong>genomically quiet</strong> compared with glioblastoma. Don't reach</td>
+</tr>
+<tr>
+<td><code>myelosuppression</code></td>
+<td><code>#Multilineage Peripheral Cytopenias</code></td>
+<td><strong>High</strong> (for the PCV treatment arm)</td>
+<td>Well-documented dose-limiting toxicity</td>
+</tr>
+<tr>
+<td><code>peripheral_axonal_degeneration</code></td>
+<td><code>#Distal Axonal Degeneration and Demyelination</code></td>
+<td><strong>High</strong> (vincristine arm)</td>
+<td>Classic vincristine neuropathy</td>
+</tr>
+<tr>
+<td><code>immune_checkpoint_blockade</code></td>
+<td>—</td>
+<td><strong>Do not conform</strong></td>
+<td>The 2-HG immune-quiescence biology is a <em>contrast</em> to this module, not an instance of it. Worth an explicit note</td>
+</tr>
+<tr>
+<td><code>viral_oncogenesis</code></td>
+<td>—</td>
+<td><strong>Do not conform</strong></td>
+<td>Not a viral tumour</td>
+</tr>
+</tbody>
+</table>
+<h2>Appendix B — Suggested <code>mechanistic_hypotheses</code> and <code>discussions</code></h2>
+<ol>
+<li><strong>Cell of origin</strong> — OPC/NG2 glia vs. SVZ neural stem cell. Genuinely open; the single-cell hierarchy work constrains but doesn't settle it. Two hypothesis groups, both <code>EMERGING</code>/<code>ALTERNATIVE</code>.</li>
+<li><strong>What 1p/19q codeletion actually does beyond CIC and FUBP1</strong> — the two named genes don't obviously account for the whole-arm dosage effect or the tumour's distinctive biology. <code>KNOWLEDGE_GAP</code>.</li>
+<li><strong>IDH1-R132H: oncogenic driver or partial tumour suppressor?</strong> — Núñez 2019 vs. the mainstream driver model. Two competing curated hypotheses, not one flattened claim.</li>
+<li><strong><code>HUMAN_MODEL_MISMATCH</code>: no model reproduces the codeletion</strong> — as detailed in §15. This is the cleanest, most necessary discussion item in the whole entry.</li>
+<li><strong>Does IDH inhibition delay malignant transformation, or merely delay radiographic progression?</strong> — INDIGO's endpoint was PFS; the disease's median survival is &gt;13 years. <code>KNOWLEDGE_GAP</code> with a stated experimental resolution (long-term follow-up, OS analysis).</li>
+<li><strong>Teenage-onset codeleted oligodendroglioma lacking TERT mutation</strong> — a possible distinct biological subgroup. Could be <code>has_subtypes</code> or a <code>KNOWLEDGE_GAP</code> depending on how strong the source turns out to be.</li>
+</ol>
+<h2>Appendix C — First moves when you start curating</h2>
+<pre><code class="language-bash"># 1. NEC preflight on any DR report (expect SKIP — this is somatic; do the manual read)
+just preflight-dr research/&lt;report&gt;.md MONDO:XXXXXXX
+
+# 2. Fetch every PMID before writing a single evidence block
+just fetch-reference PMID:37272516   # INDIGO NEJM
+just fetch-reference PMID:41175888   # INDIGO secondary endpoints
+just fetch-reference PMID:21817013   # Bettegowda CIC/FUBP1
+just fetch-reference PMID:22072542   # Yip CIC/IDH/1p19q
+just fetch-reference PMID:24030748   # Chan CIC/FUBP1 prognosis
+just fetch-reference PMID:27806376   # Tirosh single-cell
+just fetch-reference PMID:41092086   # CBTRUS 2018-2022
+just fetch-reference PMID:31832685   # Appay CDKN2A
+just fetch-reference PMID:17021403   # Jenkins der(1;19)
+just fetch-reference PMID:20388696   # BT054/BT088 cell lines
+just fetch-reference PMID:33762734   # Platten IDH1 vaccine
+
+# 3. Verify EVERY ontology term before it lands
+just validate-terms kb/disorders/&lt;Slug&gt;.yaml
+
+# 4. Fast snippet check after each edit (seconds, offline)
+just count-verified-snippets kb/disorders/&lt;Slug&gt;.yaml
+
+# 5. Once, before the PR — the batched sweep CI runs
+just validate-disorders kb/disorders/&lt;Slug&gt;.yaml
+</code></pre>
+<p>Two things I'd watch for specifically in this entry: <strong>titles-as-snippets</strong> (a lot of the landmark papers here have result-stating titles, which is tempting and mostly still wrong — quote the abstract's own sentence), and <strong>cohort blending</strong> (any figure drawn from "anaplastic oligodendroglioma" or "low-grade glioma" literature needs its codeletion-status denominator checked before it becomes a frequency band).</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41092086/">CBTRUS Statistical Report: Primary Brain and Other CNS Tumors Diagnosed in the US 2018–2022 (PubMed)</a> — PMID:41092086</li>
+<li><a href="https://academic.oup.com/neuro-oncology/article/27/Supplement_4/iv1/8285946">CBTRUS Statistical Report 2018–2022 (Neuro-Oncology)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37272516/">Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma (INDIGO, NEJM 2023)</a> — PMID:37272516</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41175888/">INDIGO secondary and exploratory endpoints (Lancet Oncology 2025)</a> — PMID:41175888</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21817013/">Mutations in CIC and FUBP1 Contribute to Human Oligodendroglioma (Science 2011)</a> — PMID:21817013</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22072542/">Concurrent CIC mutations, IDH mutations, and 1p/19q loss distinguish oligodendrogliomas from other cancers</a> — PMID:22072542</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24030748/">Loss of CIC and FUBP1 expressions are potential markers of shorter time to recurrence</a> — PMID:24030748</li>
+<li><a href="https://www.nature.com/articles/s12276-020-0411-3">Regulation and function of capicua in mammals (Exp Mol Med 2020)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6494820/">Capicua regulates neural stem cell proliferation and lineage specification through control of Ets factors</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17021403/">Identification of der(1;19)(q10;p10) in five oligodendrogliomas (JNEN 2006)</a> — PMID:17021403</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20388696/">Oligodendroglioma cell lines containing t(1;19)(q10;p10) (Neuro-Oncology 2010)</a> — PMID:20388696</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27806376/">Single-cell RNA-seq supports a developmental hierarchy in human oligodendroglioma (Nature 2016)</a> — PMID:27806376</li>
+<li><a href="https://singlecell.broadinstitute.org/single_cell/study/SCP12/oligodendroglioma-intra-tumor-heterogeneity">Oligodendroglioma intra-tumor heterogeneity — Single Cell Portal SCP12</a></li>
+<li><a href="https://www.cell.com/cancer-cell/fulltext/S1535-6108(10)00527-1">Oncometabolite 2-Hydroxyglutarate Is a Competitive Inhibitor of α-Ketoglutarate-Dependent Dioxygenases (Cancer Cell)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8464856/">D-2-Hydroxyglutarate in Glioma Biology (review)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6448779/">(R)-2-hydroxyglutarate drives immune quiescence in the tumor microenvironment of IDH-mutant gliomas</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9362869/">Joint Final Report of EORTC 26951 and RTOG 9402 (JCO 2022)</a></li>
+<li><a href="https://ascopubs.org/doi/10.1200/JCO.2012.43.2674">Phase III Trial of Chemoradiotherapy for Anaplastic Oligodendroglioma: Long-Term Results of RTOG 9402 (JCO)</a></li>
+<li><a href="https://www.esmo.org/oncology-news/long-term-survival-in-a-significant-proportion-of-patients-with-a-1p-19q-codeleted-anaplastic-oligodendroglioma">Long-Term Survival in a Significant Proportion of Patients with 1p/19q Codeleted Anaplastic Oligodendroglioma (ESMO)</a></li>
+<li><a href="https://academic.oup.com/neuro-oncology/article/23/3/457/5873253">CODEL: phase III study of RT, RT+TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33560350/">Early results from the CODEL trial: is temozolomide futile?</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31832685/">CDKN2A homozygous deletion is a strong adverse prognosis factor in diffuse malignant IDH-mutant gliomas</a> — PMID:31832685</li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6145350/">Oligodendrogliomas arising during teenage years often lack TERT promoter mutation</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33228806/">TERT promoter mutation confers favorable prognosis regardless of 1p/19q status in IDH1/2-mutant gliomas</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJMoa1407279">Glioma Groups Based on 1p/19q, IDH, and TERT Promoter Mutations in Tumors (NEJM 2015)</a></li>
+<li><a href="https://academic.oup.com/neuro-oncology/article/25/7/1366/7076931">Deciphering gliomagenesis from genome-wide association studies (Neuro-Oncology 2023)</a></li>
+<li><a href="https://www.science.org/doi/10.1126/science.abj2890">A noncoding single-nucleotide polymorphism at 8q24 drives IDH1-mutant glioma formation (Science 2022)</a></li>
+<li><a href="https://academic.oup.com/neuro-oncology/article/25/7/1355/6948143">Australian GWAS confirms higher female risk for adult glioma associated with CCDC26 variants</a></li>
+<li><a href="https://www.science.org/doi/10.1126/scitranslmed.aaq1427">IDH1-R132H acts as a tumor suppressor in glioma via epigenetic up-regulation of the DNA damage response (Sci Transl Med)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33762734/">A vaccine targeting mutant IDH1 in newly diagnosed glioma (Nature 2021)</a> — PMID:33762734</li>
+<li><a href="https://www.nature.com/articles/s43018-026-01199-y">IDH1-mutant vaccine in newly diagnosed astrocytoma: final analysis of NOA16 (Nature Cancer 2026)</a></li>
+<li><a href="https://www.targetedonc.com/view/phase-3-sigma-trial-of-safusidenib-initiated-for-idh1-mutant-glioma">Phase 3 SIGMA Trial of Safusidenib Initiated for IDH1-Mutant Glioma</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11534100/">A perioperative study of safusidenib in patients with IDH1-mutated glioma</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9125855/">AMPLIFY-NEOVAC trial protocol</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33293629/">EANO guidelines on the diagnosis and treatment of diffuse gliomas of adulthood</a></li>
+<li><a href="https://www.thegreenjournal.com/article/S0167-8140(24)03572-2/fulltext">ESTRO-EANO guideline on target delineation and radiotherapy for IDH-mutant WHO CNS grade 2 and 3 diffuse glioma</a></li>
+<li><a href="https://reference.medscape.com/cc2/p10/asco-sno-guideline-astrocytic-oligodendroglial-tumors-2026a1000o0r">Diffuse Astrocytic and Oligodendroglial Tumors, Therapy: ASCO-SNO 2025 Guideline Summary</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s11060-023-04250-5">Updates on the WHO diagnosis of IDH-mutant glioma (J Neurooncol)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12314594/">Oligodendrogliomas: classifying the same cohort using pre- and post-WHO 2021 criteria (Brain Communications 2025)</a></li>
+<li><a href="https://www.pathologyoutlines.com/topic/cnstumoroligodendrogliomaidhmutant.html">Pathology Outlines — Oligodendroglioma, IDH mutant and 1p/19q codeleted</a></li>
+<li><a href="https://www.ajnr.org/content/39/4/687">MRI Features Can Predict 1p/19q Status in Intracranial Gliomas (AJNR)</a></li>
+<li><a href="https://academic.oup.com/bjr/article/89/1060/20150857/7445743">Imaging of oligodendroglioma (Br J Radiol)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10365042/">The T2-FLAIR mismatch sign as an imaging biomarker for oligodendrogliomas in dogs</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3602110/">A novel, diffusely infiltrative xenograft model of human anaplastic oligodendroglioma with FUBP1, CIC, and IDH1 mutations</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9358027/">Current and Future Frontiers of Molecularly Defined Oligodendrogliomas</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10809174/">Vorasidenib in IDH1/2-mutant low-grade glioma: the grey zone of patient's selection</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5488000/">MR Spectroscopy for Detection of 2-Hydroxyglutarate as a Biomarker for IDH Mutation in Gliomas</a></li>
+<li><a href="https://www.iccr-cancer.org/datasets/docs/iccr-cns-mole-1p19q/">ICCR dataset — Chromosomal arm 1p/19q codeletion</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMC:PMC10809174</code>: "Vorasidenib in IDH1/2-mutant low-grade glioma: the grey zone of patient's selection"</li>
+<li>The PMC ID service was unreachable, so the quote was not checked</li>
+</ul>
+<p>19 of 35 references resolved; the rest could not be looked up either way.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="margin-bottom: 4px;">
@@ -6946,7 +9365,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma", "mondoId": "MONDO:0859592", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IDH-Mutant_and_1p_19q-Codeleted_Oligodendroglioma", "yamlRevision": "c69c0a6078b2"};
+        const OS_CONFIG = {"diseaseName": "IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma", "mondoId": "MONDO:0859592", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IDH-Mutant_and_1p_19q-Codeleted_Oligodendroglioma", "yamlRevision": "6abac3915f74"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7365,5 +9784,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

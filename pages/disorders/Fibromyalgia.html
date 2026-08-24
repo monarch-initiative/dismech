@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3725,7 +3893,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3768,6 +3936,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3964,7 +4140,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_fm_peripheral_vs_central_causation">
@@ -4021,6 +4197,307 @@
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="gap_fm_sex_specific_pathophysiology">
+                <div class="item-name">What are the sex-specific pathophysiological mechanisms that might explain differential fibromyalgia presentation, severity, and prevalence between women and men? Do sex-hormone-regulated immune tolerance, neuroendocrine signaling, pain processing circuits, or other mechanisms contribute to the observed female predominance?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_fm_sex_specific_pathophysiology</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hpa-axis-dysregulation">pathophysiology#HPA Axis Dysregulation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-central-sensitization">pathophysiology#Central Sensitization</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">A 2026 systematic review (Kaur et al., PMID:42455336) documents that fibromyalgia is reported to be more frequent in women than men (2.4-6.8% in women vs. 0.2-2.4% in men), but notes that &#34;the true sex-specific prevalence remains uncertain and potential underlying mechanisms are unknown.&#34; Critically, the review found that men with FMS were examined in only 3.7% of studies, direct sex comparisons were reported in 27.7%, and &#34;no studies have investigated pathophysiological sex differences.&#34; The reported female predominance may reflect ascertainment bias, true biological sex differences, or both. Kaur et al. do not propose candidate mechanisms; the three domains below are this entry&#39;s own framing of where a sex difference could plausibly arise, offered to scope future work rather than as findings of the cited review: (1) sex-differentiated neuroendocrine/hormonal pathways, such as estrogen and progesterone receptor signaling effects on nociception, immune tolerance, and central sensitization; (2) sex-specific immune dysregulation, such as differential Th17 and regulatory T cell balance; and (3) sex differences in pain processing circuit development and function. None of the three has been tested for a sex difference in fibromyalgia. Resolving this gap is essential for validating the clinical phenotype as universal and informing sex-informed clinical approaches.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Sex-balanced mechanistic phenotyping cohort in fibromyalgia</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
+
+        sex-stratified cross-sectional mechanistic cohort study
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type sex-stratified cross-sectional mechanistic cohort study.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_fm_sex_balanced_mechanistic_cohort</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Enroll a deliberately sex-balanced fibromyalgia cohort with matched pain-free controls, recruited against identical diagnostic criteria in both sexes so that ascertainment is not confounded with sex. Profile the three candidate domains in the same participants: neuroendocrine (diurnal cortisol and the HPA response to a standardized stressor, plus sex-hormone panels and, in women, menstrual-cycle or menopausal-status stratification), immune (circulating Th17 and regulatory T cell frequencies and cytokine profiles), and pain processing (quantitative sensory testing with conditioned pain modulation and temporal summation, and skin-biopsy intraepidermal nerve fiber density). The first-order result is whether the diagnostic criteria themselves ascertain men and women differently.</div>
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sex difference in HPA axis reactivity</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-hpa-axis-dysregulation">pathophysiology#HPA Axis Dysregulation</a>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: PRESENT ABSENT</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sex difference in inflammatory and T cell profile</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: PRESENT ABSENT</div>
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sex difference in central pain amplification</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-central-sensitization">pathophysiology#Central Sensitization</a>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: PRESENT ABSENT</div>
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sex-matched pain-free controls</div>
+
+        <div>Pain-free men and women matched for age and BMI, so that any observed difference is specific to fibromyalgia rather than a normal sex difference in the same measure.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">The gap resolves toward true biological sex difference if men and women meeting identical criteria diverge on one or more mechanistic readouts beyond the sex difference seen in controls. It resolves toward ascertainment bias if the mechanistic profiles are equivalent once diagnosis is applied symmetrically, implying the female predominance is generated at the point of diagnosis.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42455336" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42455336" target="_blank">PMID:42455336</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the true sex-specific prevalence remains uncertain and potential underlying mechanisms are unknown"</div>
+
+
+                <div class="evidence-explanation">The systematic review explicitly identifies that FM sex-specific epidemiology and pathophysiology are unresolved knowledge gaps requiring future research.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42455336" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42455336" target="_blank">PMID:42455336</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"no studies have investigated pathophysiological sex differences"</div>
+
+
+                <div class="evidence-explanation">Conclusion of the systematic review confirming the complete absence of mechanistic studies comparing sex-specific FM pathophysiology.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4050,16 +4527,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Pain Processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048265" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048265">GO:0048265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0048265</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Pain Processing, annotated with response to pain (GO:0048265). GO:0048265 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4076,6 +4558,7 @@
 
 
                 </div>
+
 
 
 
@@ -4175,16 +4658,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neurotransmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neurotransmission, annotated with chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4201,6 +4689,7 @@
 
 
                 </div>
+
 
 
 
@@ -4275,16 +4764,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Microglia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4301,6 +4795,7 @@
 
 
                 </div>
+
 
 
 
@@ -4425,16 +4920,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Stress Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006950">GO:0006950</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006950" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006950</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Stress Response, annotated with response to stress (GO:0006950). GO:0006950 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4451,6 +4951,7 @@
 
 
                 </div>
+
 
 
 
@@ -4543,16 +5044,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Peripheral Sensory Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Peripheral Sensory Neurons, annotated with sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4569,6 +5075,7 @@
 
 
                 </div>
+
 
 
 
@@ -4652,16 +5159,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Pain Perception
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019233">GO:0019233</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0019233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Pain Perception, annotated with sensory perception of pain (GO:0019233). GO:0019233 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4678,6 +5190,7 @@
 
 
                 </div>
+
 
 
 
@@ -4790,14 +5303,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint stiffness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001387</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint Stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4858,14 +5378,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4939,14 +5466,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
+
+                        <span class="phenotype-term-label">Cognitive impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4970,14 +5506,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4999,14 +5542,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5078,14 +5628,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5137,14 +5694,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal autonomic nervous system physiology
+
+                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012332">HP:0012332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autonomic Dysfunction, annotated with Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5177,14 +5743,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic pain
+
+                        <span class="phenotype-term-label">Chronic pain</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012532">HP:0012532</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012532</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Pain (HP:0012532). HP:0012532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5280,14 +5855,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5348,14 +5930,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Allodynia
+
+                        <span class="phenotype-term-label">Allodynia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012533">HP:0012533</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012533</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Allodynia (HP:0012533). HP:0012533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5567,7 +6158,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5597,16 +6193,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         duloxetine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:36796">CHEBI:36796</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36796" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:36796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses duloxetine (CHEBI:36796). CHEBI:36796 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5629,7 +6230,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5659,16 +6265,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         milnacipran
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_135005" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:135005">CHEBI:135005</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135005" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:135005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses milnacipran (CHEBI:135005). CHEBI:135005 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5691,7 +6302,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5721,16 +6337,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pregabalin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:64356">CHEBI:64356</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:64356</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pregabalin (CHEBI:64356). CHEBI:64356 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5753,7 +6374,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5783,16 +6409,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         gabapentin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_42797" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:42797">CHEBI:42797</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_42797" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:42797</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gabapentin (CHEBI:42797). CHEBI:42797 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5815,7 +6446,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5845,16 +6481,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         amitriptyline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2666">CHEBI:2666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:2666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amitriptyline (CHEBI:2666). CHEBI:2666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5877,7 +6518,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -5923,7 +6569,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">psychotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">psychotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is psychotherapy, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -5969,7 +6620,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">patient education</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">patient education<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is patient education, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -6015,7 +6671,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">behavioral intervention<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral intervention (NCIT:C15184). NCIT:C15184 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Intervention</span>
 
 
@@ -6061,7 +6722,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6117,10 +6783,46 @@
                 <div class="item-name">Physical Trauma</div>
 
 
+
+
+
+
                 <div class="item-desc">Can trigger onset</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29428291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428291" target="_blank">PMID:29428291</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the majority of studies described a significant association between prior physically traumatic events and the onset of chronic widespread pain or fibromyalgia"</div>
+
+
+                <div class="evidence-explanation">Systematic review finds a significant association between prior physical trauma and fibromyalgia onset across the majority of included studies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6129,11 +6831,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-psychological-stress" data-dismech-node="Psychological Stress" data-dismech-type="environmental">
                 <div class="item-name">Psychological Stress</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-33">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Common precipitant</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29428291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29428291" target="_blank">PMID:29428291</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Elevated rates of psychological trauma in fibromyalgia patients were demonstrated across the literature and several studies indicate a mediating effect of post-traumatic stress disorder"</div>
+
+
+                <div class="evidence-explanation">Same systematic review reports elevated rates of psychological trauma preceding fibromyalgia, with PTSD as a mediating factor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6142,11 +6903,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-infections" data-dismech-node="Infections" data-dismech-type="environmental">
                 <div class="item-name">Infections</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        Infectious agent exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000000" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-34">ECTO:3000000</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Infectious agent exposure, annotated with exposure to organism (ECTO:3000000). ECTO:3000000 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">May trigger in susceptible individuals</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18706528" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18706528" target="_blank">PMID:18706528</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Certain infections including hepatitis C virus, HIV and Lyme disease have been temporally associated with the development of FMS"</div>
+
+
+                <div class="evidence-explanation">Review identifies specific infections temporally associated with fibromyalgia syndrome (FMS) onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6155,11 +6975,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-sleep-disorders" data-dismech-node="Sleep Disorders" data-dismech-type="environmental">
                 <div class="item-name">Sleep Disorders</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        disturbed sleep
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001068" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-35">XCO:0001068</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is disturbed sleep, annotated with sleep (XCO:0001068). XCO:0001068 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Bidirectional relationship</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39062116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39062116" target="_blank">PMID:39062116</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"healthy individuals experiencing sleep disorders inherently trigger musculoskeletal pain processes"</div>
+
+
+                <div class="evidence-explanation">Review supports the sleep-to-pain direction of the bidirectional relationship between sleep disturbance and fibromyalgia pain.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6296,11 +7175,294 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">7</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Identification of unique genomic signatures in patients with fibromyalgia and chronic pain
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE221921" target="_blank">geo:GSE221921</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Fibromyalgia is a chronic pain syndrome characterized by widespread pain. The pathophysiology of fibromyalgia is not clearly understood and there are no specific biomarkers available for accurate diagnosis. Here we define genomic signatures using high throughput RNA sequencing on 96 fibromyalgia and 93 matched controls. Our findings revealed two major fibromyalgia-associated expression signatures. The first group included 44 patients with a signature enriched for gene expression associated with extracellular matrix and downregulation of RhoGDI signaling pathway.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=189</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38366049" target="_blank" style="color: var(--secondary);">PMID:38366049</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Fibromyalgia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    HERV activation segregates ME/CFS from fibromyalgia while defining a novel nosologic entity
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE269047" target="_blank">geo:GSE269047</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Research of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) and Fibromyalgia (FM), two acquired chronic illnesses affecting mainly females, has failed to ascertain their frequent co-appearance and etiology. Despite prior detection of human endogenous retrovirus (HERV) activation in these diseases, the potential biomarker value of HERV expression profiles for their diagnosis, and the relationship of HERV expression profiles with patient immune systems and symptoms had remained unexplored.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=43</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40338225" target="_blank" style="color: var(--secondary);">PMID:40338225</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Fibromyalgia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Peripheral Blood Gene Expression in Fibromyalgia Patients Reveals  Potential Biological Markers and Physiological Pathways
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE67311" target="_blank">geo:GSE67311</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Fibromyalgia (FM) is a common pain disorder characterized by dysregulation in the processing of pain. Although FM has similarities with other rheumatologic pain disorders, the search for objective markers has not been successful. In the current study we analyzed gene expression in the whole blood of 70 fibromyalgia patients and 70 healthy matched controls. Global molecular profiling revealed an upregulation of several inflammatory molecules in FM patients and downregulation of specific pathways related to hypersensitivity and allergy. There was a differential expression of genes in known pathways for pain processing, such as glutamine/glutamate signaling and axonal development.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=142</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/27157394" target="_blank" style="color: var(--secondary);">PMID:27157394</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Fibromyalgia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Exome sequencing of Fibromyalgia patients
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003825" target="_blank">ega:EGAS00001003825</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Fibromyalgia is a complex disorder characterized by increased sensitivity to pain and extreme tiredness. It affects mostly women, and its causes are unknown. In this study we have performed exome sequencing of 87 fibromyalgia cases, including some sibling pairs, to perform rare variant association analysis and identify fibromyalgia risk factors. A few of the included samples have been also included in a previous GWAS study.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Fibromyalgia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Exome sequencing of Fibromyalgia patients
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003826" target="_blank">ega:EGAS00001003826</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Fibromyalgia is a complex disorder characterized by increased sensitivity to pain and extreme tiredness. It affects mostly women, and its causes are unknown. In this study we have performed exome sequencing of 87 fibromyalgia cases, including some sibling pairs, to perform rare variant association analysis and identify fibromyalgia risk factors. A few of the included samples have been also included in a previous GWAS study.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Fibromyalgia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Fibromyalgia versus small fiber neuropathy: Diverse keratinocyte transcriptome signature
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001005004" target="_blank">ega:EGAS00001005004</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We provide a diverse keratinocyte transcriptome signature between SFN and FMS patients, which may hint towards distinct pathomechanisms of small fiber sensitization and lay the basis for advanced diagnostics in both entities</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/33675632" target="_blank" style="color: var(--secondary);">PMID:33675632</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Fibromyalgia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Proteomic Analysis of Cerebrospinal Fluids from Chronic Fatigue Syndrome Patients with and without Co-existing Fibromyalgia
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000090685" target="_blank">massive:MSV000090685</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) and fibromyalgia have overlapping neurologic symptoms particularly disabling fatigue. This has given rise to the question whether they are distinct central nervous system (CNS) entities or is one an extension of the other. To investigate this, we used unbiased quantitative mass spectrometry-based proteomics to examine the most proximal fluid to the brain, cerebrospinal fluid (CSF). This was to ascertain if the proteome profile of one was the same or different from the other.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Fibromyalgia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6319,7 +7481,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Fibromyalgia
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-27T21:52:57Z&#39;
 description: &gt;-
   Fibromyalgia is characterized by central sensitization, in which augmented central pain processing with elevated excitatory neurotransmitters amplifies pain perception.
   Impaired descending inhibition from reduced serotonin and norepinephrine, neuroinflammatory glial activation, HPA-axis dysregulation, and small-fiber pathology compound the heightened pain sensitivity.
@@ -6764,12 +7925,51 @@ genetic:
 environmental:
 - name: Physical Trauma
   notes: Can trigger onset
+  evidence:
+  - reference: PMID:29428291
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the majority of studies described a significant association between prior physically traumatic events and the onset of chronic widespread pain or fibromyalgia&#34;
+    explanation: Systematic review finds a significant association between prior physical trauma and fibromyalgia onset across the majority of included studies.
 - name: Psychological Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Common precipitant
+  evidence:
+  - reference: PMID:29428291
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Elevated rates of psychological trauma in fibromyalgia patients were demonstrated across the literature and several studies indicate a mediating effect of post-traumatic stress disorder&#34;
+    explanation: Same systematic review reports elevated rates of psychological trauma preceding fibromyalgia, with PTSD as a mediating factor.
 - name: Infections
+  exposure_term:
+    preferred_term: Infectious agent exposure
+    term:
+      id: ECTO:3000000
+      label: exposure to organism
   notes: May trigger in susceptible individuals
+  evidence:
+  - reference: PMID:18706528
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Certain infections including hepatitis C virus, HIV and Lyme disease have been temporally associated with the development of FMS&#34;
+    explanation: Review identifies specific infections temporally associated with fibromyalgia syndrome (FMS) onset.
 - name: Sleep Disorders
+  exposure_term:
+    preferred_term: disturbed sleep
+    term:
+      id: XCO:0001068
+      label: sleep
   notes: Bidirectional relationship
+  evidence:
+  - reference: PMID:39062116
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;healthy individuals experiencing sleep disorders inherently trigger musculoskeletal pain processes&#34;
+    explanation: Review supports the sleep-to-pain direction of the bidirectional relationship between sleep disturbance and fibromyalgia pain.
 treatments:
 - name: Duloxetine
   description: SNRI, FDA-approved for fibromyalgia. Modulates serotonin and
@@ -6903,7 +8103,156 @@ discussions:
     driving both. Resolving this gap determines whether treating small-fiber pathology
     is disease-modifying or symptomatic, and whether the FM-SFN subtype requires
     distinct therapeutic targeting.
+- discussion_id: gap_fm_sex_specific_pathophysiology
+  prompt: &gt;-
+    What are the sex-specific pathophysiological mechanisms that might explain differential
+    fibromyalgia presentation, severity, and prevalence between women and men? Do sex-hormone-regulated
+    immune tolerance, neuroendocrine signaling, pain processing circuits, or other mechanisms
+    contribute to the observed female predominance?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#HPA Axis Dysregulation
+  - pathophysiology#Neuroinflammation
+  - pathophysiology#Central Sensitization
+  rationale: &gt;-
+    A 2026 systematic review (Kaur et al., PMID:42455336) documents that fibromyalgia is reported
+    to be more frequent in women than men (2.4-6.8% in women vs. 0.2-2.4% in men), but notes that
+    &#34;the true sex-specific prevalence remains uncertain and potential underlying mechanisms are unknown.&#34;
+    Critically, the review found that men with FMS were examined in only 3.7% of studies, direct
+    sex comparisons were reported in 27.7%, and &#34;no studies have investigated pathophysiological sex
+    differences.&#34; The reported female predominance may reflect ascertainment bias, true biological
+    sex differences, or both. Kaur et al. do not propose candidate mechanisms; the three domains
+    below are this entry&#39;s own framing of where a sex difference could plausibly arise, offered to
+    scope future work rather than as findings of the cited review: (1) sex-differentiated
+    neuroendocrine/hormonal pathways, such as estrogen and progesterone receptor signaling effects
+    on nociception, immune tolerance, and central sensitization; (2) sex-specific immune dysregulation,
+    such as differential Th17 and regulatory T cell balance; and (3) sex differences in pain processing
+    circuit development and function. None of the three has been tested for a sex difference in
+    fibromyalgia. Resolving this gap is essential for validating the clinical phenotype as universal
+    and informing sex-informed clinical approaches.
+  evidence:
+  - reference: PMID:42455336
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the true sex-specific prevalence remains uncertain and potential underlying mechanisms are unknown&#34;
+    explanation: &gt;-
+      The systematic review explicitly identifies that FM sex-specific epidemiology and
+      pathophysiology are unresolved knowledge gaps requiring future research.
+  - reference: PMID:42455336
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;no studies have investigated pathophysiological sex differences&#34;
+    explanation: &gt;-
+      Conclusion of the systematic review confirming the complete absence of mechanistic
+      studies comparing sex-specific FM pathophysiology.
+  proposed_experiments:
+  - experiment_id: exp_fm_sex_balanced_mechanistic_cohort
+    name: Sex-balanced mechanistic phenotyping cohort in fibromyalgia
+    description: &gt;-
+      Enroll a deliberately sex-balanced fibromyalgia cohort with matched pain-free
+      controls, recruited against identical diagnostic criteria in both sexes so that
+      ascertainment is not confounded with sex. Profile the three candidate domains in
+      the same participants: neuroendocrine (diurnal cortisol and the HPA response to a
+      standardized stressor, plus sex-hormone panels and, in women, menstrual-cycle or
+      menopausal-status stratification), immune (circulating Th17 and regulatory T cell
+      frequencies and cytokine profiles), and pain processing (quantitative sensory
+      testing with conditioned pain modulation and temporal summation, and skin-biopsy
+      intraepidermal nerve fiber density). The first-order result is whether the
+      diagnostic criteria themselves ascertain men and women differently.
+    experiment_type:
+      preferred_term: sex-stratified cross-sectional mechanistic cohort study
+    readouts:
+    - name: Sex difference in HPA axis reactivity
+      target: pathophysiology#HPA Axis Dysregulation
+      direction: PRESENT_ABSENT
+    - name: Sex difference in inflammatory and T cell profile
+      target: pathophysiology#Neuroinflammation
+      direction: PRESENT_ABSENT
+    - name: Sex difference in central pain amplification
+      target: pathophysiology#Central Sensitization
+      direction: PRESENT_ABSENT
+    controls:
+    - name: Sex-matched pain-free controls
+      description: &gt;-
+        Pain-free men and women matched for age and BMI, so that any observed
+        difference is specific to fibromyalgia rather than a normal sex difference
+        in the same measure.
+    decision_criterion: &gt;-
+      The gap resolves toward true biological sex difference if men and women meeting
+      identical criteria diverge on one or more mechanistic readouts beyond the sex
+      difference seen in controls. It resolves toward ascertainment bias if the
+      mechanistic profiles are equivalent once diagnosis is applied symmetrically,
+      implying the female predominance is generated at the point of diagnosis.
 datasets:
+- accession: geo:GSE221921
+  title: Identification of unique genomic signatures in patients with fibromyalgia and chronic pain
+  description: Fibromyalgia is a chronic pain syndrome characterized by widespread pain. The pathophysiology of fibromyalgia is not clearly understood and there are no specific biomarkers available for accurate diagnosis. Here we define genomic signatures using high throughput RNA sequencing on 96 fibromyalgia and 93 matched controls. Our findings revealed two major fibromyalgia-associated expression signatures. The first group included 44 patients with a signature enriched for gene expression associated with extracellular matrix and downregulation of RhoGDI signaling pathway.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 189
+  publication: PMID:38366049
+  notes: Identified by GEO DataSets index search for Fibromyalgia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE269047
+  title: HERV activation segregates ME/CFS from fibromyalgia while defining a novel nosologic entity
+  description: Research of Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) and Fibromyalgia (FM), two acquired chronic illnesses affecting mainly females, has failed to ascertain their frequent co-appearance and etiology. Despite prior detection of human endogenous retrovirus (HERV) activation in these diseases, the potential biomarker value of HERV expression profiles for their diagnosis, and the relationship of HERV expression profiles with patient immune systems and symptoms had remained unexplored.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 43
+  publication: PMID:40338225
+  notes: Identified by GEO DataSets index search for Fibromyalgia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE67311
+  title: Peripheral Blood Gene Expression in Fibromyalgia Patients Reveals  Potential Biological Markers and Physiological Pathways
+  description: Fibromyalgia (FM) is a common pain disorder characterized by dysregulation in the processing of pain. Although FM has similarities with other rheumatologic pain disorders, the search for objective markers has not been successful. In the current study we analyzed gene expression in the whole blood of 70 fibromyalgia patients and 70 healthy matched controls. Global molecular profiling revealed an upregulation of several inflammatory molecules in FM patients and downregulation of specific pathways related to hypersensitivity and allergy. There was a differential expression of genes in known pathways for pain processing, such as glutamine/glutamate signaling and axonal development.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 142
+  publication: PMID:27157394
+  notes: Identified by GEO DataSets index search for Fibromyalgia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001003825
+  title: Exome sequencing of Fibromyalgia patients
+  description: Fibromyalgia is a complex disorder characterized by increased sensitivity to pain and extreme tiredness. It affects mostly women, and its causes are unknown. In this study we have performed exome sequencing of 87 fibromyalgia cases, including some sibling pairs, to perform rare variant association analysis and identify fibromyalgia risk factors. A few of the included samples have been also included in a previous GWAS study.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Fibromyalgia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001003826
+  title: Exome sequencing of Fibromyalgia patients
+  description: Fibromyalgia is a complex disorder characterized by increased sensitivity to pain and extreme tiredness. It affects mostly women, and its causes are unknown. In this study we have performed exome sequencing of 87 fibromyalgia cases, including some sibling pairs, to perform rare variant association analysis and identify fibromyalgia risk factors. A few of the included samples have been also included in a previous GWAS study.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Fibromyalgia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001005004
+  title: &#39;Fibromyalgia versus small fiber neuropathy: Diverse keratinocyte transcriptome signature&#39;
+  description: We provide a diverse keratinocyte transcriptome signature between SFN and FMS patients, which may hint towards distinct pathomechanisms of small fiber sensitization and lay the basis for advanced diagnostics in both entities
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:33675632
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Fibromyalgia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: massive:MSV000090685
+  title: Proteomic Analysis of Cerebrospinal Fluids from Chronic Fatigue Syndrome Patients with and without Co-existing Fibromyalgia
+  description: Myalgic Encephalomyelitis/Chronic Fatigue Syndrome (ME/CFS) and fibromyalgia have overlapping neurologic symptoms particularly disabling fatigue. This has given rise to the question whether they are distinct central nervous system (CNS) entities or is one an extension of the other. To investigate this, we used unbiased quantitative mass spectrometry-based proteomics to examine the most proximal fluid to the brain, cerebrospinal fluid (CSF). This was to ascertain if the proteome profile of one was the same or different from the other.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Fibromyalgia&#34;). Retrieved 2026-08-02.
 references:
 - reference: DOI:10.1097/pr9.0000000000001220
   title: Small fiber pathology in fibromyalgia syndrome
@@ -7296,7 +8645,7 @@ Fibromyalgia is a prototypical nociplastic pain condition characterized by wides
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fibromyalgia", "mondoId": "MONDO:0005546", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibromyalgia", "yamlRevision": "c29273ed5ee0"};
+        const OS_CONFIG = {"diseaseName": "Fibromyalgia", "mondoId": "MONDO:0005546", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibromyalgia", "yamlRevision": "893ea5c912ff"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7715,5 +9064,73 @@ Fibromyalgia is a prototypical nociplastic pain condition characterized by wides
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

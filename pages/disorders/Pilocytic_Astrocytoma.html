@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3564,7 +3730,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Pilocytic%20Astrocytoma"
@@ -3703,6 +3869,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3719,7 +3887,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3748,7 +3916,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3782,6 +3950,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4295,7 +4471,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-braf-fusion-oncogene-formation" data-dismech-node="BRAF Fusion Oncogene Formation" data-dismech-type="pathophysiology">
@@ -4307,16 +4483,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000047">CL:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural stem cell (CL:0000047). CL:0000047 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4343,16 +4524,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KIAA1549
 
 
-    <a href="https://bioregistry.io/hgnc:22219" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22219">hgnc:22219</a>
+    <a href="https://bioregistry.io/hgnc:22219" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:22219</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KIAA1549 (hgnc:22219). hgnc:22219 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4380,10 +4572,13 @@
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:1097</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4414,19 +4609,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4499,16 +4700,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:1097</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4536,11 +4748,18 @@
         RAF1
 
 
-    <a href="https://bioregistry.io/hgnc:9829" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9829">hgnc:9829</a>
+    <a href="https://bioregistry.io/hgnc:9829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:9829</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAF1 (hgnc:9829). hgnc:9829 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4568,10 +4787,13 @@
         NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7765">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:7765</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4599,16 +4821,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4629,6 +4856,7 @@
 
 
                 </div>
+
 
 
 
@@ -4719,16 +4947,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural stem cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000047">CL:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural stem cell (CL:0000047). CL:0000047 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4749,6 +4982,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4760,10 +4997,13 @@
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:1097</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4791,16 +5031,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular senescence
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090398">GO:0090398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0090398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4809,6 +5054,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4826,10 +5073,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008285">GO:0008285</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008285" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0008285</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of cell population proliferation (GO:0008285). GO:0008285 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4856,6 +5106,22 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Senescence-Constrained Low-Grade Progression Barrier</span>
+
+	                            <span class="crosslink-desc">The BRAF-induced senescence program limits proliferation and helps maintain the usual low-grade, indolent tumor state.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4904,6 +5170,86 @@
 
 
                 <div class="evidence-explanation">Directly supports senescence as a mechanistic explanation for the usual indolent, grade 1 biology of PA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-senescence-constrained-low-grade-progression-barrier" data-dismech-node="Senescence-Constrained Low-Grade Progression Barrier" data-dismech-type="pathophysiology">
+                <div class="item-name">Senescence-Constrained Low-Grade Progression Barrier</div>
+
+                <div class="item-desc">Oncogene-induced senescence constrains proliferation after BRAF-driven partial transformation and helps account for the usual WHO grade 1, indolent state. This is modeled as a barrier to malignant progression, not as a claim that progression is impossible.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21636552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21636552" target="_blank">PMID:21636552</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Induction of senescence by BRAF may help explain the low-grade pathobiology of pilocytic astrocytoma"</div>
+
+
+                <div class="evidence-explanation">The experimental conclusion supports oncogene-induced senescence as a mechanism constraining pilocytic astrocytoma to its usual low-grade state.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21636552" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21636552" target="_blank">PMID:21636552</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Immunohistochemical examination of 66 pilocytic astrocytomas revealed p16(INK4a) immunoreactivity in the majority of cases, but patients with tumors negative for p16(INK4a) had significantly shorter overall survival."</div>
+
+
+                <div class="evidence-explanation">The human tumor series associates absence of the p16 senescence marker with worse outcome, providing clinical corroboration without proving that the senescence barrier alone determines progression.</div>
 
 
 
@@ -5091,7 +5437,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic activating fusion or mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most pilocytic astrocytomas are initiated by tandem-duplication-mediated KIAA1549-BRAF fusion or related RAF fusions that remove BRAF autoinhibition and create constitutive upstream MAPK signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"genes\": [\"KIAA1549\", \"BRAF\"], \"gene_terms\": [{\"label\": \"KIAA1549\", \"id\": \"hgnc:22219\"}, {\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"locations\": [\"brain\"]}}, {\"id\": \"Constitutive MAPK Cascade Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diverse driver lesions including KIAA1549-BRAF fusion, other RAF fusions, BRAFV600E mutation, and NF1 loss converge on persistent MAPK cascade activation, which is the shared core signaling dependency across PA subtypes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\"], \"genes\": [\"BRAF\", \"RAF1\", \"NF1\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}, {\"label\": \"RAF1\", \"id\": \"hgnc:9829\"}, {\"label\": \"NF1\", \"id\": \"hgnc:7765\"}]}}, {\"id\": \"KIAA1549\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KIAA1549\"], \"gene_terms\": [{\"label\": \"KIAA1549\", \"id\": \"hgnc:22219\"}], \"association\": \"Somatic fusion partner\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NF1\"], \"gene_terms\": [{\"label\": \"NF1\", \"id\": \"hgnc:7765\"}], \"association\": \"Germline tumor predisposition with biallelic tumor inactivation context\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"Oncogene-Induced Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated BRAF in neural stem and progenitor cells induces a senescence program that limits proliferation and helps explain the usual WHO grade 1, indolent biology of pilocytic astrocytoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"cellular senescence\", \"negative regulation of cell population proliferation\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}]}}, {\"id\": \"RAF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAF1\"], \"gene_terms\": [{\"label\": \"RAF1\", \"id\": \"hgnc:9829\"}], \"association\": \"Somatic fusion driver\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Selumetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MEK inhibition with selumetinib is active in recurrent or progressive MAPK-driven low-grade glioma, including pilocytic astrocytoma and optic-pathway/hypothalamic subsets where visual preservation matters.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"selumetinib\"]}}, {\"id\": \"Tovorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tovorafenib is an FDA-approved type II RAF inhibitor for relapsed or refractory pediatric low-grade glioma with BRAF fusion, rearrangement, or V600E mutation, making it directly relevant to recurrent BRAF-altered PA.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tovorafenib\"]}}], \"edges\": [{\"source\": \"BRAF Fusion Oncogene Formation\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAF fusion signaling converges on sustained MAPK pathway output\"}, {\"source\": \"Constitutive MAPK Cascade Activation\", \"target\": \"Oncogene-Induced Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained MAPK signaling can trigger a senescence brake in piloid tumors\"}, {\"source\": \"Selumetinib\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tovorafenib\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"BRAF Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"Oncogene-Induced Senescence\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KIAA1549\", \"target\": \"BRAF Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF1\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAF1\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Somatic activating fusion or mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Most pilocytic astrocytomas are initiated by tandem-duplication-mediated KIAA1549-BRAF fusion or related RAF fusions that remove BRAF autoinhibition and create constitutive upstream MAPK signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"genes\": [\"KIAA1549\", \"BRAF\"], \"gene_terms\": [{\"label\": \"KIAA1549\", \"id\": \"hgnc:22219\"}, {\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"locations\": [\"brain\"]}}, {\"id\": \"Constitutive MAPK Cascade Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diverse driver lesions including KIAA1549-BRAF fusion, other RAF fusions, BRAFV600E mutation, and NF1 loss converge on persistent MAPK cascade activation, which is the shared core signaling dependency across PA subtypes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\"], \"genes\": [\"BRAF\", \"RAF1\", \"NF1\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}, {\"label\": \"RAF1\", \"id\": \"hgnc:9829\"}, {\"label\": \"NF1\", \"id\": \"hgnc:7765\"}]}}, {\"id\": \"KIAA1549\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"KIAA1549\"], \"gene_terms\": [{\"label\": \"KIAA1549\", \"id\": \"hgnc:22219\"}], \"association\": \"Somatic fusion partner\", \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NF1\"], \"gene_terms\": [{\"label\": \"NF1\", \"id\": \"hgnc:7765\"}], \"association\": \"Germline tumor predisposition with biallelic tumor inactivation context\", \"relationship_type\": \"RISK_FACTOR\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"Oncogene-Induced Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated BRAF in neural stem and progenitor cells induces a senescence program that limits proliferation and helps explain the usual WHO grade 1, indolent biology of pilocytic astrocytoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"cellular senescence\", \"negative regulation of cell population proliferation\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"role\": \"central_effector\"}}, {\"id\": \"RAF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RAF1\"], \"gene_terms\": [{\"label\": \"RAF1\", \"id\": \"hgnc:9829\"}], \"association\": \"Somatic fusion driver\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Selumetinib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"MEK inhibition with selumetinib is active in recurrent or progressive MAPK-driven low-grade glioma, including pilocytic astrocytoma and optic-pathway/hypothalamic subsets where visual preservation matters.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"selumetinib\"]}}, {\"id\": \"Senescence-Constrained Low-Grade Progression Barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oncogene-induced senescence constrains proliferation after BRAF-driven partial transformation and helps account for the usual WHO grade 1, indolent state. This is modeled as a barrier to malignant progression, not as a claim that progression is impossible.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Tovorafenib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tovorafenib is an FDA-approved type II RAF inhibitor for relapsed or refractory pediatric low-grade glioma with BRAF fusion, rearrangement, or V600E mutation, making it directly relevant to recurrent BRAF-altered PA.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tovorafenib\"]}}], \"edges\": [{\"source\": \"BRAF Fusion Oncogene Formation\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RAF fusion signaling converges on sustained MAPK pathway output\"}, {\"source\": \"Constitutive MAPK Cascade Activation\", \"target\": \"Oncogene-Induced Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained MAPK signaling can trigger a senescence brake in piloid tumors\"}, {\"source\": \"Oncogene-Induced Senescence\", \"target\": \"Senescence-Constrained Low-Grade Progression Barrier\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The BRAF-induced senescence program limits proliferation and helps maintain the usual low-grade, indolent tumor state.\"}, {\"source\": \"Selumetinib\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tovorafenib\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"BRAF Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"Oncogene-Induced Senescence\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KIAA1549\", \"target\": \"BRAF Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF1\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RAF1\", \"target\": \"Constitutive MAPK Cascade Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5134,14 +5480,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5204,14 +5557,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5272,14 +5632,21 @@
                         Hypopituitarism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypopituitarism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040075">HP:0040075</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0040075</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5377,13 +5744,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5445,13 +5817,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KIAA1549
 
 
-    <a href="https://bioregistry.io/hgnc:22219" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22219">hgnc:22219</a>
+    <a href="https://bioregistry.io/hgnc:22219" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:22219</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KIAA1549 (hgnc:22219). hgnc:22219 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5513,13 +5890,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7765">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7765</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5581,13 +5963,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAF1
 
 
-    <a href="https://bioregistry.io/hgnc:9829" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9829">hgnc:9829</a>
+    <a href="https://bioregistry.io/hgnc:9829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:9829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAF1 (hgnc:9829). hgnc:9829 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5658,7 +6045,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gross total resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">gross total resection<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gross total resection (NCIT:C131672). NCIT:C131672 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gross Total Resection</span>
 
 
@@ -5758,7 +6150,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5789,17 +6186,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         carboplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31355">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         vincristine
@@ -5807,10 +6211,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28445">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:28445</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5865,7 +6272,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -5896,16 +6308,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         selumetinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66939" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66939">NCIT:C66939</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66939" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C66939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses selumetinib (NCIT:C66939). NCIT:C66939 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6000,7 +6417,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -6031,16 +6453,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tovorafenib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106254" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106254">NCIT:C106254</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106254" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C106254</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tovorafenib (NCIT:C106254). NCIT:C106254 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6143,11 +6570,198 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    RNA-sequencing of six Pilocytic astrocytoma tumors
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002149" target="_blank">ega:EGAS00001002149</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Pilocytic astrocytoma (PA) is the most common pediatric brain tumor. A recurrent feature of PA is deregulation of the mitogen activated protein kinase (MAPK) pathway most often through KIAA1549-BRAF fusion, but also by other BRAF- or RAF1-gene fusions and point mutations (e.g. BRAFV600E). These features may serve as diagnostic and prognostic markers, and also facilitate development of targeted therapy. The aim of this study was to characterize the genetic alterations underlying the development of PA tumor in six cases, and evaluate methods for fusion oncogene detection.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28448514" target="_blank" style="color: var(--secondary);">PMID:28448514</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Pilocytic Astrocytoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Detection and genomic analysis of BRAF fusions in Juvenile Pilocytic Astrocytoma through the combination and integration of multi-omic data
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006388" target="_blank">ega:EGAS00001006388</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Juvenile Pilocytic Astrocytoma (JPAs) are highly vascular tumors and show pervasive immune infiltration, which can lead to low tumor cell purity in clinical samples. In some instances, this results in gene fusions that are difficult to detect with conventional omics approaches including RNA-Seq. To this effect, we applied RNA-Seq as well as linked-read whole-genome sequencing and in situ Hi-C as new approaches to detect and characterize low-frequency gene fusions at the genomic, transcriptomic and spatial level. Overall, we demonstrate the power of integrating multi-omic datasets to identify low frequency fusions and characterize the JPA genome at high resolution.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Pilocytic Astrocytoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Proteogenomics reveals two distinct biological pilocytic astrocytoma subgroups
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006402" target="_blank">ega:EGAS00001006402</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Pilocytic astrocytoma (PA) is the most common pediatric brain tumor and driven by aberrant MAPK signaling, typically mediated by BRAF alterations. While five-year overall survival rates exceed 95%, tumor recurrence constitutes a major clinical challenge in incompletely resected tumors despite chemotherapeutic or radiation based therapies. Therefore, we used proteogenomics to discern the biological heterogeneity of PA to improve classification of this tumor entity and identify novel therapeutic targets. Our proteogenomics approach integrates RNA sequencing and LC/MS-based proteomic profiling data from a cohort of 58 confirmed, primary PA samples.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Pilocytic Astrocytoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Human Pilocytic Astrocytoma Single Cell RNA Sequencing
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs001854" target="_blank">dbgap:phs001854</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Pilocytic astrocytoma (PA), the most common childhood brain tumor, is a low-grade glioma with a single driver BRAF rearrangement. Here, we perform scRNAseq in six PAs using methods that enabled detection of the rearrangement. When compared to higher-grade gliomas, a strikingly higher proportion of the PA cancer cells exhibit a differentiated, astrocyte-like phenotype. A smaller proportion of cells exhibit a progenitor-like phenotype with evidence of proliferation. These express a mitogen-activated protein kinase (MAPK) program that was absent from higher-grade gliomas.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Pilocytic Astrocytoma&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Pilocytic Astrocytoma in NF1
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000563" target="_blank">dbgap:phs000563</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Neurofibromatosis type 1 (NF1) inherited cancer predisposition syndrome is one of the most common autosomal dominant tumor predisposition syndromes in which affected individuals develop brain tumors. These low-grade glial neoplasms (pilocytic astrocytomas) typically arise in children younger than 7 years of age and are hypothesized to result from a combination of germline and acquired somatic NF1 tumor suppressor gene mutations.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Pilocytic Astrocytoma&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6166,7 +6780,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pilocytic Astrocytoma
 creation_date: &#34;2026-04-12T00:00:00Z&#34;
-updated_date: &#34;2026-04-12T00:00:00Z&#34;
 description: &gt;-
   Pilocytic astrocytoma (PA) is a circumscribed World Health Organization grade 1
   astrocytic glioma and the most common pediatric brain tumor. Most tumors arise
@@ -6392,7 +7005,23 @@ pathophysiology:
   downstream:
   - target: Oncogene-Induced Senescence
     description: Sustained MAPK signaling can trigger a senescence brake in piloid tumors
+    evidence:
+    - reference: PMID:21636552
+      reference_title: &#34;BRAF activation induces transformation and then senescence in human neural stem cells: a pilocytic astrocytoma model.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        BRAF(V600E)-expressing cells subsequently stopped proliferating and induced
+        markers of oncogene-induced senescence including acidic β-galactosidase,
+        PAI-1, and p16(INK4a) whereas controls did not.
+      explanation: &gt;-
+        The BRAF V600E experiment supports this edge for that driver branch; it
+        does not show that every RAF fusion or NF1-associated PA engages the same
+        senescence brake.
 - name: Oncogene-Induced Senescence
+  conforms_to: &#34;senescence_tumor_suppression#Senescence-Associated Tumor-Suppressive Arrest&#34;
+  role: central_effector
+  biological_scale: CELLULAR
   description: &gt;-
     Activated BRAF in neural stem and progenitor cells induces a senescence
     program that limits proliferation and helps explain the usual WHO grade 1,
@@ -6440,6 +7069,54 @@ pathophysiology:
     explanation: &gt;-
       Directly supports senescence as a mechanistic explanation for the usual
       indolent, grade 1 biology of PA.
+  downstream:
+  - target: Senescence-Constrained Low-Grade Progression Barrier
+    description: &gt;-
+      The BRAF-induced senescence program limits proliferation and helps maintain
+      the usual low-grade, indolent tumor state.
+    evidence:
+    - reference: PMID:21636552
+      reference_title: &#34;BRAF activation induces transformation and then senescence in human neural stem cells: a pilocytic astrocytoma model.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Induction of senescence by BRAF may help explain the low-grade pathobiology
+        of pilocytic astrocytoma
+      explanation: &gt;-
+        The experimental conclusion directly links BRAF-induced senescence to the
+        low-grade biology represented by the downstream barrier node.
+- name: Senescence-Constrained Low-Grade Progression Barrier
+  conforms_to: &#34;senescence_tumor_suppression#Barrier to Malignant Transformation&#34;
+  role: consequence
+  biological_scale: TISSUE
+  description: &gt;-
+    Oncogene-induced senescence constrains proliferation after BRAF-driven partial
+    transformation and helps account for the usual WHO grade 1, indolent state.
+    This is modeled as a barrier to malignant progression, not as a claim that
+    progression is impossible.
+  evidence:
+  - reference: PMID:21636552
+    reference_title: &#34;BRAF activation induces transformation and then senescence in human neural stem cells: a pilocytic astrocytoma model.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Induction of senescence by BRAF may help explain the low-grade pathobiology
+      of pilocytic astrocytoma
+    explanation: &gt;-
+      The experimental conclusion supports oncogene-induced senescence as a
+      mechanism constraining pilocytic astrocytoma to its usual low-grade state.
+  - reference: PMID:21636552
+    reference_title: &#34;BRAF activation induces transformation and then senescence in human neural stem cells: a pilocytic astrocytoma model.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Immunohistochemical examination of 66 pilocytic astrocytomas revealed
+      p16(INK4a) immunoreactivity in the majority of cases, but patients with
+      tumors negative for p16(INK4a) had significantly shorter overall survival.
+    explanation: &gt;-
+      The human tumor series associates absence of the p16 senescence marker with
+      worse outcome, providing clinical corroboration without proving that the
+      senescence barrier alone determines progression.
 phenotypes:
 - category: Neurological
   name: Hydrocephalus
@@ -6826,6 +7503,43 @@ mappings:
     mapping_predicate: skos:exactMatch
     mapping_source: NCIT
     mapping_justification: NCIT oncology disease mapping retained alongside MONDO per cancer curation guidance.
+datasets:
+- accession: ega:EGAS00001002149
+  title: RNA-sequencing of six Pilocytic astrocytoma tumors
+  description: Pilocytic astrocytoma (PA) is the most common pediatric brain tumor. A recurrent feature of PA is deregulation of the mitogen activated protein kinase (MAPK) pathway most often through KIAA1549-BRAF fusion, but also by other BRAF- or RAF1-gene fusions and point mutations (e.g. BRAFV600E). These features may serve as diagnostic and prognostic markers, and also facilitate development of targeted therapy. The aim of this study was to characterize the genetic alterations underlying the development of PA tumor in six cases, and evaluate methods for fusion oncogene detection.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:28448514
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Pilocytic Astrocytoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001006388
+  title: Detection and genomic analysis of BRAF fusions in Juvenile Pilocytic Astrocytoma through the combination and integration of multi-omic data
+  description: Juvenile Pilocytic Astrocytoma (JPAs) are highly vascular tumors and show pervasive immune infiltration, which can lead to low tumor cell purity in clinical samples. In some instances, this results in gene fusions that are difficult to detect with conventional omics approaches including RNA-Seq. To this effect, we applied RNA-Seq as well as linked-read whole-genome sequencing and in situ Hi-C as new approaches to detect and characterize low-frequency gene fusions at the genomic, transcriptomic and spatial level. Overall, we demonstrate the power of integrating multi-omic datasets to identify low frequency fusions and characterize the JPA genome at high resolution.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Pilocytic Astrocytoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001006402
+  title: Proteogenomics reveals two distinct biological pilocytic astrocytoma subgroups
+  description: Pilocytic astrocytoma (PA) is the most common pediatric brain tumor and driven by aberrant MAPK signaling, typically mediated by BRAF alterations. While five-year overall survival rates exceed 95%, tumor recurrence constitutes a major clinical challenge in incompletely resected tumors despite chemotherapeutic or radiation based therapies. Therefore, we used proteogenomics to discern the biological heterogeneity of PA to improve classification of this tumor entity and identify novel therapeutic targets. Our proteogenomics approach integrates RNA sequencing and LC/MS-based proteomic profiling data from a cohort of 58 confirmed, primary PA samples.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Pilocytic Astrocytoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: dbgap:phs001854
+  title: Human Pilocytic Astrocytoma Single Cell RNA Sequencing
+  description: Pilocytic astrocytoma (PA), the most common childhood brain tumor, is a low-grade glioma with a single driver BRAF rearrangement. Here, we perform scRNAseq in six PAs using methods that enabled detection of the rearrangement. When compared to higher-grade gliomas, a strikingly higher proportion of the PA cancer cells exhibit a differentiated, astrocyte-like phenotype. A smaller proportion of cells exhibit a progenitor-like phenotype with evidence of proliferation. These express a mitogen-activated protein kinase (MAPK) program that was absent from higher-grade gliomas.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Pilocytic Astrocytoma&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs000563
+  title: Pilocytic Astrocytoma in NF1
+  description: Neurofibromatosis type 1 (NF1) inherited cancer predisposition syndrome is one of the most common autosomal dominant tumor predisposition syndromes in which affected individuals develop brain tumors. These low-grade glial neoplasms (pilocytic astrocytomas) typically arise in children younger than 7 years of age and are hypothesized to result from a combination of germline and acquired somatic NF1 tumor suppressor gene mutations.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Pilocytic Astrocytoma&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -6886,7 +7600,7 @@ mappings:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pilocytic Astrocytoma", "mondoId": "MONDO:0016691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pilocytic_Astrocytoma", "yamlRevision": "c0c9d3797c66"};
+        const OS_CONFIG = {"diseaseName": "Pilocytic Astrocytoma", "mondoId": "MONDO:0016691", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pilocytic_Astrocytoma", "yamlRevision": "b07a334db8bc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7305,5 +8019,73 @@ mappings:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

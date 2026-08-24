@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3701,6 +3867,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3781,6 +3949,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3807,29 +3983,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">KIDNEY_URINARY_TRACT</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+                    <span class="tag tag-classification">KIDNEY URINARY TRACT</span>
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3926,16 +4180,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3962,15 +4221,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         HLA-DQB1
 
 
-    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4944">hgnc:4944</a>
+    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4944</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4001,17 +4267,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         intestinal mucosa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001242" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001242">UBERON:0001242</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001242" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001242</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in intestinal mucosa (UBERON:0001242). UBERON:0001242 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         palatine tonsil
@@ -4019,13 +4292,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002373">UBERON:0002373</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002373" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002373</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in palatine tonsil (UBERON:0002373). UBERON:0002373 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4113,17 +4390,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4144,10 +4428,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4174,16 +4461,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TNFSF13
 
 
-    <a href="https://bioregistry.io/hgnc:11928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11928">hgnc:11928</a>
+    <a href="https://bioregistry.io/hgnc:11928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:11928</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNFSF13 (hgnc:11928). hgnc:11928 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4211,10 +4509,13 @@
         TNFSF13B
 
 
-    <a href="https://bioregistry.io/hgnc:11929" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11929">hgnc:11929</a>
+    <a href="https://bioregistry.io/hgnc:11929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:11929</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNFSF13B (hgnc:11929). hgnc:11929 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4242,17 +4543,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042113">GO:0042113</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4273,10 +4581,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045190">GO:0045190</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045190</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves isotype switching (GO:0045190). GO:0045190 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4293,6 +4604,7 @@
 
 
                 </div>
+
 
 
 
@@ -4383,17 +4695,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4414,10 +4733,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4444,15 +4766,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         C1GALT1
 
 
-    <a href="https://bioregistry.io/hgnc:24337" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24337">hgnc:24337</a>
+    <a href="https://bioregistry.io/hgnc:24337" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:24337</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C1GALT1 (hgnc:24337). hgnc:24337 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4480,17 +4809,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein O-linked glycosylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006493">GO:0006493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006493</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein O-linked glycosylation (GO:0006493). GO:0006493 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4511,10 +4847,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4531,6 +4870,7 @@
 
 
                 </div>
+
 
 
 
@@ -4636,17 +4976,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019724" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019724">GO:0019724</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019724" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0019724</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B cell mediated immunity (GO:0019724). GO:0019724 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4667,10 +5014,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4687,6 +5037,7 @@
 
 
                 </div>
+
 
 
 
@@ -4766,6 +5117,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4827,16 +5179,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         mesangial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000650" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000650">CL:0000650</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000650" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesangial cell (CL:0000650). CL:0000650 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4863,15 +5220,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CFH
 
 
-    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4883">hgnc:4883</a>
+    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:4883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFH (hgnc:4883). hgnc:4883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4899,17 +5263,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         complement activation, alternative pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006957">GO:0006957</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006957</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4930,10 +5301,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001867" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001867">GO:0001867</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001867" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0001867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves complement activation, lectin pathway (GO:0001867). GO:0001867 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4956,17 +5330,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         glomerular mesangium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002320" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002320">UBERON:0002320</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002320" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002320</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in glomerular mesangium (UBERON:0002320). UBERON:0002320 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         renal glomerulus
@@ -4974,13 +5355,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5090,17 +5475,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         mesangial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000650" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000650">CL:0000650</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000650" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mesangial cell (CL:0000650). CL:0000650 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5121,10 +5513,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5151,17 +5546,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5182,10 +5584,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5208,17 +5613,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         glomerular mesangium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002320" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002320">UBERON:0002320</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002320" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002320</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in glomerular mesangium (UBERON:0002320). UBERON:0002320 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         renal glomerulus
@@ -5226,13 +5638,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5320,17 +5736,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000653">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5351,10 +5774,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002188">CL:0002188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0002188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular endothelial cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5384,19 +5810,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         renal glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5515,16 +5947,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5547,19 +5984,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6017,14 +6460,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6109,14 +6559,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microscopic hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002907" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002907">HP:0002907</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6192,14 +6649,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000083">HP:0000083</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000083</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6275,14 +6739,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6389,14 +6860,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000282">HP:0000282</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000282</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial edema (HP:0000282). HP:0000282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6459,14 +6937,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macroscopic hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012587" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012587">HP:0012587</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012587" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012587</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroscopic hematuria (HP:0012587). HP:0012587 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6571,14 +7056,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mild proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012595" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012595">HP:0012595</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0012595</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mild proteinuria (HP:0012595). HP:0012595 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6661,14 +7153,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nephrotic range proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012593" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012593">HP:0012593</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012593" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012593</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic range proteinuria (HP:0012593). HP:0012593 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6744,14 +7243,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Foamy urine
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031504" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031504">HP:0031504</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0031504</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Foamy urine (HP:0031504). HP:0031504 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6805,14 +7311,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glomerulonephritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000099">HP:0000099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6910,13 +7423,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQB1
 
 
-    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4944">hgnc:4944</a>
+    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:4944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6976,13 +7494,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFH
 
 
-    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4883">hgnc:4883</a>
+    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:4883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7042,13 +7565,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: C1GALT1
 
 
-    <a href="https://bioregistry.io/hgnc:24337" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24337">hgnc:24337</a>
+    <a href="https://bioregistry.io/hgnc:24337" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:24337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C1GALT1 (hgnc:24337). hgnc:24337 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7095,17 +7623,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertension
@@ -7113,10 +7648,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000822</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7175,16 +7713,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7261,16 +7804,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7329,16 +7877,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7415,16 +7968,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7765,11 +8323,286 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">7</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    The role of serum miRs in IgA nephropathy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE230731" target="_blank">geo:GSE230731</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">To ascetain whether a serum miR signature can distinguish patients with progressive IgAN from the stable form and to determine the signature specificity for IgAN by comparing serum miR profiles with subjects with membranous nephropathy and healthy subjects.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=40</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40268167" target="_blank" style="color: var(--secondary);">PMID:40268167</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for IgA Nephropathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Specific biomarkers Associated with Active and Chronic Renal Lesions in IgA Nephropathy. A Multicenter Study
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE116626" target="_blank">geo:GSE116626</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Specific molecular biomarkers were detected in kidney biopsy of IgA nephropathy characterizing active (E and C) and chronic (T) renal lesions compared with other non-IgA glomerulonephritis and living donors</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=81</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32938960" target="_blank" style="color: var(--secondary);">PMID:32938960</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for IgA Nephropathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Epigenetic biomarker discovery in IgA nephropathy: chromatin openness analysis of circulating CD8+ T cells using ATAC-Seq
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE285347" target="_blank">geo:GSE285347</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Chromatin openess plays a critical role in understanding epigenetic regulation in disease states. Using ATAC-seq, we profiled circulating CD8+ T cells from IgA nephropathy (IgAN) patients to identify biomarkers distinguishing early and late disease stages. A total of 279 differential ATAC peaks were identified, with 122 selected as biomarkers based on fold change (&gt;2) and statistical significance (P &lt; 0.05). These biomarkers exhibited distinct chromatin accessibility patterns, highlighting differential regulatory mechanisms. Combining multiple biomarkers through weighted scoring enhanced predictive accuracy, with ROC analysis confirming their diagnostic potential.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">ATAC SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=17</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466033" target="_blank" style="color: var(--secondary);">PMID:41466033</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for IgA Nephropathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    HLA has strongest association with IgA nephropathy in genome-wide analysis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000031" target="_blank">ega:EGAS00000000031</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">GWAS study of families with probands with IgA nephropathy from the UK Glomerulonephritis DNA bank</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;IgA Nephropathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genetic variants of the COL4A3, COL4A4, and COL4A5 genes contribute to thinned glomerular basement membrane lesions in sporadic IgA nephropathy patients
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006519" target="_blank">ega:EGAS00001006519</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Contribution of pathogenic COL4A3/COL4A4/COL4A5 variants to sporadic IgAN is still unclear. Whole exome sequencing was performed in sporadic IgAN patients with thinned glomerular basement membrane lesions and variations in COL4A3/COL4A4/COL4A5 genes were screened and evaluated. 37 different diagnostic variants in COL4A3/COL4A4/COL4A5 gene in 38 patients (31.1%) were identified.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;IgA Nephropathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Metabolomics of immunoglobulin-producing cells in IgA nephropathy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000560" target="_blank">metabolomics_workbench:ST000560</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;IgA Nephropathy&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    IgA Nephropathy GWAS (IGANGWAS)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000431" target="_blank">dbgap:phs000431</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">In this second study version, we report a genome-wide association study of IgA nephropathy performed in individuals of European ancestry (US and Italian cohorts), followed by a meta-analysis with the existing GWAS cohorts (Han Chinese [study version 1] and French cohorts). Genomic DNA was extracted from whole blood and genotyped with the HumanHap550-2v3, Human610-Quadv1and HumanOmni1-Quad_v1 platforms. This GWAS also utilized pre-genotyped population controls from other studies.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;IgA Nephropathy&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7788,7 +8621,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: IgA Nephropathy
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-04-30T20:00:00Z&#39;
 category: Autoimmune
 parents:
 - Autoimmune Disease
@@ -8906,6 +9738,68 @@ references:
 - reference: PMID:37547537
   title: &#39;Effect of Immunosuppressive Treatments on Kidney Outcomes After Gross Hematuria-Related Acute Kidney Injury in Older Patients With IgA Nephropathy.&#39;
   findings: []
+datasets:
+- accession: geo:GSE230731
+  title: The role of serum miRs in IgA nephropathy
+  description: To ascetain whether a serum miR signature can distinguish patients with progressive IgAN from the stable form and to determine the signature specificity for IgAN by comparing serum miR profiles with subjects with membranous nephropathy and healthy subjects.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 40
+  publication: PMID:40268167
+  notes: Identified by GEO DataSets index search for IgA Nephropathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE116626
+  title: Specific biomarkers Associated with Active and Chronic Renal Lesions in IgA Nephropathy. A Multicenter Study
+  description: Specific molecular biomarkers were detected in kidney biopsy of IgA nephropathy characterizing active (E and C) and chronic (T) renal lesions compared with other non-IgA glomerulonephritis and living donors
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 81
+  publication: PMID:32938960
+  notes: Identified by GEO DataSets index search for IgA Nephropathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE285347
+  title: &#39;Epigenetic biomarker discovery in IgA nephropathy: chromatin openness analysis of circulating CD8+ T cells using ATAC-Seq&#39;
+  description: Chromatin openess plays a critical role in understanding epigenetic regulation in disease states. Using ATAC-seq, we profiled circulating CD8+ T cells from IgA nephropathy (IgAN) patients to identify biomarkers distinguishing early and late disease stages. A total of 279 differential ATAC peaks were identified, with 122 selected as biomarkers based on fold change (&gt;2) and statistical significance (P &lt; 0.05). These biomarkers exhibited distinct chromatin accessibility patterns, highlighting differential regulatory mechanisms. Combining multiple biomarkers through weighted scoring enhanced predictive accuracy, with ROC analysis confirming their diagnostic potential.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: ATAC_SEQ
+  sample_count: 17
+  publication: PMID:41466033
+  notes: Identified by GEO DataSets index search for IgA Nephropathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00000000031
+  title: HLA has strongest association with IgA nephropathy in genome-wide analysis
+  description: GWAS study of families with probands with IgA nephropathy from the UK Glomerulonephritis DNA bank
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;IgA Nephropathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001006519
+  title: Genetic variants of the COL4A3, COL4A4, and COL4A5 genes contribute to thinned glomerular basement membrane lesions in sporadic IgA nephropathy patients
+  description: Contribution of pathogenic COL4A3/COL4A4/COL4A5 variants to sporadic IgAN is still unclear. Whole exome sequencing was performed in sporadic IgAN patients with thinned glomerular basement membrane lesions and variations in COL4A3/COL4A4/COL4A5 genes were screened and evaluated. 37 different diagnostic variants in COL4A3/COL4A4/COL4A5 gene in 38 patients (31.1%) were identified.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;IgA Nephropathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST000560
+  title: Metabolomics of immunoglobulin-producing cells in IgA nephropathy
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;IgA Nephropathy&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs000431
+  title: IgA Nephropathy GWAS (IGANGWAS)
+  description:   In this second study version, we report a genome-wide association study of IgA nephropathy performed in individuals of European ancestry (US and Italian cohorts), followed by a meta-analysis with the existing GWAS cohorts (Han Chinese [study version 1] and French cohorts). Genomic DNA was extracted from whole blood and genotyped with the HumanHap550-2v3, Human610-Quadv1and HumanOmni1-Quad_v1 platforms. This GWAS also utilized pre-genotyped population controls from other studies.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;IgA Nephropathy&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9483,7 +10377,7 @@ IgA nephropathy is characterized by mesangial deposition of immune complexes con
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "IgA Nephropathy", "mondoId": "MONDO:0005342", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IgA_Nephropathy", "yamlRevision": "7142f7dc7a06"};
+        const OS_CONFIG = {"diseaseName": "IgA Nephropathy", "mondoId": "MONDO:0005342", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "IgA_Nephropathy", "yamlRevision": "50b967a647ae"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9902,5 +10796,73 @@ IgA nephropathy is characterized by mesangial deposition of immune complexes con
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

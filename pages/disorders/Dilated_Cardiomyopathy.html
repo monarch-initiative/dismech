@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 41</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 43</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Dilated%20Cardiomyopathy"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3705,7 +3873,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3726,7 +3894,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">41</div>
+                <div class="stat-value">43</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3760,6 +3928,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4166,7 +4342,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcomeric-and-cytoskeletal-dysfunction" data-dismech-node="Sarcomeric and Cytoskeletal Dysfunction" data-dismech-type="pathophysiology">
@@ -4179,16 +4355,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4215,16 +4396,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12403</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4252,11 +4444,18 @@
         LMNA
 
 
-    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6636">hgnc:6636</a>
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6636</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4284,11 +4483,18 @@
         MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7577">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7577</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4316,11 +4522,18 @@
         MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7576">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7576</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4348,11 +4561,18 @@
         MYBPC3
 
 
-    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7551">hgnc:7551</a>
+    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7551</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4380,11 +4600,18 @@
         ACTC1
 
 
-    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:143">hgnc:143</a>
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:143</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4412,11 +4639,18 @@
         TPM1
 
 
-    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12010">hgnc:12010</a>
+    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:12010</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TPM1 (hgnc:12010). hgnc:12010 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4444,11 +4678,18 @@
         TNNT2
 
 
-    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11949">hgnc:11949</a>
+    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11949</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNT2 (hgnc:11949). hgnc:11949 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4476,11 +4717,18 @@
         TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11943</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4508,11 +4756,18 @@
         TNNI3
 
 
-    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11947">hgnc:11947</a>
+    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11947</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNI3 (hgnc:11947). hgnc:11947 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4540,11 +4795,18 @@
         MYL2
 
 
-    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7583">hgnc:7583</a>
+    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:7583</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYL2 (hgnc:7583). hgnc:7583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4572,11 +4834,18 @@
         MYLK3
 
 
-    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29826">hgnc:29826</a>
+    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:29826</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYLK3 (hgnc:29826). hgnc:29826 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4604,11 +4873,18 @@
         DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:2770</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4636,11 +4912,18 @@
         FLNC
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:3756</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4668,11 +4951,18 @@
         VCL
 
 
-    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12665">hgnc:12665</a>
+    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:12665</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VCL (hgnc:12665). hgnc:12665 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4700,11 +4990,18 @@
         LDB3
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:15710</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4732,11 +5029,18 @@
         TCAP
 
 
-    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11610">hgnc:11610</a>
+    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:11610</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TCAP (hgnc:11610). hgnc:11610 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4764,11 +5068,18 @@
         MYPN
 
 
-    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23246">hgnc:23246</a>
+    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:23246</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYPN (hgnc:23246). hgnc:23246 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4796,11 +5107,18 @@
         ANKRD1
 
 
-    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15819">hgnc:15819</a>
+    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:15819</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ANKRD1 (hgnc:15819). hgnc:15819 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4828,11 +5146,18 @@
         NEXN
 
 
-    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29557">hgnc:29557</a>
+    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:29557</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEXN (hgnc:29557). hgnc:29557 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4860,11 +5185,18 @@
         NEBL
 
 
-    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16932">hgnc:16932</a>
+    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:16932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEBL (hgnc:16932). hgnc:16932 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4892,11 +5224,18 @@
         NRAP
 
 
-    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7988">hgnc:7988</a>
+    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7988</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAP (hgnc:7988). hgnc:7988 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4924,11 +5263,18 @@
         OBSCN
 
 
-    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15719">hgnc:15719</a>
+    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:15719</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OBSCN (hgnc:15719). hgnc:15719 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4956,11 +5302,18 @@
         LMOD2
 
 
-    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6648">hgnc:6648</a>
+    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6648</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LMOD2 (hgnc:6648). hgnc:6648 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4988,11 +5341,18 @@
         TMOD1
 
 
-    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11871">hgnc:11871</a>
+    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11871</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMOD1 (hgnc:11871). hgnc:11871 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5020,11 +5380,18 @@
         LAMA4
 
 
-    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6484">hgnc:6484</a>
+    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAMA4 (hgnc:6484). hgnc:6484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5052,11 +5419,18 @@
         CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1759">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:1759</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5084,11 +5458,18 @@
         DSG2
 
 
-    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3049">hgnc:3049</a>
+    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3049</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DSG2 (hgnc:3049). hgnc:3049 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5116,11 +5497,18 @@
         MYZAP
 
 
-    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:43444">hgnc:43444</a>
+    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:43444</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYZAP (hgnc:43444). hgnc:43444 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5148,11 +5536,18 @@
         BAG3
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:939</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5180,10 +5575,13 @@
         FLII
 
 
-    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3750">hgnc:3750</a>
+    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3750</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5211,16 +5609,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cardiac muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060048">GO:0060048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0060048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cardiac muscle contraction (GO:0060048). GO:0060048 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5237,6 +5640,7 @@
 
 
                 </div>
+
 
 
 
@@ -5344,16 +5748,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         renin-angiotensin regulation of aldosterone production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002018" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002018">GO:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002018" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves renin-angiotensin regulation of aldosterone production (GO:0002018). GO:0002018 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5376,6 +5785,22 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">IL-11 Signalling in Cardiac Fibroblasts</span>
+
+	                            <span class="crosslink-desc">Neurohormonal (angiotensin II) activation drives cardiac fibroblast IL-11 induction, placing IL-11 receptor signalling downstream of the neurohormonal stress that promotes adverse remodeling.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5436,6 +5861,250 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-11-signalling-in-cardiac-fibroblasts" data-dismech-node="IL-11 Signalling in Cardiac Fibroblasts" data-dismech-type="pathophysiology">
+                <div class="item-name">IL-11 Signalling in Cardiac Fibroblasts</div>
+
+                <div class="item-desc">Profibrotic stress upregulates IL-11 and IL11RA in cardiac fibroblasts, driving ERK-dependent (non-canonical) autocrine signalling that promotes their fibroblast-to-myofibroblast transformation and ECM gene expression. This IL-11 receptor-signalling arm is an organ-specific instance of the conserved IL-11 signalling module and feeds myocardial fibrosis; neutralizing anti-IL-11 or anti-IL11RA antibodies reduce cardiac fibrosis and ERK activation without affecting hypertrophy.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        cardiac fibroblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0002548</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Interleukin-11-mediated signaling pathway
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0038154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0038154</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Interleukin-11-mediated signaling pathway (GO:0038154). GO:0038154 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        ERK1 and ERK2 cascade
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0070371</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:0070371). GO:0070371 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        heart
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-38">UBERON:0000948</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myocardial Fibrosis</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33462828" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33462828" target="_blank">PMID:33462828</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Inhibition of IL11 signalling reduced AAC-induced cardiac fibrosis and ECM gene expression as well as ERK1/2 phosphorylation but had no effect on cardiac hypertrophy."</div>
+
+
+                <div class="evidence-explanation">Directly evidences that anti-IL-11 reduces cardiac fibrosis and ERK1/2 phosphorylation in a cardiac-fibroblast-driven model, grounding this node. Evidence source is MODEL_ORGANISM (mouse ascending aortic constriction).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33462828" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33462828" target="_blank">PMID:33462828</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"blocking IL11 signalling reduces cardiac fibrosis due to severe pressure overload and suggests ERK, but not STAT3, activity as the relevant underlying signalling pathway"</div>
+
+
+                <div class="evidence-explanation">Identifies the non-canonical ERK arm (not canonical STAT3) as the fibrosis-relevant IL-11 pathway in the heart, consistent with the module&#39;s receptor-signalling node and its canonical-vs-non-canonical knowledge gap. Evidence source is MODEL_ORGANISM (mouse pressure-overload model plus cardiac fibroblasts).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29160304" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29160304" target="_blank">PMID:29160304</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In mice, fibroblast-specific Il11 transgene expression or Il-11 injection causes heart and kidney fibrosis and organ failure, whereas genetic deletion of Il11ra1 protects against disease."</div>
+
+
+                <div class="evidence-explanation">Shows fibroblast IL-11 is sufficient to cause heart fibrosis and organ failure and that receptor deletion is protective. Evidence source is MODEL_ORGANISM (transgenic and Il11ra1-knockout mice).</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Fibrosis</div>
 
@@ -5446,16 +6115,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5482,16 +6156,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5508,6 +6187,7 @@
 
 
                 </div>
+
 
 
 
@@ -5562,16 +6242,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5598,15 +6283,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RBM20
 
 
-    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27424">hgnc:27424</a>
+    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:27424</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBM20 (hgnc:27424). hgnc:27424 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5626,6 +6318,7 @@
 
 
                 </div>
+
 
 
 
@@ -5685,16 +6378,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5711,6 +6409,7 @@
 
 
                 </div>
+
 
 
 
@@ -5767,6 +6466,7 @@
 
                 <div class="item-desc">Large-scale genome-wide association studies have identified dozens of loci associated with DCM, highlighting the role of common genetic variation in disease susceptibility. Enrichment analyses confirm the central role of the cardiomyocyte and contractile apparatus.
 </div>
+
 
 
 
@@ -5852,16 +6552,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5888,15 +6593,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PPA2
 
 
-    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28883">hgnc:28883</a>
+    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:28883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PPA2 (hgnc:28883). hgnc:28883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5924,16 +6636,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-46">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5950,6 +6667,7 @@
 
 
                 </div>
+
 
 
 
@@ -6019,7 +6737,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE Inhibitors / ARBs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line neurohormonal blockade to reduce afterload and prevent adverse remodeling.\", \"meta\": {\"therapeutic_agents\": [\"ACE inhibitor\"]}}, {\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ANKRD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKRD1\"], \"gene_terms\": [{\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Beta-Blockers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reduce heart rate and neurohormonal activation, improving survival in heart failure with reduced ejection fraction.\"}, {\"id\": \"CDH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDH2\"], \"gene_terms\": [{\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Cardiac Resynchronization Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Biventricular pacing for patients with wide QRS and reduced LVEF to improve synchrony and outcomes.\"}, {\"id\": \"DES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DES\"], \"gene_terms\": [{\"label\": \"DES\", \"id\": \"hgnc:2770\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"gene_terms\": [{\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLII\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLNC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNC\"], \"gene_terms\": [{\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LAMA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA4\"], \"gene_terms\": [{\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LDB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LDB3\"], \"gene_terms\": [{\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LMNA Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"association\": \"Causative\"}}, {\"id\": \"LMOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMOD2\"], \"gene_terms\": [{\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYBPC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYBPC3\"], \"gene_terms\": [{\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYH6\"], \"gene_terms\": [{\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH7 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"association\": \"Causative\"}}, {\"id\": \"MYL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL2\"], \"gene_terms\": [{\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYLK3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYLK3\"], \"gene_terms\": [{\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYPN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYPN\"], \"gene_terms\": [{\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYZAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYZAP\"], \"gene_terms\": [{\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial energy production, increased oxidative stress, and defective mitochondrial quality control contribute to cardiomyocyte injury and contractile failure in DCM. Disruption of mitochondrial protein homeostasis can drive disease progression.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"mitochondrion organization\"], \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}]}}, {\"id\": \"NEBL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEBL\"], \"gene_terms\": [{\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NEXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NRAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAP\"], \"gene_terms\": [{\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cardiac output activates the renin-angiotensin-aldosterone system and sympathetic nervous system, causing vasoconstriction, sodium and water retention, and further myocardial stress. Chronic neurohormonal activation promotes adverse cardiac remodeling.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"renin-angiotensin regulation of aldosterone production\"]}}, {\"id\": \"OBSCN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OBSCN\"], \"gene_terms\": [{\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PPA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RBM20 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"association\": \"Causative\"}}, {\"id\": \"RNA Splicing Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RBM20 cause an aggressive, early-onset form of dilated cardiomyopathy. RBM20 is a cardiac splicing regulator, and the proposed mechanism is disrupted alternative splicing of key cardiac genes including TTN and calcium-handling genes, with some variants reported to form toxic biomolecular condensates. The splicing and condensate detail derives from model systems and is not established by the evidence cited here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}]}}, {\"id\": \"SGLT2 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Newer therapy shown to reduce heart failure hospitalization and cardiovascular death in HFrEF regardless of diabetes status.\"}, {\"id\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"genes\": [\"TTN\", \"LMNA\", \"MYH7\", \"MYH6\", \"MYBPC3\", \"ACTC1\", \"TPM1\", \"TNNT2\", \"TNNC1\", \"TNNI3\", \"MYL2\", \"MYLK3\", \"DES\", \"FLNC\", \"VCL\", \"LDB3\", \"TCAP\", \"MYPN\", \"ANKRD1\", \"NEXN\", \"NEBL\", \"NRAP\", \"OBSCN\", \"LMOD2\", \"TMOD1\", \"LAMA4\", \"CDH2\", \"DSG2\", \"MYZAP\", \"BAG3\", \"FLII\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}, {\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}, {\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}, {\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}, {\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}, {\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}, {\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}, {\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}, {\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}, {\"label\": \"DES\", \"id\": \"hgnc:2770\"}, {\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}, {\"label\": \"VCL\", \"id\": \"hgnc:12665\"}, {\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}, {\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}, {\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}, {\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}, {\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}, {\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}, {\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}, {\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}, {\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}, {\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}, {\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}, {\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}, {\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}, {\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}, {\"label\": \"BAG3\", \"id\": \"hgnc:939\"}, {\"label\": \"FLII\", \"id\": \"hgnc:3750\"}]}}, {\"id\": \"TCAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TCAP\"], \"gene_terms\": [{\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TMOD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMOD1\"], \"gene_terms\": [{\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNC1\"], \"gene_terms\": [{\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNI3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNT2\"], \"gene_terms\": [{\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TPM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM1\"], \"gene_terms\": [{\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TTN Truncating Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"association\": \"Causative\"}}, {\"id\": \"VCL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VCL\"], \"gene_terms\": [{\"label\": \"VCL\", \"id\": \"hgnc:12665\"}], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"ACE Inhibitors / ARBs\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beta-Blockers\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 Inhibitors\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac Resynchronization Therapy\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TTN Truncating Variants\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMNA Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH7 Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM20 Mutations\", \"target\": \"RNA Splicing Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKRD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BAG3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDH2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DES\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLII\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLNC\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA4\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LDB3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMOD2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBPC3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH6\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYLK3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYPN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYZAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEBL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEXN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OBSCN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPA2\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TCAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMOD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VCL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE Inhibitors / ARBs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line neurohormonal blockade to reduce afterload and prevent adverse remodeling.\", \"meta\": {\"therapeutic_agents\": [\"ACE inhibitor\"]}}, {\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ANKRD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKRD1\"], \"gene_terms\": [{\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Beta-Blockers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reduce heart rate and neurohormonal activation, improving survival in heart failure with reduced ejection fraction.\"}, {\"id\": \"CDH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDH2\"], \"gene_terms\": [{\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Cardiac Resynchronization Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Biventricular pacing for patients with wide QRS and reduced LVEF to improve synchrony and outcomes.\"}, {\"id\": \"DES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DES\"], \"gene_terms\": [{\"label\": \"DES\", \"id\": \"hgnc:2770\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"gene_terms\": [{\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLII\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLNC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNC\"], \"gene_terms\": [{\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profibrotic stress upregulates IL-11 and IL11RA in cardiac fibroblasts, driving ERK-dependent (non-canonical) autocrine signalling that promotes their fibroblast-to-myofibroblast transformation and ECM gene expression. This IL-11 receptor-signalling arm is an organ-specific instance of the conserved IL-11 signalling module and feeds myocardial fibrosis; neutralizing anti-IL-11 or anti-IL11RA antibodies reduce cardiac fibrosis and ERK activation without affecting hypertrophy.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"Interleukin-11-mediated signaling pathway\", \"ERK1 and ERK2 cascade\"], \"role\": \"amplifier\", \"locations\": [\"heart\"]}}, {\"id\": \"LAMA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA4\"], \"gene_terms\": [{\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LDB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LDB3\"], \"gene_terms\": [{\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LMNA Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"association\": \"Causative\"}}, {\"id\": \"LMOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMOD2\"], \"gene_terms\": [{\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYBPC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYBPC3\"], \"gene_terms\": [{\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYH6\"], \"gene_terms\": [{\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH7 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"association\": \"Causative\"}}, {\"id\": \"MYL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL2\"], \"gene_terms\": [{\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYLK3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYLK3\"], \"gene_terms\": [{\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYPN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYPN\"], \"gene_terms\": [{\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYZAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYZAP\"], \"gene_terms\": [{\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial energy production, increased oxidative stress, and defective mitochondrial quality control contribute to cardiomyocyte injury and contractile failure in DCM. Disruption of mitochondrial protein homeostasis can drive disease progression.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"mitochondrion organization\"], \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}]}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement and interstitial fibrosis within the ventricular myocardium impairs diastolic filling, increases myocardial stiffness, and creates substrates for re-entrant arrhythmias. Late gadolinium enhancement on cardiac MRI is a strong predictor of adverse outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"NEBL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEBL\"], \"gene_terms\": [{\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NEXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NRAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAP\"], \"gene_terms\": [{\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cardiac output activates the renin-angiotensin-aldosterone system and sympathetic nervous system, causing vasoconstriction, sodium and water retention, and further myocardial stress. Chronic neurohormonal activation promotes adverse cardiac remodeling.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"renin-angiotensin regulation of aldosterone production\"]}}, {\"id\": \"OBSCN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OBSCN\"], \"gene_terms\": [{\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PPA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RBM20 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"association\": \"Causative\"}}, {\"id\": \"RNA Splicing Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RBM20 cause an aggressive, early-onset form of dilated cardiomyopathy. RBM20 is a cardiac splicing regulator, and the proposed mechanism is disrupted alternative splicing of key cardiac genes including TTN and calcium-handling genes, with some variants reported to form toxic biomolecular condensates. The splicing and condensate detail derives from model systems and is not established by the evidence cited here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}]}}, {\"id\": \"SGLT2 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Newer therapy shown to reduce heart failure hospitalization and cardiovascular death in HFrEF regardless of diabetes status.\"}, {\"id\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"genes\": [\"TTN\", \"LMNA\", \"MYH7\", \"MYH6\", \"MYBPC3\", \"ACTC1\", \"TPM1\", \"TNNT2\", \"TNNC1\", \"TNNI3\", \"MYL2\", \"MYLK3\", \"DES\", \"FLNC\", \"VCL\", \"LDB3\", \"TCAP\", \"MYPN\", \"ANKRD1\", \"NEXN\", \"NEBL\", \"NRAP\", \"OBSCN\", \"LMOD2\", \"TMOD1\", \"LAMA4\", \"CDH2\", \"DSG2\", \"MYZAP\", \"BAG3\", \"FLII\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}, {\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}, {\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}, {\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}, {\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}, {\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}, {\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}, {\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}, {\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}, {\"label\": \"DES\", \"id\": \"hgnc:2770\"}, {\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}, {\"label\": \"VCL\", \"id\": \"hgnc:12665\"}, {\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}, {\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}, {\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}, {\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}, {\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}, {\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}, {\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}, {\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}, {\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}, {\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}, {\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}, {\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}, {\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}, {\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}, {\"label\": \"BAG3\", \"id\": \"hgnc:939\"}, {\"label\": \"FLII\", \"id\": \"hgnc:3750\"}]}}, {\"id\": \"TCAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TCAP\"], \"gene_terms\": [{\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TMOD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMOD1\"], \"gene_terms\": [{\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNC1\"], \"gene_terms\": [{\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNI3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNT2\"], \"gene_terms\": [{\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TPM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM1\"], \"gene_terms\": [{\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TTN Truncating Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"association\": \"Causative\"}}, {\"id\": \"VCL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VCL\"], \"gene_terms\": [{\"label\": \"VCL\", \"id\": \"hgnc:12665\"}], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"Neurohormonal Activation\", \"target\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurohormonal (angiotensin II) activation drives cardiac fibroblast IL-11 induction, placing IL-11 receptor signalling downstream of the neurohormonal stress that promotes adverse remodeling.\"}, {\"source\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACE Inhibitors / ARBs\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beta-Blockers\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 Inhibitors\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac Resynchronization Therapy\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TTN Truncating Variants\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMNA Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH7 Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM20 Mutations\", \"target\": \"RNA Splicing Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKRD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BAG3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDH2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DES\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLII\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLNC\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA4\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LDB3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMOD2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBPC3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH6\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYLK3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYPN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYZAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEBL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEXN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OBSCN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPA2\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TCAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMOD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VCL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6064,14 +6782,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6125,14 +6850,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6208,14 +6940,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular systolic dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025169" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025169">HP:0025169</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0025169</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular systolic dysfunction (HP:0025169). HP:0025169 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6291,14 +7030,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001962</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6320,14 +7066,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6412,14 +7165,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012398">HP:0012398</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0012398</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6450,14 +7210,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6488,14 +7255,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6561,13 +7335,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:12403</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6653,13 +7432,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LMNA
 
 
-    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6636">hgnc:6636</a>
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:6636</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6745,13 +7529,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7577">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:7577</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6837,13 +7626,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBM20
 
 
-    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27424">hgnc:27424</a>
+    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:27424</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6929,13 +7723,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCC9
 
 
-    <a href="https://bioregistry.io/hgnc:60" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:60">hgnc:60</a>
+    <a href="https://bioregistry.io/hgnc:60" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:60</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCC9 (hgnc:60). hgnc:60 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6993,13 +7792,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACTC1
 
 
-    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:143">hgnc:143</a>
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7057,13 +7861,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ANKRD1
 
 
-    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15819">hgnc:15819</a>
+    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:15819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ANKRD1 (hgnc:15819). hgnc:15819 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7121,13 +7930,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BAG3
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:939</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7185,13 +7999,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BAG5
 
 
-    <a href="https://bioregistry.io/hgnc:941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:941">hgnc:941</a>
+    <a href="https://bioregistry.io/hgnc:941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAG5 (hgnc:941). hgnc:941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7249,13 +8068,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1759">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:1759</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7313,13 +8137,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTF1
 
 
-    <a href="https://bioregistry.io/hgnc:2499" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2499">hgnc:2499</a>
+    <a href="https://bioregistry.io/hgnc:2499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:2499</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTF1 (hgnc:2499). hgnc:2499 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7377,13 +8206,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-66">hgnc:2770</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7441,13 +8275,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DSG2
 
 
-    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3049">hgnc:3049</a>
+    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-67">hgnc:3049</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DSG2 (hgnc:3049). hgnc:3049 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7505,13 +8344,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FBXO32
 
 
-    <a href="https://bioregistry.io/hgnc:16731" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16731">hgnc:16731</a>
+    <a href="https://bioregistry.io/hgnc:16731" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-68">hgnc:16731</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FBXO32 (hgnc:16731). hgnc:16731 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7569,13 +8413,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLII
 
 
-    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3750">hgnc:3750</a>
+    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:3750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7633,13 +8482,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLNC
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:3756</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7697,13 +8551,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATAD1
 
 
-    <a href="https://bioregistry.io/hgnc:29941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29941">hgnc:29941</a>
+    <a href="https://bioregistry.io/hgnc:29941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:29941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATAD1 (hgnc:29941). hgnc:29941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7761,13 +8620,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GET3
 
 
-    <a href="https://bioregistry.io/hgnc:752" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:752">hgnc:752</a>
+    <a href="https://bioregistry.io/hgnc:752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:752</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GET3 (hgnc:752). hgnc:752 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7825,13 +8689,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: JPH2
 
 
-    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14202">hgnc:14202</a>
+    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:14202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7911,13 +8780,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LAMA4
 
 
-    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6484">hgnc:6484</a>
+    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:6484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7975,13 +8849,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LDB3
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:15710</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8061,13 +8940,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LMOD2
 
 
-    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6648">hgnc:6648</a>
+    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-76">hgnc:6648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LMOD2 (hgnc:6648). hgnc:6648 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8125,13 +9009,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MIB1
 
 
-    <a href="https://bioregistry.io/hgnc:21086" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21086">hgnc:21086</a>
+    <a href="https://bioregistry.io/hgnc:21086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:21086</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MIB1 (hgnc:21086). hgnc:21086 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8189,13 +9078,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYBPC3
 
 
-    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7551">hgnc:7551</a>
+    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-78">hgnc:7551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8275,13 +9169,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7576">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-79">hgnc:7576</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8339,13 +9238,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYL2
 
 
-    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7583">hgnc:7583</a>
+    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-80">hgnc:7583</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8403,13 +9307,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYLK3
 
 
-    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29826">hgnc:29826</a>
+    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-81">hgnc:29826</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYLK3 (hgnc:29826). hgnc:29826 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8467,13 +9376,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYPN
 
 
-    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23246">hgnc:23246</a>
+    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-82">hgnc:23246</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYPN (hgnc:23246). hgnc:23246 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8531,13 +9445,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYZAP
 
 
-    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:43444">hgnc:43444</a>
+    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-83">hgnc:43444</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYZAP (hgnc:43444). hgnc:43444 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8595,13 +9514,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEBL
 
 
-    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16932">hgnc:16932</a>
+    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-84">hgnc:16932</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEBL (hgnc:16932). hgnc:16932 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8659,13 +9583,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEXN
 
 
-    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29557">hgnc:29557</a>
+    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-85">hgnc:29557</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8723,13 +9652,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NRAP
 
 
-    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7988">hgnc:7988</a>
+    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-86">hgnc:7988</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAP (hgnc:7988). hgnc:7988 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8787,13 +9721,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OBSCN
 
 
-    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15719">hgnc:15719</a>
+    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-87">hgnc:15719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8851,13 +9790,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PLEKHM2
 
 
-    <a href="https://bioregistry.io/hgnc:29131" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29131">hgnc:29131</a>
+    <a href="https://bioregistry.io/hgnc:29131" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-88">hgnc:29131</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLEKHM2 (hgnc:29131). hgnc:29131 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8915,13 +9859,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PPA2
 
 
-    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28883">hgnc:28883</a>
+    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-89">hgnc:28883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PPA2 (hgnc:28883). hgnc:28883 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8979,13 +9928,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRDM16
 
 
-    <a href="https://bioregistry.io/hgnc:14000" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14000">hgnc:14000</a>
+    <a href="https://bioregistry.io/hgnc:14000" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-90">hgnc:14000</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM16 (hgnc:14000). hgnc:14000 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9043,13 +9997,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RPL3L
 
 
-    <a href="https://bioregistry.io/hgnc:10351" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10351">hgnc:10351</a>
+    <a href="https://bioregistry.io/hgnc:10351" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-91">hgnc:10351</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RPL3L (hgnc:10351). hgnc:10351 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9107,13 +10066,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10484">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-92">hgnc:10484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9171,13 +10135,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10593">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-93">hgnc:10593</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9235,13 +10204,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBX20
 
 
-    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11598">hgnc:11598</a>
+    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-94">hgnc:11598</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBX20 (hgnc:11598). hgnc:11598 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9299,13 +10273,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TCAP
 
 
-    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11610">hgnc:11610</a>
+    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-95">hgnc:11610</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TCAP (hgnc:11610). hgnc:11610 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9363,13 +10342,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMOD1
 
 
-    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11871">hgnc:11871</a>
+    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-96">hgnc:11871</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMOD1 (hgnc:11871). hgnc:11871 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9427,13 +10411,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-97">hgnc:11943</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9491,13 +10480,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNI3
 
 
-    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11947">hgnc:11947</a>
+    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-98">hgnc:11947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-98">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9577,13 +10571,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNI3K
 
 
-    <a href="https://bioregistry.io/hgnc:19661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19661">hgnc:19661</a>
+    <a href="https://bioregistry.io/hgnc:19661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-99">hgnc:19661</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNI3K (hgnc:19661). hgnc:19661 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9641,13 +10640,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNT2
 
 
-    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11949">hgnc:11949</a>
+    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-100">hgnc:11949</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9705,13 +10709,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TPM1
 
 
-    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12010">hgnc:12010</a>
+    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-101">hgnc:12010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-101">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9769,13 +10778,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VCL
 
 
-    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12665">hgnc:12665</a>
+    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-102">hgnc:12665</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-102">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9842,7 +10856,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">ACE inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-103">ACE inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-103">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9873,16 +10892,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ACE inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C247">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-104">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9923,7 +10947,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta-blocker therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">beta-blocker therapy<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9987,7 +11016,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">SGLT2 inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">SGLT2 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is SGLT2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -10051,7 +11085,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac resynchronization therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-107">cardiac resynchronization therapy<span class="pill-tip" role="tooltip" id="pill-tip-107">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac resynchronization therapy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10115,7 +11154,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">heart transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-108">heart transplantation<span class="pill-tip" role="tooltip" id="pill-tip-108">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is heart transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -10161,7 +11205,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-109">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-109">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10207,7 +11256,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-110">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-110">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10314,11 +11368,358 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Cardiac Fibrosis in Dilated Cardiomyopathy: Transcriptomics Insights, Histological Correlations, and Organoid Model Verifications [RNA-seq I]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE245825" target="_blank">geo:GSE245825</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dilated cardiomyopathy (DCM) represents a leading cause of heart failure among younger adults. Despite endomyocardial biopsy (EMB) transcriptome enriching our understanding of DCM, the link between its gene expression and phenotype remains unclear. RNA-seq analysis of 58 DCM samples and 12 publicly available control samples unveiled about 25,000 transcripts. A principal component analysis highlighted a distinct DCM-control separation. WGCNA revealed four transcriptome modules strongly associated with DCM. The purple module, which is the DCM-related module, was enriched with fibrosis-related genes and showed FSTL3 as a pivotal DCM-associated gene.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=58</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40934809" target="_blank" style="color: var(--secondary);">PMID:40934809</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dilated Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Distinct cardiac transcriptomic clustering in titin and lamin a/c-associated dilated cardiomyopathy patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE146621" target="_blank">geo:GSE146621</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">RNA profiles strongly differ in TTNtv and LMNA-mutated DCM patients, despite clinical similarities as other pathogenic variant carriers such as RBM20 and MYH7, suggesting a specific genetic effect on the cardiac transcriptome in addition to the effect of the clinical component.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=29</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32955937" target="_blank" style="color: var(--secondary);">PMID:32955937</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dilated Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                     Simtuzumab Attenuates Loxl2-Mediated Extracellular Matrix Remodeling and Preserves Cardiac Function in LMNA Mutation-Induced Dilated Cardiomyopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE312730" target="_blank">geo:GSE312730</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background | Dilated cardiomyopathy (DCM) caused by LMNA mutations is a severe cardiac condition marked by arrhythmias, contractile dysfunction, and excessive myocardial fibrosis, which collectively impair left ventricular function and increase the risk of heart failure. While the disease has been well characterized, a lack of insight into the pathogenesis has impeded the development of therapies. Methods | Here, we employed induced pluripotent stem cells (hiPSCs) derived from a patient carrying a LMNA point mutation (c.665A&gt;C, p.His222Pro), alongside a murine model carrying the same mutation, to investigate the functional and molecular abnormalities driving DCM.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41841259" target="_blank" style="color: var(--secondary);">PMID:41841259</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dilated Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Natural genetic variation of the cardiac transcriptome in non-diseased donors and patients with dilated cardiomyopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002454" target="_blank">ega:EGAS00001002454</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background: Genetic variation is an important determinant of RNA transcription and splicing, which in turn contributes to variation in human traits including cardiovascular diseases.Results: Here we report the first in-depth survey of heart transcriptome variation using RNA-sequencing in 149 (97)* patients with dilated cardiomyopathy and 113 (108)* non-diseased controls. We reveal extensive differences of gene expression and splicing between dilated cardiomyopathy patients and controls, affecting known as well as novel dilated cardiomyopathy genes. Moreover, we show a widespread effect of genetic variation on the regulation of transcription, isoform usage and allele specific expression.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28903782" target="_blank" style="color: var(--secondary);">PMID:28903782</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Dilated Cardiomyopathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Trio exome sequencing identified null mutations in ITPA as the cause of Martsolf syndrome with a lethal dilated cardiomyopathy presenting in infancy
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003435" target="_blank">ega:EGAS00001003435</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Typical Martsolf syndrome is characterized by congenital cataracts, postnatal microcephaly, developmental delay, hypotonia, short stature and biallelic hypomorphic mutations in either RAB3GAP1 or RAB3GAP2. Genetic analysis of 85 unrelated “mutation negative” probands with Martsolf or Martsolf-like syndromes identified two individuals with different homozygous null mutations in ITPA, the gene encoding inosine triphosphate pyrophosphatase (ITPase). Both probands were from multiplex families with a consistent, lethal and highly distinctive disorder; a Martsolf-like syndrome with infantile-onset dilated cardiomyopathy.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Dilated Cardiomyopathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    NGS on cardiac samples in Hungarian patients of dilated cardiomyopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000000049" target="_blank">ega:EGAS50000000049</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Heterozygous (HET) truncating mutations in the TTN gene (TTNtv) encoding the giant titin protein are the most common genetic cause of dilated cardiomyopathy (DCM). We investigated 127 clinically identified DCM human cardiac samples with targeted sequencing using the TruSight Cardio panel on an Illumina MiSeq system with a special focus on TTNtvs.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Dilated Cardiomyopathy&#34;); description-level mentions were not accepted. EGA study_type: Resequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Core Functional Nodes and Sex-Specific Pathways in Human Ischemic and Dilated Cardiomyopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001364" target="_blank">metabolomics_workbench:ST001364</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Dilated Cardiomyopathy&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Lipid Supplements Protect Dilated Cardiomyopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000095560" target="_blank">massive:MSV000095560</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Lipid (Plasmalogen) levels can be modulated via a dietary supplement called alkylglycerols (AG) which has demonstrated benefits in some disease settings. However, its therapeutic potential in cardiomyopathy remains unknown. This study explored an optimized AG supplement in restoring plasmalogen levels and attenuate cardiac dysfunction/pathology. Here, we placed a cardiac-specific transgenic cardiomyopathy mouse model, with cardiac function and molecular landscape assessed.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Dilated Cardiomyopathy&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    NHLBI GO-ESP: Family Studies (Dilated Cardiomyopathy)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000581" target="_blank">dbgap:phs000581</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The NHLBI &#34;Grand Opportunity&#34; Exome Sequencing Project (GO-ESP), a signature project of the NHLBI Recovery Act investment, was designed to identify genetic variants in coding regions (exons) of the human genome (the &#34;exome&#34;) that are associated with heart, lung and blood diseases. These and related diseases that are of high impact to public health and individuals from diverse racial and ethnic groups will be studied.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Dilated Cardiomyopathy&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10337,7 +11738,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Dilated Cardiomyopathy
 creation_date: &#39;2026-03-06T00:00:00Z&#39;
-updated_date: &#39;2026-03-08T00:00:00Z&#39;
 synonyms:
 - DCM
 - dilated cardiomyopathy
@@ -10616,6 +12016,123 @@ pathophysiology:
     snippet: &#34;Treatment of myocardial diseases with renin-angiotensin system inhibitors and β-blockers has greatly contributed to improving prognosis.&#34;
     explanation: Confirms the therapeutic importance of targeting neurohormonal activation in myocardial diseases including DCM.
     evidence_source: HUMAN_CLINICAL
+  downstream:
+  - target: IL-11 Signalling in Cardiac Fibroblasts
+    description: &gt;-
+      Neurohormonal (angiotensin II) activation drives cardiac fibroblast IL-11
+      induction, placing IL-11 receptor signalling downstream of the
+      neurohormonal stress that promotes adverse remodeling.
+    evidence:
+    - reference: PMID:29160304
+      reference_title: &#34;IL-11 is a crucial determinant of cardiovascular fibrosis.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        established stimuli for cardiac fibrosis (endothelin-1 (END1),
+        angiotensin II (AngII) and PDGF)
+      explanation: &gt;-
+        Identifies angiotensin II - the effector of neurohormonal activation -
+        among the established cardiac-fibrosis stimuli tested for IL-11
+        induction in cardiac fibroblasts. Evidence source is IN_VITRO (primary
+        human cardiac fibroblasts).
+    - reference: PMID:29160304
+      reference_title: &#34;IL-11 is a crucial determinant of cardiovascular fibrosis.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        All pro-fibrotic stimuli that were tested induced changes in IL-11
+        protein levels but not mRNA
+      explanation: &gt;-
+        Shows the tested pro-fibrotic stimuli, angiotensin II among them, induce
+        cardiac fibroblast IL-11 protein, supporting this neurohormonal-to-IL-11
+        edge. Evidence source is IN_VITRO (primary human cardiac fibroblasts).
+- name: IL-11 Signalling in Cardiac Fibroblasts
+  conforms_to: &#34;il11_erk_ampk_mtor_aging#IL-11 Receptor Signalling Activation&#34;
+  role: amplifier
+  biological_scale: MOLECULAR
+  description: &gt;-
+    Profibrotic stress upregulates IL-11 and IL11RA in cardiac fibroblasts,
+    driving ERK-dependent (non-canonical) autocrine signalling that promotes
+    their fibroblast-to-myofibroblast transformation and ECM gene expression.
+    This IL-11 receptor-signalling arm is an organ-specific instance of the
+    conserved IL-11 signalling module and feeds myocardial fibrosis; neutralizing
+    anti-IL-11 or anti-IL11RA antibodies reduce cardiac fibrosis and ERK
+    activation without affecting hypertrophy.
+  locations:
+  - preferred_term: heart
+    term:
+      id: UBERON:0000948
+      label: heart
+  cell_types:
+  - preferred_term: cardiac fibroblast
+    term:
+      id: CL:0002548
+      label: fibroblast of cardiac tissue
+  biological_processes:
+  - preferred_term: Interleukin-11-mediated signaling pathway
+    term:
+      id: GO:0038154
+      label: interleukin-11-mediated signaling pathway
+    modifier: INCREASED
+  - preferred_term: ERK1 and ERK2 cascade
+    term:
+      id: GO:0070371
+      label: ERK1 and ERK2 cascade
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:33462828
+    reference_title: &#34;Antibody-mediated neutralization of IL11 signalling reduces ERK activation and cardiac fibrosis in a mouse model of severe pressure overload.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Inhibition of IL11 signalling reduced AAC-induced cardiac fibrosis and ECM
+      gene expression as well as ERK1/2 phosphorylation but had no effect on
+      cardiac hypertrophy.
+    explanation: &gt;-
+      Directly evidences that anti-IL-11 reduces cardiac fibrosis and ERK1/2
+      phosphorylation in a cardiac-fibroblast-driven model, grounding this node.
+      Evidence source is MODEL_ORGANISM (mouse ascending aortic constriction).
+  - reference: PMID:33462828
+    reference_title: &#34;Antibody-mediated neutralization of IL11 signalling reduces ERK activation and cardiac fibrosis in a mouse model of severe pressure overload.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      blocking IL11 signalling reduces cardiac fibrosis due to severe pressure
+      overload and suggests ERK, but not STAT3, activity as the relevant
+      underlying signalling pathway
+    explanation: &gt;-
+      Identifies the non-canonical ERK arm (not canonical STAT3) as the
+      fibrosis-relevant IL-11 pathway in the heart, consistent with the module&#39;s
+      receptor-signalling node and its canonical-vs-non-canonical knowledge gap.
+      Evidence source is MODEL_ORGANISM (mouse pressure-overload model plus
+      cardiac fibroblasts).
+  - reference: PMID:29160304
+    reference_title: &#34;IL-11 is a crucial determinant of cardiovascular fibrosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      In mice, fibroblast-specific Il11 transgene expression or Il-11 injection
+      causes heart and kidney fibrosis and organ failure, whereas genetic
+      deletion of Il11ra1 protects against disease.
+    explanation: &gt;-
+      Shows fibroblast IL-11 is sufficient to cause heart fibrosis and organ
+      failure and that receptor deletion is protective. Evidence source is
+      MODEL_ORGANISM (transgenic and Il11ra1-knockout mice).
+  - reference: PMID:29160304
+    reference_title: &#34;IL-11 is a crucial determinant of cardiovascular fibrosis.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      IL-11 and its receptor (IL11RA) are expressed specifically in fibroblasts,
+      in which they drive non-canonical, ERK-dependent autocrine signalling that
+      is required for fibrogenic protein synthesis.
+    explanation: &gt;-
+      Establishes the ERK-dependent autocrine IL-11 receptor-signalling arm in
+      fibroblasts modeled by this node. Evidence source is IN_VITRO (primary
+      human cardiac fibroblasts).
+  downstream:
+  - target: Myocardial Fibrosis
+
 - name: Myocardial Fibrosis
   conforms_to: &#34;cardiomyopathy_maladaptive_remodeling#Ventricular Remodeling&#34;
   description: &gt;
@@ -11689,6 +13206,82 @@ treatments:
     evidence_source: OTHER
     snippet: Current guidelines recommend genetic counseling and screening, as well as endorsing a handful of genotype-specific therapies
     explanation: Guidelines explicitly recommend genetic counseling and screening for DCM.
+datasets:
+- accession: geo:GSE245825
+  title: &#39;Cardiac Fibrosis in Dilated Cardiomyopathy: Transcriptomics Insights, Histological Correlations, and Organoid Model Verifications [RNA-seq I]&#39;
+  description: Dilated cardiomyopathy (DCM) represents a leading cause of heart failure among younger adults. Despite endomyocardial biopsy (EMB) transcriptome enriching our understanding of DCM, the link between its gene expression and phenotype remains unclear. RNA-seq analysis of 58 DCM samples and 12 publicly available control samples unveiled about 25,000 transcripts. A principal component analysis highlighted a distinct DCM-control separation. WGCNA revealed four transcriptome modules strongly associated with DCM. The purple module, which is the DCM-related module, was enriched with fibrosis-related genes and showed FSTL3 as a pivotal DCM-associated gene.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 58
+  publication: PMID:40934809
+  notes: Identified by GEO DataSets index search for Dilated Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE146621
+  title: Distinct cardiac transcriptomic clustering in titin and lamin a/c-associated dilated cardiomyopathy patients
+  description: RNA profiles strongly differ in TTNtv and LMNA-mutated DCM patients, despite clinical similarities as other pathogenic variant carriers such as RBM20 and MYH7, suggesting a specific genetic effect on the cardiac transcriptome in addition to the effect of the clinical component.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 29
+  publication: PMID:32955937
+  notes: Identified by GEO DataSets index search for Dilated Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE312730
+  title: &#39; Simtuzumab Attenuates Loxl2-Mediated Extracellular Matrix Remodeling and Preserves Cardiac Function in LMNA Mutation-Induced Dilated Cardiomyopathy&#39;
+  description: Background | Dilated cardiomyopathy (DCM) caused by LMNA mutations is a severe cardiac condition marked by arrhythmias, contractile dysfunction, and excessive myocardial fibrosis, which collectively impair left ventricular function and increase the risk of heart failure. While the disease has been well characterized, a lack of insight into the pathogenesis has impeded the development of therapies. Methods | Here, we employed induced pluripotent stem cells (hiPSCs) derived from a patient carrying a LMNA point mutation (c.665A&gt;C, p.His222Pro), alongside a murine model carrying the same mutation, to investigate the functional and molecular abnormalities driving DCM.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:41841259
+  notes: Identified by GEO DataSets index search for Dilated Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001002454
+  title: Natural genetic variation of the cardiac transcriptome in non-diseased donors and patients with dilated cardiomyopathy
+  description: &#39;Background: Genetic variation is an important determinant of RNA transcription and splicing, which in turn contributes to variation in human traits including cardiovascular diseases.Results: Here we report the first in-depth survey of heart transcriptome variation using RNA-sequencing in 149 (97)* patients with dilated cardiomyopathy and 113 (108)* non-diseased controls. We reveal extensive differences of gene expression and splicing between dilated cardiomyopathy patients and controls, affecting known as well as novel dilated cardiomyopathy genes. Moreover, we show a widespread effect of genetic variation on the regulation of transcription, isoform usage and allele specific expression.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:28903782
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Dilated Cardiomyopathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001003435
+  title: Trio exome sequencing identified null mutations in ITPA as the cause of Martsolf syndrome with a lethal dilated cardiomyopathy presenting in infancy
+  description: Typical Martsolf syndrome is characterized by congenital cataracts, postnatal microcephaly, developmental delay, hypotonia, short stature and biallelic hypomorphic mutations in either RAB3GAP1 or RAB3GAP2. Genetic analysis of 85 unrelated “mutation negative” probands with Martsolf or Martsolf-like syndromes identified two individuals with different homozygous null mutations in ITPA, the gene encoding inosine triphosphate pyrophosphatase (ITPase). Both probands were from multiplex families with a consistent, lethal and highly distinctive disorder; a Martsolf-like syndrome with infantile-onset dilated cardiomyopathy.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Dilated Cardiomyopathy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS50000000049
+  title: NGS on cardiac samples in Hungarian patients of dilated cardiomyopathy
+  description: Heterozygous (HET) truncating mutations in the TTN gene (TTNtv) encoding the giant titin protein are the most common genetic cause of dilated cardiomyopathy (DCM). We investigated 127 clinically identified DCM human cardiac samples with targeted sequencing using the TruSight Cardio panel on an Illumina MiSeq system with a special focus on TTNtvs.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Dilated Cardiomyopathy&#34;); description-level mentions were not accepted. EGA study_type: Resequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST001364
+  title: Core Functional Nodes and Sex-Specific Pathways in Human Ischemic and Dilated Cardiomyopathy
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Dilated Cardiomyopathy&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000095560
+  title: Lipid Supplements Protect Dilated Cardiomyopathy
+  description: Lipid (Plasmalogen) levels can be modulated via a dietary supplement called alkylglycerols (AG) which has demonstrated benefits in some disease settings. However, its therapeutic potential in cardiomyopathy remains unknown. This study explored an optimized AG supplement in restoring plasmalogen levels and attenuate cardiac dysfunction/pathology. Here, we placed a cardiac-specific transgenic cardiomyopathy mouse model, with cardiac function and molecular landscape assessed.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Dilated Cardiomyopathy&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs000581
+  title: &#39;NHLBI GO-ESP: Family Studies (Dilated Cardiomyopathy)&#39;
+  description:  The NHLBI &#34;Grand Opportunity&#34; Exome Sequencing Project (GO-ESP), a signature project of the NHLBI Recovery Act investment, was designed to identify genetic variants in coding regions (exons) of the human genome (the &#34;exome&#34;) that are associated with heart, lung and blood diseases. These and related diseases that are of high impact to public health and individuals from diverse racial and ethnic groups will be studied.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Dilated Cardiomyopathy&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -12267,7 +13860,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dilated Cardiomyopathy", "mondoId": "MONDO:0005021", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dilated_Cardiomyopathy", "yamlRevision": "3e685c345a62"};
+        const OS_CONFIG = {"diseaseName": "Dilated Cardiomyopathy", "mondoId": "MONDO:0005021", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dilated_Cardiomyopathy", "yamlRevision": "da90b2c14287"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12686,5 +14279,73 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

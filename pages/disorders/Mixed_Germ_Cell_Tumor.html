@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Mixed%20Germ%20Cell%20Tumor"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3726,7 +3894,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3761,6 +3929,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3787,34 +3963,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Embryonal Neoplasm</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3869,6 +4132,8 @@
 
                     <div class="item-name">
                         Embryonal Carcinoma Component
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0005440" target="_blank">MONDO:0005440</a>
 
 
 
@@ -4033,16 +4298,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         primordial germ cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000670" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000670">CL:0000670</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000670" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000670</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves primordial germ cell (CL:0000670). CL:0000670 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4069,16 +4339,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         germ cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007281">GO:0007281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal germ cell development (GO:0007281). GO:0007281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4098,16 +4373,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         maintenance of pluripotency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019827">GO:0019827</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0019827</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased maintenance of pluripotency, annotated with stem cell population maintenance (GO:0019827). GO:0019827 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4128,6 +4408,7 @@
 
 
                 </div>
+
 
 
 
@@ -4204,16 +4485,21 @@ neoplasms arising from pluripotent primordial germ cells."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         maintenance of pluripotency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019827">GO:0019827</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0019827</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased maintenance of pluripotency, annotated with stem cell population maintenance (GO:0019827). GO:0019827 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4234,6 +4520,7 @@ neoplasms arising from pluripotent primordial germ cells."</div>
 
 
                 </div>
+
 
 
 
@@ -4311,16 +4598,21 @@ somatic genes, primarily KIT and K-RAS."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4340,16 +4632,21 @@ somatic genes, primarily KIT and K-RAS."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         germ cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008354" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008354">GO:0008354</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008354" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008354</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased germ cell migration (GO:0008354). GO:0008354 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4370,6 +4667,7 @@ somatic genes, primarily KIT and K-RAS."</div>
 
 
                 </div>
+
 
 
 
@@ -4440,16 +4738,21 @@ somatic genes, primarily KIT and K-RAS."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         germ cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000586">CL:0000586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germ cell (CL:0000586). CL:0000586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4476,16 +4779,21 @@ somatic genes, primarily KIT and K-RAS."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030154">GO:0030154</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030154</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell differentiation (GO:0030154). GO:0030154 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4506,6 +4814,7 @@ somatic genes, primarily KIT and K-RAS."</div>
 
 
                 </div>
+
 
 
 
@@ -4605,6 +4914,7 @@ understanding age-dependent differences in tumor biology and behavior."</div>
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4647,6 +4957,7 @@ human chorionic gonadotropin (hCG)."</div>
                 <div class="item-name">Choriocarcinoma Component and beta-hCG Secretion</div>
 
                 <div class="item-desc">The choriocarcinoma component recapitulates trophoblast and contains syncytiotrophoblasts that secrete beta-human chorionic gonadotropin (beta-hCG). Markedly elevated beta-hCG (often &gt;50,000 IU/L) accompanies a choriocarcinoma component, and hCG can also be mildly elevated by syncytiotrophoblasts in other components.</div>
+
 
 
 
@@ -4733,16 +5044,21 @@ tumor types."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4763,6 +5079,7 @@ tumor types."</div>
 
 
                 </div>
+
 
 
 
@@ -4840,16 +5157,21 @@ tumor presentations"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4869,16 +5191,21 @@ tumor presentations"</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         DNA repair
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006281">GO:0006281</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006281</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA repair (GO:0006281). GO:0006281 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4899,6 +5226,7 @@ tumor presentations"</div>
 
 
                 </div>
+
 
 
 
@@ -4985,7 +5313,7 @@ prognosis, often even in the presence of metastatic disease; however, in almost
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BEP Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bleomycin, etoposide, and cisplatin (BEP) is the standard first-line chemotherapy for metastatic germ cell tumor; germ cell tumors are exquisitely sensitive to cisplatin-based chemotherapy, achieving cure even in widely metastatic disease. Three cycles for good-risk and four cycles for intermediate/poor-risk disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bleomycin\", \"etoposide\", \"cisplatin\"]}}, {\"id\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The choriocarcinoma component recapitulates trophoblast and contains syncytiotrophoblasts that secrete beta-human chorionic gonadotropin (beta-hCG). Markedly elevated beta-hCG (often \u003e50,000 IU/L) accompanies a choriocarcinoma component, and hCG can also be mildly elevated by syncytiotrophoblasts in other components.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cisplatin Hypersensitivity and Platinum Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germ cell tumors are exquisitely sensitive to cisplatin-based chemotherapy because of a hypersensitive apoptotic response and limited DNA-damage repair capacity, allowing cure even in widely metastatic disease. Approximately 15% of patients nonetheless develop platinum-refractory disease through mechanisms including increased DNA methylation/epigenetic reprogramming, enhanced DNA repair, and anti-apoptotic signaling, which is the principal cause of germ cell tumor mortality.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"DNA repair\"]}}, {\"id\": \"Divergent Multilineage Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining event of a mixed germ cell tumor is simultaneous (divergent) differentiation of the pluripotent transformed precursor along multiple embryonic and extraembryonic lineages, producing two or more coexisting histologic components: embryonal carcinoma (pluripotent), yolk sac tumor (extraembryonic endoderm), choriocarcinoma (trophoblast), teratoma (somatic tri-lineage), and seminoma/dysgerminoma (gonocytic). The specific combination determines the serum marker profile and biologic behavior.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germ cell\"], \"biological_processes\": [\"cell differentiation\"]}}, {\"id\": \"Elevated Serum Alpha-Fetoprotein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum AFP is elevated when a yolk sac tumor (or embryonal carcinoma) component is present; it is never elevated by pure seminoma or pure choriocarcinoma, so elevated AFP indicates non-seminomatous elements.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Yolk Sac Component and AFP Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Secreted AFP raises serum AFP, the measurable laboratory phenotype.\"}], \"term_id\": \"HP:0006254\"}}, {\"id\": \"Elevated Serum Beta-hCG\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum beta-hCG is elevated by trophoblastic differentiation, maximally by a choriocarcinoma component (often \u003e50,000 IU/L) but also mildly by syncytiotrophoblasts in seminomatous and other components.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Secreted beta-hCG raises serum beta-hCG, the measurable laboratory phenotype, and can drive gynecomastia.\"}], \"term_id\": \"HP:6000485\"}}, {\"id\": \"Elevated Serum Lactate Dehydrogenase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum LDH is a non-specific marker that reflects tumor burden and is incorporated into the S-category of germ cell tumor staging.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Invasive Growth and Metastasis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum LDH reflects overall tumor burden of the invasive/metastatic mass.\"}], \"term_id\": \"HP:0025435\"}}, {\"id\": \"Gonadal or Extragonadal Tumor Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mixed germ cell tumors present as a mass at gonadal (painless testicular mass; large fast-growing ovarian mass with abdominal pain) or extragonadal midline sites (anterior mediastinum, retroperitoneum, CNS).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010788\"}}, {\"id\": \"Gynecomastia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gynecomastia may occur due to beta-hCG production (especially by a choriocarcinoma component), which stimulates estrogen production.\", \"meta\": {\"term_id\": \"HP:0000771\"}}, {\"id\": \"Invasive Growth and Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mixed germ cell tumors are non-seminomatous tumors that generally behave more aggressively than pure seminoma, with higher rates of lymphovascular invasion and a propensity for visceral metastasis to lungs and liver, especially when choriocarcinoma or embryonal carcinoma components predominate. The growing mass produces the presenting gonadal or extragonadal tumor.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\"]}}, {\"id\": \"Isochromosome 12p Acquisition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isochromosome 12p [i(12p)] is the hallmark cytogenetic abnormality of invasive post-pubertal-type germ cell tumors, present in the large majority of cases, and marks the transition from in situ GCNIS to invasive disease. The 12p amplicon harbors candidate drivers including KRAS and the pluripotency and germ-cell genes that sustain the transformed precursor; its detection by FISH distinguishes post-pubertal from pre-pubertal type tumors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"maintenance of pluripotency\"]}}, {\"id\": \"KIT and RAS-MAPK Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KIT and K-RAS are the most significantly mutated somatic genes in germ cell tumors. KIT (a stem-cell growth factor receptor controlling germ cell survival, proliferation, and migration) is mutated in 18-25% of cases, chiefly in seminomatous components, and KRAS shows copy-number gain in the majority of tumors with activating mutations in roughly a quarter. The resulting KIT-RAS-RAF-MEK-ERK cascade is constitutively activated and drives proliferation of the transformed precursor.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"germ cell migration\"]}}, {\"id\": \"Primordial Germ Cell Maldifferentiation and GCNIS\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mixed germ cell tumors originate from primordial germ cells (PGCs) / gonocytes that fail to differentiate normally during fetal development and persist in a pluripotent state. In post-pubertal-type tumors this gives rise to germ cell neoplasia in situ (GCNIS), the common precursor lesion from which the invasive tumor and all of its histologic components derive.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primordial germ cell\"], \"biological_processes\": [\"germ cell development\", \"maintenance of pluripotency\"]}}, {\"id\": \"Yolk Sac Component and AFP Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The yolk sac tumor component recapitulates primitive (extraembryonic) endoderm and secretes alpha-fetoprotein (AFP), producing elevated serum AFP. AFP is therefore elevated when a yolk sac (or embryonal carcinoma) component is present but never in pure seminoma or pure choriocarcinoma.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Primordial Germ Cell Maldifferentiation and GCNIS\", \"target\": \"Isochromosome 12p Acquisition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GCNIS progresses to invasive germ cell tumor upon gain of chromosome 12p, typically as isochromosome 12p.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isochromosome 12p Acquisition\", \"target\": \"KIT and RAS-MAPK Signaling Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amplification of KRAS on 12p together with activating KIT and RAS mutations drives constitutive proliferative signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KIT and RAS-MAPK Signaling Activation\", \"target\": \"Divergent Multilineage Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proliferating pluripotent precursor differentiates simultaneously along multiple lineages, generating the mixed histologic components.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Divergent Multilineage Differentiation\", \"target\": \"Yolk Sac Component and AFP Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A yolk sac component differentiates and secretes alpha-fetoprotein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Divergent Multilineage Differentiation\", \"target\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A choriocarcinoma component differentiates and its syncytiotrophoblasts secrete beta-hCG.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Divergent Multilineage Differentiation\", \"target\": \"Invasive Growth and Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The combined components form an invasive, often rapidly growing tumor mass with metastatic potential.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"target\": \"Gynecomastia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"beta-hCG stimulates estrogen production, which can cause gynecomastia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Invasive Growth and Metastasis\", \"target\": \"Gonadal or Extragonadal Tumor Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth presents as a testicular, ovarian, mediastinal, or other extragonadal mass.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cisplatin Hypersensitivity and Platinum Resistance\", \"target\": \"Gonadal or Extragonadal Tumor Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platinum resistance permits persistence/relapse of the tumor mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"BEP Chemotherapy\", \"target\": \"Cisplatin Hypersensitivity and Platinum Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Yolk Sac Component and AFP Secretion\", \"target\": \"Elevated Serum Alpha-Fetoprotein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Secreted AFP raises serum AFP, the measurable laboratory phenotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"target\": \"Elevated Serum Beta-hCG\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Secreted beta-hCG raises serum beta-hCG, the measurable laboratory phenotype, and can drive gynecomastia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Invasive Growth and Metastasis\", \"target\": \"Elevated Serum Lactate Dehydrogenase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum LDH reflects overall tumor burden of the invasive/metastatic mass.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BEP Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bleomycin, etoposide, and cisplatin (BEP) is the standard first-line chemotherapy for metastatic germ cell tumor; germ cell tumors are exquisitely sensitive to cisplatin-based chemotherapy, achieving cure even in widely metastatic disease. Three cycles for good-risk and four cycles for intermediate/poor-risk disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bleomycin\", \"etoposide\", \"cisplatin\"]}}, {\"id\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The choriocarcinoma component recapitulates trophoblast and contains syncytiotrophoblasts that secrete beta-human chorionic gonadotropin (beta-hCG). Markedly elevated beta-hCG (often \u003e50,000 IU/L) accompanies a choriocarcinoma component, and hCG can also be mildly elevated by syncytiotrophoblasts in other components.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cisplatin Hypersensitivity and Platinum Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germ cell tumors are exquisitely sensitive to cisplatin-based chemotherapy because of a hypersensitive apoptotic response and limited DNA-damage repair capacity, allowing cure even in widely metastatic disease. Approximately 15% of patients nonetheless develop platinum-refractory disease through mechanisms including increased DNA methylation/epigenetic reprogramming, enhanced DNA repair, and anti-apoptotic signaling, which is the principal cause of germ cell tumor mortality.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"DNA repair\"]}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Undescended testis is the strongest established risk factor for testicular germ cell tumor.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Divergent Multilineage Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining event of a mixed germ cell tumor is simultaneous (divergent) differentiation of the pluripotent transformed precursor along multiple embryonic and extraembryonic lineages, producing two or more coexisting histologic components: embryonal carcinoma (pluripotent), yolk sac tumor (extraembryonic endoderm), choriocarcinoma (trophoblast), teratoma (somatic tri-lineage), and seminoma/dysgerminoma (gonocytic). The specific combination determines the serum marker profile and biologic behavior.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germ cell\"], \"biological_processes\": [\"cell differentiation\"]}}, {\"id\": \"Elevated Serum Alpha-Fetoprotein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum AFP is elevated when a yolk sac tumor (or embryonal carcinoma) component is present; it is never elevated by pure seminoma or pure choriocarcinoma, so elevated AFP indicates non-seminomatous elements.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Yolk Sac Component and AFP Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Secreted AFP raises serum AFP, the measurable laboratory phenotype.\"}], \"term_id\": \"HP:0006254\"}}, {\"id\": \"Elevated Serum Beta-hCG\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum beta-hCG is elevated by trophoblastic differentiation, maximally by a choriocarcinoma component (often \u003e50,000 IU/L) but also mildly by syncytiotrophoblasts in seminomatous and other components.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Secreted beta-hCG raises serum beta-hCG, the measurable laboratory phenotype, and can drive gynecomastia.\"}], \"term_id\": \"HP:6000485\"}}, {\"id\": \"Elevated Serum Lactate Dehydrogenase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum LDH is a non-specific marker that reflects tumor burden and is incorporated into the S-category of germ cell tumor staging.\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Invasive Growth and Metastasis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum LDH reflects overall tumor burden of the invasive/metastatic mass.\"}], \"term_id\": \"HP:0025435\"}}, {\"id\": \"Gonadal or Extragonadal Tumor Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mixed germ cell tumors present as a mass at gonadal (painless testicular mass; large fast-growing ovarian mass with abdominal pain) or extragonadal midline sites (anterior mediastinum, retroperitoneum, CNS).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010788\"}}, {\"id\": \"Gynecomastia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gynecomastia may occur due to beta-hCG production (especially by a choriocarcinoma component), which stimulates estrogen production.\", \"meta\": {\"term_id\": \"HP:0000771\"}}, {\"id\": \"Invasive Growth and Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mixed germ cell tumors are non-seminomatous tumors that generally behave more aggressively than pure seminoma, with higher rates of lymphovascular invasion and a propensity for visceral metastasis to lungs and liver, especially when choriocarcinoma or embryonal carcinoma components predominate. The growing mass produces the presenting gonadal or extragonadal tumor.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell migration\"]}}, {\"id\": \"Isochromosome 12p Acquisition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isochromosome 12p [i(12p)] is the hallmark cytogenetic abnormality of invasive post-pubertal-type germ cell tumors, present in the large majority of cases, and marks the transition from in situ GCNIS to invasive disease. The 12p amplicon harbors candidate drivers including KRAS and the pluripotency and germ-cell genes that sustain the transformed precursor; its detection by FISH distinguishes post-pubertal from pre-pubertal type tumors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"maintenance of pluripotency\"]}}, {\"id\": \"KIT and RAS-MAPK Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KIT and K-RAS are the most significantly mutated somatic genes in germ cell tumors. KIT (a stem-cell growth factor receptor controlling germ cell survival, proliferation, and migration) is mutated in 18-25% of cases, chiefly in seminomatous components, and KRAS shows copy-number gain in the majority of tumors with activating mutations in roughly a quarter. The resulting KIT-RAS-RAF-MEK-ERK cascade is constitutively activated and drives proliferation of the transformed precursor.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"germ cell migration\"]}}, {\"id\": \"Primordial Germ Cell Maldifferentiation and GCNIS\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mixed germ cell tumors originate from primordial germ cells (PGCs) / gonocytes that fail to differentiate normally during fetal development and persist in a pluripotent state. In post-pubertal-type tumors this gives rise to germ cell neoplasia in situ (GCNIS), the common precursor lesion from which the invasive tumor and all of its histologic components derive.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"primordial germ cell\"], \"biological_processes\": [\"germ cell development\", \"maintenance of pluripotency\"]}}, {\"id\": \"Yolk Sac Component and AFP Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The yolk sac tumor component recapitulates primitive (extraembryonic) endoderm and secretes alpha-fetoprotein (AFP), producing elevated serum AFP. AFP is therefore elevated when a yolk sac (or embryonal carcinoma) component is present but never in pure seminoma or pure choriocarcinoma.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Primordial Germ Cell Maldifferentiation and GCNIS\", \"target\": \"Isochromosome 12p Acquisition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GCNIS progresses to invasive germ cell tumor upon gain of chromosome 12p, typically as isochromosome 12p.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isochromosome 12p Acquisition\", \"target\": \"KIT and RAS-MAPK Signaling Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amplification of KRAS on 12p together with activating KIT and RAS mutations drives constitutive proliferative signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KIT and RAS-MAPK Signaling Activation\", \"target\": \"Divergent Multilineage Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proliferating pluripotent precursor differentiates simultaneously along multiple lineages, generating the mixed histologic components.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Divergent Multilineage Differentiation\", \"target\": \"Yolk Sac Component and AFP Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A yolk sac component differentiates and secretes alpha-fetoprotein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Divergent Multilineage Differentiation\", \"target\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A choriocarcinoma component differentiates and its syncytiotrophoblasts secrete beta-hCG.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Divergent Multilineage Differentiation\", \"target\": \"Invasive Growth and Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The combined components form an invasive, often rapidly growing tumor mass with metastatic potential.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"target\": \"Gynecomastia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"beta-hCG stimulates estrogen production, which can cause gynecomastia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Invasive Growth and Metastasis\", \"target\": \"Gonadal or Extragonadal Tumor Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth presents as a testicular, ovarian, mediastinal, or other extragonadal mass.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cisplatin Hypersensitivity and Platinum Resistance\", \"target\": \"Gonadal or Extragonadal Tumor Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platinum resistance permits persistence/relapse of the tumor mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cryptorchidism\", \"target\": \"Primordial Germ Cell Maldifferentiation and GCNIS\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the germ-cell maldifferentiation node because the testicular dysgenesis model treats undescended testis and the tumour as shared consequences of a disturbed fetal gonadal programme, which is what that node holds. Graded partial for a reason worth stating: the only sentence available names cryptorchidism as an independent risk factor in a subordinate clause of a sentence that is really about polygenic risk scores guiding screening. It confirms the risk factor in passing and quantifies nothing about it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"BEP Chemotherapy\", \"target\": \"Cisplatin Hypersensitivity and Platinum Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Yolk Sac Component and AFP Secretion\", \"target\": \"Elevated Serum Alpha-Fetoprotein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Secreted AFP raises serum AFP, the measurable laboratory phenotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Choriocarcinoma Component and beta-hCG Secretion\", \"target\": \"Elevated Serum Beta-hCG\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Secreted beta-hCG raises serum beta-hCG, the measurable laboratory phenotype, and can drive gynecomastia.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Invasive Growth and Metastasis\", \"target\": \"Elevated Serum Lactate Dehydrogenase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum LDH reflects overall tumor burden of the invasive/metastatic mass.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5032,14 +5360,21 @@ prognosis, often even in the presence of metastatic disease; however, in almost
                         Gynecomastia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gynecomastia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000771">HP:0000771</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000771</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5068,14 +5403,23 @@ prognosis, often even in the presence of metastatic disease; however, in almost
                         Gonadal or Extragonadal Tumor Mass
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Testicular neoplasm
+
+                        <span class="phenotype-term-label">Testicular neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010788" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010788">HP:0010788</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010788" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0010788</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Testicular neoplasm (HP:0010788). HP:0010788 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5138,14 +5482,23 @@ leading gynecologic malignancies in women younger than 25 years."</div>
                         Elevated Serum Alpha-Fetoprotein
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating alpha-fetoprotein concentration
+
+                        <span class="phenotype-term-label">Elevated circulating alpha-fetoprotein concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006254">HP:0006254</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0006254</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated alpha-fetoprotein, annotated with Elevated circulating alpha-fetoprotein concentration (HP:0006254). HP:0006254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5207,14 +5560,21 @@ elevated in pure seminomas"</div>
                         Dyspnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5243,14 +5603,21 @@ elevated in pure seminomas"</div>
                         Abdominal Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5279,14 +5646,23 @@ elevated in pure seminomas"</div>
                         Ovarian Mass
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ovarian neoplasm
+
+                        <span class="phenotype-term-label">Ovarian neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100615">HP:0100615</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100615</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovarian neoplasm (HP:0100615). HP:0100615 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,14 +5715,23 @@ leading gynecologic malignancies in women younger than 25 years."</div>
                         Elevated Serum Beta-hCG
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating beta chorionic gonadotropin concentration
+
+                        <span class="phenotype-term-label">Elevated circulating beta chorionic gonadotropin concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000485" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000485">HP:6000485</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000485" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:6000485</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated beta-hCG, annotated with Elevated circulating beta chorionic gonadotropin concentration (HP:6000485). HP:6000485 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5399,14 +5784,23 @@ both seminomas and non-seminomas"</div>
                         Elevated Serum Lactate Dehydrogenase
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased circulating lactate dehydrogenase concentration
+
+                        <span class="phenotype-term-label">Increased circulating lactate dehydrogenase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025435">HP:0025435</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0025435</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased lactate dehydrogenase, annotated with Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5548,6 +5942,28 @@ conditions, such as liver disease or tissue damage"</div>
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KIT
+
+
+    <a href="https://bioregistry.io/hgnc:6342" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:6342</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5592,6 +6008,28 @@ conditions, such as liver disease or tissue damage"</div>
                     KRAS
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Copy-number gain in the majority of tumors; activating mutations in ~26% of cases)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: KRAS
+
+
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:6407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5642,6 +6080,28 @@ conditions, such as liver disease or tissue damage"</div>
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11998</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5670,7 +6130,12 @@ conditions, such as liver disease or tissue damage"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radical orchiectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">radical orchiectomy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radical orchiectomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5716,7 +6181,12 @@ conditions, such as liver disease or tissue damage"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">fertility-sparing surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">fertility-sparing surgery<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fertility-sparing surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5762,7 +6232,12 @@ conditions, such as liver disease or tissue damage"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">BEP chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">BEP chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is BEP chemotherapy, annotated with Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5793,17 +6268,24 @@ conditions, such as liver disease or tissue damage"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bleomycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:22907">CHEBI:22907</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:22907</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bleomycin (CHEBI:22907). CHEBI:22907 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -5811,11 +6293,16 @@ conditions, such as liver disease or tissue damage"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cisplatin
@@ -5823,10 +6310,13 @@ conditions, such as liver disease or tissue damage"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5901,7 +6391,12 @@ can be achieved since Einhorn and Donohue&#39;s landmark 1977 study in TGCT."</d
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">salvage chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">salvage chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is salvage chemotherapy, annotated with Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -5932,17 +6427,24 @@ can be achieved since Einhorn and Donohue&#39;s landmark 1977 study in TGCT."</d
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ifosfamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5864">CHEBI:5864</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:5864</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ifosfamide (CHEBI:5864). CHEBI:5864 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         paclitaxel
@@ -5950,10 +6452,13 @@ can be achieved since Einhorn and Donohue&#39;s landmark 1977 study in TGCT."</d
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:45863">CHEBI:45863</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:45863</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5976,7 +6481,12 @@ can be achieved since Einhorn and Donohue&#39;s landmark 1977 study in TGCT."</d
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">residual tumor resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">residual tumor resection<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is residual tumor resection, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6022,7 +6532,12 @@ can be achieved since Einhorn and Donohue&#39;s landmark 1977 study in TGCT."</d
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">fertility preservation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">fertility preservation<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fertility preservation, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6079,6 +6594,10 @@ can be achieved since Einhorn and Donohue&#39;s landmark 1977 study in TGCT."</d
 
 
 
+
+
+
+
                 <div class="item-desc">Undescended testis is the strongest established risk factor for testicular germ cell tumor.</div>
 
 
@@ -6118,10 +6637,66 @@ with independent TGCT risk factors such as cryptorchidism"</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Primordial Germ Cell Maldifferentiation and GCNIS</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the germ-cell maldifferentiation node because the testicular dysgenesis model treats undescended testis and the tumour as shared consequences of a disturbed fetal gonadal programme, which is what that node holds. Graded partial for a reason worth stating: the only sentence available names cryptorchidism as an independent risk factor in a subordinate clause of a sentence that is really about polygenic risk scores guiding screening. It confirms the risk factor in passing and quantifies nothing about it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34301922" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34301922" target="_blank">PMID:34301922</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among men with independent TGCT risk factors such as cryptorchidism"</div>
+
+
+                <div class="evidence-explanation">Names cryptorchidism among the independent risk factors for this tumour, in a sentence whose subject is how a polygenic risk score might guide screening in men who have them.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-family-history-heritable-susceptibility" data-dismech-node="Family History / Heritable Susceptibility" data-dismech-type="environmental">
                 <div class="item-name">Family History / Heritable Susceptibility</div>
+
+
+
+
 
 
 
@@ -6169,6 +6744,10 @@ heritability."</div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-endocrine-disrupting-chemicals" data-dismech-node="Endocrine-Disrupting Chemicals" data-dismech-type="environmental">
                 <div class="item-name">Endocrine-Disrupting Chemicals</div>
+
+
+
+
 
 
 
@@ -6260,11 +6839,109 @@ heritability."</div>
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genome-wide methylation profiles in primary intracranial germ cell tumors indicate primordial germ cell origin of germinoma [Illumina]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE70783" target="_blank">geo:GSE70783</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The pathogenesis of intracranial germ cell tumors (iGCTs) is not yet fully uncovered despite exhaustive genomic analyses. By means of a genome-wide methylation analysis, we show that pure germinoma is characterized by global DNA low methylation, a unique epigenetic feature distinct from all other subtypes of iGCTs. The patterns of methylation strongly resemble that of primordial germ cells (PGC) at the migration phase, indicating the cells of origin. Unlike PGC, however, hypomethylation extends to LINE1 retrotransposon.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">METHYLATION</span>
+
+
+                    <span class="tag tag-dataset">n=77</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28078450" target="_blank" style="color: var(--secondary);">PMID:28078450</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Mixed Germ Cell Tumor (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Analysis of a mouse germ cell tumor model establishes pluripotency-associated miRNAs as conserved serum biomarkers for germ cell cancer detection
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE260949" target="_blank">geo:GSE260949</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Malignant testicular germ cells tumors (TGCTs) are the most common solid cancers in young men. Current TGCT diagnostics include conventional serum protein markers, but these lack the sensitivity and specificity to serve as accurate markers across all TGCT subtypes. MicroRNAs (miRNAs) are small non-coding regulatory RNAs and informative biomarkers for several diseases. In humans, miRNAs of the miR-371-373 cluster are detectable in the serum of patients with malignant TGCTs and outperform existing serum protein markers for both initial diagnosis and subsequent disease monitoring.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39910147" target="_blank" style="color: var(--secondary);">PMID:39910147</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Mixed Germ Cell Tumor (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6318,6 +6995,11 @@ classifications:
   - classification_value: ONCOLOGY_HEMATOLOGY
 has_subtypes:
 - name: Embryonal Carcinoma Component
+  subtype_term:
+    preferred_term: embryonal carcinoma
+    term:
+      id: MONDO:0005440
+      label: embryonal carcinoma
   description: &gt;-
     Embryonal carcinoma (EC) is the most common and most pluripotent component
     of post-pubertal mixed germ cell tumors. EC cells express OCT3/4, SOX2, and
@@ -6790,6 +7472,11 @@ genetic:
       Describes the highly aneuploid genome of germ cell tumors, of which
       i(12p) is the defining cytogenetic feature.
 - name: KIT
+  gene_term:
+    preferred_term: KIT
+    term:
+      id: hgnc:6342
+      label: KIT
   association: Activating mutations in ~18-25% of cases, chiefly seminomatous components
   features: &gt;-
     Encodes a stem-cell growth factor receptor controlling germ cell survival,
@@ -6804,6 +7491,11 @@ genetic:
       Identifies KIT as one of the two principal recurrent somatic drivers in
       germ cell tumors.
 - name: KRAS
+  gene_term:
+    preferred_term: KRAS
+    term:
+      id: hgnc:6407
+      label: KRAS
   association: Copy-number gain in the majority of tumors; activating mutations in ~26% of cases
   features: Codon 12 most frequently affected; amplified via i(12p)
   evidence:
@@ -6816,12 +7508,40 @@ genetic:
       Identifies K-RAS as one of the two principal recurrent somatic drivers in
       germ cell tumors.
 - name: TP53
+  gene_term:
+    preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
   association: Wild-type in most germ cell tumors; the most recurrently mutated driver in TGCT
   features: &gt;-
     Wild-type p53 underlies the strong cisplatin-induced apoptotic response;
     mutation is associated with platinum resistance
 environmental:
 - name: Cryptorchidism
+  influences_mechanisms:
+  - target: Primordial Germ Cell Maldifferentiation and GCNIS
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the germ-cell maldifferentiation node because the testicular
+      dysgenesis model treats undescended testis and the tumour as shared
+      consequences of a disturbed fetal gonadal programme, which is what that
+      node holds. Graded partial for a reason worth stating: the only sentence
+      available names cryptorchidism as an independent risk factor in a
+      subordinate clause of a sentence that is really about polygenic risk
+      scores guiding screening. It confirms the risk factor in passing and
+      quantifies nothing about it.
+    evidence:
+    - reference: PMID:34301922
+      reference_title: &#34;Identification of 22 susceptibility loci associated with testicular germ cell tumors.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Among men with independent TGCT risk factors such as cryptorchidism&#34;
+      explanation: &gt;-
+        Names cryptorchidism among the independent risk factors for this
+        tumour, in a sentence whose subject is how a polygenic risk score
+        might guide screening in men who have them.
   description: &gt;-
     Undescended testis is the strongest established risk factor for testicular
     germ cell tumor.
@@ -6966,6 +7686,31 @@ references:
   title: &#34;Germ cell tumors in children.&#34;
 - reference: PMID:34301922
   title: &#34;Identification of 22 susceptibility loci associated with testicular germ cell tumors.&#34;
+datasets:
+- accession: geo:GSE70783
+  title: Genome-wide methylation profiles in primary intracranial germ cell tumors indicate primordial germ cell origin of germinoma [Illumina]
+  description: The pathogenesis of intracranial germ cell tumors (iGCTs) is not yet fully uncovered despite exhaustive genomic analyses. By means of a genome-wide methylation analysis, we show that pure germinoma is characterized by global DNA low methylation, a unique epigenetic feature distinct from all other subtypes of iGCTs. The patterns of methylation strongly resemble that of primordial germ cells (PGC) at the migration phase, indicating the cells of origin. Unlike PGC, however, hypomethylation extends to LINE1 retrotransposon.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: METHYLATION
+  sample_count: 77
+  publication: PMID:28078450
+  notes: Identified by GEO DataSets index search for Mixed Germ Cell Tumor (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE260949
+  title: Analysis of a mouse germ cell tumor model establishes pluripotency-associated miRNAs as conserved serum biomarkers for germ cell cancer detection
+  description: Malignant testicular germ cells tumors (TGCTs) are the most common solid cancers in young men. Current TGCT diagnostics include conventional serum protein markers, but these lack the sensitivity and specificity to serve as accurate markers across all TGCT subtypes. MicroRNAs (miRNAs) are small non-coding regulatory RNAs and informative biomarkers for several diseases. In humans, miRNAs of the miR-371-373 cluster are detectable in the serum of patients with malignant TGCTs and outperform existing serum protein markers for both initial diagnosis and subsequent disease monitoring.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:39910147
+  notes: Identified by GEO DataSets index search for Mixed Germ Cell Tumor (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7698,7 +8443,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mixed Germ Cell Tumor", "mondoId": "MONDO:0015864", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mixed_Germ_Cell_Tumor", "yamlRevision": "f56584894a6b"};
+        const OS_CONFIG = {"diseaseName": "Mixed Germ Cell Tumor", "mondoId": "MONDO:0015864", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mixed_Germ_Cell_Tumor", "yamlRevision": "e5680162d0be"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8117,5 +8862,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

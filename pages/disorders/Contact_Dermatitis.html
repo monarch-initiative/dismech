@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Contact%20Dermatitis"
@@ -3705,6 +3871,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3758,7 +3926,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3843,27 +4011,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4462,6 +4707,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4523,16 +4769,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4549,6 +4800,7 @@
 
 
                 </div>
+
 
 
 
@@ -4624,16 +4876,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4660,17 +4917,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         keratinocyte activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032980" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032980">GO:0032980</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032980" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0032980</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves keratinocyte activation (GO:0032980). GO:0032980 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4691,10 +4955,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4711,6 +4978,7 @@
 
 
                 </div>
+
 
 
 
@@ -4801,16 +5069,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4837,16 +5110,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4863,6 +5141,7 @@
 
 
                 </div>
+
 
 
 
@@ -4942,6 +5221,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5003,17 +5283,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Langerhans cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000453">CL:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Langerhans cell (CL:0000453). CL:0000453 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5034,10 +5321,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5054,6 +5344,7 @@
 
 
                 </div>
+
 
 
 
@@ -5129,16 +5420,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         regulatory T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000815">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000815</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5155,6 +5451,7 @@
 
 
                 </div>
+
 
 
 
@@ -5238,17 +5535,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Langerhans cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000453">CL:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Langerhans cell (CL:0000453). CL:0000453 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5269,11 +5573,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5294,10 +5603,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5324,17 +5636,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         dendritic cell antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002468">GO:0002468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0002468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dendritic cell antigen processing and presentation (GO:0002468). GO:0002468 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5355,10 +5674,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5375,6 +5697,7 @@
 
 
                 </div>
+
 
 
 
@@ -5443,16 +5766,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8-positive effector T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8-positive effector T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5479,16 +5807,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         type IV hypersensitivity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001806" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001806">GO:0001806</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001806" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0001806</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves type IV hypersensitivity (GO:0001806). GO:0001806 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5505,6 +5838,7 @@
 
 
                 </div>
+
 
 
 
@@ -5573,16 +5907,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         resident memory CD8-positive T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves resident memory CD8-positive T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5599,6 +5938,7 @@
 
 
                 </div>
+
 
 
 
@@ -5674,17 +6014,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5705,10 +6052,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5735,16 +6085,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032602">GO:0032602</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0032602</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves chemokine production (GO:0032602). GO:0032602 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5761,6 +6116,7 @@
 
 
                 </div>
+
 
 
 
@@ -5851,17 +6207,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5882,10 +6245,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5912,16 +6278,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemokine production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032602">GO:0032602</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0032602</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves chemokine production (GO:0032602). GO:0032602 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5938,6 +6309,7 @@
 
 
                 </div>
+
 
 
 
@@ -6006,16 +6378,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6032,6 +6409,7 @@
 
 
                 </div>
+
 
 
 
@@ -6222,7 +6600,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allergen-specific T-cell priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During sensitization, antigen-presenting cells prime allergen-specific T cells, establishing the adaptive immune memory required for later flares.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Langerhans cell\", \"dendritic cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"dendritic cell antigen processing and presentation\", \"T cell activation\"]}}, {\"id\": \"Breakdown of regulatory T-cell-mediated hapten tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Allergic contact dermatitis reflects failure of suppressive CD4-positive regulatory T-cell programs that normally prevent hapten priming and dampen eczema in sensitized individuals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"regulatory T cell\"]}}, {\"id\": \"Complement-associated sensory neuron activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In allergic contact dermatitis, complement-associated neuroimmune signaling activates peripheral sensory pathways and contributes to itch generation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sensory neuron\"]}}, {\"id\": \"Contact dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0032282\"}}, {\"id\": \"Epidermal barrier disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irritant injury disrupts epidermal barrier integrity and creates the tissue context for downstream inflammatory activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Fibroblast CXCL9/CXCL10 reinforcement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dermal fibroblasts adopt a chemokine-producing inflammatory phenotype that reinforces type 1 lymphocyte polarization and sustains cutaneous inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\", \"T cell\"], \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"Hapten exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In allergic contact dermatitis, repeated skin contact with small reactive chemicals exposes the immune system to haptens and initiates sensitization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Inflammatory cell recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irritant-induced mediators recruit and activate inflammatory cells in skin after barrier injury, including T lymphocytes. Previously named \\\"Innate inflammatory cell recruitment\\\"; the \\\"innate\\\" qualifier was dropped because the supporting evidence describes recruitment and activation of T lymphocytes, which are adaptive effectors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dendritic cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Irritant exposure and toxic insult\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In irritant contact dermatitis, direct exposure to chemical or physical irritants causes the initiating toxic cutaneous insult.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Keratinocyte activation and proinflammatory mediator release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier-injured keratinocytes enter an activated inflammatory state and release mediators that propagate local cutaneous inflammation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte activation\", \"inflammatory response\"]}}, {\"id\": \"Lime and other psoralen-rich citrus exposure with ultraviolet light\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contact with lime juice or peel followed by ultraviolet exposure can trigger phytophotodermatitis, a phototoxic contact reaction that may be mistaken for allergic dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mixed type 1 and type 3 cytokine and chemokine amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated effector and resident memory T cells amplify IFNg-, IL-17A-, IL-1beta-, and chemokine-rich inflammatory programs, with predominant type 1 and type 3 effector responses and lesser type 2 contributions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"neutrophil\"], \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000989\"}}, {\"id\": \"Re-exposure-driven effector T-cell recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Upon renewed hapten exposure, primed effector T cells re-enter skin and initiate the elicitation phase of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive effector T cell\"], \"biological_processes\": [\"type IV hypersensitivity\"]}}, {\"id\": \"Resident memory T-cell flare activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epidermal resident memory CD8-positive T cells are activated in allergen-experienced skin and intensify local flare responses.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"resident memory CD8-positive T cell\"]}}, {\"id\": \"Skin innate immune activation during sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early innate immune signaling in allergen-exposed skin shapes the sensitization phase and supports subsequent adaptive immune priming.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Langerhans cell\", \"dendritic cell\"]}}], \"edges\": [{\"source\": \"Irritant exposure and toxic insult\", \"target\": \"Epidermal barrier disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxic or physical irritants injure the epidermis and precipitate barrier failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal barrier disruption\", \"target\": \"Keratinocyte activation and proinflammatory mediator release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier failure activates keratinocytes and promotes local proinflammatory signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinocyte activation and proinflammatory mediator release\", \"target\": \"Inflammatory cell recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratinocyte-derived inflammatory mediators recruit and activate additional inflammatory cells in skin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammatory cell recruitment\", \"target\": \"Contact dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cell recruitment culminates in the clinically visible dermatitis lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hapten exposure\", \"target\": \"Skin innate immune activation during sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hapten exposure activates innate cutaneous immune pathways during the sensitization phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skin innate immune activation during sensitization\", \"target\": \"Allergen-specific T-cell priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate activation in skin supports dendritic-cell-mediated priming of allergen-specific T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Breakdown of regulatory T-cell-mediated hapten tolerance\", \"target\": \"Allergen-specific T-cell priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of regulatory control permits priming to haptens in susceptible individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Breakdown of regulatory T-cell-mediated hapten tolerance\", \"target\": \"Contact dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of suppressive T-cell control permits persistence and amplification of eczema in allergic patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allergen-specific T-cell priming\", \"target\": \"Re-exposure-driven effector T-cell recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensitized allergen-specific T cells are recruited back to skin after hapten re-exposure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Re-exposure-driven effector T-cell recruitment\", \"target\": \"Resident memory T-cell flare activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Re-exposure activates epidermal resident memory T cells and intensifies the flare response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Resident memory T-cell flare activation\", \"target\": \"Mixed type 1 and type 3 cytokine and chemokine amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated resident memory T cells drive a broader inflammatory cytokine and chemokine program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mixed type 1 and type 3 cytokine and chemokine amplification\", \"target\": \"Fibroblast CXCL9/CXCL10 reinforcement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type 1 lymphocyte-derived IFNg reprograms dermal fibroblasts into chemokine-producing inflammatory stromal cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibroblast CXCL9/CXCL10 reinforcement\", \"target\": \"Contact dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast chemokine reinforcement sustains the inflammatory dermatitis lesion in affected skin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Complement-associated sensory neuron activation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory neuron activation contributes to the itching phenotype in allergic contact dermatitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lime and other psoralen-rich citrus exposure with ultraviolet light\", \"target\": \"Irritant exposure and toxic insult\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Phytophotodermatitis needs both halves and is neither allergic nor idiosyncratic: furocoumarins on the skin absorb ultraviolet A and become directly cytotoxic, so the reaction is a phototoxic irritant insult rather than a hapten-driven sensitization.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-octyl cyanoacrylate adhesive exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to 2-octyl cyanoacrylate topical skin adhesives used for surgical wound closure is an increasingly recognized trigger of allergic contact dermatitis, especially after repeat exposure.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Allergen-specific T-cell priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During sensitization, antigen-presenting cells prime allergen-specific T cells, establishing the adaptive immune memory required for later flares.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Langerhans cell\", \"dendritic cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"dendritic cell antigen processing and presentation\", \"T cell activation\"]}}, {\"id\": \"Biocide exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to biocides and preservative chemicals in occupational and consumer products is a common environmental trigger of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Breakdown of regulatory T-cell-mediated hapten tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Allergic contact dermatitis reflects failure of suppressive CD4-positive regulatory T-cell programs that normally prevent hapten priming and dampen eczema in sensitized individuals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"regulatory T cell\"]}}, {\"id\": \"Complement-associated sensory neuron activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In allergic contact dermatitis, complement-associated neuroimmune signaling activates peripheral sensory pathways and contributes to itch generation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"sensory neuron\"]}}, {\"id\": \"Contact dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0032282\"}}, {\"id\": \"Epidermal barrier disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irritant injury disrupts epidermal barrier integrity and creates the tissue context for downstream inflammatory activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Fibroblast CXCL9/CXCL10 reinforcement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dermal fibroblasts adopt a chemokine-producing inflammatory phenotype that reinforces type 1 lymphocyte polarization and sustains cutaneous inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\", \"T cell\"], \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"Fragrance exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Fragrance-containing cosmetics, personal care products, and topical agents are common environmental triggers of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hapten exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In allergic contact dermatitis, repeated skin contact with small reactive chemicals exposes the immune system to haptens and initiates sensitization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Inflammatory cell recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Irritant-induced mediators recruit and activate inflammatory cells in skin after barrier injury, including T lymphocytes. Previously named \\\"Innate inflammatory cell recruitment\\\"; the \\\"innate\\\" qualifier was dropped because the supporting evidence describes recruitment and activation of T lymphocytes, which are adaptive effectors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"dendritic cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Irritant exposure and toxic insult\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In irritant contact dermatitis, direct exposure to chemical or physical irritants causes the initiating toxic cutaneous insult.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Isothiazolinone exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to isothiazolinone preservatives in personal care, household, and industrial products is a recognized environmental trigger of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Keratinocyte activation and proinflammatory mediator release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Barrier-injured keratinocytes enter an activated inflammatory state and release mediators that propagate local cutaneous inflammation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinocyte activation\", \"inflammatory response\"]}}, {\"id\": \"Lime and other psoralen-rich citrus exposure with ultraviolet light\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contact with lime juice or peel followed by ultraviolet exposure can trigger phytophotodermatitis, a phototoxic contact reaction that may be mistaken for allergic dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mastisol adhesive exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to Mastisol liquid adhesive used for wound closure is a reported trigger of allergic contact dermatitis after surgical procedures.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mixed type 1 and type 3 cytokine and chemokine amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated effector and resident memory T cells amplify IFNg-, IL-17A-, IL-1beta-, and chemokine-rich inflammatory programs, with predominant type 1 and type 3 effector responses and lesser type 2 contributions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"neutrophil\"], \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"Nickel exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to nickel-containing jewelry, tools, and occupational metal sources is a common environmental trigger of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Para-phenylenediamine exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to para-phenylenediamine, particularly in hair dyes and related products, is a common environmental trigger of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000989\"}}, {\"id\": \"Re-exposure-driven effector T-cell recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Upon renewed hapten exposure, primed effector T cells re-enter skin and initiate the elicitation phase of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive effector T cell\"], \"biological_processes\": [\"type IV hypersensitivity\"]}}, {\"id\": \"Repeated and high-concentration allergen exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Repeated contact and higher local concentrations of potential allergens increase the probability of sensitization and later allergic flares.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Resident memory T-cell flare activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epidermal resident memory CD8-positive T cells are activated in allergen-experienced skin and intensify local flare responses.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"resident memory CD8-positive T cell\"]}}, {\"id\": \"Rubber accelerator exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to rubber accelerators in gloves, footwear, and occupational materials is a common environmental trigger of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Skin innate immune activation during sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early innate immune signaling in allergen-exposed skin shapes the sensitization phase and supports subsequent adaptive immune priming.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Langerhans cell\", \"dendritic cell\"]}}, {\"id\": \"Toxicodendron exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to Toxicodendron plants such as poison ivy, poison oak, and poison sumac is a common environmental trigger of allergic contact dermatitis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Wet work and detergent exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Repetitive wet work and exposure to soaps and detergents are common environmental drivers of irritant contact dermatitis, especially on the hands.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Irritant exposure and toxic insult\", \"target\": \"Epidermal barrier disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxic or physical irritants injure the epidermis and precipitate barrier failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epidermal barrier disruption\", \"target\": \"Keratinocyte activation and proinflammatory mediator release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier failure activates keratinocytes and promotes local proinflammatory signaling.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratinocyte activation and proinflammatory mediator release\", \"target\": \"Inflammatory cell recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratinocyte-derived inflammatory mediators recruit and activate additional inflammatory cells in skin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammatory cell recruitment\", \"target\": \"Contact dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cell recruitment culminates in the clinically visible dermatitis lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hapten exposure\", \"target\": \"Skin innate immune activation during sensitization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hapten exposure activates innate cutaneous immune pathways during the sensitization phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skin innate immune activation during sensitization\", \"target\": \"Allergen-specific T-cell priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate activation in skin supports dendritic-cell-mediated priming of allergen-specific T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Breakdown of regulatory T-cell-mediated hapten tolerance\", \"target\": \"Allergen-specific T-cell priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of regulatory control permits priming to haptens in susceptible individuals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Breakdown of regulatory T-cell-mediated hapten tolerance\", \"target\": \"Contact dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of suppressive T-cell control permits persistence and amplification of eczema in allergic patients.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allergen-specific T-cell priming\", \"target\": \"Re-exposure-driven effector T-cell recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensitized allergen-specific T cells are recruited back to skin after hapten re-exposure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Re-exposure-driven effector T-cell recruitment\", \"target\": \"Resident memory T-cell flare activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Re-exposure activates epidermal resident memory T cells and intensifies the flare response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Resident memory T-cell flare activation\", \"target\": \"Mixed type 1 and type 3 cytokine and chemokine amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated resident memory T cells drive a broader inflammatory cytokine and chemokine program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mixed type 1 and type 3 cytokine and chemokine amplification\", \"target\": \"Fibroblast CXCL9/CXCL10 reinforcement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Type 1 lymphocyte-derived IFNg reprograms dermal fibroblasts into chemokine-producing inflammatory stromal cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibroblast CXCL9/CXCL10 reinforcement\", \"target\": \"Contact dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibroblast chemokine reinforcement sustains the inflammatory dermatitis lesion in affected skin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Complement-associated sensory neuron activation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory neuron activation contributes to the itching phenotype in allergic contact dermatitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Wet work and detergent exposure\", \"target\": \"Irritant exposure and toxic insult\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Water, soap and detergent strip stratum corneum lipids and damage keratinocytes directly, with no immune sensitization required. This is the irritant arm of the entry, which is why it targets the toxic-insult node rather than the hapten node the sensitizers use.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nickel exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Nickel ions released from metal in prolonged skin contact bind self-protein to form the hapten-protein complex this node represents. It is consistently the single most frequent contact allergen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fragrance exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Fragrance chemicals are a mixture rather than a single molecule, several members of which are haptens; patch testing uses a fragrance mix for that reason.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Isothiazolinone exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Preservatives in cosmetics and household products, and the sensitizer behind a documented epidemic of contact allergy after their concentration in leave-on products rose.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mastisol adhesive exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A liquid surgical adhesive whose gum-resin constituents can sensitize; reported rarely, so this link records a documented rather than a frequent hapten source.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"2-octyl cyanoacrylate adhesive exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A surgical skin adhesive increasingly implicated as a sensitizer, notable because the exposure is iatrogenic and occurs on a wound that is already breached.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"2-octyl cyanoacrylate adhesive exposure\", \"target\": \"Re-exposure-driven effector T-cell recruitment\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A second, later encounter with the same adhesive is what recruits primed effector T cells to the skin, which is why staged or repeat surgical procedures carry an order-of-magnitude higher reaction rate than a first exposure. Sensitization and elicitation are separate events, and this link records the second.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Para-phenylenediamine exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The principal sensitizer in permanent hair dye and in black henna tattoos, where the unregulated concentrations make sensitization more likely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rubber accelerator exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Thiurams and carbamates added during rubber vulcanisation remain in the finished product, which is why gloves intended as protection are themselves a common source of occupational sensitization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biocide exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Preservatives and antimicrobials added to cosmetics, cutting fluids and paints, encountered in both occupational and consumer settings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Repeated and high-concentration allergen exposure\", \"target\": \"Allergen-specific T-cell priming\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Not a hapten itself but a property of the encounter. Sensitization is dose- and frequency-dependent, so the same chemical is more likely to prime a T-cell response when met often or at high concentration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Toxicodendron exposure\", \"target\": \"Hapten exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Poison ivy, oak and sumac deliver urushiol, a catechol that penetrates skin and binds protein to form the hapten. Unusually for a contact allergen, it sensitizes a majority of the population.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lime and other psoralen-rich citrus exposure with ultraviolet light\", \"target\": \"Irritant exposure and toxic insult\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Phytophotodermatitis needs both halves and is neither allergic nor idiosyncratic: furocoumarins on the skin absorb ultraviolet A and become directly cytotoxic, so the reaction is a phototoxic irritant insult rather than a hapten-driven sensitization.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6265,14 +6643,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Erythema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010783">HP:0010783</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010783</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6337,14 +6722,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Contact dermatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032282">HP:0032282</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0032282</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Contact dermatitis (HP:0032282). HP:0032282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6409,14 +6801,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6472,14 +6871,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scaling skin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040189">HP:0040189</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0040189</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6579,13 +6985,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLG
 
 
-    <a href="https://bioregistry.io/hgnc:3748" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3748">hgnc:3748</a>
+    <a href="https://bioregistry.io/hgnc:3748" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3748</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLG (hgnc:3748). hgnc:3748 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6643,13 +7054,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLG
 
 
-    <a href="https://bioregistry.io/hgnc:3748" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3748">hgnc:3748</a>
+    <a href="https://bioregistry.io/hgnc:3748" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:3748</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLG (hgnc:3748). hgnc:3748 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6716,7 +7132,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">medical action avoidance</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">medical action avoidance<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is medical action avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -6816,7 +7237,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">topical corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical corticosteroid therapy (NCIT:C122078), qualified as therapeutic agent therapeutic corticosteroid; route of administration topical route of administration. NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
 
 
@@ -6894,7 +7320,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">topical calcineurin inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">topical calcineurin inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical calcineurin inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986), qualified as therapeutic agent tacrolimus; therapeutic agent pimecrolimus; route of administration topical route of administration. NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6994,7 +7425,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080), qualified as therapeutic agent therapeutic corticosteroid. NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -7083,21 +7519,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to detergent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9001690" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9001690">ECTO:9001690</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001690" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-35">ECTO:9001690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to detergent (ECTO:9001690), qualified as has participant skin of manus. ECTO:9001690 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7139,6 +7584,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Irritant exposure and toxic insult</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Water, soap and detergent strip stratum corneum lipids and damage keratinocytes directly, with no immune sensitization required. This is the irritant arm of the entry, which is why it targets the toxic-insult node rather than the hapten node the sensitizers use.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25102574" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25102574" target="_blank">PMID:25102574</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cumulative effects of water, soaps and detergents are the most common cause of ICD which affects the hands more often than any other site."</div>
+
+
+                <div class="evidence-explanation">Identifies cumulative water, soap and detergent exposure as the most common cause of irritant contact dermatitis, the non-immunological insult this node describes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-nickel-exposure" data-dismech-node="Nickel exposure" data-dismech-type="environmental">
@@ -7146,21 +7643,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to nickel
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9000063" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9000063">ECTO:9000063</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000063" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-36">ECTO:9000063</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to nickel (ECTO:9000063). ECTO:9000063 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7202,6 +7708,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Nickel ions released from metal in prolonged skin contact bind self-protein to form the hapten-protein complex this node represents. It is consistently the single most frequent contact allergen.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fmed.2023.1184289" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1184289" target="_blank">DOI:10.3389/fmed.2023.1184289</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD."</div>
+
+
+                <div class="evidence-explanation">Identifies nickel first among the most commonly positive allergens on patch testing, the sensitizers that supply the hapten at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-fragrance-exposure" data-dismech-node="Fragrance exposure" data-dismech-type="environmental">
@@ -7209,21 +7767,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to fragrance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9001808" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9001808">ECTO:9001808</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001808" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-37">ECTO:9001808</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to fragrance (ECTO:9001808). ECTO:9001808 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7265,10 +7832,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Fragrance chemicals are a mixture rather than a single molecule, several members of which are haptens; patch testing uses a fragrance mix for that reason.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fmed.2023.1184289" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1184289" target="_blank">DOI:10.3389/fmed.2023.1184289</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD."</div>
+
+
+                <div class="evidence-explanation">Identifies fragrance mix among the most commonly positive allergens on patch testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-isothiazolinone-exposure" data-dismech-node="Isothiazolinone exposure" data-dismech-type="environmental">
                 <div class="item-name">Isothiazolinone exposure</div>
+
+
+
+
 
 
 
@@ -7332,6 +7955,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Preservatives in cosmetics and household products, and the sensitizer behind a documented epidemic of contact allergy after their concentration in leave-on products rose.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41804652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41804652" target="_blank">PMID:41804652</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of CA to methylchloroisothiazolinone/methylisothiazolinone (MCI/MI) was 4.58%, methylisothiazolinone (MI) was 5.48%, and benzisothiazolinone (BIT) was 2.09%."</div>
+
+
+                <div class="evidence-explanation">Quantifies contact allergy prevalence to methylchloroisothiazolinone and methylisothiazolinone in a tested population, establishing them as active sensitizers rather than merely present chemicals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-mastisol-adhesive-exposure" data-dismech-node="Mastisol adhesive exposure" data-dismech-type="environmental">
@@ -7339,21 +8014,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to glue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_7000130" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:7000130">ECTO:7000130</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000130" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-38">ECTO:7000130</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to glue (ECTO:7000130). ECTO:7000130 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7395,6 +8079,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A liquid surgical adhesive whose gum-resin constituents can sensitize; reported rarely, so this link records a documented rather than a frequent hapten source.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30465037" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30465037" target="_blank">PMID:30465037</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report on a rare case of allergic contact dermatitis (ACD) from Mastisol liquid adhesive."</div>
+
+
+                <div class="evidence-explanation">Reports a case of allergic contact dermatitis attributed to this liquid adhesive, a documented but uncommon hapten source.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-2-octyl-cyanoacrylate-adhesive-exposure" data-dismech-node="2-octyl cyanoacrylate adhesive exposure" data-dismech-type="environmental">
@@ -7402,21 +8138,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to glue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_7000130" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:7000130">ECTO:7000130</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000130" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-39">ECTO:7000130</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to glue (ECTO:7000130), qualified as has input acrylate. ECTO:7000130 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7480,10 +8225,136 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A surgical skin adhesive increasingly implicated as a sensitizer, notable because the exposure is iatrogenic and occurs on a wound that is already breached.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41784277" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41784277" target="_blank">PMID:41784277</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"2-octyl cyanoacrylate (2-OCA) topical skin adhesives are widely used for surgical wound closure but are increasingly associated with allergic contact dermatitis (ACD)."</div>
+
+
+                <div class="evidence-explanation">Reports that these topical skin adhesives, widely used for surgical wound closure, are increasingly associated with allergic contact dermatitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Re-exposure-driven effector T-cell recruitment</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A second, later encounter with the same adhesive is what recruits primed effector T cells to the skin, which is why staged or repeat surgical procedures carry an order-of-magnitude higher reaction rate than a first exposure. Sensitization and elicitation are separate events, and this link records the second.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41784277" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41784277" target="_blank">PMID:41784277</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Re-exposure markedly increased risk, with reaction rates rising from 1-3% after initial exposure to &gt;20% in staged or repeat procedures in several cohorts."</div>
+
+
+                <div class="evidence-explanation">Reaction rates rise from a few percent after initial exposure to over twenty percent on staged or repeat exposure, quantifying elicitation on re-encounter rather than sensitization at first contact.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-para-phenylenediamine-exposure" data-dismech-node="Para-phenylenediamine exposure" data-dismech-type="environmental">
                 <div class="item-name">Para-phenylenediamine exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to para-phenylenediamine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001223" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-40">ECTO:9001223</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to para-phenylenediamine, annotated with exposure to 1,4-phenylenediamine (ECTO:9001223). ECTO:9001223 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -7525,10 +8396,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The principal sensitizer in permanent hair dye and in black henna tattoos, where the unregulated concentrations make sensitization more likely.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fmed.2023.1184289" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmed.2023.1184289" target="_blank">DOI:10.3389/fmed.2023.1184289</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD."</div>
+
+
+                <div class="evidence-explanation">Identifies para-phenylenediamine among the most commonly positive allergens on patch testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-rubber-accelerator-exposure" data-dismech-node="Rubber accelerator exposure" data-dismech-type="environmental">
                 <div class="item-name">Rubber accelerator exposure</div>
+
+
+
+
 
 
 
@@ -7570,10 +8497,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Thiurams and carbamates added during rubber vulcanisation remain in the finished product, which is why gloves intended as protection are themselves a common source of occupational sensitization.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25102574" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25102574" target="_blank">PMID:25102574</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD."</div>
+
+
+                <div class="evidence-explanation">Names rubber accelerators among the most common sensitizers in allergic contact dermatitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-biocide-exposure" data-dismech-node="Biocide exposure" data-dismech-type="environmental">
                 <div class="item-name">Biocide exposure</div>
+
+
+
+
 
 
 
@@ -7615,10 +8598,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Preservatives and antimicrobials added to cosmetics, cutting fluids and paints, encountered in both occupational and consumer settings.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25102574" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25102574" target="_blank">PMID:25102574</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD."</div>
+
+
+                <div class="evidence-explanation">Names biocides among the most common sensitizers in allergic contact dermatitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-repeated-and-high-concentration-allergen-exposure" data-dismech-node="Repeated and high-concentration allergen exposure" data-dismech-type="environmental">
                 <div class="item-name">Repeated and high-concentration allergen exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to allergen
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:0000726</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to allergen (ECTO:0000726). ECTO:0000726 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -7660,6 +8722,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Allergen-specific T-cell priming</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Not a hapten itself but a property of the encounter. Sensitization is dose- and frequency-dependent, so the same chemical is more likely to prime a T-cell response when met often or at high concentration.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25102574" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25102574" target="_blank">PMID:25102574</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Frequent exposure and high concentrations of potential allergens increase the risk of sensitisation."</div>
+
+
+                <div class="evidence-explanation">States that frequent exposure and high allergen concentrations increase the risk of sensitisation, which is the priming step this node describes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-toxicodendron-exposure" data-dismech-node="Toxicodendron exposure" data-dismech-type="environmental">
@@ -7667,21 +8781,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to allergen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0000726">ECTO:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-42">ECTO:0000726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to allergen (ECTO:0000726), qualified as has input urushiol III. ECTO:0000726 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7745,10 +8868,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hapten exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Poison ivy, oak and sumac deliver urushiol, a catechol that penetrates skin and binds protein to form the hapten. Unusually for a contact allergen, it sensitizes a majority of the population.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27548435" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27548435" target="_blank">PMID:27548435</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Human subjects with poison-ivy dermatitis had a similar cytokine signature following CD1a-mediated recognition of urushiol."</div>
+
+
+                <div class="evidence-explanation">Shows CD1a-mediated recognition of urushiol in patients with poison-ivy dermatitis, evidencing the hapten being presented in actual disease rather than in a clone assay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-lime-and-other-psoralen-rich-citrus-exposure-with-ultraviolet-light" data-dismech-node="Lime and other psoralen-rich citrus exposure with ultraviolet light" data-dismech-type="environmental">
                 <div class="item-name">Lime and other psoralen-rich citrus exposure with ultraviolet light</div>
+
+
+
+
 
 
 
@@ -7846,6 +9025,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-mare-s-milk-soap-exposure" data-dismech-node="Mare&#39;s milk soap exposure" data-dismech-type="environmental">
                 <div class="item-name">Mare&#39;s milk soap exposure</div>
+
+
+
+
 
 
 
@@ -8350,16 +9533,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Contact dermatitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032282" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032282">HP:0032282</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0032282</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Contact dermatitis (HP:0032282). HP:0032282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8418,17 +9606,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Erythema
@@ -8436,10 +9631,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010783">HP:0010783</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0010783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Erythema (HP:0010783). HP:0010783 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8487,6 +9685,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8503,7 +9704,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Contact Dermatitis
 creation_date: &#39;2026-03-13T18:40:33Z&#39;
-updated_date: &#39;2026-03-14T23:13:30Z&#39;
 category: Complex
 description: &gt;-
   Contact dermatitis is an exogenous inflammatory eczema triggered by direct
@@ -9242,6 +10442,25 @@ genetic:
     explanation: This occupational case-control study supports FLG variants as an independent genetic susceptibility factor for irritant contact dermatitis.
 environmental:
 - name: Wet work and detergent exposure
+  influences_mechanisms:
+  - target: Irritant exposure and toxic insult
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Water, soap and detergent strip stratum corneum lipids and damage
+      keratinocytes directly, with no immune sensitization required. This is
+      the irritant arm of the entry, which is why it targets the toxic-insult
+      node rather than the hapten node the sensitizers use.
+    evidence:
+    - reference: PMID:25102574
+      reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Cumulative effects of water, soaps and detergents are the most common cause of ICD which affects the hands more often than any other site.&#34;
+      explanation: &gt;-
+        Identifies cumulative water, soap and detergent exposure as the most
+        common cause of irritant contact dermatitis, the non-immunological
+        insult this node describes.
   exposure_term:
     preferred_term: exposure to detergent
     term:
@@ -9271,6 +10490,22 @@ environmental:
     snippet: &#34;Cumulative effects of water, soaps and detergents are the most common cause of ICD which affects the hands more often than any other site.&#34;
     explanation: This supports wet work and detergent exposure as major environmental triggers of irritant contact dermatitis.
 - name: Nickel exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Nickel ions released from metal in prolonged skin contact bind
+      self-protein to form the hapten-protein complex this node represents. It
+      is consistently the single most frequent contact allergen.
+    evidence:
+    - reference: DOI:10.3389/fmed.2023.1184289
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
+      explanation: &gt;-
+        Identifies nickel first among the most commonly positive allergens on
+        patch testing, the sensitizers that supply the hapten at this node.
   exposure_term:
     preferred_term: exposure to nickel
     term:
@@ -9287,6 +10522,22 @@ environmental:
     snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
     explanation: This review identifies nickel as one of the most common sensitizing exposures in allergic contact dermatitis.
 - name: Fragrance exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fragrance chemicals are a mixture rather than a single molecule, several
+      members of which are haptens; patch testing uses a fragrance mix for
+      that reason.
+    evidence:
+    - reference: DOI:10.3389/fmed.2023.1184289
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
+      explanation: &gt;-
+        Identifies fragrance mix among the most commonly positive allergens on
+        patch testing.
   exposure_term:
     preferred_term: exposure to fragrance
     term:
@@ -9303,6 +10554,24 @@ environmental:
     snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
     explanation: This review identifies fragrance mix as a common sensitizer in patients patch tested for allergic contact dermatitis.
 - name: Isothiazolinone exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Preservatives in cosmetics and household products, and the sensitizer
+      behind a documented epidemic of contact allergy after their
+      concentration in leave-on products rose.
+    evidence:
+    - reference: PMID:41804652
+      reference_title: &#34;Prevalence of Contact Allergy to Isothiazolinones in Dermatitis Patients From 2000 to 2025: A Systematic Review and Meta-Analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The prevalence of CA to methylchloroisothiazolinone/methylisothiazolinone (MCI/MI) was 4.58%, methylisothiazolinone (MI) was 5.48%, and benzisothiazolinone (BIT) was 2.09%.&#34;
+      explanation: &gt;-
+        Quantifies contact allergy prevalence to methylchloroisothiazolinone
+        and methylisothiazolinone in a tested population, establishing them as
+        active sensitizers rather than merely present chemicals.
   description: &gt;-
     Exposure to isothiazolinone preservatives in personal care, household, and
     industrial products is a recognized environmental trigger of allergic
@@ -9321,6 +10590,23 @@ environmental:
     snippet: &#34;The prevalence of CA to methylchloroisothiazolinone/methylisothiazolinone (MCI/MI) was 4.58%, methylisothiazolinone (MI) was 5.48%, and benzisothiazolinone (BIT) was 2.09%.&#34;
     explanation: This meta-analysis adds current human prevalence data showing multiple isothiazolinone preservatives are established sensitizers among dermatitis patients.
 - name: Mastisol adhesive exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      A liquid surgical adhesive whose gum-resin constituents can sensitize;
+      reported rarely, so this link records a documented rather than a
+      frequent hapten source.
+    evidence:
+    - reference: PMID:30465037
+      reference_title: &#34;Allergic Contact Dermatitis to Mastisol Adhesive Used for Skin Closure in Orthopedic Surgery: A Case Report.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We report on a rare case of allergic contact dermatitis (ACD) from Mastisol liquid adhesive.&#34;
+      explanation: &gt;-
+        Reports a case of allergic contact dermatitis attributed to this
+        liquid adhesive, a documented but uncommon hapten source.
   exposure_term:
     preferred_term: exposure to glue
     term:
@@ -9338,6 +10624,43 @@ environmental:
     snippet: &#34;We report on a rare case of allergic contact dermatitis (ACD) from Mastisol liquid adhesive.&#34;
     explanation: This case report supports Mastisol as a specific adhesive trigger of allergic contact dermatitis.
 - name: 2-octyl cyanoacrylate adhesive exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      A surgical skin adhesive increasingly implicated as a sensitizer,
+      notable because the exposure is iatrogenic and occurs on a wound that is
+      already breached.
+    evidence:
+    - reference: PMID:41784277
+      reference_title: &#34;Systematic Review and Meta Analysis of Allergic Contact Dermatitis from 2-Octyl Cyanoacrylate Adhesives.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;2-octyl cyanoacrylate (2-OCA) topical skin adhesives are widely used for surgical wound closure but are increasingly associated with allergic contact dermatitis (ACD).&#34;
+      explanation: &gt;-
+        Reports that these topical skin adhesives, widely used for surgical
+        wound closure, are increasingly associated with allergic contact
+        dermatitis.
+  - target: Re-exposure-driven effector T-cell recruitment
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      A second, later encounter with the same adhesive is what recruits primed
+      effector T cells to the skin, which is why staged or repeat surgical
+      procedures carry an order-of-magnitude higher reaction rate than a first
+      exposure. Sensitization and elicitation are separate events, and this
+      link records the second.
+    evidence:
+    - reference: PMID:41784277
+      reference_title: &#34;Systematic Review and Meta Analysis of Allergic Contact Dermatitis from 2-Octyl Cyanoacrylate Adhesives.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Re-exposure markedly increased risk, with reaction rates rising from 1-3% after initial exposure to &gt;20% in staged or repeat procedures in several cohorts.&#34;
+      explanation: &gt;-
+        Reaction rates rise from a few percent after initial exposure to over
+        twenty percent on staged or repeat exposure, quantifying elicitation on
+        re-encounter rather than sensitization at first contact.
   exposure_term:
     preferred_term: exposure to glue
     term:
@@ -9373,6 +10696,27 @@ environmental:
     snippet: &#34;Re-exposure markedly increased risk, with reaction rates rising from 1-3% after initial exposure to &gt;20% in staged or repeat procedures in several cohorts.&#34;
     explanation: This supports repeat exposure as an important risk amplifier for cyanoacrylate-triggered allergic contact dermatitis.
 - name: Para-phenylenediamine exposure
+  exposure_term:
+    preferred_term: exposure to para-phenylenediamine
+    term:
+      id: ECTO:9001223
+      label: exposure to 1,4-phenylenediamine
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The principal sensitizer in permanent hair dye and in black henna
+      tattoos, where the unregulated concentrations make sensitization more
+      likely.
+    evidence:
+    - reference: DOI:10.3389/fmed.2023.1184289
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
+      explanation: &gt;-
+        Identifies para-phenylenediamine among the most commonly positive
+        allergens on patch testing.
   description: &gt;-
     Exposure to para-phenylenediamine, particularly in hair dyes and related
     products, is a common environmental trigger of allergic contact dermatitis.
@@ -9384,6 +10728,23 @@ environmental:
     snippet: &#34;Metals, especially nickel, fragrance mix, isothiazolinones, and para-phenylenediamine, are the most commonly positive allergens in patients patch tested for suspected ACD.&#34;
     explanation: This review identifies para-phenylenediamine as a common sensitizer in allergic contact dermatitis.
 - name: Rubber accelerator exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Thiurams and carbamates added during rubber vulcanisation remain in the
+      finished product, which is why gloves intended as protection are
+      themselves a common source of occupational sensitization.
+    evidence:
+    - reference: PMID:25102574
+      reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD.&#34;
+      explanation: &gt;-
+        Names rubber accelerators among the most common sensitizers in
+        allergic contact dermatitis.
   description: &gt;-
     Exposure to rubber accelerators in gloves, footwear, and occupational
     materials is a common environmental trigger of allergic contact dermatitis.
@@ -9396,6 +10757,22 @@ environmental:
     snippet: &#34;Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD.&#34;
     explanation: This review identifies rubber accelerators as common sensitizers in allergic contact dermatitis.
 - name: Biocide exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Preservatives and antimicrobials added to cosmetics, cutting fluids and
+      paints, encountered in both occupational and consumer settings.
+    evidence:
+    - reference: PMID:25102574
+      reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD.&#34;
+      explanation: &gt;-
+        Names biocides among the most common sensitizers in allergic contact
+        dermatitis.
   description: &gt;-
     Exposure to biocides and preservative chemicals in occupational and consumer
     products is a common environmental trigger of allergic contact dermatitis.
@@ -9408,6 +10785,29 @@ environmental:
     snippet: &#34;Nickel, fragrances, rubber accelerators and biocides are the most common sensitisers in ACD.&#34;
     explanation: This review identifies biocides as common sensitizers in allergic contact dermatitis.
 - name: Repeated and high-concentration allergen exposure
+  exposure_term:
+    preferred_term: exposure to allergen
+    term:
+      id: ECTO:0000726
+      label: exposure to allergen
+  influences_mechanisms:
+  - target: Allergen-specific T-cell priming
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Not a hapten itself but a property of the encounter. Sensitization is
+      dose- and frequency-dependent, so the same chemical is more likely to
+      prime a T-cell response when met often or at high concentration.
+    evidence:
+    - reference: PMID:25102574
+      reference_title: &#34;Identifying the causes of contact dermatitis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Frequent exposure and high concentrations of potential allergens increase the risk of sensitisation.&#34;
+      explanation: &gt;-
+        States that frequent exposure and high allergen concentrations
+        increase the risk of sensitisation, which is the priming step this
+        node describes.
   description: &gt;-
     Repeated contact and higher local concentrations of potential allergens
     increase the probability of sensitization and later allergic flares.
@@ -9420,6 +10820,24 @@ environmental:
     snippet: &#34;Frequent exposure and high concentrations of potential allergens increase the risk of sensitisation.&#34;
     explanation: This supports repeated or intense exposure as an environmental risk factor for allergic sensitization.
 - name: Toxicodendron exposure
+  influences_mechanisms:
+  - target: Hapten exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Poison ivy, oak and sumac deliver urushiol, a catechol that penetrates
+      skin and binds protein to form the hapten. Unusually for a contact
+      allergen, it sensitizes a majority of the population.
+    evidence:
+    - reference: PMID:27548435
+      reference_title: &#34;CD1a on Langerhans cells controls inflammatory skin disease.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Human subjects with poison-ivy dermatitis had a similar cytokine signature following CD1a-mediated recognition of urushiol.&#34;
+      explanation: &gt;-
+        Shows CD1a-mediated recognition of urushiol in patients with poison-ivy
+        dermatitis, evidencing the hapten being presented in actual disease
+        rather than in a clone assay.
   exposure_term:
     preferred_term: exposure to allergen
     term:
@@ -11171,7 +12589,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Contact Dermatitis", "mondoId": "MONDO:0005480", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Contact_Dermatitis", "yamlRevision": "a73cef55a066"};
+        const OS_CONFIG = {"diseaseName": "Contact Dermatitis", "mondoId": "MONDO:0005480", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Contact_Dermatitis", "yamlRevision": "c26bf1a8c25c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11590,5 +13008,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

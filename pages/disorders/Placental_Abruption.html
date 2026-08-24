@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Placental%20Abruption"
@@ -3700,6 +3866,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3753,7 +3921,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4330,17 +4498,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         extravillous trophoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008036">CL:0008036</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4361,10 +4536,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000002">CL:2000002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:2000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4391,16 +4569,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4427,19 +4610,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         uterine spiral artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0015171" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0015171">UBERON:0015171</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0015171" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0015171</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uterine spiral artery (UBERON:0015171). UBERON:0015171 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4529,16 +4718,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         decidual cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000002">CL:2000002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:2000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4568,19 +4762,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         decidua basalis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000453" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000453">UBERON:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000453" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in decidua basalis (UBERON:0000453). UBERON:0000453 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4667,19 +4867,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         placenta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001987">UBERON:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001987</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:0001987 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4747,16 +4953,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         decidual cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000002">CL:2000002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:2000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decidual cell (CL:2000002). CL:2000002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4783,16 +4994,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation, extrinsic pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007598" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007598">GO:0007598</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007598" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation, extrinsic pathway (GO:0007598). GO:0007598 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4812,16 +5028,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         thrombin-activated receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070493">GO:0070493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070493" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0070493</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased thrombin-activated receptor signaling pathway (GO:0070493). GO:0070493 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4842,6 +5063,7 @@
 
 
                 </div>
+
 
 
 
@@ -4943,17 +5165,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myometrial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002366">CL:0002366</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002366" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002366</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myometrial cell (CL:0002366). CL:0002366 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4974,10 +5203,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5004,16 +5236,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         uterine smooth muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070471" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070471">GO:0070471</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070471" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0070471</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased uterine smooth muscle contraction (GO:0070471). GO:0070471 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5022,6 +5259,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5039,10 +5278,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001516">GO:0001516</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased prostaglandin biosynthetic process (GO:0001516). GO:0001516 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5062,16 +5304,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix disassembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022617">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0022617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5098,19 +5345,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         myometrium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001296">UBERON:0001296</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001296" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001296</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myometrium (UBERON:0001296). UBERON:0001296 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5216,16 +5469,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5246,6 +5504,7 @@
 
 
                 </div>
+
 
 
 
@@ -5307,16 +5566,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to hypoxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001666">GO:0001666</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to hypoxia (GO:0001666). GO:0001666 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5337,6 +5601,7 @@
 
 
                 </div>
+
 
 
 
@@ -5689,7 +5954,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blood Product Resuscitation and Coagulopathy Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive management of disseminated intravascular coagulopathy with transfusion of red cells, plasma, platelets and fibrinogen replacement, targeting the consumptive coagulopathy driven by decidual thrombin generation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained thrombin generation plus release of placental procoagulant material consumes fibrinogen, platelets and clotting factors faster than they are replaced, producing disseminated intravascular coagulation. This converts a local placental problem into systemic maternal hemorrhage. Because a substantial share of the blood loss can be concealed behind the placenta, visible bleeding underestimates the true deficit and the degree of shock is often out of proportion to what is seen.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"role\": \"consequence\"}}, {\"id\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture of a diseased decidual vessel bleeds into the decidua basalis. The accumulating blood dissects along the plane between the placental basal plate and the uterine wall, forming a retroplacental hematoma whose expansion progressively levers the placenta away from its attachment. The same process occurring in the decidua parietalis produces a retrochorionic hematoma. Bleeding may track down to the cervix and present as vaginal bleeding, or remain concealed behind the placenta.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"decidual cell\"], \"role\": \"central_effector\", \"locations\": [\"decidua basalis\"]}}, {\"id\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decidual cells express the highest levels of tissue factor of any cell type at the maternal-fetal interface, a constitutive hemostatic envelope that normally protects against bleeding during trophoblast invasion and delivery. When hemorrhage occurs, that same tissue factor binds plasma factor VII and generates thrombin in large excess. Thrombin then acts through protease-activated receptors as a signaling molecule rather than only as a clotting enzyme, which is what converts a local bleed into preterm labor, membrane rupture, and systemic coagulopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"decidual cell\"], \"biological_processes\": [\"blood coagulation, extrinsic pathway\", \"thrombin-activated receptor signaling pathway\"], \"role\": \"amplifier\"}}, {\"id\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Shallow extravillous trophoblast invasion leaves the maternal spiral arteries incompletely converted into low-resistance, high-capacity vessels. The retained muscular, high-resistance vasculature produces chronic uteroplacental ischemia and predisposes the decidual vascular bed to atherosis, thrombosis and necrosis. This is the shared upstream lesion of ischemic placental disease, which is why abruption, preeclampsia and fetal growth restriction cluster in the same pregnancies.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"extravillous trophoblast\", \"decidual cell\"], \"biological_processes\": [\"response to hypoxia\"], \"role\": \"trigger\", \"locations\": [\"uterine spiral artery\"]}}, {\"id\": \"Emergency Cesarean Delivery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prompt cesarean delivery is indicated when there is maternal or fetal compromise at a viable gestational age. Delivery removes the source of both the hemorrhage and the procoagulant load. Where fetal demise has already occurred, vaginal delivery is preferred.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fetal Hypoxic-Ischemic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute reduction in placental gas exchange produces fetal hypoxemia, acidemia and a non-reassuring heart rate pattern. If separation is extensive or delivery is delayed, the result is perinatal asphyxia with intraventricular hemorrhage, periventricular leukomalacia and cerebral palsy in survivors, or intrauterine fetal death.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to hypoxia\"], \"role\": \"consequence\"}}, {\"id\": \"Placental Separation and Loss of Exchange Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanical separation removes functional villous surface from maternal perfusion. Because the fetus depends entirely on intervillous blood flow for oxygen, loss of exchange area translates directly into fetal hypoxemia, and the fraction of placenta detached is the main determinant of fetal outcome.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"placenta\"]}}, {\"id\": \"Thrombin-Driven Myometrial Contraction and Membrane Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thrombin generated by the hematoma is a direct uterotonic. It activates PAR1 on myometrial cells, driving contraction both by direct myosin light chain phosphorylation and indirectly by inducing prostaglandin synthesis. In parallel, thrombin upregulates decidual matrix metalloproteinases and interleukin-8, recruiting neutrophils whose proteases degrade the collagen-rich amnion and choriodecidua. The two arms together explain the painful uterine hypertonus of acute abruption and the strong association of abruption with preterm labor and preterm premature rupture of membranes.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"myometrial cell\", \"neutrophil\"], \"biological_processes\": [\"uterine smooth muscle contraction\", \"prostaglandin biosynthetic process\", \"extracellular matrix disassembly\"], \"role\": \"amplifier\", \"locations\": [\"myometrium\"]}}, {\"id\": \"Tranexamic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antifibrinolytic adjunct for obstetric hemorrhage. Mechanistically coherent here, since the coagulopathy of abruption involves fibrinolysis alongside factor consumption, but the abruption-specific evidence base is a single small trial and the effect should not be overstated.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tranexamic acid\"]}}], \"edges\": [{\"source\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"target\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically ischemic, structurally abnormal decidual vessels are prone to rupture, which is the initiating event of the hematoma.\\n\"}, {\"source\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"target\": \"Placental Separation and Loss of Exchange Surface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding hematoma occupies a closed space and mechanically strips the placenta from the uterine wall.\\n\"}, {\"source\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"target\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemorrhage into the decidua brings plasma factor VII into contact with the very high constitutive tissue factor of decidual cells.\\n\"}, {\"source\": \"Placental Separation and Loss of Exchange Surface\", \"target\": \"Fetal Hypoxic-Ischemic Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of gas-exchange surface produces acute fetal hypoxemia, with the detached fraction determining severity.\\n\"}, {\"source\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"target\": \"Thrombin-Driven Myometrial Contraction and Membrane Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombin signals through protease-activated receptors on myometrium and decidua to drive contraction and matrix degradation.\\n\"}, {\"source\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"target\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained thrombin generation consumes fibrinogen and clotting factors, producing the profound hypofibrinogenemia characteristic of severe abruption.\\n\"}, {\"source\": \"Emergency Cesarean Delivery\", \"target\": \"Placental Separation and Loss of Exchange Surface\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blood Product Resuscitation and Coagulopathy Management\", \"target\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tranexamic Acid\", \"target\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Blunt abdominal trauma, including motor vehicle collisions and intimate partner violence, shears the elastic uterus against the relatively inelastic placenta.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Blood Product Resuscitation and Coagulopathy Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive management of disseminated intravascular coagulopathy with transfusion of red cells, plasma, platelets and fibrinogen replacement, targeting the consumptive coagulopathy driven by decidual thrombin generation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cigarette Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal smoking is the best-quantified modifiable risk factor for abruption, plausibly acting through vasoconstriction and chronic decidual ischemia and necrosis. It is notable for a large population attributable fraction and for super-additive interaction with hypertensive disorders of pregnancy, the cleanest documented exposure-exposure interaction in this disease.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Cocaine Use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cocaine produces acute vasoconstriction and hypertensive surges. It carries the largest reported effect size of any graded risk factor in the umbrella review, though with wide confidence limits and only suggestive (class III) evidence quality.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained thrombin generation plus release of placental procoagulant material consumes fibrinogen, platelets and clotting factors faster than they are replaced, producing disseminated intravascular coagulation. This converts a local placental problem into systemic maternal hemorrhage. Because a substantial share of the blood loss can be concealed behind the placenta, visible bleeding underestimates the true deficit and the degree of shock is often out of proportion to what is seen.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"], \"role\": \"consequence\"}}, {\"id\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture of a diseased decidual vessel bleeds into the decidua basalis. The accumulating blood dissects along the plane between the placental basal plate and the uterine wall, forming a retroplacental hematoma whose expansion progressively levers the placenta away from its attachment. The same process occurring in the decidua parietalis produces a retrochorionic hematoma. Bleeding may track down to the cervix and present as vaginal bleeding, or remain concealed behind the placenta.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"decidual cell\"], \"role\": \"central_effector\", \"locations\": [\"decidua basalis\"]}}, {\"id\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Decidual cells express the highest levels of tissue factor of any cell type at the maternal-fetal interface, a constitutive hemostatic envelope that normally protects against bleeding during trophoblast invasion and delivery. When hemorrhage occurs, that same tissue factor binds plasma factor VII and generates thrombin in large excess. Thrombin then acts through protease-activated receptors as a signaling molecule rather than only as a clotting enzyme, which is what converts a local bleed into preterm labor, membrane rupture, and systemic coagulopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"decidual cell\"], \"biological_processes\": [\"blood coagulation, extrinsic pathway\", \"thrombin-activated receptor signaling pathway\"], \"role\": \"amplifier\"}}, {\"id\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Shallow extravillous trophoblast invasion leaves the maternal spiral arteries incompletely converted into low-resistance, high-capacity vessels. The retained muscular, high-resistance vasculature produces chronic uteroplacental ischemia and predisposes the decidual vascular bed to atherosis, thrombosis and necrosis. This is the shared upstream lesion of ischemic placental disease, which is why abruption, preeclampsia and fetal growth restriction cluster in the same pregnancies.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"extravillous trophoblast\", \"decidual cell\"], \"biological_processes\": [\"response to hypoxia\"], \"role\": \"trigger\", \"locations\": [\"uterine spiral artery\"]}}, {\"id\": \"Emergency Cesarean Delivery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prompt cesarean delivery is indicated when there is maternal or fetal compromise at a viable gestational age. Delivery removes the source of both the hemorrhage and the procoagulant load. Where fetal demise has already occurred, vaginal delivery is preferred.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fetal Hypoxic-Ischemic Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute reduction in placental gas exchange produces fetal hypoxemia, acidemia and a non-reassuring heart rate pattern. If separation is extensive or delivery is delayed, the result is perinatal asphyxia with intraventricular hemorrhage, periventricular leukomalacia and cerebral palsy in survivors, or intrauterine fetal death.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to hypoxia\"], \"role\": \"consequence\"}}, {\"id\": \"Hypertensive Disorders of Pregnancy\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic hypertension and preeclampsia both raise abruption risk, consistent with the shared decidual vascular lesion of ischemic placental disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Placental Separation and Loss of Exchange Surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mechanical separation removes functional villous surface from maternal perfusion. Because the fetus depends entirely on intervillous blood flow for oxygen, loss of exchange area translates directly into fetal hypoxemia, and the fraction of placenta detached is the main determinant of fetal outcome.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"placenta\"]}}, {\"id\": \"Prior Abruption\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A previous abruption is among the strongest predictors of recurrence, consistent with a persistent underlying maternal vascular phenotype rather than a one-off accident. Recurrence risk is roughly five-fold, which is the single most important piece of evidence for the chronic-disease rather than accident model, and the basis for counselling in a subsequent pregnancy.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Prior Cesarean Delivery\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A previous cesarean delivery raises abruption risk in subsequent pregnancies, alongside larger increases in placenta previa and placenta accreta, consistent with a scarred, abnormally decidualized implantation bed.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombin-Driven Myometrial Contraction and Membrane Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thrombin generated by the hematoma is a direct uterotonic. It activates PAR1 on myometrial cells, driving contraction both by direct myosin light chain phosphorylation and indirectly by inducing prostaglandin synthesis. In parallel, thrombin upregulates decidual matrix metalloproteinases and interleukin-8, recruiting neutrophils whose proteases degrade the collagen-rich amnion and choriodecidua. The two arms together explain the painful uterine hypertonus of acute abruption and the strong association of abruption with preterm labor and preterm premature rupture of membranes.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"myometrial cell\", \"neutrophil\"], \"biological_processes\": [\"uterine smooth muscle contraction\", \"prostaglandin biosynthetic process\", \"extracellular matrix disassembly\"], \"role\": \"amplifier\", \"locations\": [\"myometrium\"]}}, {\"id\": \"Tranexamic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antifibrinolytic adjunct for obstetric hemorrhage. Mechanistically coherent here, since the coagulopathy of abruption involves fibrinolysis alongside factor consumption, but the abruption-specific evidence base is a single small trial and the effect should not be overstated.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tranexamic acid\"]}}], \"edges\": [{\"source\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"target\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically ischemic, structurally abnormal decidual vessels are prone to rupture, which is the initiating event of the hematoma.\\n\"}, {\"source\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"target\": \"Placental Separation and Loss of Exchange Surface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding hematoma occupies a closed space and mechanically strips the placenta from the uterine wall.\\n\"}, {\"source\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"target\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemorrhage into the decidua brings plasma factor VII into contact with the very high constitutive tissue factor of decidual cells.\\n\"}, {\"source\": \"Placental Separation and Loss of Exchange Surface\", \"target\": \"Fetal Hypoxic-Ischemic Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of gas-exchange surface produces acute fetal hypoxemia, with the detached fraction determining severity.\\n\"}, {\"source\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"target\": \"Thrombin-Driven Myometrial Contraction and Membrane Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thrombin signals through protease-activated receptors on myometrium and decidua to drive contraction and matrix degradation.\\n\"}, {\"source\": \"Decidual Tissue Factor Exposure and Thrombin Generation\", \"target\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained thrombin generation consumes fibrinogen and clotting factors, producing the profound hypofibrinogenemia characteristic of severe abruption.\\n\"}, {\"source\": \"Cigarette Smoking\", \"target\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking roughly doubles risk and is thought to act through chronic vasoconstriction and decidual ischaemia, but the cited evidence is epidemiological and identifies no mediating step. Its population impact is large because exposure is common, not because the individual effect is.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cocaine Use\", \"target\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Cocaine is thought to reach this node through acute vasoconstriction and hypertensive surges in the uteroplacental circulation, but nothing in this entry evidences that intermediate, so it is marked unknown on the same standard applied to smoking here. Its relative risk is the largest of the exposures in this entry.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prior Cesarean Delivery\", \"target\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A uterine scar supports poorer decidualisation and placentation at the implantation site in a later pregnancy. The effect is modest and the mediating step is not established in the cited meta-analysis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Abdominal Trauma\", \"target\": \"Decidual Hemorrhage and Retroplacental Hematoma Formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The one mechanically distinct cause in this entry. Blunt force shears the relatively inelastic placenta away from the elastic uterine wall, tearing decidual vessels directly, so it produces the hematoma without any preceding vasculopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertensive Disorders of Pregnancy\", \"target\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Preeclampsia and abruption share defective spiral artery remodelling as a substrate, so hypertensive disease marks a placenta already predisposed rather than acting as an external insult.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prior Abruption\", \"target\": \"Decidual Vasculopathy and Spiral Artery Failure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Not an exposure at all but a marker of persisting susceptibility: a previous abruption reveals an underlying vascular predisposition that remains present in the next pregnancy. Recorded because recurrence risk is the single strongest predictor in this entry.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Emergency Cesarean Delivery\", \"target\": \"Placental Separation and Loss of Exchange Surface\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blood Product Resuscitation and Coagulopathy Management\", \"target\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tranexamic Acid\", \"target\": \"Consumptive Coagulopathy and Maternal Hemorrhagic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5736,14 +6001,21 @@
                         Disseminated Intravascular Coagulation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Disseminated intravascular coagulation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005521">HP:0005521</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005521</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP:0005521 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5804,14 +6076,21 @@
                         Acute Kidney Injury
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5872,14 +6151,23 @@
                         Preterm Birth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Premature birth
+
+                        <span class="phenotype-term-label">Premature birth</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001622">HP:0001622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5962,14 +6250,21 @@
                         Abdominal Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6021,14 +6316,21 @@
                         Back Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Back pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003418">HP:0003418</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003418</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6090,14 +6392,23 @@
                         Low Birth Weight
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Small for gestational age
+
+                        <span class="phenotype-term-label">Small for gestational age</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001518">HP:0001518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6158,14 +6469,21 @@
                         Antepartum Hemorrhage
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Antepartum hemorrhage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025328">HP:0025328</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0025328</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Antepartum hemorrhage (HP:0025328). HP:0025328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6217,14 +6535,23 @@
                         Placental Separation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Placental abruption
+
+                        <span class="phenotype-term-label">Placental abruption</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011419" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011419">HP:0011419</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011419" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011419</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Placental abruption (HP:0011419). HP:0011419 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6325,14 +6652,23 @@
                         Non-Reassuring Fetal Status
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fetal distress
+
+                        <span class="phenotype-term-label">Fetal distress</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025116" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025116">HP:0025116</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025116</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fetal distress (HP:0025116). HP:0025116 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6406,14 +6742,21 @@
                         Cerebral Palsy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral palsy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100021" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100021">HP:0100021</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100021</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral palsy (HP:0100021). HP:0100021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6465,14 +6808,21 @@
                         Preterm Premature Rupture of Membranes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Preterm premature rupture of membranes
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000310" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000310">HP:6000310</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000310" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000310</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Preterm premature rupture of membranes (HP:6000310). HP:6000310 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6595,14 +6945,21 @@
                         Neonatal Asphyxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal asphyxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012768" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012768">HP:0012768</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012768</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal asphyxia (HP:0012768). HP:0012768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6773,13 +7130,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: F5
 
 
-    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3542">hgnc:3542</a>
+    <a href="https://bioregistry.io/hgnc:3542" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:3542</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6882,13 +7244,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: F2
 
 
-    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3535">hgnc:3535</a>
+    <a href="https://bioregistry.io/hgnc:3535" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6969,13 +7336,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCC8
 
 
-    <a href="https://bioregistry.io/hgnc:59" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:59">hgnc:59</a>
+    <a href="https://bioregistry.io/hgnc:59" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:59</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7034,13 +7406,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNJ11
 
 
-    <a href="https://bioregistry.io/hgnc:6257" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6257">hgnc:6257</a>
+    <a href="https://bioregistry.io/hgnc:6257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:6257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7099,13 +7476,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ADAM12
 
 
-    <a href="https://bioregistry.io/hgnc:190" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:190">hgnc:190</a>
+    <a href="https://bioregistry.io/hgnc:190" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:190</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADAM12 (hgnc:190). hgnc:190 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7164,13 +7546,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTNND2
 
 
-    <a href="https://bioregistry.io/hgnc:2516" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2516">hgnc:2516</a>
+    <a href="https://bioregistry.io/hgnc:2516" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:2516</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNND2 (hgnc:2516). hgnc:2516 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7229,13 +7616,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZNF28
 
 
-    <a href="https://bioregistry.io/hgnc:13073" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13073">hgnc:13073</a>
+    <a href="https://bioregistry.io/hgnc:13073" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:13073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF28 (hgnc:13073). hgnc:13073 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7294,13 +7686,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IRX1
 
 
-    <a href="https://bioregistry.io/hgnc:14358" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14358">hgnc:14358</a>
+    <a href="https://bioregistry.io/hgnc:14358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:14358</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRX1 (hgnc:14358). hgnc:14358 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7370,7 +7767,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Emergency Cesarean Delivery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Emergency Cesarean Delivery<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Emergency Cesarean Delivery (NCIT:C92772). NCIT:C92772 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7521,7 +7923,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Blood Transfusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Blood Transfusion<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Blood Transfusion (NCIT:C15192). NCIT:C15192 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7672,7 +8079,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7702,16 +8114,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         betamethasone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_3077" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:3077">CHEBI:3077</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_3077" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:3077</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses betamethasone (CHEBI:3077). CHEBI:3077 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7768,7 +8185,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7798,16 +8220,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         magnesium sulfate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:32599">CHEBI:32599</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32599" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:32599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7864,7 +8291,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7894,16 +8326,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tranexamic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:48669">CHEBI:48669</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_48669" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:48669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7979,7 +8416,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Induction of Labor</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Induction of Labor<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Induction of Labor (NCIT:C92814). NCIT:C92814 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8057,7 +8499,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Hysterectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Hysterectomy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8135,7 +8582,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8244,6 +8696,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette Smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cigarette smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-50">ECTO:0100003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Maternal smoking is the best-quantified modifiable risk factor for abruption, plausibly acting through vasoconstriction and chronic decidual ischemia and necrosis. It is notable for a large population attributable fraction and for super-additive interaction with hypertensive disorders of pregnancy, the cleanest documented exposure-exposure interaction in this disease.
@@ -8331,10 +8810,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Decidual Vasculopathy and Spiral Artery Failure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Smoking roughly doubles risk and is thought to act through chronic vasoconstriction and decidual ischaemia, but the cited evidence is epidemiological and identifies no mediating step. Its population impact is large because exposure is common, not because the individual effect is.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10214847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10214847" target="_blank">PMID:10214847</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Smoking was associated with a 90% increase in the risk of placental abruption"</div>
+
+
+                <div class="evidence-explanation">Reports a 90% increase in abruption risk with smoking, an epidemiological association without a demonstrated mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-cocaine-use" data-dismech-node="Cocaine Use" data-dismech-type="environmental">
                 <div class="item-name">Cocaine Use</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cocaine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000265" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-51">ECTO:9000265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cocaine (ECTO:9000265). ECTO:9000265 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -8399,10 +8957,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Decidual Vasculopathy and Spiral Artery Failure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Cocaine is thought to reach this node through acute vasoconstriction and hypertensive surges in the uteroplacental circulation, but nothing in this entry evidences that intermediate, so it is marked unknown on the same standard applied to smoking here. Its relative risk is the largest of the exposures in this entry.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35365209" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35365209" target="_blank">PMID:35365209</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cocaine using (RR 4.55, 95% CI 1.78-6.50)"</div>
+
+
+                <div class="evidence-explanation">Reports a relative risk of 4.55 for abruption with cocaine use, the strongest exposure association in this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-prior-cesarean-delivery" data-dismech-node="Prior Cesarean Delivery" data-dismech-type="environmental">
                 <div class="item-name">Prior Cesarean Delivery</div>
+
+
+
+
 
 
 
@@ -8445,10 +9059,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Decidual Vasculopathy and Spiral Artery Failure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A uterine scar supports poorer decidualisation and placentation at the implantation site in a later pregnancy. The effect is modest and the mediating step is not established in the cited meta-analysis.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29360829" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29360829" target="_blank">PMID:29360829</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"and placental abruption (OR 1.38, 1.27 to 1.49; n = 5,667,160; 6 studies)"</div>
+
+
+                <div class="evidence-explanation">Reports an odds ratio of 1.38 for abruption after prior caesarean delivery across more than five million pregnancies, a modest but precisely estimated association.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-abdominal-trauma" data-dismech-node="Abdominal Trauma" data-dismech-type="environmental">
                 <div class="item-name">Abdominal Trauma</div>
+
+
+
+
 
 
 
@@ -8491,10 +9161,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Decidual Hemorrhage and Retroplacental Hematoma Formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The one mechanically distinct cause in this entry. Blunt force shears the relatively inelastic placenta away from the elastic uterine wall, tearing decidual vessels directly, so it produces the hematoma without any preceding vasculopathy.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17012465" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios."</div>
+
+
+                <div class="evidence-explanation">Names trauma among the established risk factors for abruption, the direct mechanical route to decidual haemorrhage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-hypertensive-disorders-of-pregnancy" data-dismech-node="Hypertensive Disorders of Pregnancy" data-dismech-type="environmental">
                 <div class="item-name">Hypertensive Disorders of Pregnancy</div>
+
+
+
+
 
 
 
@@ -8537,10 +9263,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Decidual Vasculopathy and Spiral Artery Failure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Preeclampsia and abruption share defective spiral artery remodelling as a substrate, so hypertensive disease marks a placenta already predisposed rather than acting as an external insult.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17012465" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17012465" target="_blank">PMID:17012465</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios."</div>
+
+
+                <div class="evidence-explanation">Names hypertension and preeclampsia among the established risk factors for abruption.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-prior-abruption" data-dismech-node="Prior Abruption" data-dismech-type="environmental">
                 <div class="item-name">Prior Abruption</div>
+
+
+
+
 
 
 
@@ -8627,6 +9409,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Decidual Vasculopathy and Spiral Artery Failure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Not an exposure at all but a marker of persisting susceptibility: a previous abruption reveals an underlying vascular predisposition that remains present in the next pregnancy. Recorded because recurrence risk is the single strongest predictor in this entry.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38366767" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38366767" target="_blank">PMID:38366767</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rates of abruption in the second birth among individuals with and without previous placental abruption were 3.35% and 0.66%, respectively"</div>
+
+
+                <div class="evidence-explanation">Reports abruption in 3.35% of second births after a previous abruption versus 0.66% without, a fivefold recurrence indicating persistent susceptibility rather than a repeated exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9056,16 +9890,21 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Antepartum hemorrhage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025328">HP:0025328</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0025328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Antepartum hemorrhage (HP:0025328). HP:0025328 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9125,16 +9964,21 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Premature birth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001622">HP:0001622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001622</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9333,6 +10177,9 @@ No loinc_term is bound because this project has no configured LOINC adapter, so 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10639,6 +11486,30 @@ genetic:
       because the threshold is suggestive only.
 environmental:
 - name: Cigarette Smoking
+  exposure_term:
+    preferred_term: exposure to cigarette smoking
+    term:
+      id: ECTO:0100003
+      label: exposure to cigarette smoking
+  influences_mechanisms:
+  - target: Decidual Vasculopathy and Spiral Artery Failure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Smoking roughly doubles risk and is thought to act through chronic
+      vasoconstriction and decidual ischaemia, but the cited evidence is
+      epidemiological and identifies no mediating step. Its population impact
+      is large because exposure is common, not because the individual effect
+      is.
+    evidence:
+    - reference: PMID:10214847
+      reference_title: &#34;Incidence of placental abruption in relation to cigarette smoking and hypertensive disorders during pregnancy: a meta-analysis of observational studies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Smoking was associated with a 90% increase in the risk of placental abruption&#34;
+      explanation: &gt;-
+        Reports a 90% increase in abruption risk with smoking, an
+        epidemiological association without a demonstrated mechanism.
   description: &gt;
     Maternal smoking is the best-quantified modifiable risk factor for
     abruption, plausibly acting through vasoconstriction and chronic decidual
@@ -10672,6 +11543,30 @@ environmental:
     snippet: &#34;maternal smoking (OR 1.80, 95% CI 1.75-1.85)&#34;
     explanation: Gives the umbrella-review pooled effect size for maternal smoking, graded class III (suggestive).
 - name: Cocaine Use
+  exposure_term:
+    preferred_term: exposure to cocaine
+    term:
+      id: ECTO:9000265
+      label: exposure to cocaine
+  influences_mechanisms:
+  - target: Decidual Vasculopathy and Spiral Artery Failure
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Cocaine is thought to reach this node through acute vasoconstriction and
+      hypertensive surges in the uteroplacental circulation, but nothing in this
+      entry evidences that intermediate, so it is marked unknown on the same
+      standard applied to smoking here. Its relative risk is the largest of the
+      exposures in this entry.
+    evidence:
+    - reference: PMID:35365209
+      reference_title: &#34;The environmental risk factors prior to conception associated with placental abruption: an umbrella review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;cocaine using (RR 4.55, 95% CI 1.78-6.50)&#34;
+      explanation: &gt;-
+        Reports a relative risk of 4.55 for abruption with cocaine use, the
+        strongest exposure association in this entry.
   description: &gt;
     Cocaine produces acute vasoconstriction and hypertensive surges. It carries
     the largest reported effect size of any graded risk factor in the umbrella
@@ -10693,6 +11588,24 @@ environmental:
     snippet: &#34;Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios.&#34;
     explanation: Lists cocaine use among the established risk factors for abruption.
 - name: Prior Cesarean Delivery
+  influences_mechanisms:
+  - target: Decidual Vasculopathy and Spiral Artery Failure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A uterine scar supports poorer decidualisation and placentation at the
+      implantation site in a later pregnancy. The effect is modest and the
+      mediating step is not established in the cited meta-analysis.
+    evidence:
+    - reference: PMID:29360829
+      reference_title: &#34;Long-term risks and benefits associated with cesarean delivery for mother, baby, and subsequent pregnancies: Systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;and placental abruption (OR 1.38, 1.27 to 1.49; n = 5,667,160; 6 studies)&#34;
+      explanation: &gt;-
+        Reports an odds ratio of 1.38 for abruption after prior caesarean
+        delivery across more than five million pregnancies, a modest but
+        precisely estimated association.
   description: &gt;
     A previous cesarean delivery raises abruption risk in subsequent
     pregnancies, alongside larger increases in placenta previa and placenta
@@ -10706,6 +11619,24 @@ environmental:
     snippet: &#34;and placental abruption (OR 1.38, 1.27 to 1.49; n = 5,667,160; 6 studies)&#34;
     explanation: Quantifies abruption risk after prior cesarean in a meta-analysis of nearly 30 million participants.
 - name: Abdominal Trauma
+  influences_mechanisms:
+  - target: Decidual Hemorrhage and Retroplacental Hematoma Formation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The one mechanically distinct cause in this entry. Blunt force shears
+      the relatively inelastic placenta away from the elastic uterine wall,
+      tearing decidual vessels directly, so it produces the hematoma without
+      any preceding vasculopathy.
+    evidence:
+    - reference: PMID:17012465
+      reference_title: &#34;Placental abruption.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios.&#34;
+      explanation: &gt;-
+        Names trauma among the established risk factors for abruption, the
+        direct mechanical route to decidual haemorrhage.
   description: &gt;
     Blunt abdominal trauma, including motor vehicle collisions and intimate
     partner violence, shears the elastic uterus against the relatively
@@ -10718,6 +11649,23 @@ environmental:
     snippet: &#34;Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios.&#34;
     explanation: Lists trauma among the established risk factors for abruption.
 - name: Hypertensive Disorders of Pregnancy
+  influences_mechanisms:
+  - target: Decidual Vasculopathy and Spiral Artery Failure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Preeclampsia and abruption share defective spiral artery remodelling as
+      a substrate, so hypertensive disease marks a placenta already
+      predisposed rather than acting as an external insult.
+    evidence:
+    - reference: PMID:17012465
+      reference_title: &#34;Placental abruption.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios.&#34;
+      explanation: &gt;-
+        Names hypertension and preeclampsia among the established risk factors
+        for abruption.
   description: &gt;
     Chronic hypertension and preeclampsia both raise abruption risk,
     consistent with the shared decidual vascular lesion of ischemic placental
@@ -10730,6 +11678,25 @@ environmental:
     snippet: &#34;Risk factors for abruption include prior abruption, smoking, trauma, cocaine use, multifetal gestation, hypertension, preeclampsia, thrombophilias, advanced maternal age, preterm premature rupture of the membranes, intrauterine infections, and hydramnios.&#34;
     explanation: Lists hypertension and preeclampsia among the established risk factors for abruption.
 - name: Prior Abruption
+  influences_mechanisms:
+  - target: Decidual Vasculopathy and Spiral Artery Failure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Not an exposure at all but a marker of persisting susceptibility: a
+      previous abruption reveals an underlying vascular predisposition that
+      remains present in the next pregnancy. Recorded because recurrence risk
+      is the single strongest predictor in this entry.
+    evidence:
+    - reference: PMID:38366767
+      reference_title: &#34;Placental abruption: Incidence and risk of recurrence in subsequent pregnancies.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Rates of abruption in the second birth among individuals with and without previous placental abruption were 3.35% and 0.66%, respectively&#34;
+      explanation: &gt;-
+        Reports abruption in 3.35% of second births after a previous abruption
+        versus 0.66% without, a fivefold recurrence indicating persistent
+        susceptibility rather than a repeated exposure.
   description: &gt;
     A previous abruption is among the strongest predictors of recurrence,
     consistent with a persistent underlying maternal vascular phenotype rather
@@ -12734,7 +13701,7 @@ Massive thromboplastin (tissue factor) release from the disrupted decidua into t
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Placental Abruption", "mondoId": "MONDO:0004846", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Placental_Abruption", "yamlRevision": "5f779728737b"};
+        const OS_CONFIG = {"diseaseName": "Placental Abruption", "mondoId": "MONDO:0004846", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Placental_Abruption", "yamlRevision": "2d4cca57d95d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13153,5 +14120,73 @@ Massive thromboplastin (tissue factor) release from the disrupted decidua into t
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

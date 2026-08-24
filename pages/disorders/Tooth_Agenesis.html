@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3667,6 +3833,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3860,16 +4028,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 WNT10A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13829">hgnc:13829</a>
+    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:13829</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in WNT10A (hgnc:13829). hgnc:13829 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3902,16 +4075,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 WNT10B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12775">hgnc:12775</a>
+    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12775</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in WNT10B (hgnc:12775). hgnc:12775 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3944,16 +4122,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 LRP6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6698">hgnc:6698</a>
+    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6698</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LRP6 (hgnc:6698). hgnc:6698 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -3986,16 +4169,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 AXIN2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:904">hgnc:904</a>
+    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:904</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in AXIN2 (hgnc:904). hgnc:904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4028,16 +4216,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 PAX9
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8623">hgnc:8623</a>
+    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8623</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PAX9 (hgnc:8623). hgnc:8623 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4070,16 +4263,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MSX1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7391">hgnc:7391</a>
+    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7391</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MSX1 (hgnc:7391). hgnc:7391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4112,16 +4310,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 EDA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3157">hgnc:3157</a>
+    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:3157</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in EDA (hgnc:3157). hgnc:3157 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4170,16 +4373,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Dental papilla (mesenchyme) cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000345" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000345">CL:0000345</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000345" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000345</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dental papilla (mesenchyme) cell, annotated with dental papilla cell (CL:0000345). CL:0000345 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4206,16 +4414,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4236,6 +4449,7 @@
 
 
                 </div>
+
 
 
 
@@ -4326,16 +4540,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Dental epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dental epithelial cell, annotated with epithelial cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4362,16 +4581,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Canonical NF-kappaB signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007249">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4392,6 +4616,7 @@
 
 
                 </div>
+
 
 
 
@@ -4460,16 +4685,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Dental papilla (mesenchyme) cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000345" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000345">CL:0000345</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000345" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000345</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dental papilla (mesenchyme) cell, annotated with dental papilla cell (CL:0000345). CL:0000345 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4496,16 +4726,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Regulation of odontogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042487" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042487">GO:0042487</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042487" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0042487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Regulation of odontogenesis, annotated with regulation of odontogenesis of dentin-containing tooth (GO:0042487). GO:0042487 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4526,6 +4761,7 @@
 
 
                 </div>
+
 
 
 
@@ -4616,17 +4852,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Odontoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000060">CL:0000060</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000060" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000060</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Odontoblast (CL:0000060). CL:0000060 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4647,10 +4890,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000059">CL:0000059</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000059</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Ameloblast (CL:0000059). CL:0000059 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4677,16 +4923,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Odontogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042476">GO:0042476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0042476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Odontogenesis (GO:0042476). GO:0042476 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4707,6 +4958,7 @@
 
 
                 </div>
+
 
 
 
@@ -4862,14 +5114,21 @@
                         Tooth agenesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tooth agenesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009804" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009804">HP:0009804</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0009804</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4921,14 +5180,21 @@
                         Hypodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000668">HP:0000668</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000668</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4980,14 +5246,21 @@
                         Oligodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Oligodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000677">HP:0000677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5048,14 +5321,21 @@
                         Anodontia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000674" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000674">HP:0000674</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000674" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000674</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anodontia (HP:0000674). HP:0000674 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5107,14 +5387,21 @@
                         Selective tooth agenesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Selective tooth agenesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001592" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001592">HP:0001592</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Selective tooth agenesis (HP:0001592). HP:0001592 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5166,14 +5453,21 @@
                         Neoplasm of the large intestine
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the large intestine
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100834" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100834">HP:0100834</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100834</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Colorectal neoplasia, annotated with Neoplasm of the large intestine (HP:0100834). HP:0100834 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5271,13 +5565,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WNT10A
 
 
-    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13829">hgnc:13829</a>
+    <a href="https://bioregistry.io/hgnc:13829" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:13829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5365,13 +5664,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AXIN2
 
 
-    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:904">hgnc:904</a>
+    <a href="https://bioregistry.io/hgnc:904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:904</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AXIN2 (hgnc:904). hgnc:904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5506,13 +5810,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX9
 
 
-    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8623">hgnc:8623</a>
+    <a href="https://bioregistry.io/hgnc:8623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8623</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX9 (hgnc:8623). hgnc:8623 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5598,13 +5907,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MSX1
 
 
-    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7391">hgnc:7391</a>
+    <a href="https://bioregistry.io/hgnc:7391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:7391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MSX1 (hgnc:7391). hgnc:7391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5717,13 +6031,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LRP6
 
 
-    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6698">hgnc:6698</a>
+    <a href="https://bioregistry.io/hgnc:6698" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6698</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP6 (hgnc:6698). hgnc:6698 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5787,13 +6106,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WNT10B
 
 
-    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12775">hgnc:12775</a>
+    <a href="https://bioregistry.io/hgnc:12775" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:12775</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WNT10B (hgnc:12775). hgnc:12775 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5857,13 +6181,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EDA
 
 
-    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3157">hgnc:3157</a>
+    <a href="https://bioregistry.io/hgnc:3157" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3157</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EDA (hgnc:3157). hgnc:3157 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5936,7 +6265,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dental bridge implantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">dental bridge implantation<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dental bridge implantation, annotated with Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dental Procedure</span>
 
 
@@ -6014,7 +6348,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dental implantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">dental implantation<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dental implantation, annotated with Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dental Procedure</span>
 
 
@@ -6092,7 +6431,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Orthodontic Treatment</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Orthodontic Treatment<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Orthodontic Treatment (NCIT:C64248). NCIT:C64248 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6182,6 +6526,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8747,5 +9094,73 @@ While the gathered literature does not extensively document naturally occurring 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

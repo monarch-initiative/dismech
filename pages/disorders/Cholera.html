@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cholera"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3724,7 +3892,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3742,6 +3910,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3809,16 +3985,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3845,17 +4026,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         endocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006897">GO:0006897</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006897" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006897</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves endocytosis (GO:0006897). GO:0006897 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3876,10 +4064,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006890">GO:0006890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006890" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves retrograde vesicle-mediated transport, annotated with retrograde vesicle-mediated transport, Golgi to endoplasmic reticulum (GO:0006890). GO:0006890 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3902,19 +4093,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -3946,16 +4143,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3981,6 +4183,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         ERAD pathway
@@ -3988,10 +4192,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036503">GO:0036503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0036503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ERAD pathway (GO:0036503). GO:0036503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4014,19 +4221,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4058,16 +4271,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4093,6 +4311,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         adenylate cyclase-activating G protein-coupled receptor signaling pathway
@@ -4100,10 +4320,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007189">GO:0007189</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007189</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves adenylate cyclase-activating G protein-coupled receptor signaling pathway (GO:0007189). GO:0007189 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4126,19 +4349,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4170,16 +4399,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4209,19 +4443,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4327,16 +4567,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4363,17 +4608,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cAMP-mediated signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0141156">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cAMP-mediated signaling, annotated with cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4394,10 +4646,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1902476">GO:1902476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1902476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:1902476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves chloride transmembrane transport (GO:1902476). GO:1902476 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4420,19 +4675,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4546,19 +4807,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4649,16 +4916,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4685,17 +4957,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         biofilm formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042710">GO:0042710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves biofilm formation (GO:0042710). GO:0042710 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4716,10 +4995,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044406" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044406">GO:0044406</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044406" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0044406</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves bacterial adhesion to host, annotated with adhesion of symbiont to host (GO:0044406). GO:0044406 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4742,19 +5024,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4773,16 +5061,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4809,17 +5102,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         disruption of cells of other organism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031640" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031640">GO:0031640</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031640" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0031640</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves disruption of cells of other organism, annotated with killing of cells of another organism (GO:0031640). GO:0031640 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4840,10 +5140,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120193" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0120193">GO:0120193</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120193" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0120193</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves tight junction organization (GO:0120193). GO:0120193 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4866,19 +5169,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4897,16 +5206,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intestinal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002563">CL:0002563</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002563" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0002563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intestinal epithelial cell (CL:0002563). CL:0002563 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4932,6 +5246,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         regulation of lipid metabolic process
@@ -4939,10 +5255,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019216">GO:0019216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0019216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of lipid metabolic process (GO:0019216). GO:0019216 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4965,19 +5284,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5012,7 +5337,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Kidney Injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001919\"}}, {\"id\": \"Cholera Toxin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vibrio cholerae produces a toxin that activates adenylate cyclase in intestinal epithelial cells, leading to increased cyclic AMP (cAMP) levels.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Cholera Toxin Binding and Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholera toxin B subunit (CTB) binds to GM1 ganglioside and alternative fucosylated glycan receptors (e.g., Lewis X) on the apical surface of intestinal epithelial cells, initiating receptor-mediated endocytosis and retrograde trafficking to the endoplasmic reticulum.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"endocytosis\", \"retrograde vesicle-mediated transport\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"ERAD-mediated CTA1 Translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The A1 enzymatic subunit of cholera toxin is unfolded by protein disulfide isomerase in the ER and hijacks the ER-associated degradation (ERAD) machinery to retro-translocate into the cytosol, where it refolds to become enzymatically active.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"ERAD pathway\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Gs\\u03b1 ADP-Ribosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytosolic CTA1 catalyzes ADP-ribosylation of the Gs\\u03b1 subunit (GNAS) using NAD+ as substrate, locking adenylyl cyclase in a constitutively active state.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"adenylate cyclase-activating G protein-coupled receptor signaling pathway\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Increased cAMP\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated cAMP levels cause cells to secrete large amounts of chloride ions into the intestinal lumen, followed by water and other electrolytes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"cAMP-mediated signaling\", \"chloride transmembrane transport\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Low Blood Pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Profuse Watery Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Severe Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031273\"}}, {\"id\": \"Sunken Eyes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000490\"}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001649\"}}], \"edges\": [{\"source\": \"Cholera Toxin Binding and Uptake\", \"target\": \"ERAD-mediated CTA1 Translocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERAD-mediated CTA1 Translocation\", \"target\": \"Gs\\u03b1 ADP-Ribosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gs\\u03b1 ADP-Ribosylation\", \"target\": \"Increased cAMP\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholera Toxin\", \"target\": \"Increased cAMP\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased cAMP\", \"target\": \"Profuse Watery Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Profuse Watery Diarrhea\", \"target\": \"Severe Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Profuse Watery Diarrhea\", \"target\": \"Shock\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Sunken Eyes\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Low Blood Pressure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Tachycardia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Sunken Eyes\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Low Blood Pressure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Tachycardia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Acute Kidney Injury\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Kidney Injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001919\"}}, {\"id\": \"Cholera Toxin\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vibrio cholerae produces a toxin that activates adenylate cyclase in intestinal epithelial cells, leading to increased cyclic AMP (cAMP) levels.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Cholera Toxin Binding and Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholera toxin B subunit (CTB) binds to GM1 ganglioside and alternative fucosylated glycan receptors (e.g., Lewis X) on the apical surface of intestinal epithelial cells, initiating receptor-mediated endocytosis and retrograde trafficking to the endoplasmic reticulum.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"endocytosis\", \"retrograde vesicle-mediated transport\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Colonization and Biofilm Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"V. cholerae uses the toxin-coregulated pilus (TCP) to traverse the intestinal mucus barrier, adhere to epithelial cells, and form microcolonies. TCP expression is controlled by the ToxR/TcpP/ToxT regulatory cascade. Biofilm formation enhances bacterial survival and transmission.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"biofilm formation\", \"bacterial adhesion to host\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Contaminated Water\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"ERAD-mediated CTA1 Translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The A1 enzymatic subunit of cholera toxin is unfolded by protein disulfide isomerase in the ER and hijacks the ER-associated degradation (ERAD) machinery to retro-translocate into the cytosol, where it refolds to become enzymatically active.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"ERAD pathway\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Gs\\u03b1 ADP-Ribosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytosolic CTA1 catalyzes ADP-ribosylation of the Gs\\u03b1 subunit (GNAS) using NAD+ as substrate, locking adenylyl cyclase in a constitutively active state.\", \"meta\": {\"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"adenylate cyclase-activating G protein-coupled receptor signaling pathway\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Increased cAMP\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated cAMP levels cause cells to secrete large amounts of chloride ions into the intestinal lumen, followed by water and other electrolytes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"cAMP-mediated signaling\", \"chloride transmembrane transport\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Low Blood Pressure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Poor Sanitation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Profuse Watery Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"frequency\": \"VERY_FREQUENT\"}}, {\"id\": \"Severe Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031273\"}}, {\"id\": \"Sunken Eyes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000490\"}}, {\"id\": \"Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001649\"}}], \"edges\": [{\"source\": \"Cholera Toxin Binding and Uptake\", \"target\": \"ERAD-mediated CTA1 Translocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ERAD-mediated CTA1 Translocation\", \"target\": \"Gs\\u03b1 ADP-Ribosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Gs\\u03b1 ADP-Ribosylation\", \"target\": \"Increased cAMP\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cholera Toxin\", \"target\": \"Increased cAMP\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased cAMP\", \"target\": \"Profuse Watery Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Profuse Watery Diarrhea\", \"target\": \"Severe Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Profuse Watery Diarrhea\", \"target\": \"Shock\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Sunken Eyes\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Low Blood Pressure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Tachycardia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Sunken Eyes\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Low Blood Pressure\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Tachycardia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Dehydration\", \"target\": \"Acute Kidney Injury\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Contaminated Water\", \"target\": \"Colonization and Biofilm Formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Swallowing faecally contaminated water delivers Vibrio cholerae to the small intestine, where the surviving inoculum uses the toxin-coregulated pilus to cross mucus and form microcolonies. The intermediates are known: gastric passage, then adherence.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Poor Sanitation\", \"target\": \"Colonization and Biofilm Formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Sanitation is not itself a route. Absent safe water and excreta disposal, faecally contaminated water becomes available to drink, so poor sanitation raises the chance of the ingestion route occurring rather than being that route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5061,14 +5386,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypovolemic shock
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031274" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031274">HP:0031274</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0031274</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypovolemic Shock (HP:0031274). HP:0031274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5142,14 +5474,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypovolemic shock
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031274" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031274">HP:0031274</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0031274</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypovolemic Shock (HP:0031274). HP:0031274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5243,14 +5582,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Shock
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031273">HP:0031273</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0031273</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Shock (HP:0031273). HP:0031273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5272,14 +5618,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotension
+
+                        <span class="phenotype-term-label">Hypotension</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002615">HP:0002615</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002615</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low Blood Pressure, annotated with Hypotension (HP:0002615). HP:0002615 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5301,14 +5656,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tachycardia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001649">HP:0001649</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001649</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,14 +5701,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Deeply set eye
+
+                        <span class="phenotype-term-label">Deeply set eye</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000490">HP:0000490</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000490</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sunken Eyes, annotated with Deeply set eye (HP:0000490). HP:0000490 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5377,14 +5748,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute Kidney Injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5415,14 +5793,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dehydration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5525,14 +5910,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dehydration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5639,14 +6031,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypokalemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002900">HP:0002900</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002900</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5738,14 +6137,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Metabolic acidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001942">HP:0001942</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001942</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metabolic Acidosis (HP:0001942). HP:0001942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5837,14 +6243,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dehydration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe Dehydration, annotated with Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5875,14 +6288,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle spasm
+
+                        <span class="phenotype-term-label">Muscle spasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003394">HP:0003394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle Cramps, annotated with Muscle spasm (HP:0003394). HP:0003394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6129,7 +6551,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hydrotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">hydrotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hydrotherapy, annotated with Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6245,7 +6672,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hydrotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">hydrotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hydrotherapy, annotated with Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6363,7 +6795,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antibiotic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
@@ -6459,7 +6896,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">nutritional supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -6577,7 +7019,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Vaccination<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6706,20 +7153,46 @@
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        exposure to contaminated water
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000119" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-47">ECTO:7000119</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to contaminated water (ECTO:7000119). ECTO:7000119 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+
                     <span class="tag tag-location">
                         Contaminated water environment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ENVO_00002186" target="_blank" class="curie-chip curie-chip-envo" title="Open ENVO:00002186">ENVO:00002186</a>
+    <a href="http://purl.obolibrary.org/obo/ENVO_00002186" target="_blank" class="curie-chip curie-chip-envo" aria-describedby="pill-tip-48">ENVO:00002186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Environment Ontology (ENVO)
+Relation: this environmental factor occurs in this environment
+This environmental factor occurs in Contaminated water environment, annotated with contaminated water (ENVO:00002186). ENVO:00002186 is an environment from the Environment Ontology.</span>
                     </span>
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Major source of infection</div>
@@ -6801,10 +7274,64 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Colonization and Biofilm Formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Swallowing faecally contaminated water delivers Vibrio cholerae to the small intestine, where the surviving inoculum uses the toxin-coregulated pilus to cross mucus and form microcolonies. The intermediates are known: gastric passage, then adherence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36573678" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36573678" target="_blank">PMID:36573678</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Cholera is a diarrheal infection caused by ingested water or food contaminated with the bacterium Vibrio cholerae."</div>
+
+
+                <div class="evidence-explanation">Identifies ingestion of water or food contaminated with Vibrio cholerae as the route of infection, the delivery step preceding intestinal colonization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-poor-sanitation" data-dismech-node="Poor Sanitation" data-dismech-type="environmental">
                 <div class="item-name">Poor Sanitation</div>
+
+
+
+
 
 
                 <div class="item-desc">Facilitates the spread of the bacteria</div>
@@ -6885,6 +7412,56 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Colonization and Biofilm Formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Sanitation is not itself a route. Absent safe water and excreta disposal, faecally contaminated water becomes available to drink, so poor sanitation raises the chance of the ingestion route occurring rather than being that route.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30512613" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30512613" target="_blank">PMID:30512613</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Prevention is based on universal access to water, sanitation and hand hygiene."</div>
+
+
+                <div class="evidence-explanation">States that prevention rests on universal access to water, sanitation and hand hygiene, which supports inadequate sanitation as the condition permitting transmission rather than a mechanism of infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6997,11 +7574,60 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Modular small RNA drives the emergence of virulence traits and environmental trade-offs in Vibrio cholerae [Biofilm, AKI]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE272767" target="_blank">geo:GSE272767</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The sole gain of laterally acquired virulence genes does not fully explain the transition of environmental strains into human pathogens. To date, the specific molecular drivers and fitness trade-offs that enable some strains within a population to undergo this process remain enigmatic. Here, we describe a small RNA (sRNA) with a unique modular structure that shapes the evolution of toxigenic Vibrio cholerae, the agent of cholera. The sRNA comprises of a highly variable 5’ module located within the ompU ORF and a conserved 3’ one downstream from the gene.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=34</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Cholera (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7020,7 +7646,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cholera
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Cholera is an acute secretory diarrheal illness caused by the gram-negative
   bacterium Vibrio cholerae, typically serogroups O1 and O139, acquired through
@@ -9067,6 +9692,29 @@ diagnosis:
       &#39;darkfield-negative&#39; results in some instances.
 environmental:
 - name: Contaminated Water
+  exposure_term:
+    preferred_term: exposure to contaminated water
+    term:
+      id: ECTO:7000119
+      label: exposure to contaminated water
+  influences_mechanisms:
+  - target: Colonization and Biofilm Formation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Swallowing faecally contaminated water delivers Vibrio cholerae to the
+      small intestine, where the surviving inoculum uses the toxin-coregulated
+      pilus to cross mucus and form microcolonies. The intermediates are
+      known: gastric passage, then adherence.
+    evidence:
+    - reference: PMID:36573678
+      reference_title: &#34;The forgotten threat of cholera in Syria.&#34;
+      supports: SUPPORT
+      snippet: &#34;Cholera is a diarrheal infection caused by ingested water or food contaminated with the bacterium Vibrio cholerae.&#34;
+      explanation: &gt;-
+        Identifies ingestion of water or food contaminated with Vibrio
+        cholerae as the route of infection, the delivery step preceding
+        intestinal colonization.
   notes: Major source of infection
   evidence:
   - reference: PMID:29949592
@@ -9103,6 +9751,25 @@ environmental:
       id: ENVO:00002186
       label: contaminated water
 - name: Poor Sanitation
+  influences_mechanisms:
+  - target: Colonization and Biofilm Formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Sanitation is not itself a route. Absent safe water and excreta
+      disposal, faecally contaminated water becomes available to drink, so
+      poor sanitation raises the chance of the ingestion route occurring
+      rather than being that route.
+    evidence:
+    - reference: PMID:30512613
+      reference_title: &#34;[Cholera].&#34;
+      supports: SUPPORT
+      snippet: &#34;Prevention is based on universal access to water, sanitation and hand hygiene.&#34;
+      explanation: &gt;-
+        States that prevention rests on universal access to water, sanitation
+        and hand hygiene, which supports inadequate sanitation as the
+        condition permitting transmission rather than a mechanism of
+        infection.
   notes: Facilitates the spread of the bacteria
   evidence:
   - reference: PMID:30512613
@@ -9381,6 +10048,13 @@ references:
   title: &#39;Cholera Toxin: An Intracellular Journey into the Cytosol by Way of the Endoplasmic
     Reticulum&#39;
   findings: []
+datasets:
+- accession: geo:GSE272767
+  title: Modular small RNA drives the emergence of virulence traits and environmental trade-offs in Vibrio cholerae [Biofilm, AKI]
+  description: The sole gain of laterally acquired virulence genes does not fully explain the transition of environmental strains into human pathogens. To date, the specific molecular drivers and fitness trade-offs that enable some strains within a population to undergo this process remain enigmatic. Here, we describe a small RNA (sRNA) with a unique modular structure that shapes the evolution of toxigenic Vibrio cholerae, the agent of cholera. The sRNA comprises of a highly variable 5’ module located within the ompU ORF and a conserved 3’ one downstream from the gene.
+  data_type: BULK_RNA_SEQ
+  sample_count: 34
+  notes: Identified by GEO DataSets index search for Cholera (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -9751,7 +10425,7 @@ Where detailed population statistics (e.g., case counts) and certain host geneti
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cholera", "mondoId": "MONDO:0015766", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholera", "yamlRevision": "e75d9b2fc210"};
+        const OS_CONFIG = {"diseaseName": "Cholera", "mondoId": "MONDO:0015766", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholera", "yamlRevision": "8ab2c1f59ac4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10170,5 +10844,73 @@ Where detailed population statistics (e.g., case counts) and certain host geneti
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

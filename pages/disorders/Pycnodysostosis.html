@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3696,6 +3862,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3778,6 +3946,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3787,9 +4025,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 23 &#34;Osteopetrosis and related disorders&#34;; listed as &#34;Pycnodysostosis&#34;.">osteopetrosis and related</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3890,16 +4144,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteoclast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3926,16 +4185,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         lysosomal protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1905146" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1905146">GO:1905146</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1905146" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:1905146</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased lysosomal protein catabolic process (GO:1905146). GO:1905146 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3944,6 +4208,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -3961,10 +4227,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030574">GO:0030574</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030574</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased collagen catabolic process (GO:0030574). GO:0030574 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3984,16 +4253,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4020,19 +4294,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005764">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lysosome (GO:0005764). GO:0005764 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4145,16 +4425,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bone resorption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045453">GO:0045453</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased bone resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4174,16 +4459,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4204,6 +4494,7 @@
 
 
                 </div>
+
 
 
 
@@ -4249,7 +4540,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4273,6 +4564,52 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:15070910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15070910" target="_blank">PMID:15070910</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both individuals had severe osteosclerosis, and their biopsies displayed multinucleated osteoclasts apposed to areas of demineralized matrix as well as bone-lining cells adjacent to this undigested collagen left over by osteoclasts."</div>
+
+
+                <div class="evidence-explanation">Direct human source for the defining distinction from osteopetrosis: matrix in pycnodysostosis biopsies is demineralized (so osteoclast acidification of the lacuna has proceeded) yet the organic collagen is left undigested. Establishes the block as post-demineralization.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15070910" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15070910" target="_blank">PMID:15070910</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast and despite deficient cathepsin K activity, osteoclastic parameters were close to normal range."</div>
+
+
+                <div class="evidence-explanation">Osteoclast number and activity are preserved, distinguishing this from osteopetrosis, where the resorptive apparatus itself fails.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4290,16 +4627,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteoclast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4326,16 +4668,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4355,16 +4702,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         bone resorption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045453">GO:0045453</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased bone resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4385,6 +4737,7 @@
 
 
                 </div>
+
 
 
 
@@ -4485,16 +4838,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4515,6 +4873,7 @@
 
 
                 </div>
+
 
 
 
@@ -4655,16 +5014,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4685,6 +5049,7 @@
 
 
                 </div>
+
 
 
 
@@ -4825,7 +5190,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acroosteolysis of the distal phalanges\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Resorption of the terminal phalanges is a cardinal distinguishing feature of pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009839\"}}, {\"id\": \"Blue sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blue sclerae are part of the characteristic craniofacial and ocular appearance described in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000592\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits of the hands and feet are recurrent appendicular findings in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Cathepsin K Deficiency in Osteoclasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cathepsin K is a lysosomal cysteine protease with highest expression in osteoclasts. Loss-of-function mutations cause total loss or inactivity of cathepsin K protein. Hot mutation spots are found in exons 6 and 7, with 70% of mutations in the mature domain.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"lysosomal protein catabolic process\", \"collagen catabolic process\", \"proteolysis\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Clavicular dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal clavicular morphology, particularly involving the acromial ends, is reported in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000889\"}}, {\"id\": \"Craniofacial and suture remodeling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoclast collagen-degradation failure disrupts cranial vault, mandibular, maxillary, clavicular, and orbital skeletal modeling, producing delayed fontanelle and suture closure, frontal bossing, midface retrusion, micrognathia, obtuse mandibular angle, clavicular dysplasia, blue sclerae, and proptosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bone remodeling\"]}}, {\"id\": \"Delayed closure of the anterior fontanelle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistence of a large anterior fontanelle beyond the expected age is a common cranial finding.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001476\"}}, {\"id\": \"Delayed cranial suture closure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistently open or delayed-closing cranial sutures are a hallmark skull abnormality in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000270\"}}, {\"id\": \"Delayed eruption of teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed eruption affects the dentition and contributes to the characteristic oral phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000684\"}}, {\"id\": \"Dental crowding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked crowding is a recurrent orthodontic problem in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000678\"}}, {\"id\": \"Dental malocclusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malocclusion, including anterior crossbite and posterior open bite, is a recurrent dentofacial manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000689\"}}, {\"id\": \"Dentodigital and upper-airway skeletal consequences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The same collagen-rich skeletal matrix turnover defect affects distal phalanges, nails, teeth, maxillomandibular alignment, and the upper airway, producing brachydactyly, nail dysplasia, delayed tooth eruption, enamel hypoplasia, dental crowding, malocclusion, and obstructive sleep apnea.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bone remodeling\"]}}, {\"id\": \"Enamel hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enamel hypoplasia is part of the recurrent dental phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006297\"}}, {\"id\": \"Frontal bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontal bossing is a recurrent component of the characteristic craniofacial appearance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002007\"}}, {\"id\": \"Generalized osteosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse increased bone density is a core radiographic feature of pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005789\"}}, {\"id\": \"Impaired Organic Bone Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cathepsin K is the major protease responsible for degradation of type I collagen in the bone matrix during bone resorption. Unlike osteopetrosis, osteoclasts in pycnodysostosis can acidify the resorption lacuna normally but cannot degrade the demineralized organic matrix. This leads to accumulation of undigested collagen matrix and osteosclerosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bone resorption\", \"bone remodeling\"]}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small mandible is a frequent feature of the pycnodysostosis facial phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Midface retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Maxillary and midfacial hypoplasia produce a retrusive middle third of the face.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Nail dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysplastic nails are a recurrent appendageal feature in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002164\"}}, {\"id\": \"Narrow palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A narrow or grooved palate is a frequent oral/maxillofacial finding in pycnodysostosis and reflects abnormal maxillofacial skeletal remodeling.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000189\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-airway narrowing can lead to clinically significant obstructive sleep apnea.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Obtuse angle of mandible\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of the normal gonial angle is a diagnostically important mandibular abnormality.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005446\"}}, {\"id\": \"Osteosclerotic brittle-bone phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix retention and defective osteoclast-mediated remodeling cause dense but brittle bone, producing generalized osteosclerosis, pathologic fractures, short stature, and distal phalangeal osteolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone remodeling\", \"bone resorption\"]}}, {\"id\": \"Proptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent eyes or proptosis occur as part of the characteristic craniofacial phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Recurrent fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fragile sclerotic bone predisposes affected individuals to pathologic or recurrent fractures.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002757\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is a characteristic growth phenotype in affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"Cathepsin K Deficiency in Osteoclasts\", \"target\": \"Impaired Organic Bone Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss or inactivity of CTSK/cathepsin K in osteoclasts impairs degradation of type I collagen and other organic bone matrix proteins during bone resorption.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Organic Bone Matrix Degradation\", \"target\": \"Osteosclerotic brittle-bone phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to digest demineralized type I collagen matrix produces osteosclerosis, abnormal bone architecture, and fracture susceptibility.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"collagen-rich organic matrix retention\", \"impaired osteoclast-mediated bone remodeling\"]}, {\"source\": \"Impaired Organic Bone Matrix Degradation\", \"target\": \"Craniofacial and suture remodeling defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired osteoclast collagen degradation alters skull, clavicle, facial, and mandibular remodeling, producing delayed closure of sutures and characteristic craniofacial morphology.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cranial and mandibular bone remodeling\"]}, {\"source\": \"Impaired Organic Bone Matrix Degradation\", \"target\": \"Dentodigital and upper-airway skeletal consequences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal jaw, digit, nail, and dental development follows the same impaired skeletal matrix remodeling process and contributes to dental crowding, malocclusion, and obstructive sleep apnea.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mandibular and maxillary remodeling defect\", \"distal phalangeal skeletal involvement\"]}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Generalized osteosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased bone density is the skeletal readout of impaired organic matrix turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective skeletal remodeling and osteosclerotic bone dysplasia contribute to short stature.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"osteochondrodysplasia\"]}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Recurrent fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense but structurally abnormal bone predisposes to pathologic and recurrent fractures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"brittle osteosclerotic bone\"]}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Acroosteolysis of the distal phalanges\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal phalangeal bone remodeling abnormalities produce terminal phalangeal osteolysis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distal phalangeal skeletal involvement\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Delayed closure of the anterior fontanelle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull remodeling defects delay anterior fontanelle closure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cranial vault remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Delayed cranial suture closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired skull remodeling leaves cranial sutures persistently open.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cranial suture remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Frontal bossing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered craniofacial modeling produces frontal bossing.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"craniofacial skeletal remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Midface retrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maxillary and midfacial hypoplasia reflect abnormal craniofacial remodeling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"maxillofacial skeletal remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mandibular remodeling defects produce a small mandible.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mandibular remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Obtuse angle of mandible\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mandibular modeling abnormalities produce an obtuse mandibular angle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mandibular remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Clavicular dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal remodeling abnormalities involve the clavicles.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clavicular skeletal remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Blue sclerae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blue sclerae accompany the craniofacial phenotype in pycnodysostosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Proptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orbital craniofacial morphology contributes to ocular proptosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"orbital craniofacial remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal appendicular skeletal involvement produces short digits.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distal phalangeal skeletal remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Nail dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal digit involvement includes dysplastic nails.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distal digit skeletal and appendageal involvement\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Delayed eruption of teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal craniofacial and dental development delays tooth eruption.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dentoalveolar remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Enamel hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dental developmental abnormalities include enamel hypoplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Dental crowding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maxillomandibular skeletal constraints contribute to dental crowding.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"jaw remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Dental malocclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Jaw remodeling abnormalities produce malocclusion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"maxillomandibular remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial and upper-airway anatomy predispose to obstructive sleep apnea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"upper-airway narrowing from craniofacial skeletal morphology\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Narrow palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maxillary and oral skeletal remodeling abnormalities produce a narrow or grooved palate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"maxillofacial skeletal remodeling defect\"]}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acroosteolysis of the distal phalanges\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Resorption of the terminal phalanges is a cardinal distinguishing feature of pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009839\"}}, {\"id\": \"Blue sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blue sclerae are part of the characteristic craniofacial and ocular appearance described in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000592\"}}, {\"id\": \"Brachydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short digits of the hands and feet are recurrent appendicular findings in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001156\"}}, {\"id\": \"Cathepsin K Deficiency in Osteoclasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cathepsin K is a lysosomal cysteine protease with highest expression in osteoclasts. Loss-of-function mutations cause total loss or inactivity of cathepsin K protein. Hot mutation spots are found in exons 6 and 7, with 70% of mutations in the mature domain.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Osteoclast\"], \"biological_processes\": [\"lysosomal protein catabolic process\", \"collagen catabolic process\", \"proteolysis\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"Clavicular dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal clavicular morphology, particularly involving the acromial ends, is reported in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000889\"}}, {\"id\": \"Craniofacial and suture remodeling defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoclast collagen-degradation failure disrupts cranial vault, mandibular, maxillary, clavicular, and orbital skeletal modeling, producing delayed fontanelle and suture closure, frontal bossing, midface retrusion, micrognathia, obtuse mandibular angle, clavicular dysplasia, blue sclerae, and proptosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bone remodeling\"]}}, {\"id\": \"Delayed closure of the anterior fontanelle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistence of a large anterior fontanelle beyond the expected age is a common cranial finding.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001476\"}}, {\"id\": \"Delayed cranial suture closure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistently open or delayed-closing cranial sutures are a hallmark skull abnormality in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000270\"}}, {\"id\": \"Delayed eruption of teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed eruption affects the dentition and contributes to the characteristic oral phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000684\"}}, {\"id\": \"Dental crowding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked crowding is a recurrent orthodontic problem in pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000678\"}}, {\"id\": \"Dental malocclusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malocclusion, including anterior crossbite and posterior open bite, is a recurrent dentofacial manifestation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000689\"}}, {\"id\": \"Dentodigital and upper-airway skeletal consequences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The same collagen-rich skeletal matrix turnover defect affects distal phalanges, nails, teeth, maxillomandibular alignment, and the upper airway, producing brachydactyly, nail dysplasia, delayed tooth eruption, enamel hypoplasia, dental crowding, malocclusion, and obstructive sleep apnea.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"bone remodeling\"]}}, {\"id\": \"Enamel hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enamel hypoplasia is part of the recurrent dental phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006297\"}}, {\"id\": \"Frontal bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontal bossing is a recurrent component of the characteristic craniofacial appearance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002007\"}}, {\"id\": \"Generalized osteosclerosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse increased bone density is a core radiographic feature of pycnodysostosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005789\"}}, {\"id\": \"Impaired Organic Bone Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cathepsin K is the major protease responsible for degradation of type I collagen in the bone matrix during bone resorption. Unlike osteopetrosis, osteoclasts in pycnodysostosis can acidify the resorption lacuna normally but cannot degrade the demineralized organic matrix. This leads to accumulation of undigested collagen matrix and osteosclerosis.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"bone resorption\", \"bone remodeling\"]}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small mandible is a frequent feature of the pycnodysostosis facial phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Midface retrusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Maxillary and midfacial hypoplasia produce a retrusive middle third of the face.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Nail dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysplastic nails are a recurrent appendageal feature in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002164\"}}, {\"id\": \"Narrow palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A narrow or grooved palate is a frequent oral/maxillofacial finding in pycnodysostosis and reflects abnormal maxillofacial skeletal remodeling.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000189\"}}, {\"id\": \"Obstructive sleep apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-airway narrowing can lead to clinically significant obstructive sleep apnea.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002870\"}}, {\"id\": \"Obtuse angle of mandible\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of the normal gonial angle is a diagnostically important mandibular abnormality.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005446\"}}, {\"id\": \"Osteosclerotic brittle-bone phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Matrix retention and defective osteoclast-mediated remodeling cause dense but brittle bone, producing generalized osteosclerosis, pathologic fractures, short stature, and distal phalangeal osteolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone remodeling\", \"bone resorption\"]}}, {\"id\": \"Proptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent eyes or proptosis occur as part of the characteristic craniofacial phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000520\"}}, {\"id\": \"Recurrent fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fragile sclerotic bone predisposes affected individuals to pathologic or recurrent fractures.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002757\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature is a characteristic growth phenotype in affected individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"Cathepsin K Deficiency in Osteoclasts\", \"target\": \"Impaired Organic Bone Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss or inactivity of CTSK/cathepsin K in osteoclasts impairs degradation of type I collagen and other organic bone matrix proteins during bone resorption.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Organic Bone Matrix Degradation\", \"target\": \"Osteosclerotic brittle-bone phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to digest demineralized type I collagen matrix produces osteosclerosis, abnormal bone architecture, and fracture susceptibility.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"collagen-rich organic matrix retention\", \"impaired osteoclast-mediated bone remodeling\"]}, {\"source\": \"Impaired Organic Bone Matrix Degradation\", \"target\": \"Craniofacial and suture remodeling defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired osteoclast collagen degradation alters skull, clavicle, facial, and mandibular remodeling, producing delayed closure of sutures and characteristic craniofacial morphology.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cranial and mandibular bone remodeling\"]}, {\"source\": \"Impaired Organic Bone Matrix Degradation\", \"target\": \"Dentodigital and upper-airway skeletal consequences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal jaw, digit, nail, and dental development follows the same impaired skeletal matrix remodeling process and contributes to dental crowding, malocclusion, and obstructive sleep apnea.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mandibular and maxillary remodeling defect\", \"distal phalangeal skeletal involvement\"]}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Generalized osteosclerosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased bone density is the skeletal readout of impaired organic matrix turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective skeletal remodeling and osteosclerotic bone dysplasia contribute to short stature.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"osteochondrodysplasia\"]}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Recurrent fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense but structurally abnormal bone predisposes to pathologic and recurrent fractures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"brittle osteosclerotic bone\"]}, {\"source\": \"Osteosclerotic brittle-bone phenotype\", \"target\": \"Acroosteolysis of the distal phalanges\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal phalangeal bone remodeling abnormalities produce terminal phalangeal osteolysis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distal phalangeal skeletal involvement\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Delayed closure of the anterior fontanelle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull remodeling defects delay anterior fontanelle closure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cranial vault remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Delayed cranial suture closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired skull remodeling leaves cranial sutures persistently open.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"cranial suture remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Frontal bossing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered craniofacial modeling produces frontal bossing.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"craniofacial skeletal remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Midface retrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maxillary and midfacial hypoplasia reflect abnormal craniofacial remodeling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"maxillofacial skeletal remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mandibular remodeling defects produce a small mandible.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mandibular remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Obtuse angle of mandible\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mandibular modeling abnormalities produce an obtuse mandibular angle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"mandibular remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Clavicular dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal remodeling abnormalities involve the clavicles.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"clavicular skeletal remodeling defect\"]}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Blue sclerae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blue sclerae accompany the craniofacial phenotype in pycnodysostosis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial and suture remodeling defect\", \"target\": \"Proptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orbital craniofacial morphology contributes to ocular proptosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"orbital craniofacial remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Brachydactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal appendicular skeletal involvement produces short digits.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distal phalangeal skeletal remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Nail dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distal digit involvement includes dysplastic nails.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distal digit skeletal and appendageal involvement\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Delayed eruption of teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal craniofacial and dental development delays tooth eruption.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dentoalveolar remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Enamel hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dental developmental abnormalities include enamel hypoplasia.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Dental crowding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maxillomandibular skeletal constraints contribute to dental crowding.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"jaw remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Dental malocclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Jaw remodeling abnormalities produce malocclusion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"maxillomandibular remodeling defect\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Obstructive sleep apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial and upper-airway anatomy predispose to obstructive sleep apnea.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"upper-airway narrowing from craniofacial skeletal morphology\"]}, {\"source\": \"Dentodigital and upper-airway skeletal consequences\", \"target\": \"Narrow palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maxillary and oral skeletal remodeling abnormalities produce a narrow or grooved palate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"maxillofacial skeletal remodeling defect\"]}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4876,14 +5241,21 @@
                         Blue sclerae
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Blue sclerae
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000592">HP:0000592</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is blue sclerae (HP:0000592). HP:0000592 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4935,14 +5307,21 @@
                         Proptosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000520</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5003,14 +5382,21 @@
                         Frontal bossing
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Frontal bossing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002007">HP:0002007</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002007</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is frontal bossing (HP:0002007). HP:0002007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5062,14 +5448,21 @@
                         Midface retrusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Midface retrusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5121,14 +5514,21 @@
                         Micrognathia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micrognathia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5180,14 +5580,21 @@
                         Delayed eruption of teeth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed eruption of teeth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000684">HP:0000684</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000684</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is delayed eruption of teeth (HP:0000684). HP:0000684 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5239,14 +5646,21 @@
                         Enamel hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enamel hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006297">HP:0006297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0006297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5307,14 +5721,21 @@
                         Nail dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nail dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002164" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002164">HP:0002164</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002164</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is nail dysplasia (HP:0002164). HP:0002164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5375,14 +5796,21 @@
                         Brachydactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brachydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5443,14 +5871,21 @@
                         Recurrent fractures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent fractures
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002757">HP:0002757</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002757</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is recurrent fractures (HP:0002757). HP:0002757 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5511,14 +5946,21 @@
                         Obstructive sleep apnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obstructive sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002870">HP:0002870</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002870</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5579,14 +6021,21 @@
                         Short stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5647,14 +6096,21 @@
                         Generalized osteosclerosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized osteosclerosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005789">HP:0005789</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is generalized osteosclerosis (HP:0005789). HP:0005789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5706,14 +6162,23 @@
                         Acroosteolysis of the distal phalanges
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteolytic defects of the distal phalanges of the hand
+
+                        <span class="phenotype-term-label">Osteolytic defects of the distal phalanges of the hand</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009839" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009839">HP:0009839</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009839" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0009839</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is acroosteolysis of the distal phalanges, annotated with Osteolytic defects of the distal phalanges of the hand (HP:0009839). HP:0009839 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5765,14 +6230,23 @@
                         Clavicular dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal clavicle morphology
+
+                        <span class="phenotype-term-label">Abnormal clavicle morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000889" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000889">HP:0000889</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000889" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000889</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is clavicular dysplasia, annotated with Abnormal clavicle morphology (HP:0000889). HP:0000889 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5824,14 +6298,21 @@
                         Delayed closure of the anterior fontanelle
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed closure of the anterior fontanelle
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001476" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001476">HP:0001476</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001476" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001476</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is delayed closure of the anterior fontanelle (HP:0001476). HP:0001476 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5883,14 +6364,21 @@
                         Delayed cranial suture closure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed cranial suture closure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000270">HP:0000270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is delayed cranial suture closure (HP:0000270). HP:0000270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5942,14 +6430,21 @@
                         Obtuse angle of mandible
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obtuse angle of mandible
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005446" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005446">HP:0005446</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005446" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0005446</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is obtuse angle of mandible (HP:0005446). HP:0005446 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6001,14 +6496,21 @@
                         Dental crowding
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dental crowding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000678">HP:0000678</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000678</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dental crowding (HP:0000678). HP:0000678 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6060,14 +6562,21 @@
                         Dental malocclusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dental malocclusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000689">HP:0000689</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000689</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is dental malocclusion (HP:0000689). HP:0000689 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6119,14 +6628,21 @@
                         Narrow palate
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Narrow palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000189" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000189">HP:0000189</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000189</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is narrow palate (HP:0000189). HP:0000189 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6289,13 +6805,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTSK
 
 
-    <a href="https://bioregistry.io/hgnc:2536" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2536">hgnc:2536</a>
+    <a href="https://bioregistry.io/hgnc:2536" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:2536</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTSK (hgnc:2536). hgnc:2536 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6362,7 +6883,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6408,7 +6934,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6469,6 +7000,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6485,7 +7019,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pycnodysostosis
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-05-21T12:10:54Z&#39;
 category: Mendelian
 description: &gt;
   Pycnodysostosis is an autosomal recessive osteochondrodysplasia caused by
@@ -6639,6 +7172,36 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;cathepsin K is a major protease in bone resorption&#34;
     explanation: &#34;Establishes cathepsin K as the primary bone matrix-degrading enzyme.&#34;
+  - reference: PMID:15070910
+    reference_title: &#34;Decreased bone turnover and deterioration of bone structure in two cases of pycnodysostosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Both individuals had severe osteosclerosis, and their biopsies displayed multinucleated osteoclasts apposed to areas of demineralized matrix as well as bone-lining cells adjacent to this undigested collagen left over by osteoclasts.
+    explanation: &gt;-
+      Direct human source for the defining distinction from osteopetrosis:
+      matrix in pycnodysostosis biopsies is demineralized (so osteoclast
+      acidification of the lacuna has proceeded) yet the organic collagen is
+      left undigested. Establishes the block as post-demineralization.
+  - reference: PMID:15070910
+    reference_title: &#34;Decreased bone turnover and deterioration of bone structure in two cases of pycnodysostosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In contrast and despite deficient cathepsin K activity, osteoclastic parameters were close to normal range.
+    explanation: &gt;-
+      Osteoclast number and activity are preserved, distinguishing this from
+      osteopetrosis, where the resorptive apparatus itself fails.
+  - reference: PMID:9811821
+    reference_title: &#34;Impaired osteoclastic bone resorption leads to osteopetrosis in cathepsin-K-deficient mice.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      their resorptive surface was poorly defined with a broad demineralized matrix fringe containing undigested fine collagen fibrils
+    explanation: &gt;-
+      Cathepsin K knockout mice reproduce the same ultrastructural signature —
+      a demineralized fringe with undigested collagen fibrils — confirming that
+      demineralization proceeds while organic matrix degradation fails.
   downstream:
   - target: Osteosclerotic brittle-bone phenotype
     description: &gt;
@@ -7551,7 +8114,7 @@ while avoiding an unrelated broad rewrite.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pycnodysostosis", "mondoId": "MONDO:0009940", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pycnodysostosis", "yamlRevision": "85e706edc53b"};
+        const OS_CONFIG = {"diseaseName": "Pycnodysostosis", "mondoId": "MONDO:0009940", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pycnodysostosis", "yamlRevision": "ba198ef3c559"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7970,5 +8533,73 @@ while avoiding an unrelated broad rewrite.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

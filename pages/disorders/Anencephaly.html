@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Anencephaly"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3740,7 +3908,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3809,29 +3977,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+                    <span class="tag tag-classification" title="Congenital malformation of the central nervous system (open cranial neural tube defect).">NEUROLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="Multifactorial disorder of development with polygenic/oligogenic susceptibility (folate one-carbon metabolism and planar cell polarity pathways) interacting with environmental exposures.">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4117,15 +4363,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MTHFR
 
 
-    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7436">hgnc:7436</a>
+    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7436</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MTHFR (hgnc:7436). hgnc:7436 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4153,16 +4406,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tetrahydrofolate interconversion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035999" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035999">GO:0035999</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035999" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0035999</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tetrahydrofolate interconversion (GO:0035999). GO:0035999 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4183,6 +4441,7 @@
 
 
                 </div>
+
 
 
 
@@ -4251,16 +4510,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuroepithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000710">CL:0000710</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuroepithelial cell, annotated with neurecto-epithelial cell (CL:0000710). CL:0000710 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4287,16 +4551,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8617">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8617</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4324,10 +4599,13 @@
         PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8803">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8803</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4355,16 +4633,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neural tube closure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001843" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001843">GO:0001843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural tube closure (GO:0001843). GO:0001843 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4384,16 +4667,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         apical constriction driving neural fold bending
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003383" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003383">GO:0003383</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003383" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0003383</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apical constriction driving neural fold bending, annotated with apical constriction (GO:0003383). GO:0003383 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4416,19 +4704,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4509,16 +4803,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         VANGL1
 
 
-    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15512">hgnc:15512</a>
+    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:15512</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VANGL1 (hgnc:15512). hgnc:15512 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4546,10 +4851,13 @@
         VANGL2
 
 
-    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15511">hgnc:15511</a>
+    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:15511</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VANGL2 (hgnc:15511). hgnc:15511 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4577,16 +4885,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         convergent extension in neural plate elongation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022007" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022007">GO:0022007</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0022007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased convergent extension in neural plate elongation, annotated with convergent extension involved in neural plate elongation (GO:0022007). GO:0022007 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4607,6 +4920,7 @@
 
 
                 </div>
+
 
 
 
@@ -4682,16 +4996,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         forebrain development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030900">GO:0030900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal forebrain development (GO:0030900). GO:0030900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4718,17 +5037,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         cranium
@@ -4736,11 +5062,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003128" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003128">UBERON:0003128</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003128" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0003128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cranium (UBERON:0003128). UBERON:0003128 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         scalp
@@ -4748,13 +5079,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000403" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000403">UBERON:0000403</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000403" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000403</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in scalp (UBERON:0000403). UBERON:0000403 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4860,7 +5195,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Calvaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the cranial vault (acrania), leaving the brain uncovered.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030716\"}}, {\"id\": \"Adrenal Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fetal adrenal hypoplasia occurs secondary to absent hypothalamic-pituitary drive (absent forebrain/pituitary axis).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000835\"}}, {\"id\": \"Anencephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the major portion of the brain, skull, and scalp, the defining feature of the disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002323\"}}, {\"id\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent extension movements, governed by the non-canonical Wnt/planar cell polarity (PCP) pathway, narrow and lengthen the neural plate and are required to bring the neural folds close enough to fuse. Disruption of PCP signaling (e.g. VANGL1/VANGL2, CELSR1, SCRIB) broadens the neural plate and prevents fold apposition, producing severe open neural tube defects including anencephaly and craniorachischisis in model organisms and humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"convergent extension in neural plate elongation\"], \"genes\": [\"VANGL1\", \"VANGL2\"], \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}, {\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}]}}, {\"id\": \"Disrupted Folate One-Carbon Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Periconceptional folate status is the strongest modifiable determinant of successful neural tube closure. Folate one-carbon metabolism supplies the methyl groups and nucleotide precursors required by the rapidly proliferating cranial neuroepithelium; reduced 5,10-methylenetetrahydrofolate reductase (MTHFR) activity and inadequate folate availability compromise this supply and increase the risk that the cranial neuropore fails to close.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tetrahydrofolate interconversion\"], \"genes\": [\"MTHFR\"], \"gene_terms\": [{\"label\": \"MTHFR\", \"id\": \"hgnc:7436\"}]}}, {\"id\": \"Exencephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The earlier developmental precursor lesion, in which the disorganized brain is exposed but not yet destroyed; it degenerates into anencephaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030769\"}}, {\"id\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following failed closure, the exposed forebrain (initially exencephaly) undergoes progressive mechanical and chemical degeneration on contact with amniotic fluid, leaving a hemorrhagic, poorly differentiated vascular mass (area cerebrovasculosa) in place of the cerebral hemispheres. The absence of a normal brain also disrupts induction of the overlying skull and scalp.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"forebrain development\"], \"locations\": [\"brain\", \"cranium\", \"scalp\"]}}, {\"id\": \"Failure of Cranial Neuropore Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Primary neurulation requires the flat neural plate to bend, elevate its neural folds, and fuse dorsally to form the closed neural tube, a process that proceeds by multiple closure initiation sites and zips both rostrally and caudally. Anencephaly arises specifically from failure of closure of the rostral (anterior/cranial) neuropore, which normally seals by approximately embryonic day 24-26. When the cranial neural folds fail to appose and fuse, the forebrain neuroepithelium remains open and the future cranial vault does not form over it.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroepithelial cell\"], \"biological_processes\": [\"neural tube closure\", \"apical constriction driving neural fold bending\"], \"genes\": [\"PAX3\", \"PDGFRA\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}, {\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"locations\": [\"brain\"]}}, {\"id\": \"MTHFR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MTHFR\"], \"gene_terms\": [{\"label\": \"MTHFR\", \"id\": \"hgnc:7436\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"PAX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX3\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"PDGFRA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Polyhydramnios\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess amniotic fluid, attributed to impaired fetal swallowing, frequently complicates anencephalic pregnancies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001561\"}}, {\"id\": \"VANGL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VANGL1\"], \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"VANGL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VANGL2\"], \"gene_terms\": [{\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}], \"edges\": [{\"source\": \"Disrupted Folate One-Carbon Metabolism\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired folate one-carbon metabolism compromises the neuroepithelial methylation and nucleotide supply required for timely cranial neuropore closure; the precise molecular link between folate status and closure remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Cranial Neuropore Closure\", \"target\": \"Exencephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed cranial neural tube remains open, producing exencephaly \\u2014 the exposed, disorganized brain precursor lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Cranial Neuropore Closure\", \"target\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of closure leaves the forebrain neuroepithelium exposed to the amniotic cavity, initiating its progressive mechanical and chemical degeneration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective convergent extension leaves the neural plate too broad for the cranial neural folds to appose and fuse, causing failure of rostral neuropore closure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Anencephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive destruction of the exposed forebrain leaves the area cerebrovasculosa in place of the cerebral hemispheres \\u2014 anencephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Absent Calvaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of the underlying brain and failure of the overlying cranial vault to form produce acrania (absent calvaria).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Adrenal Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the forebrain and hypothalamic-pituitary axis removes trophic ACTH drive to the fetal adrenal cortex, producing adrenal hypoplasia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Polyhydramnios\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the forebrain and higher neurological control of the swallowing reflex impairs fetal swallowing of amniotic fluid, producing polyhydramnios. (The brainstem is typically at least partly preserved in anencephaly, so this reflects loss of suprabulbar control rather than brainstem absence.)\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"MTHFR\", \"target\": \"Disrupted Folate One-Carbon Metabolism\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VANGL1\", \"target\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VANGL2\", \"target\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX3\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDGFRA\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Calvaria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the cranial vault (acrania), leaving the brain uncovered.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030716\"}}, {\"id\": \"Adrenal Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fetal adrenal hypoplasia occurs secondary to absent hypothalamic-pituitary drive (absent forebrain/pituitary axis).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000835\"}}, {\"id\": \"Anencephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the major portion of the brain, skull, and scalp, the defining feature of the disorder.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0002323\"}}, {\"id\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent extension movements, governed by the non-canonical Wnt/planar cell polarity (PCP) pathway, narrow and lengthen the neural plate and are required to bring the neural folds close enough to fuse. Disruption of PCP signaling (e.g. VANGL1/VANGL2, CELSR1, SCRIB) broadens the neural plate and prevents fold apposition, producing severe open neural tube defects including anencephaly and craniorachischisis in model organisms and humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"convergent extension in neural plate elongation\"], \"genes\": [\"VANGL1\", \"VANGL2\"], \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}, {\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}]}}, {\"id\": \"Disrupted Folate One-Carbon Metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Periconceptional folate status is the strongest modifiable determinant of successful neural tube closure. Folate one-carbon metabolism supplies the methyl groups and nucleotide precursors required by the rapidly proliferating cranial neuroepithelium; reduced 5,10-methylenetetrahydrofolate reductase (MTHFR) activity and inadequate folate availability compromise this supply and increase the risk that the cranial neuropore fails to close.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tetrahydrofolate interconversion\"], \"genes\": [\"MTHFR\"], \"gene_terms\": [{\"label\": \"MTHFR\", \"id\": \"hgnc:7436\"}]}}, {\"id\": \"Exencephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The earlier developmental precursor lesion, in which the disorganized brain is exposed but not yet destroyed; it degenerates into anencephaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030769\"}}, {\"id\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Following failed closure, the exposed forebrain (initially exencephaly) undergoes progressive mechanical and chemical degeneration on contact with amniotic fluid, leaving a hemorrhagic, poorly differentiated vascular mass (area cerebrovasculosa) in place of the cerebral hemispheres. The absence of a normal brain also disrupts induction of the overlying skull and scalp.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"forebrain development\"], \"locations\": [\"brain\", \"cranium\", \"scalp\"]}}, {\"id\": \"Failure of Cranial Neuropore Closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Primary neurulation requires the flat neural plate to bend, elevate its neural folds, and fuse dorsally to form the closed neural tube, a process that proceeds by multiple closure initiation sites and zips both rostrally and caudally. Anencephaly arises specifically from failure of closure of the rostral (anterior/cranial) neuropore, which normally seals by approximately embryonic day 24-26. When the cranial neural folds fail to appose and fuse, the forebrain neuroepithelium remains open and the future cranial vault does not form over it.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuroepithelial cell\"], \"biological_processes\": [\"neural tube closure\", \"apical constriction driving neural fold bending\"], \"genes\": [\"PAX3\", \"PDGFRA\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}, {\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"locations\": [\"brain\"]}}, {\"id\": \"MTHFR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MTHFR\"], \"gene_terms\": [{\"label\": \"MTHFR\", \"id\": \"hgnc:7436\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Maternal Folate Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Inadequate periconceptional folate is the strongest modifiable risk factor for neural tube defects; folic acid supplementation and food fortification substantially reduce anencephaly incidence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Hyperthermia\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"First-trimester maternal hyperthermia (febrile illness, hot tub/sauna) is associated with an increased risk of neural tube defects.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal obesity is a reported risk factor for anencephaly and other neural tube defects. Its contribution is recorded as an association rather than a sufficient cause in this multifactorial disorder.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Pregestational Diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Poorly controlled maternal diabetes mellitus is an established risk factor for neural tube defects including anencephaly.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Valproate Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Periconceptional exposure to the antiepileptic valproic acid interferes with folate metabolism and histone deacetylation and increases the risk of neural tube defects.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"PAX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX3\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"PDGFRA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PDGFRA\"], \"gene_terms\": [{\"label\": \"PDGFRA\", \"id\": \"hgnc:8803\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Polyhydramnios\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excess amniotic fluid, attributed to impaired fetal swallowing, frequently complicates anencephalic pregnancies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001561\"}}, {\"id\": \"VANGL1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VANGL1\"], \"gene_terms\": [{\"label\": \"VANGL1\", \"id\": \"hgnc:15512\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"VANGL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VANGL2\"], \"gene_terms\": [{\"label\": \"VANGL2\", \"id\": \"hgnc:15511\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}], \"edges\": [{\"source\": \"Disrupted Folate One-Carbon Metabolism\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired folate one-carbon metabolism compromises the neuroepithelial methylation and nucleotide supply required for timely cranial neuropore closure; the precise molecular link between folate status and closure remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Cranial Neuropore Closure\", \"target\": \"Exencephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unclosed cranial neural tube remains open, producing exencephaly \\u2014 the exposed, disorganized brain precursor lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Cranial Neuropore Closure\", \"target\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of closure leaves the forebrain neuroepithelium exposed to the amniotic cavity, initiating its progressive mechanical and chemical degeneration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective convergent extension leaves the neural plate too broad for the cranial neural folds to appose and fuse, causing failure of rostral neuropore closure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Anencephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive destruction of the exposed forebrain leaves the area cerebrovasculosa in place of the cerebral hemispheres \\u2014 anencephaly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Absent Calvaria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of the underlying brain and failure of the overlying cranial vault to form produce acrania (absent calvaria).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Adrenal Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the forebrain and hypothalamic-pituitary axis removes trophic ACTH drive to the fetal adrenal cortex, producing adrenal hypoplasia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Exposure and Degeneration of Exposed Neural Tissue\", \"target\": \"Polyhydramnios\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the forebrain and higher neurological control of the swallowing reflex impairs fetal swallowing of amniotic fluid, producing polyhydramnios. (The brainstem is typically at least partly preserved in anencephaly, so this reflects loss of suprabulbar control rather than brainstem absence.)\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal Folate Deficiency\", \"target\": \"Disrupted Folate One-Carbon Metabolism\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Inadequate maternal folate directly limits the one-carbon pool this node depends on. The link is direct because the exposure and the metabolic deficit are the same thing viewed from outside and inside the mother.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal Valproate Exposure\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Valproate is an established human teratogen for neural tube defects, so it initiates rather than merely raises the risk of failed closure. It is marked indirect because the responsible step is unsettled between folate antagonism and histone deacetylase inhibition.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal Pregestational Diabetes\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal diabetes raises the probability of failed closure without being sufficient to cause it, and the intervening steps between maternal hyperglycaemia and the neuroepithelium are not established here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal Obesity\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Obesity appears alongside diabetes as a maternal metabolic risk factor. Whether it acts through the same hyperglycaemic route or independently is not resolved by the cited source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Maternal Hyperthermia\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Elevated core temperature in early pregnancy raises neural tube defect risk. Recorded as predisposing rather than triggering because the cited source states the association firmly but stops short of calling hyperthermia an established human teratogen.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MTHFR\", \"target\": \"Disrupted Folate One-Carbon Metabolism\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VANGL1\", \"target\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VANGL2\", \"target\": \"Convergent Extension and Neural Plate Morphogenesis Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX3\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PDGFRA\", \"target\": \"Failure of Cranial Neuropore Closure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4901,14 +5236,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyhydramnios
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001561">HP:0001561</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001561</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4973,14 +5315,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002323" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002323">HP:0002323</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002323" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002323</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anencephaly (HP:0002323). HP:0002323 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5032,14 +5381,21 @@
                         Exencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030769" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030769">HP:0030769</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030769</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exencephaly (HP:0030769). HP:0030769 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5093,14 +5449,23 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acrania
+
+                        <span class="phenotype-term-label">Acrania</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030716">HP:0030716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acrania (absent calvaria), annotated with Acrania (HP:0030716). HP:0030716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5152,14 +5517,21 @@
                         Adrenal Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Adrenal hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000835" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000835">HP:0000835</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000835</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adrenal hypoplasia (HP:0000835). HP:0000835 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5255,13 +5627,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MTHFR
 
 
-    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7436">hgnc:7436</a>
+    <a href="https://bioregistry.io/hgnc:7436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:7436</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MTHFR (hgnc:7436). hgnc:7436 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5319,13 +5696,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VANGL1
 
 
-    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15512">hgnc:15512</a>
+    <a href="https://bioregistry.io/hgnc:15512" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:15512</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VANGL1 (hgnc:15512). hgnc:15512 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5383,13 +5765,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VANGL2
 
 
-    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15511">hgnc:15511</a>
+    <a href="https://bioregistry.io/hgnc:15511" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:15511</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VANGL2 (hgnc:15511). hgnc:15511 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5447,13 +5834,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8617">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:8617</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5511,13 +5903,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDGFRA
 
 
-    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8803">hgnc:8803</a>
+    <a href="https://bioregistry.io/hgnc:8803" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8803</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDGFRA (hgnc:8803). hgnc:8803 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5586,7 +5983,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5616,16 +6018,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         folic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27470" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27470">CHEBI:27470</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27470" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:27470</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5702,7 +6109,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5788,6 +6200,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-folate-deficiency" data-dismech-node="Maternal Folate Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Maternal Folate Deficiency</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        low maternal folic acid exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000123" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-29">ECTO:9000123</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is decreased low maternal folic acid exposure, annotated with exposure to folic acid (ECTO:9000123). ECTO:9000123 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Inadequate periconceptional folate is the strongest modifiable risk factor for neural tube defects; folic acid supplementation and food fortification substantially reduce anencephaly incidence.</div>
@@ -5828,10 +6267,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Disrupted Folate One-Carbon Metabolism</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Inadequate maternal folate directly limits the one-carbon pool this node depends on. The link is direct because the exposure and the metabolic deficit are the same thing viewed from outside and inside the mother.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1677062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1677062" target="_blank">PMID:1677062</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"supplementation with folic acid (one of the vitamins in the B group) or a mixture of seven other vitamins (A,D,B1,B2,B6,C and nicotinamide) around the time of conception can prevent neural tube defects (anencephaly, spina bifida, encephalocele)"</div>
+
+
+                <div class="evidence-explanation">Periconceptional folic acid supplementation reduced neural tube defect recurrence, establishing maternal folate status as causally relevant to the defect rather than merely correlated with it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-valproate-exposure" data-dismech-node="Maternal Valproate Exposure" data-dismech-type="environmental">
                 <div class="item-name">Maternal Valproate Exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        gestational maternal valproate exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001598" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-30">XCO:0001598</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is gestational maternal valproate exposure, annotated with gestational maternal exposure to valproate (XCO:0001598). XCO:0001598 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -5873,10 +6391,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Failure of Cranial Neuropore Closure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Valproate is an established human teratogen for neural tube defects, so it initiates rather than merely raises the risk of failed closure. It is marked indirect because the responsible step is unsettled between folate antagonism and histone deacetylase inhibition.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16639967" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16639967" target="_blank">PMID:16639967</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It has now become evident that valproic acid might cause more than just neural tube defects (NTDs)."</div>
+
+
+                <div class="evidence-explanation">Identifies valproic acid as a cause of neural tube defects. Support is PARTIAL and the source is OTHER because this is a hedged statement in a clinical question-and-answer column rather than a primary study, and the defect it names is the neural tube generally rather than the cranial neuropore specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-pregestational-diabetes" data-dismech-node="Maternal Pregestational Diabetes" data-dismech-type="environmental">
                 <div class="item-name">Maternal Pregestational Diabetes</div>
+
+
+
+
 
 
 
@@ -5918,10 +6492,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Failure of Cranial Neuropore Closure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Maternal diabetes raises the probability of failed closure without being sufficient to cause it, and the intervening steps between maternal hyperglycaemia and the neuroepithelium are not established here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23790957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23790957" target="_blank">PMID:23790957</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"factors implicated in the aetiology of NTDs include maternal diabetes"</div>
+
+
+                <div class="evidence-explanation">Lists maternal diabetes among the factors implicated in the aetiology of neural tube defects, a risk-factor attribution rather than a demonstrated mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-obesity" data-dismech-node="Maternal Obesity" data-dismech-type="environmental">
                 <div class="item-name">Maternal Obesity</div>
+
+
+
+
 
 
 
@@ -5963,10 +6593,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Failure of Cranial Neuropore Closure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Obesity appears alongside diabetes as a maternal metabolic risk factor. Whether it acts through the same hyperglycaemic route or independently is not resolved by the cited source.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33544785" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33544785" target="_blank">PMID:33544785</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"various maternal-related environmental and genetic risk factors have been reported, which include diabetes, obesity, exposure to different drugs or toxins"</div>
+
+
+                <div class="evidence-explanation">Lists obesity among the reported maternal risk factors for the malformation, without identifying a mediating step.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-maternal-hyperthermia" data-dismech-node="Maternal Hyperthermia" data-dismech-type="environmental">
                 <div class="item-name">Maternal Hyperthermia</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        maternal exposure to increased temperature
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_4000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-31">ECTO:4000001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is maternal exposure to increased temperature, annotated with exposure to increased temperature (ECTO:4000001). ECTO:4000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -6007,6 +6716,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Failure of Cranial Neuropore Closure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Elevated core temperature in early pregnancy raises neural tube defect risk. Recorded as predisposing rather than triggering because the cited source states the association firmly but stops short of calling hyperthermia an established human teratogen.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15703536" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15703536" target="_blank">PMID:15703536</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Maternal hyperthermia in early pregnancy is associated with increased risk for neural tube defects and may be a human teratogen."</div>
+
+
+                <div class="evidence-explanation">Reports early-pregnancy maternal hyperthermia as associated with increased neural tube defect risk and only possibly a human teratogen, which is why this is graded as predisposing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6305,6 +7066,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6401,6 +7164,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6437,6 +7202,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7011,6 +7779,30 @@ genetic:
       rare damaging PDGFRA frameshift variant among candidate anencephaly genes.
 environmental:
 - name: Maternal Folate Deficiency
+  exposure_term:
+    preferred_term: low maternal folic acid exposure
+    modifier: DECREASED
+    term:
+      id: ECTO:9000123
+      label: exposure to folic acid
+  influences_mechanisms:
+  - target: Disrupted Folate One-Carbon Metabolism
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Inadequate maternal folate directly limits the one-carbon pool this node
+      depends on. The link is direct because the exposure and the metabolic
+      deficit are the same thing viewed from outside and inside the mother.
+    evidence:
+    - reference: PMID:1677062
+      reference_title: &#34;Prevention of neural tube defects: results of the Medical Research Council Vitamin Study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;supplementation with folic acid (one of the vitamins in the B group) or a mixture of seven other vitamins (A,D,B1,B2,B6,C and nicotinamide) around the time of conception can prevent neural tube defects (anencephaly, spina bifida, encephalocele)&#34;
+      explanation: &gt;-
+        Periconceptional folic acid supplementation reduced neural tube defect
+        recurrence, establishing maternal folate status as causally relevant
+        to the defect rather than merely correlated with it.
   description: &gt;-
     Inadequate periconceptional folate is the strongest modifiable risk factor
     for neural tube defects; folic acid supplementation and food fortification
@@ -7030,6 +7822,32 @@ environmental:
       acid prevents NTDs, implicating folate status as the key modifiable
       determinant.
 - name: Maternal Valproate Exposure
+  exposure_term:
+    preferred_term: gestational maternal valproate exposure
+    term:
+      id: XCO:0001598
+      label: gestational maternal exposure to valproate
+  influences_mechanisms:
+  - target: Failure of Cranial Neuropore Closure
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Valproate is an established human teratogen for neural tube defects, so
+      it initiates rather than merely raises the risk of failed closure. It is
+      marked indirect because the responsible step is unsettled between folate
+      antagonism and histone deacetylase inhibition.
+    evidence:
+    - reference: PMID:16639967
+      reference_title: &#34;Major malformations with valproic acid.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;It has now become evident that valproic acid might cause more than just neural tube defects (NTDs).&#34;
+      explanation: &gt;-
+        Identifies valproic acid as a cause of neural tube defects. Support is
+        PARTIAL and the source is OTHER because this is a hedged statement in a
+        clinical question-and-answer column rather than a primary study, and
+        the defect it names is the neural tube generally rather than the
+        cranial neuropore specifically.
   description: &gt;-
     Periconceptional exposure to the antiepileptic valproic acid interferes with
     folate metabolism and histone deacetylation and increases the risk of neural
@@ -7046,6 +7864,24 @@ environmental:
       Systematic review of cohort studies confirms valproic acid is a teratogen
       causing neural tube defects and other major malformations.
 - name: Maternal Pregestational Diabetes
+  influences_mechanisms:
+  - target: Failure of Cranial Neuropore Closure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Maternal diabetes raises the probability of failed closure without being
+      sufficient to cause it, and the intervening steps between maternal
+      hyperglycaemia and the neuroepithelium are not established here.
+    evidence:
+    - reference: PMID:23790957
+      reference_title: &#34;Neural tube defects: recent advances, unsolved questions, and controversies.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;factors implicated in the aetiology of NTDs include maternal diabetes&#34;
+      explanation: &gt;-
+        Lists maternal diabetes among the factors implicated in the aetiology
+        of neural tube defects, a risk-factor attribution rather than a
+        demonstrated mechanism.
   description: &gt;-
     Poorly controlled maternal diabetes mellitus is an established risk factor
     for neural tube defects including anencephaly.
@@ -7060,6 +7896,23 @@ environmental:
       Maternal diabetes is an established environmental risk factor for neural
       tube defects.
 - name: Maternal Obesity
+  influences_mechanisms:
+  - target: Failure of Cranial Neuropore Closure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Obesity appears alongside diabetes as a maternal metabolic risk factor.
+      Whether it acts through the same hyperglycaemic route or independently
+      is not resolved by the cited source.
+    evidence:
+    - reference: PMID:33544785
+      reference_title: &#34;The etiopathogenic and morphological spectrum of anencephaly: a comprehensive review of literature.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;various maternal-related environmental and genetic risk factors have been reported, which include diabetes, obesity, exposure to different drugs or toxins&#34;
+      explanation: &gt;-
+        Lists obesity among the reported maternal risk factors for the
+        malformation, without identifying a mediating step.
   description: &gt;-
     Maternal obesity is a reported risk factor for anencephaly and other neural
     tube defects. Its contribution is recorded as an association rather than a
@@ -7075,6 +7928,30 @@ environmental:
       The disease-specific review lists maternal obesity among reported
       environmental risk factors for anencephaly.
 - name: Maternal Hyperthermia
+  exposure_term:
+    preferred_term: maternal exposure to increased temperature
+    term:
+      id: ECTO:4000001
+      label: exposure to increased temperature
+  influences_mechanisms:
+  - target: Failure of Cranial Neuropore Closure
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Elevated core temperature in early pregnancy raises neural tube defect
+      risk. Recorded as predisposing rather than triggering because the cited
+      source states the association firmly but stops short of calling
+      hyperthermia an established human teratogen.
+    evidence:
+    - reference: PMID:15703536
+      reference_title: &#34;Maternal hyperthermia and the risk for neural tube defects in offspring: systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Maternal hyperthermia in early pregnancy is associated with increased risk for neural tube defects and may be a human teratogen.&#34;
+      explanation: &gt;-
+        Reports early-pregnancy maternal hyperthermia as associated with
+        increased neural tube defect risk and only possibly a human teratogen,
+        which is why this is graded as predisposing.
   description: &gt;-
     First-trimester maternal hyperthermia (febrile illness, hot tub/sauna) is
     associated with an increased risk of neural tube defects.
@@ -8664,7 +9541,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Anencephaly", "mondoId": "MONDO:0000819", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anencephaly", "yamlRevision": "0af2c48872b5"};
+        const OS_CONFIG = {"diseaseName": "Anencephaly", "mondoId": "MONDO:0000819", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anencephaly", "yamlRevision": "a5f6150d3889"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9083,5 +9960,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

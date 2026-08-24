@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3865,8 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3805,27 +3973,104 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
+
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3884,17 +4129,24 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 PRKACA
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9380">hgnc:9380</a>
+    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9380</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 GNAS
@@ -3902,10 +4154,13 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4392</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4052,17 +4307,24 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 KCNJ5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6266">hgnc:6266</a>
+    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6266</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 CACNA1D
@@ -4070,11 +4332,16 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1391">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1391</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 ATP1A1
@@ -4082,11 +4349,16 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:799">hgnc:799</a>
+    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:799</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 ATP2B3
@@ -4094,11 +4366,16 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:816">hgnc:816</a>
+    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:816</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 CTNNB1
@@ -4106,10 +4383,13 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2514">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:2514</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4174,16 +4454,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 CTNNB1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2514">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2514</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4264,16 +4549,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adrenal cortical cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002097">CL:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adrenal cortical cell, annotated with cortical cell of adrenal gland (CL:0002097). CL:0002097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4303,19 +4593,25 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         adrenal cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001235" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001235">UBERON:0001235</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001235" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0001235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:0001235 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4388,16 +4684,27 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PRKACA
 
 
-    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9380">hgnc:9380</a>
+    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9380</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4425,10 +4732,13 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4457,16 +4767,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cAMP-dependent protein kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004691" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004691">GO:0004691</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004691" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0004691</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased cAMP-dependent protein kinase activity (GO:0004691). GO:0004691 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4487,6 +4802,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
                 </div>
+
 
 
 
@@ -4605,16 +4921,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006468">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4635,6 +4956,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
                 </div>
+
 
 
 
@@ -4711,16 +5033,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         zona fasciculata cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002136">CL:0002136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona fasciculata cell, annotated with type II cell of adrenal cortex (CL:0002136). CL:0002136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4747,16 +5074,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cortisol biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034651" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034651">GO:0034651</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034651" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0034651</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cortisol biosynthetic process (GO:0034651). GO:0034651 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4783,19 +5115,25 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         zona fasciculata
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002054" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002054">UBERON:0002054</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002054" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002054</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in zona fasciculata, annotated with zona fasciculata of adrenal gland (UBERON:0002054). UBERON:0002054 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4896,6 +5234,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4952,6 +5291,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-name">Chronic Glucocorticoid Excess</div>
 
                 <div class="item-desc">Sustained supraphysiological cortisol exposure produces the classical Cushing phenotype: central and abdominal fat redistribution, proteolytic muscle wasting with proximal weakness, dermal collagen loss with easy bruising, insulin resistance and type 2 diabetes, hypertension, and glucocorticoid-induced osteoporosis with fragility fracture.</div>
+
 
 
 
@@ -5072,6 +5412,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-name">Mild Autonomous Cortisol Secretion</div>
 
                 <div class="item-desc">Low-grade cortisol autonomy sufficient to fail the 1-mg dexamethasone suppression test but insufficient to produce the classical Cushing habitus. The mechanistically important point — and the reason this node exists separately from Chronic Glucocorticoid Excess — is the reclassification of MACS. It was long treated as a biochemical curiosity of no consequence (&#34;subclinical hypercortisolism&#34;). Contemporary multicentre cohort data show that MACS is instead an independent cardiometabolic and skeletal risk state, carrying excess hypertension, insulin-requiring diabetes, vertebral fracture, and — critically — increased all-cause mortality relative to non-functioning adenomas, with the excess concentrated in women under 65. The 2023 ESE guideline formalised the term and mandated screening for cortisol-attributable comorbidity in every patient with MACS.</div>
+
 
 
 
@@ -5217,16 +5558,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002099">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5253,16 +5599,27 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KCNJ5
 
 
-    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6266">hgnc:6266</a>
+    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:6266</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5290,11 +5647,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
         CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1391">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:1391</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5322,11 +5686,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
         ATP1A1
 
 
-    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:799">hgnc:799</a>
+    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:799</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5354,10 +5725,13 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
         ATP2B3
 
 
-    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:816">hgnc:816</a>
+    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:816</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5388,19 +5762,25 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         zona glomerulosa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002053" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002053">UBERON:0002053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in zona glomerulosa, annotated with zona glomerulosa of adrenal gland (UBERON:0002053). UBERON:0002053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5510,16 +5890,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002099">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5546,16 +5931,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         membrane depolarization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051899">GO:0051899</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051899" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0051899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased membrane depolarization (GO:0051899). GO:0051899 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5576,6 +5966,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
                 </div>
+
 
 
 
@@ -5644,16 +6035,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002099">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5680,16 +6076,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         calcium ion import across plasma membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098703" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098703">GO:0098703</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098703" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0098703</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased calcium ion import across plasma membrane (GO:0098703). GO:0098703 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5710,6 +6111,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
                 </div>
+
 
 
 
@@ -5808,16 +6210,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         zona glomerulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002099">CL:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002099" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0002099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves zona glomerulosa cell, annotated with type I cell of adrenal cortex (CL:0002099). CL:0002099 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5844,15 +6251,22 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CYP11B2
 
 
-    <a href="https://bioregistry.io/hgnc:2592" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2592">hgnc:2592</a>
+    <a href="https://bioregistry.io/hgnc:2592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:2592</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP11B2 (hgnc:2592). hgnc:2592 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5880,16 +6294,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         aldosterone biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032342" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032342">GO:0032342</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032342" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0032342</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased aldosterone biosynthetic process (GO:0032342). GO:0032342 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5910,6 +6329,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
                 </div>
+
 
 
 
@@ -6019,6 +6439,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6091,6 +6512,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-name">Aldosterone-Mediated Target Organ Damage</div>
 
                 <div class="item-desc">The clinically decisive feature of primary aldosteronism is that its cardiovascular and renal injury is disproportionate to the blood pressure. Compared with essential hypertensives, patients with primary aldosteronism have markedly higher odds of stroke, coronary disease, atrial fibrillation and heart failure. Combined with the fact that primary aldosteronism remains largely underdiagnosed and undertreated, this is the strongest argument for biochemical screening of hypertensive patients with an adrenal adenoma rather than treating blood pressure alone.</div>
+
 
 
 
@@ -6251,15 +6673,22 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2514">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2514</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6287,16 +6716,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6317,6 +6751,7 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
                 </div>
+
 
 
 
@@ -6681,14 +7116,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Bruising Susceptibility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bruising susceptibility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000978">HP:0000978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6751,14 +7193,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6812,14 +7261,23 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Coronary Artery Disease
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coronary artery atherosclerosis
+
+                        <span class="phenotype-term-label">Coronary artery atherosclerosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6873,14 +7331,23 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Heart Failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
+
+                        <span class="phenotype-term-label">Congestive heart failure</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6932,14 +7399,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Stroke
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Stroke
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001297">HP:0001297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6991,14 +7465,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Atrial Fibrillation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7050,14 +7531,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Left Ventricular Hypertrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001712">HP:0001712</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7120,14 +7608,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type II diabetes mellitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7179,14 +7674,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Adrenal Insufficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Adrenal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000846">HP:0000846</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000846</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7247,14 +7749,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Hypokalemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypokalemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002900">HP:0002900</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002900</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7310,14 +7819,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperlipidemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003077">HP:0003077</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7380,14 +7896,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteoporosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000939</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7441,14 +7964,23 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertebral compression fracture
+
+                        <span class="phenotype-term-label">Vertebral compression fracture</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002953">HP:0002953</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002953</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertebral compression fracture (HP:0002953). HP:0002953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7524,14 +8056,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Proximal Muscle Weakness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proximal muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003701">HP:0003701</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003701</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7594,14 +8133,23 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Adrenocortical adenoma
+
+                        <span class="phenotype-term-label">Adrenocortical adenoma</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008256">HP:0008256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0008256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adrenocortical adenoma (HP:0008256). HP:0008256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7653,14 +8201,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Primary Hypercortisolism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Primary hypercortisolism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001579">HP:0001579</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001579</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary hypercortisolism (HP:0001579). HP:0001579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7712,14 +8267,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Primary Hyperaldosteronism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Primary hyperaldosteronism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011736">HP:0011736</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0011736</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary hyperaldosteronism (HP:0011736). HP:0011736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7771,14 +8333,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                         Abdominal Obesity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012743">HP:0012743</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012743" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0012743</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal obesity (HP:0012743). HP:0012743 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7876,13 +8445,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRKACA
 
 
-    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9380">hgnc:9380</a>
+    <a href="https://bioregistry.io/hgnc:9380" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:9380</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRKACA (hgnc:9380). hgnc:9380 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7966,13 +8540,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:4392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8034,13 +8613,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNJ5
 
 
-    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6266">hgnc:6266</a>
+    <a href="https://bioregistry.io/hgnc:6266" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:6266</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ5 (hgnc:6266). hgnc:6266 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8102,13 +8686,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CACNA1D
 
 
-    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1391">hgnc:1391</a>
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:1391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CACNA1D (hgnc:1391). hgnc:1391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8170,13 +8759,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP1A1
 
 
-    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:799">hgnc:799</a>
+    <a href="https://bioregistry.io/hgnc:799" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:799</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP1A1 (hgnc:799). hgnc:799 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8238,13 +8832,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP2B3
 
 
-    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:816">hgnc:816</a>
+    <a href="https://bioregistry.io/hgnc:816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:816</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP2B3 (hgnc:816). hgnc:816 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8306,13 +8905,18 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTNNB1
 
 
-    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2514">hgnc:2514</a>
+    <a href="https://bioregistry.io/hgnc:2514" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:2514</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8385,7 +8989,12 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Adrenalectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Adrenalectomy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Adrenalectomy (NCIT:C15177). NCIT:C15177 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8539,7 +9148,12 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8569,17 +9183,24 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         spironolactone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9241">CHEBI:9241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-60">CHEBI:9241</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses spironolactone (CHEBI:9241). CHEBI:9241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         eplerenone
@@ -8587,10 +9208,13 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31547" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:31547">CHEBI:31547</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31547" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-61">CHEBI:31547</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eplerenone (CHEBI:31547). CHEBI:31547 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8687,7 +9311,12 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8717,16 +9346,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         hydrocortisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17650">CHEBI:17650</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-63">CHEBI:17650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI:17650 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8758,16 +9392,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Adrenal insufficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000846">HP:0000846</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0000846</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8818,7 +9457,12 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Screening</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Disease Screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Disease Screening<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8919,7 +9563,12 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Diagnostic Imaging Testing</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Diagnostic Imaging Testing<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Diagnostic Imaging Testing (NCIT:C16502). NCIT:C16502 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9020,7 +9669,12 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9050,16 +9704,21 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         metyrapone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44241" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44241">CHEBI:44241</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44241" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-68">CHEBI:44241</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metyrapone (CHEBI:44241). CHEBI:44241 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10116,6 +10775,9 @@ Adrenal cortex adenoma must be distinguished from adrenocortical carcinoma, from
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -13615,5 +14277,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

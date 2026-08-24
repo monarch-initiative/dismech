@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Viral%20Hemorrhagic%20Fever"
@@ -3599,7 +3765,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Viral hemorrhagic fever is a group of severe infections caused by selected enveloped RNA viruses. The shared syndrome features acute febrile illness with impaired antiviral immunity, high viremia, endothelial dysfunction, capillary leak, coagulopathy, hemorrhagic manifestations, shock, and possible organ dysfunction.
+                Viral hemorrhagic fever is a heterogeneous group of severe infections caused by selected enveloped RNA viruses. The umbrella entry models recurring vascular, immune, and hemostatic patterns rather than one uniform disease: individual viruses differ in transmission, organ tropism, bleeding mechanism, clinical course, diagnostics, prevention, and treatment, and overt hemorrhage is not present in every infection. Severe disease can include acute febrile illness, impaired antiviral immunity, high viremia, endothelial dysfunction, capillary leak, coagulopathy, hemorrhagic manifestations, shock, and organ dysfunction.
             </p>
 
         </header>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3705,7 +3873,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3715,18 +3883,26 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3737,7 +3913,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3752,6 +3928,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3770,6 +3954,105 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -4065,6 +4348,201 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="vhf_shared_vs_agent_specific_bleeding_mechanisms">
+                <div class="item-name">Which endothelial, coagulation-factor, consumptive-coagulopathy, and platelet mechanisms are genuinely shared across VHFs, and which are specific to a virus, disease stage, or bleeding site?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">vhf_shared_vs_agent_specific_bleeding_mechanisms</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-endothelial-activation-and-damage">pathophysiology#Endothelial activation and damage</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-increased-vascular-permeability">pathophysiology#Increased vascular permeability</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-consumptive-coagulopathy">pathophysiology#Consumptive coagulopathy</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-decreased-coagulation-factor-production">pathophysiology#Decreased coagulation factor production</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-reduced-platelet-number">pathophysiology#Reduced platelet number</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-platelet-dysfunction">pathophysiology#Platelet dysfunction</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The umbrella entry represents recurring routes, not universal mechanisms. Comparative evidence remains insufficient to assign the same causal weight or sequence to each route across all VHF agents.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41410052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41410052" target="_blank">PMID:41410052</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There are likely both common and distinct mechanisms underlying bleeding in different VHFs, as sites of bleeding differ between the viruses."</div>
+
+
+                <div class="evidence-explanation">The review explicitly identifies the unresolved common-versus-agent-specific mechanism question.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="vhf_human_vascular_model_fidelity">
+                <div class="item-name">How faithfully do animal, conventional two-dimensional culture, and emerging microphysiological models reproduce human VHF vascular dynamics across different agents?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">vhf_human_vascular_model_fidelity</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-endothelial-activation-and-damage">pathophysiology#Endothelial activation and damage</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-increased-vascular-permeability">pathophysiology#Increased vascular permeability</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Existing animal and cell-culture systems have produced mechanistic insights, but a vascular-model review specifically questions their fidelity to human in-vivo dynamics and presents microphysiological systems as promising rather than validated replacements.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38749416" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38749416" target="_blank">PMID:38749416</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While animal models and traditional 2D cell cultures have contributed insight into the mechanisms by which these pathogens affect the vasculature, these models fall short in replicatingin vivohuman vascular dynamics."</div>
+
+
+                <div class="evidence-explanation">The review directly states the translational limitation of existing model systems.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -4072,335 +4550,19 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">6</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-antiviral-immune-failure" data-dismech-node="Antiviral immune failure" data-dismech-type="pathophysiology">
-                <div class="item-name">Antiviral immune failure</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-activation-and-damage" data-dismech-node="Endothelial activation and damage" data-dismech-type="pathophysiology">
+                <div class="item-name">Endothelial activation and damage</div>
 
-                <div class="item-desc">Early failure of antiviral immune control, including impaired type I interferon-associated antiviral responses, is an upstream event in VHF pathogenesis.</div>
+                <div class="item-desc">Endothelial activation or damage is a recurring vascular mechanism in VHF, although its direct viral and host-mediated drivers vary among agents.</div>
 
 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
-                        monocyte
 
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000576">CL:0000576</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-cell">
-                        macrophage
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-cell">
-                        dendritic cell
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        response to virus
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009615">GO:0009615</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ⚠ ABNORMAL
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-bio">
-                        type I interferon-mediated signaling pathway
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060337">GO:0060337</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↓ DECREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">High viremia</span>
-
-	                            <span class="crosslink-desc">Failed antiviral control permits higher systemic viral burden.</span>
-
-
-	                        </div>
-
-	                    </div>
-	                </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy."</div>
-
-
-                <div class="evidence-explanation">This supports antiviral immune failure as an upstream VHF mechanism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-viremia" data-dismech-node="High viremia" data-dismech-type="pathophysiology">
-                <div class="item-name">High viremia</div>
-
-                <div class="item-desc">High systemic viral burden follows inadequate antiviral control and contributes to inflammatory, endothelial, and hemostatic injury.</div>
-
-
-
-
-
-
-
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        viral process
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016032">GO:0016032</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-	                <div class="crosslink-block">
-	                    <div class="crosslink-title">Downstream</div>
-	                    <div class="crosslink-list">
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Endothelial activation and vascular leak</span>
-
-	                            <span class="crosslink-desc">High viral burden and host inflammatory responses promote endothelial dysfunction and capillary leak.</span>
-
-
-	                        </div>
-
-	                    </div>
-	                </div>
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy."</div>
-
-
-                <div class="evidence-explanation">This supports high viremia as a separate downstream event after antiviral immune failure.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-activation-and-vascular-leak" data-dismech-node="Endothelial activation and vascular leak" data-dismech-type="pathophysiology">
-                <div class="item-name">Endothelial activation and vascular leak</div>
-
-                <div class="item-desc">Endothelial dysfunction increases vascular permeability, causing plasma leakage, intravascular volume depletion, tissue edema, hypotension, and shock.</div>
-
-
-
-                <div class="item-meta">
 
                     <span class="tag tag-cell">
                         endothelial cell
@@ -4408,10 +4570,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4437,62 +4602,6 @@
 
 
                 <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        inflammatory response
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-bio">
-                        regulation of vascular permeability
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0043114" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043114">GO:0043114</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ⚠ ABNORMAL
-    </span>
-
-
-
-
-
-
-
-
 
 
 
@@ -4502,10 +4611,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042118">GO:0042118</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042118</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4533,30 +4645,15 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Consumptive coagulopathy</span>
+	                            <span class="crosslink-meta">Increased vascular permeability</span>
 
-	                            <span class="crosslink-desc">Endothelial injury and inflammatory coagulation activation contribute to consumptive coagulopathy.</span>
-
-
-	                        </div>
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Decreased coagulation factor production</span>
-
-	                            <span class="crosslink-desc">Severe VHF can impair coagulation factor availability and amplify bleeding risk.</span>
-
-
-	                        </div>
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Thrombocytopenia and platelet dysfunction</span>
-
-	                            <span class="crosslink-desc">Endothelial injury and systemic viral illness are accompanied by platelet abnormalities in VHF.</span>
+	                            <span class="crosslink-desc">Endothelial activation and damage can disrupt barrier integrity and increase vascular permeability.</span>
 
 
 	                        </div>
@@ -4603,7 +4700,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4623,12 +4720,46 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-consumptive-coagulopathy" data-dismech-node="Consumptive coagulopathy" data-dismech-type="pathophysiology">
-                <div class="item-name">Consumptive coagulopathy</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-vascular-permeability" data-dismech-node="Increased vascular permeability" data-dismech-type="pathophysiology">
+                <div class="item-name">Increased vascular permeability</div>
 
-                <div class="item-desc">Severe viral hemorrhagic fever can activate and consume hemostatic pathways, producing DIC-like coagulopathy that contributes to bleeding and shock.</div>
+                <div class="item-desc">Increased endothelial permeability permits plasma leakage and intravascular volume loss. Its prominence and clinical consequences differ by VHF agent.</div>
 
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000115</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4639,16 +4770,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        blood coagulation
+                        regulation of vascular permeability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043114" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0043114</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of vascular permeability (GO:0043114). GO:0043114 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4676,14 +4812,164 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Shock and organ dysfunction</span>
+	                            <span class="crosslink-meta">Capillary leak</span>
 
-	                            <span class="crosslink-desc">Consumptive coagulopathy, vascular leak, and systemic inflammation can progress to shock and organ dysfunction.</span>
+	                            <span class="crosslink-desc">Increased vascular permeability is expressed clinically as capillary leak.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Shock</span>
+
+	                            <span class="crosslink-desc">Severe plasma leakage can contribute to shock through intravascular volume depletion and hypotension.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy."</div>
+
+
+                <div class="evidence-explanation">This supports capillary leak as a distinct recurring VHF pathogenesis feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41410052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41410052" target="_blank">PMID:41410052</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability."</div>
+
+
+                <div class="evidence-explanation">The review directly links endothelial activation and damage to increased vascular permeability.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-consumptive-coagulopathy" data-dismech-node="Consumptive coagulopathy" data-dismech-type="pathophysiology">
+                <div class="item-name">Consumptive coagulopathy</div>
+
+                <div class="item-desc">Consumptive coagulopathy is one potential VHF bleeding mechanism; it is not asserted to occur in every VHF infection or to have equal importance across agents.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        blood coagulation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007596</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hemorrhage</span>
+
+	                            <span class="crosslink-desc">Consumption of coagulation components can contribute to hemorrhagic manifestations.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coagulopathy</span>
+
+	                            <span class="crosslink-desc">Consumptive hemostatic dysfunction is clinically detected as coagulopathy.</span>
 
 
 	                        </div>
@@ -4708,7 +4994,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4730,7 +5016,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4753,7 +5039,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-decreased-coagulation-factor-production" data-dismech-node="Decreased coagulation factor production" data-dismech-type="pathophysiology">
                 <div class="item-name">Decreased coagulation factor production</div>
 
-                <div class="item-desc">Reduced coagulation factor production is a distinct hemostatic mechanism contributing to bleeding during VHF.</div>
+                <div class="item-desc">Reduced coagulation factor production is a distinct hemostatic mechanism that may contribute to bleeding in some VHFs.</div>
 
 
 
@@ -4766,16 +5052,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood coagulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007596</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4803,14 +5094,23 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Shock and organ dysfunction</span>
+	                            <span class="crosslink-meta">Hemorrhage</span>
 
-	                            <span class="crosslink-desc">Reduced coagulation factor availability can worsen bleeding and systemic organ dysfunction.</span>
+	                            <span class="crosslink-desc">Reduced coagulation-factor availability can increase bleeding risk.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coagulopathy</span>
+
+	                            <span class="crosslink-desc">Reduced coagulation-factor availability contributes to an abnormal coagulation profile.</span>
 
 
 	                        </div>
@@ -4835,7 +5135,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4855,14 +5155,16 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombocytopenia-and-platelet-dysfunction" data-dismech-node="Thrombocytopenia and platelet dysfunction" data-dismech-type="pathophysiology">
-                <div class="item-name">Thrombocytopenia and platelet dysfunction</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-platelet-number" data-dismech-node="Reduced platelet number" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced platelet number</div>
 
-                <div class="item-desc">Platelet number and platelet function can be disrupted in VHF, providing a separate hemostatic route to hemorrhagic manifestations.</div>
+                <div class="item-desc">Reduced platelet number is one potential VHF bleeding mechanism. Its occurrence and contribution to hemorrhage vary by agent, and the dengue-specific observation below is not generalized to every VHF.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         platelet
@@ -4870,10 +5172,150 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thrombocytopenia</span>
+
+	                            <span class="crosslink-desc">Reduced platelet number is clinically detected as thrombocytopenia.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hemorrhage</span>
+
+	                            <span class="crosslink-desc">Reduced platelet number can contribute to hemorrhagic manifestations.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41410052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41410052" target="_blank">PMID:41410052</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In dengue virus infection, thrombocytopenia and platelet dysfunction occur."</div>
+
+
+                <div class="evidence-explanation">This supports reduced platelet number in dengue as a representative, subtype-specific VHF example.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41410052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41410052" target="_blank">PMID:41410052</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability."</div>
+
+
+                <div class="evidence-explanation">This directly identifies thrombocytopenia as one VHF bleeding mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-dysfunction" data-dismech-node="Platelet dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Platelet dysfunction</div>
+
+                <div class="item-desc">Abnormal platelet function is a separate potential route to hemorrhagic manifestations. Its occurrence and importance differ by VHF agent, and the dengue-specific observation below is not generalized to every VHF.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        platelet
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000233</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4900,16 +5342,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         platelet activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030168</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4937,14 +5384,15 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Shock and organ dysfunction</span>
+	                            <span class="crosslink-meta">Hemorrhage</span>
 
-	                            <span class="crosslink-desc">Platelet abnormalities can worsen bleeding and organ dysfunction during severe VHF.</span>
+	                            <span class="crosslink-desc">Platelet dysfunction can contribute to hemorrhagic manifestations.</span>
 
 
 	                        </div>
@@ -4969,14 +5417,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"In dengue virus infection, thrombocytopenia and platelet dysfunction occur."</div>
 
 
-                <div class="evidence-explanation">This supports platelet abnormalities as part of the hemostatic phenotype in a representative VHF.</div>
+                <div class="evidence-explanation">This supports platelet dysfunction in dengue as a representative, subtype-specific VHF example.</div>
 
 
 
@@ -4991,71 +5439,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability."</div>
 
 
-                <div class="evidence-explanation">This directly identifies thrombocytopenia and platelet dysfunction as a distinct VHF bleeding mechanism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-shock-and-organ-dysfunction" data-dismech-node="Shock and organ dysfunction" data-dismech-type="pathophysiology">
-                <div class="item-name">Shock and organ dysfunction</div>
-
-                <div class="item-desc">Vascular leak, systemic inflammation, bleeding, and coagulopathy can culminate in shock and organ dysfunction in severe cases.</div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinically, they initially present as non-specific febrile illnesses, but may progress to organ dysfunction, hemorrhagic manifestations, or shock."</div>
-
-
-                <div class="evidence-explanation">This supports severe downstream organ dysfunction and shock.</div>
+                <div class="evidence-explanation">This directly identifies platelet dysfunction as one VHF bleeding mechanism.</div>
 
 
 
@@ -5093,7 +5484,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiviral immune failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early failure of antiviral immune control, including impaired type I interferon-associated antiviral responses, is an upstream event in VHF pathogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"monocyte\", \"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"response to virus\", \"type I interferon-mediated signaling pathway\"]}}, {\"id\": \"Consumptive coagulopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe viral hemorrhagic fever can activate and consume hemostatic pathways, producing DIC-like coagulopathy that contributes to bleeding and shock.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Decreased coagulation factor production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced coagulation factor production is a distinct hemostatic mechanism contributing to bleeding during VHF.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Endothelial activation and vascular leak\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endothelial dysfunction increases vascular permeability, causing plasma leakage, intravascular volume depletion, tissue edema, hypotension, and shock.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\", \"regulation of vascular permeability\", \"endothelial cell activation\"]}}, {\"id\": \"High viremia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High systemic viral burden follows inadequate antiviral control and contributes to inflammatory, endothelial, and hemostatic injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral process\"]}}, {\"id\": \"Shock and organ dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vascular leak, systemic inflammation, bleeding, and coagulopathy can culminate in shock and organ dysfunction in severe cases.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombocytopenia and platelet dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelet number and platelet function can be disrupted in VHF, providing a separate hemostatic route to hemorrhagic manifestations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\"]}}], \"edges\": [{\"source\": \"Antiviral immune failure\", \"target\": \"High viremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed antiviral control permits higher systemic viral burden.\"}, {\"source\": \"High viremia\", \"target\": \"Endothelial activation and vascular leak\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High viral burden and host inflammatory responses promote endothelial dysfunction and capillary leak.\"}, {\"source\": \"Endothelial activation and vascular leak\", \"target\": \"Consumptive coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial injury and inflammatory coagulation activation contribute to consumptive coagulopathy.\"}, {\"source\": \"Endothelial activation and vascular leak\", \"target\": \"Decreased coagulation factor production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe VHF can impair coagulation factor availability and amplify bleeding risk.\"}, {\"source\": \"Endothelial activation and vascular leak\", \"target\": \"Thrombocytopenia and platelet dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial injury and systemic viral illness are accompanied by platelet abnormalities in VHF.\"}, {\"source\": \"Consumptive coagulopathy\", \"target\": \"Shock and organ dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Consumptive coagulopathy, vascular leak, and systemic inflammation can progress to shock and organ dysfunction.\"}, {\"source\": \"Decreased coagulation factor production\", \"target\": \"Shock and organ dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced coagulation factor availability can worsen bleeding and systemic organ dysfunction.\"}, {\"source\": \"Thrombocytopenia and platelet dysfunction\", \"target\": \"Shock and organ dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platelet abnormalities can worsen bleeding and organ dysfunction during severe VHF.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Capillary leak\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030005\"}}, {\"id\": \"Coagulopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003256\"}}, {\"id\": \"Consumptive coagulopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Consumptive coagulopathy is one potential VHF bleeding mechanism; it is not asserted to occur in every VHF infection or to have equal importance across agents.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Decreased coagulation factor production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced coagulation factor production is a distinct hemostatic mechanism that may contribute to bleeding in some VHFs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Endothelial activation and damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endothelial activation or damage is a recurring vascular mechanism in VHF, although its direct viral and host-mediated drivers vary among agents.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"endothelial cell activation\"]}}, {\"id\": \"Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemorrhagic manifestations define the syndrome historically but vary greatly by virus and case severity and are not asserted to occur in every infection.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001892\"}}, {\"id\": \"Increased vascular permeability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased endothelial permeability permits plasma leakage and intravascular volume loss. Its prominence and clinical consequences differ by VHF agent.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"regulation of vascular permeability\"]}}, {\"id\": \"Platelet dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal platelet function is a separate potential route to hemorrhagic manifestations. Its occurrence and importance differ by VHF agent, and the dengue-specific observation below is not generalized to every VHF.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\"]}}, {\"id\": \"Reduced platelet number\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced platelet number is one potential VHF bleeding mechanism. Its occurrence and contribution to hemorrhage vary by agent, and the dengue-specific observation below is not generalized to every VHF.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"]}}, {\"id\": \"Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031273\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"Endothelial activation and damage\", \"target\": \"Increased vascular permeability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial activation and damage can disrupt barrier integrity and increase vascular permeability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased vascular permeability\", \"target\": \"Capillary leak\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased vascular permeability is expressed clinically as capillary leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased vascular permeability\", \"target\": \"Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe plasma leakage can contribute to shock through intravascular volume depletion and hypotension.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"intravascular volume depletion and hypotension\"]}, {\"source\": \"Consumptive coagulopathy\", \"target\": \"Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Consumption of coagulation components can contribute to hemorrhagic manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Consumptive coagulopathy\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Consumptive hemostatic dysfunction is clinically detected as coagulopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decreased coagulation factor production\", \"target\": \"Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced coagulation-factor availability can increase bleeding risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Decreased coagulation factor production\", \"target\": \"Coagulopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced coagulation-factor availability contributes to an abnormal coagulation profile.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced platelet number\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced platelet number is clinically detected as thrombocytopenia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced platelet number\", \"target\": \"Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced platelet number can contribute to hemorrhagic manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Platelet dysfunction\", \"target\": \"Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platelet dysfunction can contribute to hemorrhagic manifestations.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5106,17 +5497,17 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">13</span>
+                <span class="card-count">16</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
@@ -5126,6 +5517,8 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Constitutional<span class="pill-count">(1)</span></button>
 
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(1)</span></button>
+
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
@@ -5134,7 +5527,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hemorrhage" data-dismech-node="Hemorrhage" data-dismech-type="phenotype">
@@ -5142,14 +5535,23 @@
                         Hemorrhage
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal bleeding
+
+                        <span class="phenotype-term-label">Abnormal bleeding</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001892">HP:0001892</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001892</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemorrhage, annotated with Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5173,7 +5575,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5196,137 +5598,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-petechiae" data-dismech-node="Petechiae" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coagulopathy" data-dismech-node="Coagulopathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Petechiae
+                        Coagulopathy
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Petechiae
 
+                        <span class="phenotype-term-label">Abnormality of the coagulation cascade</span>
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000967">HP:0000967</a>
 
 
-                    </span>
+    <a href="http://purl.obolibrary.org/obo/HP_0003256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003256</a>
 
-                    </div>
 
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2749111" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2749111" target="_blank">PMID:2749111</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Petechial rash and hemorrhagic signs such as epistaxis, hematemesis, and melena supervened on days 3-6 of illness."</div>
-
-
-                <div class="evidence-explanation">This CCHF clinical pathology series supports petechial rash as a hemorrhagic manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epistaxis" data-dismech-node="Epistaxis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epistaxis
-
-
-                    <span class="phenotype-id">
-                        Epistaxis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000421">HP:0000421</a>
-
-
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:2749111" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2749111" target="_blank">PMID:2749111</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Petechial rash and hemorrhagic signs such as epistaxis, hematemesis, and melena supervened on days 3-6 of illness."</div>
-
-
-                <div class="evidence-explanation">This CCHF clinical pathology series supports epistaxis as a hemorrhagic manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thrombocytopenia
-
-
-                    <span class="phenotype-id">
-                        Thrombocytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
-
-
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coagulopathy, annotated with Abnormality of the coagulation cascade (HP:0003256). HP:0003256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5350,7 +5643,205 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy."</div>
+
+
+                <div class="evidence-explanation">This directly supports coagulopathy as a recurring severe VHF feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-petechiae" data-dismech-node="Petechiae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Petechiae
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000967</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Petechiae (HP:0000967). HP:0000967 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2749111" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2749111" target="_blank">PMID:2749111</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Petechial rash and hemorrhagic signs such as epistaxis, hematemesis, and melena supervened on days 3-6 of illness."</div>
+
+
+                <div class="evidence-explanation">This clinical pathology series supports petechial rash in Crimean-Congo hemorrhagic fever specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epistaxis" data-dismech-node="Epistaxis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Epistaxis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000421</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2749111" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2749111" target="_blank">PMID:2749111</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Petechial rash and hemorrhagic signs such as epistaxis, hematemesis, and melena supervened on days 3-6 of illness."</div>
+
+
+                <div class="evidence-explanation">This clinical pathology series supports epistaxis in Crimean-Congo hemorrhagic fever specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thrombocytopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5378,14 +5869,23 @@
                         Leukopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased total leukocyte count
+
+                        <span class="phenotype-term-label">Decreased total leukocyte count</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001882">HP:0001882</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001882</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukopenia, annotated with Decreased total leukocyte count (HP:0001882). HP:0001882 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5409,7 +5909,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5446,14 +5946,21 @@
                         Shock
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Shock
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031273">HP:0031273</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0031273</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Shock (HP:0031273). HP:0031273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5477,7 +5984,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5506,22 +6013,29 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea-and-vomiting" data-dismech-node="Nausea and vomiting" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea" data-dismech-node="Nausea" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Nausea and vomiting
+                        Nausea
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5532,31 +6046,9 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25493109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25493109" target="_blank">PMID:25493109</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase."</div>
-
-
-                <div class="evidence-explanation">This Ebola VHF review identifies vomiting after early systemic symptoms.</div>
-
-
-
-            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:2749111" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5574,7 +6066,7 @@
                 <div class="evidence-snippet">"Following an incubation period of 2-9 days after exposure to infection, patients had a sudden onset of disease with fever, nausea, severe headache, and myalgia."</div>
 
 
-                <div class="evidence-explanation">This CCHF clinical series supports nausea as part of early VHF presentation.</div>
+                <div class="evidence-explanation">This clinical series supports nausea in Crimean-Congo hemorrhagic fever specifically.</div>
 
 
 
@@ -5590,19 +6082,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vomiting" data-dismech-node="Vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Diarrhea
+                        Vomiting
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002013</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5626,14 +6125,80 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase."</div>
 
 
-                <div class="evidence-explanation">This Ebola VHF review identifies diarrhea following the early systemic phase.</div>
+                <div class="evidence-explanation">This review identifies vomiting in Ebola virus disease specifically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Diarrhea
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25493109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25493109" target="_blank">PMID:25493109</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase."</div>
+
+
+                <div class="evidence-explanation">This review identifies diarrhea in Ebola virus disease specifically.</div>
 
 
 
@@ -5663,14 +6228,21 @@
                         Acute kidney injury
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5694,14 +6266,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"Acute kidney injury is an uncommon complication but renal dysfunction has been associated with various VHFs."</div>
 
 
-                <div class="evidence-explanation">This VHF renal review supports acute kidney injury as a recognized complication.</div>
+                <div class="evidence-explanation">This narrative review supports acute kidney injury as an uncommon associated complication without establishing a universal causal route.</div>
 
 
 
@@ -5731,14 +6303,21 @@
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5762,7 +6341,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5790,14 +6369,23 @@
                         Elevated liver enzymes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated liver enzymes, annotated with Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5821,7 +6409,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5858,14 +6446,21 @@
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5889,7 +6484,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5948,14 +6543,21 @@
                         Myalgia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5979,7 +6581,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -5987,6 +6589,81 @@
 
 
                 <div class="evidence-explanation">This Ebola VHF review identifies myalgias as part of the early clinical phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-capillary-leak" data-dismech-node="Capillary leak" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Capillary leak
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030005" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030005</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Capillary leak (HP:0030005). HP:0030005 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy."</div>
+
+
+                <div class="evidence-explanation">This directly supports capillary leak as a recurring severe VHF feature.</div>
 
 
 
@@ -6044,7 +6721,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-supportive-care" data-dismech-node="Supportive care" data-dismech-type="treatment">
@@ -6053,7 +6730,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6082,7 +6764,7 @@
 
 
 
-                <div class="item-desc">Management is primarily supportive, with aggressive fluid, hemodynamic, respiratory, renal, and transfusion support tailored to the viral syndrome and disease severity.</div>
+                <div class="item-desc">Supportive care remains the cornerstone for most VHFs. Its components and intensity must be tailored to the responsible virus, manifestations, and severity; this umbrella record does not define a cross-agent care protocol.</div>
 
 
 
@@ -6091,7 +6773,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6104,7 +6786,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6112,6 +6794,28 @@
 
 
                 <div class="evidence-explanation">This supports supportive care as the core management approach for many VHFs.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42076078" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42076078" target="_blank">PMID:42076078</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Supportive care continues to represent the cornerstone of clinical management for most infections, while pathogen-targeted therapies are available only for a restricted number of diseases."</div>
+
+
+                <div class="evidence-explanation">This supports supportive care as the cross-VHF cornerstone while explicitly limiting targeted therapy to selected diseases.</div>
 
 
 
@@ -6130,7 +6834,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6160,23 +6869,28 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ribavirin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63580" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63580">CHEBI:63580</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63580" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:63580</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ribavirin (CHEBI:63580). CHEBI:63580 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Ribavirin is used in Lassa fever guidelines, although systematic reviews emphasize uncertainty and the need to reassess benefit by disease severity.</div>
+                <div class="item-desc">Ribavirin is included here only for Lassa fever, where guidelines recommend it but a systematic review found a weak and potentially severity-dependent evidence base. It is not asserted as an umbrella VHF treatment.</div>
 
 
 
@@ -6225,7 +6939,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6255,23 +6974,28 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         monoclonal antibody
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20401">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
 
 
 
-                <div class="item-desc">Monoclonal antibody therapy is the targeted pharmacotherapy class with the strongest regulatory success among VHFs, particularly for Ebola virus disease.</div>
+                <div class="item-desc">Monoclonal antibody therapy is the targeted pharmacotherapy class with the strongest regulatory success among VHFs. This record is restricted to Ebola virus disease and does not imply activity against other VHF agents.</div>
 
 
 
@@ -6293,7 +7017,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6313,13 +7037,147 @@
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-isolation-contact-tracing-and-ppe-based-infection-control" data-dismech-node="Isolation, contact tracing, and PPE-based infection control" data-dismech-type="treatment">
+                <div class="item-name">
+                    Isolation, contact tracing, and PPE-based infection control
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
+                    <span class="tag tag-treatment">Therapeutic</span>
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">preventive intervention<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is preventive intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Preventive Intervention</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15843" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15843">NCIT:C15843</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">For VHFs capable of person-to-person or nosocomial transmission, rapid patient isolation, contact tracing, and appropriate healthcare-worker PPE and infection-control measures help prevent spread. Applicability and implementation are agent-, setting-, and jurisdiction-specific; this umbrella entry does not prescribe an operational protocol or apply unchanged to vector- or reservoir-borne transmission.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41734218" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41734218" target="_blank">PMID:41734218</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Continuous surveillance of imported cases, together with access to high-quality laboratory testing, effective infection control including prevention of nosocomial spread, and vigilance in febrile patients with relevant epidemiological exposure, are essential."</div>
+
+
+                <div class="evidence-explanation">This cross-VHF narrative review directly supports infection control and prevention of nosocomial spread as high-level preventive measures.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30047375" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30047375" target="_blank">PMID:30047375</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early detection, rapid patient isolation, contact tracing, and the ongoing vaccination programme should sufficiently control the outbreak."</div>
+
+
+                <div class="evidence-explanation">This human Ebola outbreak study supports isolation and contact tracing as subtype-specific components of the broader preventive intervention.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25493109" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25493109" target="_blank">PMID:25493109</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Emergency department personnel on the frontlines must be prepared to rapidly identify and isolate febrile travelers if indicated. All healthcare workers involved in care of EVD patients should wear personal protective equipment."</div>
+
+
+                <div class="evidence-explanation">This Ebola-focused public-health review supports patient isolation and healthcare-worker PPE as subtype-specific components.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
             <div class="item-box treatment-box anchor-target" id="treatment-selected-vhf-vaccination" data-dismech-node="Selected VHF vaccination" data-dismech-type="treatment">
                 <div class="item-name">
                     Selected VHF vaccination
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -6349,7 +7207,7 @@
 
 
 
-                <div class="item-desc">Vaccines are licensed for selected VHFs, including Ebola, yellow fever, and dengue, while vaccine development for other agents remains an active preparedness priority.</div>
+                <div class="item-desc">Vaccination is preventive and agent-specific. Licensed vaccines exist for selected VHFs, including Ebola, yellow fever, and dengue; this does not imply a vaccine is available for the umbrella syndrome or every listed subtype.</div>
 
 
 
@@ -6371,7 +7229,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -6405,11 +7263,105 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Gene expression associated with liver metabolism during viral hemorrhagic fever
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE12254" target="_blank">geo:GSE12254</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Rhesus macaques (Macaca mulatta) infected with a lethal dose of lymphocytic choriomeningitis virus-strain WE (LCMV-WE) provide a model for Lassa fever virus infection of man. Like Lassa fever in human beings, disease begins with flu-like symptoms but can progress to morbidity fairly rapidly. Previously, we profiled the blood transcriptome of LCMV-infected monkeys (M. Djavani et al. J. Virol. 2007: PMID 17522210) showing distinct pre-viremic and viremic stages that discriminated between virulent and benign infections.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/19216742" target="_blank" style="color: var(--secondary);">PMID:19216742</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Viral Hemorrhagic Fever (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Species-specific responses during Seoul orthohantavirus infection in human and rat lung microvascular endothelial cells
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE245916" target="_blank">geo:GSE245916</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Orthohantaviruses are viruses generally carried by rodents in which they do not cause overt disease. Seoul orthohantavirus (SEOV) predominantly exists as a persistent infection in the omnipresent reservoir host, the Norway rat, Rattus norvegicus. Upon respiratory transmission via aerosolized infectious rodent excreta to humans, SEOV causes an acute disease named hemorrhagic fever with renal syndrome (HFRS). Lack of disease in rats is attributed to downregulation of pro-inflammatory and upregulation of regulatory host responses.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38536871" target="_blank" style="color: var(--secondary);">PMID:38536871</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Viral Hemorrhagic Fever (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6428,14 +7380,28 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Viral Hemorrhagic Fever
 creation_date: &#34;2026-05-09T13:23:18Z&#34;
-updated_date: &#34;2026-05-09T22:39:24Z&#34;
 description: &gt;-
-  Viral hemorrhagic fever is a group of severe infections caused by selected
-  enveloped RNA viruses. The shared syndrome features acute febrile illness with
-  impaired antiviral immunity, high viremia, endothelial dysfunction, capillary
-  leak, coagulopathy, hemorrhagic manifestations, shock, and possible organ
+  Viral hemorrhagic fever is a heterogeneous group of severe infections caused
+  by selected enveloped RNA viruses. The umbrella entry models recurring
+  vascular, immune, and hemostatic patterns rather than one uniform disease:
+  individual viruses differ in transmission, organ tropism, bleeding mechanism,
+  clinical course, diagnostics, prevention, and treatment, and overt hemorrhage
+  is not present in every infection. Severe disease can include acute febrile
+  illness, impaired antiviral immunity, high viremia, endothelial dysfunction,
+  capillary leak, coagulopathy, hemorrhagic manifestations, shock, and organ
   dysfunction.
 category: Infectious Disease
+classifications:
+  harrisons_chapter:
+  - classification_value: INFECTIOUS_DISEASES
+    evidence:
+    - reference: PMID:41734218
+      reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Viral hemorrhagic fevers are severe infections caused by selected enveloped RNA viruses from the families Filoviridae, Arenaviridae, Flaviviridae, and the order Bunyavirales.
+      explanation: The review explicitly characterizes VHFs as severe viral infections, supporting infectious-disease classification.
 disease_term:
   preferred_term: viral hemorrhagic fever
   term:
@@ -6475,7 +7441,7 @@ infectious_agent:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Viral hemorrhagic fevers are severe infections caused by selected enveloped RNA viruses from the families Filoviridae, Arenaviridae, Flaviviridae, and the order Bunyavirales.
     explanation: This review identifies the major viral groups that cause the VHF syndrome.
@@ -6489,7 +7455,7 @@ progression:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Clinically, they initially present as non-specific febrile illnesses, but may progress to organ dysfunction, hemorrhagic manifestations, or shock.
     explanation: This directly supports the early febrile presentation and possible progression to severe disease.
@@ -6501,7 +7467,7 @@ progression:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
     explanation: This supports the vascular and hemostatic transition that defines severe VHF.
@@ -6515,7 +7481,7 @@ transmission:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       For many of these infections, transmission via vectors, zoonotic spread, or nosocomial transmission plays a significant role.
     explanation: This supports the broad transmission categories across VHF agents.
@@ -6533,95 +7499,28 @@ transmission:
       The routes of transmission mainly include direct exposures via needle-stick, mucosal or direct contact with the skin to infected blood.
     explanation: This healthcare-worker cohort supports blood exposure as an occupational transmission route for a representative VHF.
 pathophysiology:
-- name: Antiviral immune failure
+- name: Endothelial activation and damage
   description: &gt;-
-    Early failure of antiviral immune control, including impaired type I
-    interferon-associated antiviral responses, is an upstream event in VHF
-    pathogenesis.
+    Endothelial activation or damage is a recurring vascular mechanism in VHF,
+    although its direct viral and host-mediated drivers vary among agents.
   downstream:
-  - target: High viremia
-    description: Failed antiviral control permits higher systemic viral burden.
-  biological_processes:
-  - preferred_term: response to virus
-    modifier: ABNORMAL
-    term:
-      id: GO:0009615
-      label: response to virus
-  - preferred_term: type I interferon-mediated signaling pathway
-    modifier: DECREASED
-    term:
-      id: GO:0060337
-      label: type I interferon-mediated signaling pathway
-  cell_types:
-  - preferred_term: monocyte
-    term:
-      id: CL:0000576
-      label: monocyte
-  - preferred_term: macrophage
-    term:
-      id: CL:0000235
-      label: macrophage
-  - preferred_term: dendritic cell
-    term:
-      id: CL:0000451
-      label: dendritic cell
-  evidence:
-  - reference: PMID:41734218
-    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
-    explanation: This supports antiviral immune failure as an upstream VHF mechanism.
-- name: High viremia
-  description: &gt;-
-    High systemic viral burden follows inadequate antiviral control and
-    contributes to inflammatory, endothelial, and hemostatic injury.
-  downstream:
-  - target: Endothelial activation and vascular leak
-    description: High viral burden and host inflammatory responses promote endothelial dysfunction and capillary leak.
-  biological_processes:
-  - preferred_term: viral process
-    modifier: INCREASED
-    term:
-      id: GO:0016032
-      label: viral process
-  evidence:
-  - reference: PMID:41734218
-    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
-    explanation: This supports high viremia as a separate downstream event after antiviral immune failure.
-- name: Endothelial activation and vascular leak
-  description: &gt;-
-    Endothelial dysfunction increases vascular permeability, causing plasma
-    leakage, intravascular volume depletion, tissue edema, hypotension, and
-    shock.
-  downstream:
-  - target: Consumptive coagulopathy
-    description: Endothelial injury and inflammatory coagulation activation contribute to consumptive coagulopathy.
-  - target: Decreased coagulation factor production
-    description: Severe VHF can impair coagulation factor availability and amplify bleeding risk.
-  - target: Thrombocytopenia and platelet dysfunction
-    description: Endothelial injury and systemic viral illness are accompanied by platelet abnormalities in VHF.
+  - target: Increased vascular permeability
+    description: Endothelial activation and damage can disrupt barrier integrity and increase vascular permeability.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:41410052
+      reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
+      explanation: The review directly states that endothelial activation and damage result in increased vascular permeability.
   cell_types:
   - preferred_term: endothelial cell
     term:
       id: CL:0000115
       label: endothelial cell
   biological_processes:
-  - preferred_term: inflammatory response
-    modifier: INCREASED
-    term:
-      id: GO:0006954
-      label: inflammatory response
-  - preferred_term: regulation of vascular permeability
-    modifier: ABNORMAL
-    term:
-      id: GO:0043114
-      label: regulation of vascular permeability
   - preferred_term: endothelial cell activation
     modifier: INCREASED
     term:
@@ -6638,17 +7537,92 @@ pathophysiology:
   - reference: PMID:41410052
     reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
     explanation: This supports endothelial activation/damage and increased vascular permeability as mechanisms linked to VHF bleeding.
+- name: Increased vascular permeability
+  description: &gt;-
+    Increased endothelial permeability permits plasma leakage and intravascular
+    volume loss. Its prominence and clinical consequences differ by VHF agent.
+  downstream:
+  - target: Capillary leak
+    description: Increased vascular permeability is expressed clinically as capillary leak.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:41734218
+      reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
+      explanation: This supports capillary leak as the clinical manifestation of the permeability abnormality represented by this node.
+  - target: Shock
+    description: Severe plasma leakage can contribute to shock through intravascular volume depletion and hypotension.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - intravascular volume depletion and hypotension
+    evidence:
+    - reference: PMID:30507366
+      reference_title: &#34;Beyond thrombocytopaenia, haemorrhage and shock: the expanded dengue syndrome.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        Dengue infection classically presents with fever, thrombocytopaenia, and varying degrees of plasma leakage, giving rise to shock.
+      explanation: &gt;-
+        This directly supports the leakage-to-shock route in dengue, but is
+        graded PARTIAL for the heterogeneous VHF umbrella because the route is
+        not equally prominent across agents.
+  cell_types:
+  - preferred_term: endothelial cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  biological_processes:
+  - preferred_term: regulation of vascular permeability
+    modifier: ABNORMAL
+    term:
+      id: GO:0043114
+      label: regulation of vascular permeability
+  evidence:
+  - reference: PMID:41734218
+    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
+    explanation: This supports capillary leak as a distinct recurring VHF pathogenesis feature.
+  - reference: PMID:41410052
+    reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
+    explanation: The review directly links endothelial activation and damage to increased vascular permeability.
 - name: Consumptive coagulopathy
   description: &gt;-
-    Severe viral hemorrhagic fever can activate and consume hemostatic pathways,
-    producing DIC-like coagulopathy that contributes to bleeding and shock.
+    Consumptive coagulopathy is one potential VHF bleeding mechanism; it is not
+    asserted to occur in every VHF infection or to have equal importance across
+    agents.
   downstream:
-  - target: Shock and organ dysfunction
-    description: Consumptive coagulopathy, vascular leak, and systemic inflammation can progress to shock and organ dysfunction.
+  - target: Hemorrhage
+    description: Consumption of coagulation components can contribute to hemorrhagic manifestations.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence: &amp;vhf_hemostatic_to_bleeding_evidence
+    - reference: PMID:41410052
+      reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
+      explanation: &gt;-
+        The review identifies consumptive coagulopathy, reduced factor
+        production, and platelet abnormalities as mechanisms leading to VHF
+        bleeding, without assigning equal importance across agents.
+  - target: Coagulopathy
+    description: Consumptive hemostatic dysfunction is clinically detected as coagulopathy.
+    causal_link_type: DIRECT
+    evidence: *vhf_hemostatic_to_bleeding_evidence
   biological_processes:
   - preferred_term: blood coagulation
     modifier: ABNORMAL
@@ -6659,24 +7633,30 @@ pathophysiology:
   - reference: PMID:41410052
     reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Both direct effects from viral infection of host cells and indirect effects caused by the host response to the virus contribute to dysregulation of the hemostatic system.
     explanation: This supports direct and host-response-mediated hemostatic dysregulation in VHF.
   - reference: PMID:41410052
     reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
     explanation: This directly identifies consumptive coagulopathy as a distinct VHF bleeding mechanism.
 - name: Decreased coagulation factor production
   description: &gt;-
     Reduced coagulation factor production is a distinct hemostatic mechanism
-    contributing to bleeding during VHF.
+    that may contribute to bleeding in some VHFs.
   downstream:
-  - target: Shock and organ dysfunction
-    description: Reduced coagulation factor availability can worsen bleeding and systemic organ dysfunction.
+  - target: Hemorrhage
+    description: Reduced coagulation-factor availability can increase bleeding risk.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence: *vhf_hemostatic_to_bleeding_evidence
+  - target: Coagulopathy
+    description: Reduced coagulation-factor availability contributes to an abnormal coagulation profile.
+    causal_link_type: DIRECT
+    evidence: *vhf_hemostatic_to_bleeding_evidence
   biological_processes:
   - preferred_term: blood coagulation
     modifier: DECREASED
@@ -6687,17 +7667,64 @@ pathophysiology:
   - reference: PMID:41410052
     reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
     explanation: This directly identifies decreased coagulation factor production as a distinct VHF bleeding mechanism.
-- name: Thrombocytopenia and platelet dysfunction
+- name: Reduced platelet number
   description: &gt;-
-    Platelet number and platelet function can be disrupted in VHF, providing a
-    separate hemostatic route to hemorrhagic manifestations.
+    Reduced platelet number is one potential VHF bleeding mechanism. Its
+    occurrence and contribution to hemorrhage vary by agent, and the
+    dengue-specific observation below is not generalized to every VHF.
   downstream:
-  - target: Shock and organ dysfunction
-    description: Platelet abnormalities can worsen bleeding and organ dysfunction during severe VHF.
+  - target: Thrombocytopenia
+    description: Reduced platelet number is clinically detected as thrombocytopenia.
+    causal_link_type: DIRECT
+    evidence: &amp;vhf_platelet_to_bleeding_evidence
+    - reference: PMID:41410052
+      reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
+      explanation: &gt;-
+        The review identifies thrombocytopenia and platelet dysfunction as
+        distinct mechanisms leading to VHF bleeding without establishing a
+        universal frequency or sequence.
+  - target: Hemorrhage
+    description: Reduced platelet number can contribute to hemorrhagic manifestations.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence: *vhf_platelet_to_bleeding_evidence
+  cell_types:
+  - preferred_term: platelet
+    term:
+      id: CL:0000233
+      label: platelet
+  evidence:
+  - reference: PMID:41410052
+    reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In dengue virus infection, thrombocytopenia and platelet dysfunction occur.
+    explanation: This supports reduced platelet number in dengue as a representative, subtype-specific VHF example.
+  - reference: PMID:41410052
+    reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
+    explanation: This directly identifies thrombocytopenia as one VHF bleeding mechanism.
+- name: Platelet dysfunction
+  description: &gt;-
+    Abnormal platelet function is a separate potential route to hemorrhagic
+    manifestations. Its occurrence and importance differ by VHF agent, and the
+    dengue-specific observation below is not generalized to every VHF.
+  downstream:
+  - target: Hemorrhage
+    description: Platelet dysfunction can contribute to hemorrhagic manifestations.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence: *vhf_platelet_to_bleeding_evidence
   biological_processes:
   - preferred_term: platelet activation
     modifier: ABNORMAL
@@ -6713,29 +7740,17 @@ pathophysiology:
   - reference: PMID:41410052
     reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       In dengue virus infection, thrombocytopenia and platelet dysfunction occur.
-    explanation: This supports platelet abnormalities as part of the hemostatic phenotype in a representative VHF.
+    explanation: This supports platelet dysfunction in dengue as a representative, subtype-specific VHF example.
   - reference: PMID:41410052
     reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Herein, we discuss the potential mechanisms leading to bleeding during VHF, which include a consumptive coagulopathy, decreased coagulation factor production, thrombocytopenia and platelet dysfunction, and endothelial cell activation and damage, resulting in increased vascular permeability.
-    explanation: This directly identifies thrombocytopenia and platelet dysfunction as a distinct VHF bleeding mechanism.
-- name: Shock and organ dysfunction
-  description: &gt;-
-    Vascular leak, systemic inflammation, bleeding, and coagulopathy can
-    culminate in shock and organ dysfunction in severe cases.
-  evidence:
-  - reference: PMID:41734218
-    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Clinically, they initially present as non-specific febrile illnesses, but may progress to organ dysfunction, hemorrhagic manifestations, or shock.
-    explanation: This supports severe downstream organ dysfunction and shock.
+    explanation: This directly identifies platelet dysfunction as one VHF bleeding mechanism.
 phenotypes:
 - name: Fever
   category: Systemic
@@ -6748,7 +7763,7 @@ phenotypes:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Clinically, they initially present as non-specific febrile illnesses, but may progress to organ dysfunction, hemorrhagic manifestations, or shock.
     explanation: This supports fever as an early clinical feature.
@@ -6763,7 +7778,7 @@ phenotypes:
   - reference: PMID:25493109
     reference_title: &#34;Ebola Virus Disease: essential public health principles for clinicians.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase.
     explanation: This Ebola VHF review identifies myalgias as part of the early clinical phase.
@@ -6778,7 +7793,7 @@ phenotypes:
   - reference: PMID:25493109
     reference_title: &#34;Ebola Virus Disease: essential public health principles for clinicians.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase.
     explanation: This Ebola VHF review identifies headache as an early clinical feature.
@@ -6789,8 +7804,29 @@ phenotypes:
     snippet: &gt;-
       Following an incubation period of 2-9 days after exposure to infection, patients had a sudden onset of disease with fever, nausea, severe headache, and myalgia.
     explanation: This CCHF clinical series supports severe headache in another VHF subtype.
-- name: Nausea and vomiting
+- name: Nausea
   category: Gastrointestinal
+  description: &gt;-
+    This assertion is supported here by a Crimean-Congo hemorrhagic fever
+    clinical series and is not assigned a cross-VHF frequency.
+  phenotype_term:
+    preferred_term: Nausea
+    term:
+      id: HP:0002018
+      label: Nausea
+  evidence:
+  - reference: PMID:2749111
+    reference_title: The clinical pathology of Crimean-Congo hemorrhagic fever.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Following an incubation period of 2-9 days after exposure to infection, patients had a sudden onset of disease with fever, nausea, severe headache, and myalgia.
+    explanation: This clinical series supports nausea in Crimean-Congo hemorrhagic fever specifically.
+- name: Vomiting
+  category: Gastrointestinal
+  description: &gt;-
+    This assertion is supported here by Ebola virus disease evidence as a
+    subtype example and is not asserted for every VHF agent.
   phenotype_term:
     preferred_term: Vomiting
     term:
@@ -6800,19 +7836,15 @@ phenotypes:
   - reference: PMID:25493109
     reference_title: &#34;Ebola Virus Disease: essential public health principles for clinicians.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase.
-    explanation: This Ebola VHF review identifies vomiting after early systemic symptoms.
-  - reference: PMID:2749111
-    reference_title: The clinical pathology of Crimean-Congo hemorrhagic fever.
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Following an incubation period of 2-9 days after exposure to infection, patients had a sudden onset of disease with fever, nausea, severe headache, and myalgia.
-    explanation: This CCHF clinical series supports nausea as part of early VHF presentation.
+    explanation: This review identifies vomiting in Ebola virus disease specifically.
 - name: Diarrhea
   category: Gastrointestinal
+  description: &gt;-
+    This assertion is supported here by Ebola virus disease evidence as a
+    subtype example and is not asserted for every VHF agent.
   phenotype_term:
     preferred_term: Diarrhea
     term:
@@ -6822,12 +7854,30 @@ phenotypes:
   - reference: PMID:25493109
     reference_title: &#34;Ebola Virus Disease: essential public health principles for clinicians.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Symptoms of EVD include abrupt onset of fever, myalgias, and headache in the early phase, followed by vomiting, diarrhea and possible progression to hemorrhagic rash, life-threatening bleeding, and multi-organ failure in the later phase.
-    explanation: This Ebola VHF review identifies diarrhea following the early systemic phase.
+    explanation: This review identifies diarrhea in Ebola virus disease specifically.
+- name: Capillary leak
+  category: Cardiovascular
+  phenotype_term:
+    preferred_term: Capillary leak
+    term:
+      id: HP:0030005
+      label: Capillary leak
+  evidence:
+  - reference: PMID:41734218
+    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
+    explanation: This directly supports capillary leak as a recurring severe VHF feature.
 - name: Hemorrhage
   category: Hematologic
+  description: &gt;-
+    Hemorrhagic manifestations define the syndrome historically but vary greatly
+    by virus and case severity and are not asserted to occur in every infection.
   phenotype_term:
     preferred_term: Hemorrhage
     term:
@@ -6837,12 +7887,30 @@ phenotypes:
   - reference: PMID:31668201
     reference_title: Viral Hemorrhagic Fevers Other than Ebola and Lassa.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Viral hemorrhagic fevers are severe febrile illnesses with hemorrhagic phenomena.
     explanation: This supports hemorrhagic manifestations as a defining clinical feature.
+- name: Coagulopathy
+  category: Hematologic
+  phenotype_term:
+    preferred_term: Coagulopathy
+    term:
+      id: HP:0003256
+      label: Abnormality of the coagulation cascade
+  evidence:
+  - reference: PMID:41734218
+    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Their pathogenesis is characterized by early failure of antiviral immunity, high viremia, endothelial dysfunction, capillary leak, and coagulopathy.
+    explanation: This directly supports coagulopathy as a recurring severe VHF feature.
 - name: Petechiae
   category: Hematologic
+  description: &gt;-
+    This assertion is supported here by a Crimean-Congo hemorrhagic fever
+    clinical series and is not assigned a cross-VHF frequency.
   phenotype_term:
     preferred_term: Petechiae
     term:
@@ -6855,9 +7923,12 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Petechial rash and hemorrhagic signs such as epistaxis, hematemesis, and melena supervened on days 3-6 of illness.
-    explanation: This CCHF clinical pathology series supports petechial rash as a hemorrhagic manifestation.
+    explanation: This clinical pathology series supports petechial rash in Crimean-Congo hemorrhagic fever specifically.
 - name: Epistaxis
   category: Hematologic
+  description: &gt;-
+    This assertion is supported here by a Crimean-Congo hemorrhagic fever
+    clinical series and is not assigned a cross-VHF frequency.
   phenotype_term:
     preferred_term: Epistaxis
     term:
@@ -6870,7 +7941,7 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Petechial rash and hemorrhagic signs such as epistaxis, hematemesis, and melena supervened on days 3-6 of illness.
-    explanation: This CCHF clinical pathology series supports epistaxis as a hemorrhagic manifestation.
+    explanation: This clinical pathology series supports epistaxis in Crimean-Congo hemorrhagic fever specifically.
 - name: Thrombocytopenia
   category: Hematologic
   phenotype_term:
@@ -6882,7 +7953,7 @@ phenotypes:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Laboratory findings commonly include early leukopenia, thrombocytopenia, and elevated liver enzymes.
     explanation: This supports thrombocytopenia as a common laboratory abnormality.
@@ -6897,7 +7968,7 @@ phenotypes:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Laboratory findings commonly include early leukopenia, thrombocytopenia, and elevated liver enzymes.
     explanation: This supports leukopenia as a common laboratory abnormality.
@@ -6912,7 +7983,7 @@ phenotypes:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Laboratory findings commonly include early leukopenia, thrombocytopenia, and elevated liver enzymes.
     explanation: This supports liver enzyme elevation as a common laboratory abnormality.
@@ -6927,12 +7998,16 @@ phenotypes:
   - reference: PMID:41734218
     reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Clinically, they initially present as non-specific febrile illnesses, but may progress to organ dysfunction, hemorrhagic manifestations, or shock.
     explanation: This supports shock as a severe clinical manifestation.
 - name: Acute kidney injury
   category: Renal
+  description: &gt;-
+    Acute kidney injury is retained as an uncommon, agent-variable VHF
+    complication. The reviewed evidence supports an association but not a
+    universal causal route from shock or a generic organ-dysfunction state.
   phenotype_term:
     preferred_term: Acute kidney injury
     term:
@@ -6942,37 +8017,65 @@ phenotypes:
   - reference: PMID:18620963
     reference_title: Viral hemorrhagic fever-induced acute kidney injury.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Acute kidney injury is an uncommon complication but renal dysfunction has been associated with various VHFs.
-    explanation: This VHF renal review supports acute kidney injury as a recognized complication.
+    explanation: This narrative review supports acute kidney injury as an uncommon associated complication without establishing a universal causal route.
 diagnosis:
-- name: Molecular and serological diagnostic testing
+- name: Exposure-informed recognition and reference-laboratory referral
   description: &gt;-
-    Because early VHF symptoms are nonspecific, outbreak response depends on
-    sensitive and specific molecular or serological testing, with point-of-care
-    assays under active development.
+    Early clinical findings are nonspecific. Recognition therefore depends on
+    compatible epidemiologic exposure, prompt isolation and infection-control
+    action, and access to appropriate laboratory testing; exact public-health
+    procedures are agent- and jurisdiction-specific.
+  evidence:
+  - reference: PMID:41734218
+    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Continuous surveillance of imported cases, together with access to high-quality laboratory testing, effective infection control including prevention of nosocomial spread, and vigilance in febrile patients with relevant epidemiological exposure, are essential.
+    explanation: This directly supports exposure-informed vigilance, laboratory access, and infection control as linked parts of recognition and response.
+- name: Agent-specific molecular and serological testing
+  description: &gt;-
+    Molecular and serological tests are established diagnostic categories, but
+    assay choice, specimen timing, interpretation, and containment requirements
+    differ by suspected virus and illness stage. This umbrella entry does not
+    prescribe an interchangeable test algorithm across VHF agents.
+  evidence:
+  - reference: PMID:31668201
+    reference_title: Viral Hemorrhagic Fevers Other than Ebola and Lassa.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Laboratory diagnosis takes place in highly specialized reference laboratories.
+    explanation: This supports specialist laboratory involvement for VHF diagnosis.
+  - reference: PMID:41754561
+    reference_title: CRISPR-Based Detection of Viral Hemorrhagic Fevers at the Point of Care.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Current molecular and serological diagnostic tests, while efficient and effective, lack the characteristics required of a POC test (POCT) to quickly and easily respond to a VHF outbreak while maintaining a low cost.
+    explanation: This directly distinguishes established molecular and serological testing from the unmet point-of-care need.
+- name: CRISPR-based point-of-care assays (investigational)
+  description: &gt;-
+    CRISPR-based assays are an investigational point-of-care direction rather
+    than an established replacement for current agent-specific molecular and
+    serological testing; published VHF development studies remain limited.
   evidence:
   - reference: PMID:41754561
     reference_title: CRISPR-Based Detection of Viral Hemorrhagic Fevers at the Point of Care.
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: OTHER
     snippet: &gt;-
-      Viral hemorrhagic fevers (VHFs) are highly lethal diseases that often present non-specific, influenza-like symptoms in their early stages, making clinical recognition and differentiation from other febrile illnesses difficult.
-    explanation: This supports the diagnostic challenge created by nonspecific early symptoms.
-  - reference: PMID:41754561
-    reference_title: CRISPR-Based Detection of Viral Hemorrhagic Fevers at the Point of Care.
-    supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &gt;-
-      This overlap underscores the critical need for diagnostic tests that are both sensitive and specific.
-    explanation: This supports the need for accurate diagnostic testing in suspected VHF.
+      However, studies on the development of CRISPR-based POC diagnostic tests for VHFs are limited.
+    explanation: The review explicitly identifies the limited evidence base, supporting investigational rather than established status.
 treatments:
 - name: Supportive care
   description: &gt;-
-    Management is primarily supportive, with aggressive fluid, hemodynamic,
-    respiratory, renal, and transfusion support tailored to the viral syndrome
-    and disease severity.
+    Supportive care remains the cornerstone for most VHFs. Its components and
+    intensity must be tailored to the responsible virus, manifestations, and
+    severity; this umbrella record does not define a cross-agent care protocol.
   treatment_term:
     preferred_term: Supportive Care
     term:
@@ -6982,14 +8085,23 @@ treatments:
   - reference: PMID:31668201
     reference_title: Viral Hemorrhagic Fevers Other than Ebola and Lassa.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Treatment is essentially supportive.
     explanation: This supports supportive care as the core management approach for many VHFs.
+  - reference: PMID:42076078
+    reference_title: &#34;Achievements and Challenges in Therapy and Vaccines Development of Viral Hemorrhagic Fevers: An Up-to-Date Review.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Supportive care continues to represent the cornerstone of clinical management for most infections, while pathogen-targeted therapies are available only for a restricted number of diseases.
+    explanation: This supports supportive care as the cross-VHF cornerstone while explicitly limiting targeted therapy to selected diseases.
 - name: Ribavirin antiviral pharmacotherapy
   description: &gt;-
-    Ribavirin is used in Lassa fever guidelines, although systematic reviews
-    emphasize uncertainty and the need to reassess benefit by disease severity.
+    Ribavirin is included here only for Lassa fever, where guidelines recommend
+    it but a systematic review found a weak and potentially severity-dependent
+    evidence base. It is not asserted as an umbrella VHF treatment.
+  therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -7013,8 +8125,9 @@ treatments:
 - name: Ebola monoclonal antibody therapy
   description: &gt;-
     Monoclonal antibody therapy is the targeted pharmacotherapy class with the
-    strongest regulatory success among VHFs, particularly for Ebola virus
-    disease.
+    strongest regulatory success among VHFs. This record is restricted to Ebola
+    virus disease and does not imply activity against other VHF agents.
+  therapeutic_modality: MONOCLONAL_ANTIBODY
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -7029,15 +8142,52 @@ treatments:
   - reference: PMID:42076078
     reference_title: &#34;Achievements and Challenges in Therapy and Vaccines Development of Viral Hemorrhagic Fevers: An Up-to-Date Review.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Monoclonal antibody-based therapies have achieved the most significant regulatory success to date, particularly for Ebola virus disease.
     explanation: This supports Ebola monoclonal antibody pharmacotherapy as an established targeted VHF treatment class.
+- name: Isolation, contact tracing, and PPE-based infection control
+  action_category: THERAPEUTIC
+  therapeutic_modality: OTHER
+  description: &gt;-
+    For VHFs capable of person-to-person or nosocomial transmission, rapid
+    patient isolation, contact tracing, and appropriate healthcare-worker PPE
+    and infection-control measures help prevent spread. Applicability and
+    implementation are agent-, setting-, and jurisdiction-specific; this
+    umbrella entry does not prescribe an operational protocol or apply
+    unchanged to vector- or reservoir-borne transmission.
+  treatment_term:
+    preferred_term: preventive intervention
+    term:
+      id: NCIT:C15843
+      label: Preventive Intervention
+  evidence:
+  - reference: PMID:41734218
+    reference_title: &#34;[Viral hemorrhagic fevers: Pathogenesis, epidemiology and clinical manifestations].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Continuous surveillance of imported cases, together with access to high-quality laboratory testing, effective infection control including prevention of nosocomial spread, and vigilance in febrile patients with relevant epidemiological exposure, are essential.
+    explanation: This cross-VHF narrative review directly supports infection control and prevention of nosocomial spread as high-level preventive measures.
+  - reference: PMID:30047375
+    reference_title: &#34;Outbreak of Ebola virus disease in the Democratic Republic of the Congo, April-May, 2018: an epidemiological study.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Early detection, rapid patient isolation, contact tracing, and the ongoing vaccination programme should sufficiently control the outbreak.
+    explanation: This human Ebola outbreak study supports isolation and contact tracing as subtype-specific components of the broader preventive intervention.
+  - reference: PMID:25493109
+    reference_title: &#34;Ebola Virus Disease: essential public health principles for clinicians.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      Emergency department personnel on the frontlines must be prepared to rapidly identify and isolate febrile travelers if indicated. All healthcare workers involved in care of EVD patients should wear personal protective equipment.
+    explanation: This Ebola-focused public-health review supports patient isolation and healthcare-worker PPE as subtype-specific components.
 - name: Selected VHF vaccination
   description: &gt;-
-    Vaccines are licensed for selected VHFs, including Ebola, yellow fever, and
-    dengue, while vaccine development for other agents remains an active
-    preparedness priority.
+    Vaccination is preventive and agent-specific. Licensed vaccines exist for
+    selected VHFs, including Ebola, yellow fever, and dengue; this does not imply
+    a vaccine is available for the umbrella syndrome or every listed subtype.
   therapeutic_modality: VACCINE
   treatment_term:
     preferred_term: vaccination
@@ -7048,11 +8198,84 @@ treatments:
   - reference: PMID:42076078
     reference_title: &#34;Achievements and Challenges in Therapy and Vaccines Development of Viral Hemorrhagic Fevers: An Up-to-Date Review.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
       Vaccine development has progressed further, with licensed vaccines available for selected VHFs, including Ebola, yellow fever, and dengue, and multiple candidates based on diverse technological platforms advancing through clinical evaluation.
     explanation: This supports vaccination availability for selected VHFs and ongoing vaccine development.
-datasets: []
+datasets:
+- accession: geo:GSE12254
+  title: Gene expression associated with liver metabolism during viral hemorrhagic fever
+  description: &#39;Rhesus macaques (Macaca mulatta) infected with a lethal dose of lymphocytic choriomeningitis virus-strain WE (LCMV-WE) provide a model for Lassa fever virus infection of man. Like Lassa fever in human beings, disease begins with flu-like symptoms but can progress to morbidity fairly rapidly. Previously, we profiled the blood transcriptome of LCMV-infected monkeys (M. Djavani et al. J. Virol. 2007: PMID 17522210) showing distinct pre-viremic and viremic stages that discriminated between virulent and benign infections.&#39;
+  data_type: MICROARRAY
+  sample_count: 20
+  publication: PMID:19216742
+  notes: Identified by GEO DataSets index search for Viral Hemorrhagic Fever (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE245916
+  title: Species-specific responses during Seoul orthohantavirus infection in human and rat lung microvascular endothelial cells
+  description: Orthohantaviruses are viruses generally carried by rodents in which they do not cause overt disease. Seoul orthohantavirus (SEOV) predominantly exists as a persistent infection in the omnipresent reservoir host, the Norway rat, Rattus norvegicus. Upon respiratory transmission via aerosolized infectious rodent excreta to humans, SEOV causes an acute disease named hemorrhagic fever with renal syndrome (HFRS). Lack of disease in rats is attributed to downregulation of pro-inflammatory and upregulation of regulatory host responses.
+  data_type: BULK_RNA_SEQ
+  sample_count: 24
+  publication: PMID:38536871
+  notes: Identified by GEO DataSets index search for Viral Hemorrhagic Fever (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+discussions:
+- discussion_id: vhf_shared_vs_agent_specific_bleeding_mechanisms
+  prompt: &gt;-
+    Which endothelial, coagulation-factor, consumptive-coagulopathy, and platelet
+    mechanisms are genuinely shared across VHFs, and which are specific to a
+    virus, disease stage, or bleeding site?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Endothelial activation and damage
+  - pathophysiology#Increased vascular permeability
+  - pathophysiology#Consumptive coagulopathy
+  - pathophysiology#Decreased coagulation factor production
+  - pathophysiology#Reduced platelet number
+  - pathophysiology#Platelet dysfunction
+  rationale: &gt;-
+    The umbrella entry represents recurring routes, not universal mechanisms.
+    Comparative evidence remains insufficient to assign the same causal weight
+    or sequence to each route across all VHF agents.
+  evidence:
+  - reference: PMID:41410052
+    reference_title: Potential Mechanisms Underlying Bleeding During Infection With Hemorrhagic Fever Viruses.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      There are likely both common and distinct mechanisms underlying bleeding in different VHFs, as sites of bleeding differ between the viruses.
+    explanation: The review explicitly identifies the unresolved common-versus-agent-specific mechanism question.
+- discussion_id: vhf_human_vascular_model_fidelity
+  prompt: &gt;-
+    How faithfully do animal, conventional two-dimensional culture, and emerging
+    microphysiological models reproduce human VHF vascular dynamics across
+    different agents?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Endothelial activation and damage
+  - pathophysiology#Increased vascular permeability
+  rationale: &gt;-
+    Existing animal and cell-culture systems have produced mechanistic insights,
+    but a vascular-model review specifically questions their fidelity to human
+    in-vivo dynamics and presents microphysiological systems as promising rather
+    than validated replacements.
+  evidence:
+  - reference: PMID:38749416
+    reference_title: &#34;Vascular dysfunction in hemorrhagic viral fevers: opportunities for organotypic modeling.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      While animal models and traditional 2D cell cultures have contributed insight into the mechanisms by which these pathogens affect the vasculature, these models fall short in replicatingin vivohuman vascular dynamics.
+    explanation: The review directly states the translational limitation of existing model systems.
+review_notes: &gt;-
+  This review intentionally keeps the entry at the cross-VHF syndrome level.
+  Virus-specific incubation periods, case-fatality estimates, organ tropism,
+  approved products, assay algorithms, and detailed management belong on the
+  corresponding agent-specific disorder entries unless a cross-VHF source
+  supports an umbrella claim. No single prevalence or incidence estimate was
+  added because outbreak ecology and population burden differ fundamentally by
+  virus and setting. The matching Falcon deep-research artifact was treated as a
+  lead; retained claims were checked against tool-generated reference caches.
 </pre>
             </div>
         </div>
@@ -8087,7 +9310,7 @@ These test categories are explicitly referenced as part of clinical evaluation i
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Viral Hemorrhagic Fever", "mondoId": "MONDO:0018087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Viral_Hemorrhagic_Fever", "yamlRevision": "a6fe0cdfcd0c"};
+        const OS_CONFIG = {"diseaseName": "Viral Hemorrhagic Fever", "mondoId": "MONDO:0018087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Viral_Hemorrhagic_Fever", "yamlRevision": "97a2dbdaf8c7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8506,5 +9729,73 @@ These test categories are explicitly referenced as part of clinical evaluation i
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

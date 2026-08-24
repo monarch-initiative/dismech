@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Granulomatosis%20with%20Polyangiitis"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3715,7 +3883,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">65</div>
+                <div class="stat-value">66</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3726,7 +3894,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3752,6 +3920,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3779,27 +3955,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3841,16 +4094,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         B cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3877,16 +4135,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B Cell Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042113">GO:0042113</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves B Cell Activation (GO:0042113). GO:0042113 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3903,6 +4166,7 @@
 
 
                 </div>
+
 
 
 
@@ -3989,17 +4253,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4020,10 +4291,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4050,17 +4324,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neutrophil Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042119">GO:0042119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neutrophil Activation (GO:0042119). GO:0042119 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4081,10 +4362,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140645">GO:0140645</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0140645</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neutrophil Extracellular Trap Formation (GO:0140645). GO:0140645 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4101,6 +4385,7 @@
 
 
                 </div>
+
 
 
 
@@ -4191,17 +4476,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4222,10 +4514,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000624">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive T cell, annotated with CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4252,17 +4547,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Granuloma Formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002432">GO:0002432</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0002432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Granuloma Formation (GO:0002432). GO:0002432 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4283,10 +4585,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4303,6 +4608,7 @@
 
 
                 </div>
+
 
 
 
@@ -4381,16 +4687,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Complement Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Complement Activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4407,6 +4718,7 @@
 
 
                 </div>
+
 
 
 
@@ -4494,7 +4806,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANCA-Mediated Neutrophil Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-proteinase 3 (PR3) antibodies bind to primed neutrophils, causing activation, degranulation, and release of reactive oxygen species and lytic enzymes. This causes direct endothelial damage and vessel wall necrosis. Neutrophil extracellular trap (NET) formation further amplifies vascular injury.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Endothelial Cell\"], \"biological_processes\": [\"Neutrophil Activation\", \"Neutrophil Extracellular Trap Formation\"]}}, {\"id\": \"Avacopan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral C5a receptor inhibitor; allows glucocorticoid reduction or elimination during induction therapy by blocking complement-mediated neutrophil priming.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"avacopan\"]}}, {\"id\": \"B Cell Autoreactivity and ANCA Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive B cells produce anti-proteinase 3 (PR3-ANCA) antibodies, the defining upstream event in GPA pathogenesis. Genetic predisposition (HLA-DP alleles) and environmental triggers (S. aureus, silica) drive loss of tolerance to PR3, leading to sustained autoantibody production.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B Cell Activation\"]}}, {\"id\": \"Complement Alternative Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative complement pathway amplifies inflammation in GPA. C5a recruits and activates neutrophils, creating a positive feedback loop of vascular damage. This mechanism is the therapeutic target of avacopan (C5a receptor inhibitor).\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Complement Activation\"]}}, {\"id\": \"Elevated CRP\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"ANCA-Mediated Neutrophil Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum C-reactive protein reflects the systemic inflammatory activity driven by ANCA-mediated neutrophil activation.\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Granulomatous inflammation with multinucleated giant cells, epithelioid macrophages, and necrosis affects the respiratory tract. CD4+ T cells and macrophages organize into granulomas that destroy tissue, a hallmark distinguishing GPA from other ANCA-associated vasculitides.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\", \"CD4-positive T cell\"], \"biological_processes\": [\"Granuloma Formation\", \"Inflammatory Response\"]}}], \"edges\": [{\"source\": \"B Cell Autoreactivity and ANCA Production\", \"target\": \"ANCA-Mediated Neutrophil Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ANCA-Mediated Neutrophil Activation\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ANCA-Mediated Neutrophil Activation\", \"target\": \"Complement Alternative Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Avacopan\", \"target\": \"Complement Alternative Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ANCA-Mediated Neutrophil Activation\", \"target\": \"Elevated CRP\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum C-reactive protein reflects the systemic inflammatory activity driven by ANCA-mediated neutrophil activation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ANCA-Mediated Neutrophil Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anti-proteinase 3 (PR3) antibodies bind to primed neutrophils, causing activation, degranulation, and release of reactive oxygen species and lytic enzymes. This causes direct endothelial damage and vessel wall necrosis. Neutrophil extracellular trap (NET) formation further amplifies vascular injury.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Endothelial Cell\"], \"biological_processes\": [\"Neutrophil Activation\", \"Neutrophil Extracellular Trap Formation\"]}}, {\"id\": \"Avacopan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral C5a receptor inhibitor; allows glucocorticoid reduction or elimination during induction therapy by blocking complement-mediated neutrophil priming.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"avacopan\"]}}, {\"id\": \"B Cell Autoreactivity and ANCA Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoreactive B cells produce anti-proteinase 3 (PR3-ANCA) antibodies, the defining upstream event in GPA pathogenesis. Genetic predisposition (HLA-DP alleles) and environmental triggers (S. aureus, silica) drive loss of tolerance to PR3, leading to sustained autoantibody production.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B Cell Activation\"]}}, {\"id\": \"Complement Alternative Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alternative complement pathway amplifies inflammation in GPA. C5a recruits and activates neutrophils, creating a positive feedback loop of vascular damage. This mechanism is the therapeutic target of avacopan (C5a receptor inhibitor).\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Complement Activation\"]}}, {\"id\": \"Elevated CRP\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"reports_on\": [{\"target\": \"ANCA-Mediated Neutrophil Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum C-reactive protein reflects the systemic inflammatory activity driven by ANCA-mediated neutrophil activation.\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"Granuloma Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Granulomatous inflammation with multinucleated giant cells, epithelioid macrophages, and necrosis affects the respiratory tract. CD4+ T cells and macrophages organize into granulomas that destroy tissue, a hallmark distinguishing GPA from other ANCA-associated vasculitides.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\", \"CD4-positive T cell\"], \"biological_processes\": [\"Granuloma Formation\", \"Inflammatory Response\"]}}, {\"id\": \"Silica Dust Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Staphylococcus aureus Nasal Carriage\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"B Cell Autoreactivity and ANCA Production\", \"target\": \"ANCA-Mediated Neutrophil Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ANCA-Mediated Neutrophil Activation\", \"target\": \"Granuloma Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ANCA-Mediated Neutrophil Activation\", \"target\": \"Complement Alternative Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Silica Dust Exposure\", \"target\": \"B Cell Autoreactivity and ANCA Production\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the autoantibody node because breaking tolerance to neutrophil antigens is where an environmental risk factor enters this disease, and it is the most upstream immune node the entry offers. Both sentences reach the disease and neither reaches the antibody, so the intermediates stay unknown; the first is doubly hedged as a possible relationship, which is why it is the weaker of the two.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Staphylococcus aureus Nasal Carriage\", \"target\": \"B Cell Autoreactivity and ANCA Production\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded identically to the silica link, and the reason is that the two rest on the same sentence of the same review, which lists them together. Worth noting that this entry\u0027s own notes claim more for this exposure than the evidence does, associating carriage with relapse as well as with onset; no cited sentence mentions relapse, so the link records onset risk only.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Avacopan\", \"target\": \"Complement Alternative Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ANCA-Mediated Neutrophil Activation\", \"target\": \"Elevated CRP\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum C-reactive protein reflects the systemic inflammatory activity driven by ANCA-mediated neutrophil activation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4507,7 +4819,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">65</span>
+                <span class="card-count">66</span>
             </div>
 
 
@@ -4543,7 +4855,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-15">Growth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-16">Other<span class="pill-count">(24)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-16">Other<span class="pill-count">(25)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4563,14 +4875,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Epistaxis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000421">HP:0000421</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000421</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epistaxis (HP:0000421). HP:0000421 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4622,14 +4941,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diffuse alveolar hemorrhage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025420" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025420">HP:0025420</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025420" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0025420</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diffuse alveolar hemorrhage (HP:0025420). HP:0025420 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4683,14 +5009,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Purpura
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000979">HP:0000979</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000979</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4766,14 +5099,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Granulomatosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002955" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002955">HP:0002955</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002955</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4836,14 +5176,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pericarditis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001701">HP:0001701</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001701</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4895,14 +5242,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000822">HP:0000822</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000822</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4954,14 +5308,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vasculitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002633">HP:0002633</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002633</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5024,14 +5385,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002017</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5092,14 +5460,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Otitis media
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000388">HP:0000388</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000388</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Otitis media (HP:0000388). HP:0000388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5151,14 +5526,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5210,14 +5592,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic otitis media
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000389">HP:0000389</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000389</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic otitis media (HP:0000389). HP:0000389 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5280,14 +5669,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scleritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100532" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100532">HP:0100532</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100532" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100532</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scleritis (HP:0100532). HP:0100532 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,14 +5735,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000520</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5400,14 +5803,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000491">HP:0000491</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000491</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratitis (HP:0000491). HP:0000491 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5459,14 +5869,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000488">HP:0000488</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000488</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5529,14 +5946,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5588,14 +6012,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5647,14 +6078,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000083">HP:0000083</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000083</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5715,14 +6153,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sinusitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000246" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000246">HP:0000246</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000246</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sinusitis (HP:0000246), qualified as temporality chronic. HP:0000246 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5816,14 +6261,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depressed nasal bridge
+
+                        <span class="phenotype-term-label">Depressed nasal bridge</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005280">HP:0005280</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0005280</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Saddle Nose Deformity, annotated with Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5886,14 +6340,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent respiratory infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002205</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5947,14 +6408,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin rash
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000988">HP:0000988</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000988</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6006,14 +6474,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autoimmunity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002960">HP:0002960</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002960</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6076,14 +6551,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin ulcer
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200042">HP:0200042</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0200042</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6144,14 +6626,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6212,14 +6701,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6280,14 +6776,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0009830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6341,14 +6844,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cranial nerve paralysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006824">HP:0006824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0006824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6400,14 +6910,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6468,14 +6985,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary infiltrates
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002113">HP:0002113</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002113</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary infiltrates (HP:0002113). HP:0002113 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6527,14 +7051,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemoptysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002105">HP:0002105</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002105</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6586,14 +7117,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6645,14 +7183,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002206">HP:0002206</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002206</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6704,14 +7249,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6763,14 +7315,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic pulmonary obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006510">HP:0006510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0006510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic pulmonary obstruction (HP:0006510). HP:0006510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6833,14 +7392,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6892,14 +7458,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6951,14 +7524,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7010,14 +7590,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7069,14 +7656,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7137,14 +7731,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7195,8 +7796,74 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">24</span>
+                    <span class="cat-count">25</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-necrotizing-vasculitis" data-dismech-node="Necrotizing vasculitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Necrotizing vasculitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:6000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Necrotizing vasculitis (HP:6000253). HP:6000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39257888" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39257888" target="_blank">PMID:39257888</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Granulomatosis with polyangiitis (GPA) is a rare systemic disease characterized by granulomatous inflammation of the respiratory tract and necrotizing vasculitis of small and medium vessels often associated with the production of anti-neutrophil cytoplasmic antibodies (ANCA) directed mainly..."</div>
+
+
+                <div class="evidence-explanation">States that necrotizing vasculitis of small and medium vessels is a defining feature of GPA.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-septum-perforation" data-dismech-node="Nasal Septum Perforation" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7205,14 +7872,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nasal septum perforation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033434" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033434">HP:0033434</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033434" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0033434</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nasal septum perforation (HP:0033434). HP:0033434 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7236,14 +7910,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Subglottic stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001607" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001607">HP:0001607</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001607</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7297,14 +7978,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal oral cavity morphology
+
+                        <span class="phenotype-term-label">Abnormal oral cavity morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000163" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000163">HP:0000163</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000163" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000163</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oral cavity abnormality, annotated with Abnormal oral cavity morphology (HP:0000163). HP:0000163 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7358,14 +8048,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033608" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033608">HP:0033608</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033608" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0033608</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary nodule (HP:0033608). HP:0033608 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7441,14 +8138,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent intrapulmonary hemorrhage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006535" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006535">HP:0006535</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0006535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent intrapulmonary hemorrhage (HP:0006535). HP:0006535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7500,14 +8204,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glomerulonephritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000099">HP:0000099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7583,14 +8294,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nasolacrimal duct obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000579" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000579">HP:0000579</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000579</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nasolacrimal duct obstruction (HP:0000579). HP:0000579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7642,14 +8360,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the hypothalamus-pituitary axis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000864" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000864">HP:0000864</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000864</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the hypothalamus-pituitary axis (HP:0000864). HP:0000864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7703,14 +8428,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-proteinase 3 antibody positivity
+
+                        <span class="phenotype-term-label">Anti-proteinase 3 antibody positivity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033557" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033557">HP:0033557</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033557" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0033557</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-proteinase 3 antibody positivity (HP:0033557). HP:0033557 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7786,14 +8520,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cytoplasmic antineutrophil antibody positivity
+
+                        <span class="phenotype-term-label">Cytoplasmic antineutrophil antibody positivity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032230" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032230">HP:0032230</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032230" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0032230</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cytoplasmic ANCA positivity, annotated with Cytoplasmic antineutrophil antibody positivity (HP:0032230). HP:0032230 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7845,14 +8588,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated erythrocyte sedimentation rate
+
+                        <span class="phenotype-term-label">Elevated erythrocyte sedimentation rate</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003565">HP:0003565</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0003565</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). HP:0003565 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7904,14 +8656,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-neutrophil elastase antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034104" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034104">HP:0034104</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0034104</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-neutrophil elastase antibody positivity (HP:0034104). HP:0034104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7963,14 +8722,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating C-reactive protein concentration
+
+                        <span class="phenotype-term-label">Elevated circulating C-reactive protein concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011227">HP:0011227</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0011227</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated CRP, annotated with Elevated circulating C-reactive protein concentration (HP:0011227). HP:0011227 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8022,14 +8790,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral ischemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002637" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002637">HP:0002637</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002637" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0002637</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral ischemia (HP:0002637). HP:0002637 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8150,14 +8925,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glomerulopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100820" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100820">HP:0100820</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100820" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0100820</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glomerulopathy (HP:0100820). HP:0100820 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8211,14 +8993,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyarticular arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005764" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005764">HP:0005764</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005764" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0005764</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyarticular arthritis (HP:0005764). HP:0005764 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8272,14 +9061,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased inflammatory response
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012649" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012649">HP:0012649</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012649" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0012649</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased inflammatory response (HP:0012649). HP:0012649 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8333,14 +9129,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-myeloperoxidase antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033559" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033559">HP:0033559</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033559" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0033559</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-myeloperoxidase antibody positivity (HP:0033559). HP:0033559 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8394,14 +9197,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Inflammatory abnormality of the eye
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100533" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100533">HP:0100533</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0100533</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inflammatory abnormality of the eye (HP:0100533). HP:0100533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8455,14 +9265,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Periorbital edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100539">HP:0100539</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0100539</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8516,14 +9333,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Papule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200034">HP:0200034</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0200034</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papule (HP:0200034). HP:0200034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8577,14 +9401,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prostatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000024">HP:0000024</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0000024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prostatitis (HP:0000024). HP:0000024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8638,14 +9469,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ureteral stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000071" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000071">HP:0000071</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0000071</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ureteral stenosis (HP:0000071). HP:0000071 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8699,14 +9537,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydronephrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000126">HP:0000126</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0000126</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydronephrosis (HP:0000126). HP:0000126 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9085,7 +9930,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9115,16 +9965,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-79">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9179,7 +10034,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9209,16 +10069,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-81">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9273,7 +10138,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9303,16 +10173,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50858">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-83">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9367,7 +10242,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-84">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-84">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9397,16 +10277,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         avacopan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C174788" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C174788">NCIT:C174788</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C174788" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-85">NCIT:C174788</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses avacopan (NCIT:C174788). NCIT:C174788 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9506,6 +10391,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-silica-dust-exposure" data-dismech-node="Silica Dust Exposure" data-dismech-type="environmental">
                 <div class="item-name">Silica Dust Exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to respirable crystalline silica
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000030" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-86">ECTO:7000030</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to respirable crystalline silica, annotated with exposure to silica dust (ECTO:7000030). ECTO:7000030 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Occupational exposure to crystalline silica is the most consistently reported environmental risk factor for GPA.</div>
 
@@ -9568,10 +10480,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">B Cell Autoreactivity and ANCA Production</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the autoantibody node because breaking tolerance to neutrophil antigens is where an environmental risk factor enters this disease, and it is the most upstream immune node the entry offers. Both sentences reach the disease and neither reaches the antibody, so the intermediates stay unknown; the first is doubly hedged as a possible relationship, which is why it is the weaker of the two.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36315063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36315063" target="_blank">PMID:36315063</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exposure to silica dust, farming and chronic nasal Staphylococcus aureus carriage are associated with increased risk of developing AAV."</div>
+
+
+                <div class="evidence-explanation">Clinical practice review naming silica dust among the exposures associated with increased risk of developing this vasculitis. Risk of the disease, not the antibody response at this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16859601" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16859601" target="_blank">PMID:16859601</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"evidence has grown for a possible relationship between WG and occupational exposure to crystalline silica."</div>
+
+
+                <div class="evidence-explanation">Epidemiology review reporting that evidence has grown for a possible relationship with occupational crystalline silica. Hedged as possible, and about the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-staphylococcus-aureus-nasal-carriage" data-dismech-node="Staphylococcus aureus Nasal Carriage" data-dismech-type="environmental">
                 <div class="item-name">Staphylococcus aureus Nasal Carriage</div>
+
+
+
+
 
 
                 <div class="item-desc">Chronic nasal carriage of S. aureus is associated with increased risk of developing GPA and with disease relapse.</div>
@@ -9612,6 +10602,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">B Cell Autoreactivity and ANCA Production</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded identically to the silica link, and the reason is that the two rest on the same sentence of the same review, which lists them together. Worth noting that this entry&#39;s own notes claim more for this exposure than the evidence does, associating carriage with relapse as well as with onset; no cited sentence mentions relapse, so the link records onset risk only.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36315063" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36315063" target="_blank">PMID:36315063</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exposure to silica dust, farming and chronic nasal Staphylococcus aureus carriage are associated with increased risk of developing AAV."</div>
+
+
+                <div class="evidence-explanation">The same review sentence, which names chronic nasal carriage of this organism alongside silica dust as associated with increased risk of developing the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9763,11 +10805,109 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptome analysis of naive CD4T cells from Granulomatosis with Polyangiitis(GPA) patients and healthy control (HC)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE184898" target="_blank">geo:GSE184898</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Analysis of transcriptional profile of GPA and HC naive CD4 T cells to understand intrinsic molecular differences after early TCR activation that may explain different effector T cell genereation.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/35039330" target="_blank" style="color: var(--secondary);">PMID:35039330</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Defining the Nasal Transcriptome in Granulomatosis with Polyangiitis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE119136" target="_blank">geo:GSE119136</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Objectives: To determine whether disease processes related to granulomatosis with polyangiitis (GPA) are reflected in gene expression profiles of nasal mucosa. Methods: Nasal brushings of the inferior turbinate were obtained from 32 patients with GPA (10 with active nasal disease, 13 with prior nasal disease, 9 with no history of nasal disease) and a composite comparator group with and without inflammatory nasal disease (12 healthy people, 15 with sarcoidosis, 8 with allergic rhinitis). Differential gene expression was assessed between subgroups of GPA and comparators.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=76</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/25939343" target="_blank" style="color: var(--secondary);">PMID:25939343</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9786,7 +10926,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Granulomatosis with Polyangiitis
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-05-01T18:00:00Z&#39;
 category: Autoimmune
 parents:
 - Autoimmune Disease
@@ -9972,6 +11111,33 @@ pathophysiology:
       Confirms the complement system plays a role in amplifying
       ANCA-mediated pulmonary injury.
 phenotypes:
+- category: Histopathologic
+  name: Necrotizing vasculitis
+  description: &gt;-
+    Biopsy of affected tissue shows necrotizing vasculitis of small and
+    medium-sized vessels — fibrinoid necrosis of the inflamed vessel wall —
+    alongside the necrotizing granulomatous inflammation of the respiratory
+    tract that distinguishes GPA from microscopic polyangiitis. This is the
+    lesion that places GPA in the Necrotizing Vasculitides grouping.
+  phenotype_term:
+    preferred_term: Necrotizing vasculitis
+    term:
+      id: HP:6000253
+      label: Necrotizing vasculitis
+  diagnostic: true
+  evidence:
+  - reference: PMID:39257888
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Granulomatosis with polyangiitis (GPA) is a rare systemic disease
+      characterized by granulomatous inflammation of the respiratory tract and
+      necrotizing vasculitis of small and medium vessels often associated with the
+      production of anti-neutrophil cytoplasmic antibodies (ANCA) directed mainly
+      against leukocyte proteinase 3 (PR3).
+    explanation: &gt;-
+      States that necrotizing vasculitis of small and medium vessels is a defining
+      feature of GPA.
 # === ENT / Upper Respiratory ===
 - name: Sinusitis
   category: ENT
@@ -11113,6 +12279,41 @@ genetic:
       as the most consistently reported genetic susceptibility factor for GPA.
 environmental:
 - name: Silica Dust Exposure
+  exposure_term:
+    preferred_term: exposure to respirable crystalline silica
+    term:
+      id: ECTO:7000030
+      label: exposure to silica dust
+  influences_mechanisms:
+  - target: B Cell Autoreactivity and ANCA Production
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the autoantibody node because breaking tolerance to
+      neutrophil antigens is where an environmental risk factor enters this
+      disease, and it is the most upstream immune node the entry offers. Both
+      sentences reach the disease and neither reaches the antibody, so the
+      intermediates stay unknown; the first is doubly hedged as a possible
+      relationship, which is why it is the weaker of the two.
+    evidence:
+    - reference: PMID:36315063
+      reference_title: &#34;Diagnosing and treating ANCA-associated vasculitis: an updated review for clinical practice.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Exposure to silica dust, farming and chronic nasal Staphylococcus aureus carriage are associated with increased risk of developing AAV.&#34;
+      explanation: &gt;-
+        Clinical practice review naming silica dust among the exposures
+        associated with increased risk of developing this vasculitis. Risk of
+        the disease, not the antibody response at this node.
+    - reference: PMID:16859601
+      reference_title: &#34;Epidemiology of Wegener&#39;s granulomatosis: Lessons from descriptive studies and analyses of genetic and environmental risk determinants.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;evidence has grown for a possible relationship between WG and occupational exposure to crystalline silica.&#34;
+      explanation: &gt;-
+        Epidemiology review reporting that evidence has grown for a possible
+        relationship with occupational crystalline silica. Hedged as possible,
+        and about the disease.
   notes: &gt;-
     Occupational exposure to crystalline silica is the most consistently
     reported environmental risk factor for GPA.
@@ -11138,6 +12339,27 @@ environmental:
     explanation: &gt;-
       Clinical practice review confirms silica dust as an established risk factor.
 - name: Staphylococcus aureus Nasal Carriage
+  influences_mechanisms:
+  - target: B Cell Autoreactivity and ANCA Production
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded identically to the silica link, and the reason is that the two
+      rest on the same sentence of the same review, which lists them together.
+      Worth noting that this entry&#39;s own notes claim more for this exposure
+      than the evidence does, associating carriage with relapse as well as
+      with onset; no cited sentence mentions relapse, so the link records
+      onset risk only.
+    evidence:
+    - reference: PMID:36315063
+      reference_title: &#34;Diagnosing and treating ANCA-associated vasculitis: an updated review for clinical practice.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Exposure to silica dust, farming and chronic nasal Staphylococcus aureus carriage are associated with increased risk of developing AAV.&#34;
+      explanation: &gt;-
+        The same review sentence, which names chronic nasal carriage of this
+        organism alongside silica dust as associated with increased risk of
+        developing the disease.
   notes: &gt;-
     Chronic nasal carriage of S. aureus is associated with increased risk
     of developing GPA and with disease relapse.
@@ -11374,6 +12596,31 @@ references:
   title: &#39;Granulomatosis with polyangiitis: clinical characteristics and updates in diagnosis.&#39;
   findings:
   - statement: GPA clinical characterization and diagnostic updates
+datasets:
+- accession: geo:GSE184898
+  title: Transcriptome analysis of naive CD4T cells from Granulomatosis with Polyangiitis(GPA) patients and healthy control (HC)
+  description: Analysis of transcriptional profile of GPA and HC naive CD4 T cells to understand intrinsic molecular differences after early TCR activation that may explain different effector T cell genereation.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 20
+  publication: PMID:35039330
+  notes: Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE119136
+  title: Defining the Nasal Transcriptome in Granulomatosis with Polyangiitis
+  description: &#39;Objectives: To determine whether disease processes related to granulomatosis with polyangiitis (GPA) are reflected in gene expression profiles of nasal mucosa. Methods: Nasal brushings of the inferior turbinate were obtained from 32 patients with GPA (10 with active nasal disease, 13 with prior nasal disease, 9 with no history of nasal disease) and a composite comparator group with and without inflammatory nasal disease (12 healthy people, 15 with sarcoidosis, 8 with allergic rhinitis). Differential gene expression was assessed between subgroups of GPA and comparators.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 76
+  publication: PMID:25939343
+  notes: Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -12830,7 +14077,7 @@ These data suggest incomplete real-world uptake of guideline-recommended prophyl
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Granulomatosis with Polyangiitis", "mondoId": "MONDO:0012105", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Granulomatosis_with_Polyangiitis", "yamlRevision": "d2356ecc5cdb"};
+        const OS_CONFIG = {"diseaseName": "Granulomatosis with Polyangiitis", "mondoId": "MONDO:0012105", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Granulomatosis_with_Polyangiitis", "yamlRevision": "70572b12a9ce"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13249,5 +14496,73 @@ These data suggest incomplete real-world uptake of guideline-recommended prophyl
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

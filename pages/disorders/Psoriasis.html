@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3803,29 +3971,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">DERMATOLOGY</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4152,17 +4398,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T Helper 17 Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T Helper 17 Cell, annotated with T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4183,10 +4436,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000545">CL:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000545</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T Helper 1 Cell, annotated with T-helper 1 cell (CL:0000545). CL:0000545 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4213,16 +4469,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T Cell Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T Cell Activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4239,6 +4500,7 @@
 
 
                 </div>
+
 
 
 
@@ -4306,16 +4568,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4342,15 +4609,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CARD14
 
 
-    <a href="https://bioregistry.io/hgnc:16446" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16446">hgnc:16446</a>
+    <a href="https://bioregistry.io/hgnc:16446" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:16446</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CARD14 (hgnc:16446). hgnc:16446 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4378,16 +4652,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cell Proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cell Proliferation, annotated with cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4404,6 +4683,7 @@
 
 
                 </div>
+
 
 
 
@@ -4458,16 +4738,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Dendritic Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dendritic Cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4484,6 +4769,7 @@
 
 
                 </div>
+
 
 
 
@@ -4560,17 +4846,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T-helper 17 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4591,10 +4884,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000451">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4621,16 +4917,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL12B
 
 
-    <a href="https://bioregistry.io/hgnc:5970" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5970">hgnc:5970</a>
+    <a href="https://bioregistry.io/hgnc:5970" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:5970</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL12B (hgnc:5970). hgnc:5970 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4658,11 +4965,18 @@
         IL23R
 
 
-    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19100">hgnc:19100</a>
+    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:19100</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL23R (hgnc:19100). hgnc:19100 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4690,11 +5004,18 @@
         TYK2
 
 
-    <a href="https://bioregistry.io/hgnc:12440" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12440">hgnc:12440</a>
+    <a href="https://bioregistry.io/hgnc:12440" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:12440</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TYK2 (hgnc:12440). hgnc:12440 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4722,11 +5043,18 @@
         TRAF3IP2
 
 
-    <a href="https://bioregistry.io/hgnc:1343" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1343">hgnc:1343</a>
+    <a href="https://bioregistry.io/hgnc:1343" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:1343</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TRAF3IP2 (hgnc:1343). hgnc:1343 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4754,10 +5082,13 @@
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4785,17 +5116,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cytokine Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019221">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cytokine Signaling, annotated with cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4816,10 +5154,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072538">GO:0072538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0072538</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T-helper 17 type immune response (GO:0072538). GO:0072538 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4836,6 +5177,7 @@
 
 
                 </div>
+
 
 
 
@@ -4903,17 +5245,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4934,10 +5283,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4964,16 +5316,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL36RN
 
 
-    <a href="https://bioregistry.io/hgnc:15561" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15561">hgnc:15561</a>
+    <a href="https://bioregistry.io/hgnc:15561" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:15561</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL36RN (hgnc:15561). hgnc:15561 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5001,11 +5364,18 @@
         IL1RL2
 
 
-    <a href="https://bioregistry.io/hgnc:5999" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5999">hgnc:5999</a>
+    <a href="https://bioregistry.io/hgnc:5999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:5999</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL1RL2 (hgnc:5999). hgnc:5999 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5033,10 +5403,13 @@
         AP1S3
 
 
-    <a href="https://bioregistry.io/hgnc:18971" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18971">hgnc:18971</a>
+    <a href="https://bioregistry.io/hgnc:18971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:18971</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AP1S3 (hgnc:18971). hgnc:18971 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5064,17 +5437,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5095,10 +5475,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030593">GO:0030593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0030593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neutrophil Chemotaxis (GO:0030593). GO:0030593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5115,6 +5498,7 @@
 
 
                 </div>
+
 
 
 
@@ -5199,7 +5583,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AP1S3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"CARD14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Causative\"}}, {\"id\": \"Dendritic Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmacytoid and myeloid dendritic cells produce inflammatory cytokines and present antigens to activate T cells, initiating and perpetuating the inflammatory cascade.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic Cell\"]}}, {\"id\": \"IL-12/23 Inhibitor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ustekinumab targets shared p40 subunit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-17 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Secukinumab, ixekizumab - highly effective targeted therapy.\"}, {\"id\": \"IL-23 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Guselkumab, risankizumab - high efficacy with infrequent dosing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-23/IL-17 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 produced by dendritic cells drives Th17 cell differentiation and IL-17 production. This axis is the major therapeutic target in modern psoriasis treatment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Cytokine Signaling\", \"T-helper 17 type immune response\"], \"genes\": [\"IL12B\", \"IL23R\", \"TYK2\", \"TRAF3IP2\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL12B\", \"id\": \"hgnc:5970\"}, {\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"TRAF3IP2\", \"id\": \"hgnc:1343\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"IL-36 Keratinocyte Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In pustular psoriasis, keratinocyte-derived IL-36 signaling amplifies chemokine production, recruits neutrophils, and sustains sterile pustule formation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory Response\", \"Neutrophil Chemotaxis\"], \"genes\": [\"IL36RN\", \"IL1RL2\", \"AP1S3\"], \"gene_terms\": [{\"label\": \"IL36RN\", \"id\": \"hgnc:15561\"}, {\"label\": \"IL1RL2\", \"id\": \"hgnc:5999\"}, {\"label\": \"AP1S3\", \"id\": \"hgnc:18971\"}], \"subtypes\": [\"Pustular Psoriasis\"]}}, {\"id\": \"IL12B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL1RL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype pathway gene\"}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL36RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"JAK Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral therapy option (deucravacitinib - TYK2 inhibitor).\"}, {\"id\": \"Keratinocyte Hyperproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines stimulate excessive keratinocyte proliferation, producing the epidermal hyperplasia characteristic of thick, scaly plaques.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell Proliferation\"], \"genes\": [\"CARD14\"], \"gene_terms\": [{\"label\": \"CARD14\", \"id\": \"hgnc:16446\"}]}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Spesolimab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-in-class IL-36 receptor inhibitor approved for generalized pustular psoriasis flares.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"T Cell-Mediated Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated T cells (Th1, Th17, Th22) infiltrate skin and release cytokines including IL-17, IL-22, TNF-alpha, and IFN-gamma that drive keratinocyte hyperproliferation and inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T Helper 17 Cell\", \"T Helper 1 Cell\"], \"biological_processes\": [\"T Cell Activation\"]}}, {\"id\": \"TRAF3IP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"GWAS\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"GWAS\"}}], \"edges\": [{\"source\": \"T Cell-Mediated Inflammation\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effector cytokines from activated T cells drive keratinocyte proliferation and plaque formation.\"}, {\"source\": \"Dendritic Cell Activation\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dendritic-cell-derived IL-23 initiates the central psoriatic cytokine circuit.\"}, {\"source\": \"IL-23/IL-17 Axis\", \"target\": \"T Cell-Mediated Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-23 expands IL-17-producing T-cell responses that sustain plaque inflammation.\"}, {\"source\": \"IL-36 Keratinocyte Activation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-36-driven neutrophilic inflammation produces sterile pustules.\"}, {\"source\": \"IL-17 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-23 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-12/23 Inhibitor\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spesolimab\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL12B\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAF3IP2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD14\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL36RN\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL1RL2\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AP1S3\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AP1S3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AP1S3\"], \"gene_terms\": [{\"label\": \"AP1S3\", \"id\": \"hgnc:18971\"}], \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"CARD14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"CARD14\"], \"gene_terms\": [{\"label\": \"CARD14\", \"id\": \"hgnc:16446\"}], \"association\": \"Causative\"}}, {\"id\": \"Dendritic Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Plasmacytoid and myeloid dendritic cells produce inflammatory cytokines and present antigens to activate T cells, initiating and perpetuating the inflammatory cascade.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dendritic Cell\"]}}, {\"id\": \"IL-12/23 Inhibitor\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ustekinumab targets shared p40 subunit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-17 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Secukinumab, ixekizumab - highly effective targeted therapy.\"}, {\"id\": \"IL-23 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Guselkumab, risankizumab - high efficacy with infrequent dosing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IL-23/IL-17 Axis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-23 produced by dendritic cells drives Th17 cell differentiation and IL-17 production. This axis is the major therapeutic target in modern psoriasis treatment.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Cytokine Signaling\", \"T-helper 17 type immune response\"], \"genes\": [\"IL12B\", \"IL23R\", \"TYK2\", \"TRAF3IP2\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL12B\", \"id\": \"hgnc:5970\"}, {\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"TRAF3IP2\", \"id\": \"hgnc:1343\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}]}}, {\"id\": \"IL-36 Keratinocyte Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In pustular psoriasis, keratinocyte-derived IL-36 signaling amplifies chemokine production, recruits neutrophils, and sustains sterile pustule formation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\", \"Neutrophil\"], \"biological_processes\": [\"Inflammatory Response\", \"Neutrophil Chemotaxis\"], \"genes\": [\"IL36RN\", \"IL1RL2\", \"AP1S3\"], \"gene_terms\": [{\"label\": \"IL36RN\", \"id\": \"hgnc:15561\"}, {\"label\": \"IL1RL2\", \"id\": \"hgnc:5999\"}, {\"label\": \"AP1S3\", \"id\": \"hgnc:18971\"}], \"subtypes\": [\"Pustular Psoriasis\"]}}, {\"id\": \"IL12B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL12B\"], \"gene_terms\": [{\"label\": \"IL12B\", \"id\": \"hgnc:5970\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"IL1RL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL1RL2\"], \"gene_terms\": [{\"label\": \"IL1RL2\", \"id\": \"hgnc:5999\"}], \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype pathway gene\"}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL23R\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"IL36RN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL36RN\"], \"gene_terms\": [{\"label\": \"IL36RN\", \"id\": \"hgnc:15561\"}], \"subtypes\": [\"Pustular Psoriasis\"], \"association\": \"Pustular subtype risk factor\"}}, {\"id\": \"JAK Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral therapy option (deucravacitinib - TYK2 inhibitor).\"}, {\"id\": \"Keratinocyte Hyperproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines stimulate excessive keratinocyte proliferation, producing the epidermal hyperplasia characteristic of thick, scaly plaques.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Keratinocyte\"], \"biological_processes\": [\"Cell Proliferation\"], \"genes\": [\"CARD14\"], \"gene_terms\": [{\"label\": \"CARD14\", \"id\": \"hgnc:16446\"}]}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Pustular Psoriasis\"], \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"STAT3\"], \"gene_terms\": [{\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"association\": \"GWAS\"}}, {\"id\": \"Spesolimab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-in-class IL-36 receptor inhibitor approved for generalized pustular psoriasis flares.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"T Cell-Mediated Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated T cells (Th1, Th17, Th22) infiltrate skin and release cytokines including IL-17, IL-22, TNF-alpha, and IFN-gamma that drive keratinocyte hyperproliferation and inflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T Helper 17 Cell\", \"T Helper 1 Cell\"], \"biological_processes\": [\"T Cell Activation\"]}}, {\"id\": \"TRAF3IP2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TRAF3IP2\"], \"gene_terms\": [{\"label\": \"TRAF3IP2\", \"id\": \"hgnc:1343\"}], \"association\": \"GWAS\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TYK2\"], \"gene_terms\": [{\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}], \"association\": \"GWAS\"}}], \"edges\": [{\"source\": \"T Cell-Mediated Inflammation\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effector cytokines from activated T cells drive keratinocyte proliferation and plaque formation.\"}, {\"source\": \"Dendritic Cell Activation\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dendritic-cell-derived IL-23 initiates the central psoriatic cytokine circuit.\"}, {\"source\": \"IL-23/IL-17 Axis\", \"target\": \"T Cell-Mediated Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-23 expands IL-17-producing T-cell responses that sustain plaque inflammation.\"}, {\"source\": \"IL-36 Keratinocyte Activation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-36-driven neutrophilic inflammation produces sterile pustules.\"}, {\"source\": \"IL-17 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-23 Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-12/23 Inhibitor\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK Inhibitors\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spesolimab\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL12B\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TRAF3IP2\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD14\", \"target\": \"Keratinocyte Hyperproliferation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL36RN\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL1RL2\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AP1S3\", \"target\": \"IL-36 Keratinocyte Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/IL-17 Axis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5252,14 +5636,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased total leukocyte count
+
+                        <span class="phenotype-term-label">Increased total leukocyte count</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001974">HP:0001974</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001974</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukocytosis, annotated with Increased total leukocyte count (HP:0001974). HP:0001974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5322,14 +5715,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pustule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200039">HP:0200039</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0200039</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pustule (HP:0200039). HP:0200039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5405,14 +5805,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Erythroderma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001019">HP:0001019</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001019</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5542,14 +5949,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Erythematous plaque
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025474" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025474">HP:0025474</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025474</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Erythematous plaque (HP:0025474). HP:0025474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5603,14 +6017,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scaling skin
+
+                        <span class="phenotype-term-label">Scaling skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040189">HP:0040189</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0040189</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scaling Skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5666,14 +6089,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5725,14 +6155,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nail dystrophy
+
+                        <span class="phenotype-term-label">Nail dystrophy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008404">HP:0008404</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008404</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nail Dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5795,14 +6234,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5885,14 +6331,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enthesitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100686" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100686">HP:0100686</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100686" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100686</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enthesitis (HP:0100686). HP:0100686 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5957,14 +6410,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6051,14 +6511,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
+
+                        <span class="phenotype-term-label">Arthralgia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6177,14 +6646,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6247,14 +6723,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Koebner Phenomenon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000933" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000933">HP:6000933</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000933" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:6000933</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Koebner Phenomenon (HP:6000933). HP:6000933 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6310,14 +6793,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Auspitz sign
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000724" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000724">HP:6000724</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000724" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:6000724</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Auspitz sign (HP:6000724). HP:6000724 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6341,14 +6831,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Finger dactylitis
+
+                        <span class="phenotype-term-label">Finger dactylitis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031090">HP:0031090</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0031090</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Finger dactylitis (HP:0031090). HP:0031090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6404,14 +6903,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Geographic tongue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025252">HP:0025252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0025252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Geographic tongue (HP:0025252). HP:0025252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6520,6 +7026,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL12B
+
+
+    <a href="https://bioregistry.io/hgnc:5970" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:5970</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL12B (hgnc:5970). hgnc:5970 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6564,6 +7092,28 @@
                     IL23R
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL23R
+
+
+    <a href="https://bioregistry.io/hgnc:19100" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:19100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL23R (hgnc:19100). hgnc:19100 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6614,6 +7164,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TYK2
+
+
+    <a href="https://bioregistry.io/hgnc:12440" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:12440</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TYK2 (hgnc:12440). hgnc:12440 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6658,6 +7230,28 @@
                     TRAF3IP2
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TRAF3IP2
+
+
+    <a href="https://bioregistry.io/hgnc:1343" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:1343</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRAF3IP2 (hgnc:1343). hgnc:1343 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6708,6 +7302,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TNFAIP3
+
+
+    <a href="https://bioregistry.io/hgnc:11896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:11896</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6723,6 +7339,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CARD14
+
+
+    <a href="https://bioregistry.io/hgnc:16446" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:16446</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CARD14 (hgnc:16446). hgnc:16446 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6735,6 +7373,28 @@
                     IL36RN
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pustular subtype risk factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL36RN
+
+
+    <a href="https://bioregistry.io/hgnc:15561" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:15561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL36RN (hgnc:15561). hgnc:15561 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6805,6 +7465,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL1RL2
+
+
+    <a href="https://bioregistry.io/hgnc:5999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:5999</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL1RL2 (hgnc:5999). hgnc:5999 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6849,6 +7531,28 @@
                     AP1S3
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pustular subtype risk factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: AP1S3
+
+
+    <a href="https://bioregistry.io/hgnc:18971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:18971</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AP1S3 (hgnc:18971). hgnc:18971 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6919,6 +7623,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BACH2
+
+
+    <a href="https://bioregistry.io/hgnc:14078" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:14078</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6931,6 +7657,28 @@
                     STAT3
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: STAT3
+
+
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:11364</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6949,6 +7697,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IL10
+
+
+    <a href="https://bioregistry.io/hgnc:5962" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:5962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL10 (hgnc:5962). hgnc:5962 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6961,6 +7731,28 @@
                     CD28
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CD28
+
+
+    <a href="https://bioregistry.io/hgnc:1653" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:1653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -6979,6 +7771,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: EGR2
+
+
+    <a href="https://bioregistry.io/hgnc:3239" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:3239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6991,6 +7805,28 @@
                     ETS1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ETS1
+
+
+    <a href="https://bioregistry.io/hgnc:3488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:3488</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -7009,6 +7845,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IRF4
+
+
+    <a href="https://bioregistry.io/hgnc:6119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:6119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF4 (hgnc:6119). hgnc:6119 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7021,6 +7879,28 @@
                     IRF8
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IRF8
+
+
+    <a href="https://bioregistry.io/hgnc:5358" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:5358</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -7039,6 +7919,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SATB1
+
+
+    <a href="https://bioregistry.io/hgnc:10541" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:10541</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SATB1 (hgnc:10541). hgnc:10541 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7051,6 +7953,28 @@
                     IKZF1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: IKZF1
+
+
+    <a href="https://bioregistry.io/hgnc:13176" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:13176</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -7069,6 +7993,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SMAD3
+
+
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:6769</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7081,6 +8027,28 @@
                     REL
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: REL
+
+
+    <a href="https://bioregistry.io/hgnc:9954" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:9954</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is REL (hgnc:9954). hgnc:9954 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -7099,6 +8067,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PRDM1
+
+
+    <a href="https://bioregistry.io/hgnc:9346" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:9346</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM1 (hgnc:9346). hgnc:9346 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7111,6 +8101,28 @@
                     PTPN22
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(GWAS)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: PTPN22
+
+
+    <a href="https://bioregistry.io/hgnc:9652" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:9652</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -7142,7 +8154,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Topical corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
 
 
@@ -7188,7 +8205,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Vitamin D analogue therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">Vitamin D analogue therapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Vitamin D analogue therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7253,7 +8275,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Methotrexate therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Methotrexate therapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Methotrexate therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7331,7 +8358,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">TNF inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">TNF inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is TNF inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7377,7 +8409,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">IL-17 inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">IL-17 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is IL-17 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7441,7 +8478,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">IL-23 inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">IL-23 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is IL-23 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7535,7 +8577,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">IL-12/23 inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">IL-12/23 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is IL-12/23 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7629,7 +8676,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">JAK inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-70">JAK inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is JAK inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7693,7 +8745,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">spesolimab therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">spesolimab therapy<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is spesolimab therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7820,11 +8877,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-streptococcal-infection" data-dismech-node="Streptococcal Infection" data-dismech-type="environmental">
                 <div class="item-name">Streptococcal Infection</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        Infectious agent exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000000" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-72">ECTO:3000000</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Infectious agent exposure, annotated with exposure to organism (ECTO:3000000). ECTO:3000000 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Triggers guttate psoriasis</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9466065" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9466065" target="_blank">PMID:9466065</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"they frequently herald a first attack of guttate psoriasis or a reactivation of chronic plaque psoriasis is well recognized"</div>
+
+
+                <div class="evidence-explanation">Group A streptococcal upper respiratory infection precedes first-attack guttate psoriasis and reactivation of plaque disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7833,11 +8949,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-stress" data-dismech-node="Stress" data-dismech-type="environmental">
                 <div class="item-name">Stress</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-73">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Common trigger for flares</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29516474" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29516474" target="_blank">PMID:29516474</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"demonstrates a probable temporal association between different measures of psychological stress and onset, recurrence, and severity of psoriasis"</div>
+
+
+                <div class="evidence-explanation">Systematic review of the temporal ordering, which is what makes stress a plausible trigger rather than a consequence of visible disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7846,11 +9021,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-74">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Risk factor and worsens disease</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26553732" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26553732" target="_blank">PMID:26553732</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eight articles of 11 with data on smoking and psoriasis severity suggested that severity increases with smoking status"</div>
+
+
+                <div class="evidence-explanation">Covers the second half of the annotation (worsens disease); the same meta-analysis pooled a relative risk of 1.88 for smoking in psoriasis patients versus controls.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7860,10 +9094,46 @@
                 <div class="item-name">Obesity</div>
 
 
-                <div class="item-desc">Associated with severity</div>
 
 
 
+
+                <div class="item-desc">Higher BMI is a causal risk factor for psoriasis</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30703100" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30703100" target="_blank">PMID:30703100</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MR analyses provided evidence that higher BMI causally increases the odds of psoriasis"</div>
+
+
+                <div class="evidence-explanation">Mendelian randomization over ~750,000 individuals, which addresses the confounding that leaves observational obesity-psoriasis associations ambiguous in direction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7872,11 +9142,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-medications" data-dismech-node="Medications" data-dismech-type="environmental">
                 <div class="item-name">Medications</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        medication exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-75">ECTO:0000509</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is medication exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Beta blockers, lithium, antimalarials can trigger</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19661544" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19661544" target="_blank">PMID:19661544</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"drugs with strong evidence for a causal relationship to psoriasis including lithium, beta blockers, and synthetic antimalarial drugs"</div>
+
+
+                <div class="evidence-explanation">Names exactly the three drug classes recorded in this annotation as the group with the strongest causal evidence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7886,10 +9215,46 @@
                 <div class="item-name">Skin Trauma</div>
 
 
+
+
+
+
                 <div class="item-desc">Koebner phenomenon</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36394984" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36394984" target="_blank">PMID:36394984</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"triggers may drive skin inflammation to induce a psoriatic phenotype through multiple signalling pathways and thereby cause Koebner phenomenon in susceptible individuals"</div>
+
+
+                <div class="evidence-explanation">Gives the mechanism by which trauma produces new psoriatic lesions in uninvolved skin, and notes psoriasis is one of the true Koebner diseases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7938,9 +9303,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         skin
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-76">UBERON:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7997,9 +9376,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         skin
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-77">UBERON:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -8042,6 +9435,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8058,7 +9454,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Psoriasis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-04-30T12:00:00Z&#39;
 description: &gt;-
   Psoriasis is a chronic immune-mediated inflammatory skin disease driven by a
   self-amplifying loop centered on the IL-23/Th17 axis. In genetically
@@ -8622,6 +10017,11 @@ genetic:
   association: Risk Factor
   notes: Strongest genetic association
 - name: IL12B
+  gene_term:
+    preferred_term: IL12B
+    term:
+      id: hgnc:5970
+      label: IL12B
   association: Risk Factor
   notes: Encodes the p40 subunit shared by IL-12 and IL-23; established psoriasis susceptibility locus.
   evidence:
@@ -8632,6 +10032,11 @@ genetic:
     snippet: &#34;demonstrated association at established susceptibility loci HLA-C (rs12191877, p = 4×10−53), IL12B (rs2082412, p = 5×10−10), and IL23R (rs2201841, p = 3×10−7).&#34;
     explanation: &#34;Genome-wide association scan reports IL12B association with psoriasis at genome-wide significance.&#34;
 - name: IL23R
+  gene_term:
+    preferred_term: IL23R
+    term:
+      id: hgnc:19100
+      label: IL23R
   association: Risk Factor
   notes: Encodes a subunit of the IL-23 receptor; established psoriasis susceptibility locus.
   evidence:
@@ -8642,6 +10047,11 @@ genetic:
     snippet: &#34;demonstrated association at established susceptibility loci HLA-C (rs12191877, p = 4×10−53), IL12B (rs2082412, p = 5×10−10), and IL23R (rs2201841, p = 3×10−7).&#34;
     explanation: &#34;The same genome-wide scan reports IL23R association with psoriasis, implicating the IL-23 receptor locus.&#34;
 - name: TYK2
+  gene_term:
+    preferred_term: TYK2
+    term:
+      id: hgnc:12440
+      label: TYK2
   association: GWAS
   notes: Cytokine kinase mediating IL-23 and IL-12 signaling; therapeutic target of deucravacitinib.
   evidence:
@@ -8652,6 +10062,11 @@ genetic:
     snippet: &#34;Seven loci harbored genes with recognized immune functions (IL28RA, REL, IFIH1, ERAP1, TRAF3IP2, NFKBIA and TYK2).&#34;
     explanation: &#34;This GWAS directly implicates TYK2 as a psoriasis susceptibility locus linked to cytokine signaling.&#34;
 - name: TRAF3IP2
+  gene_term:
+    preferred_term: TRAF3IP2
+    term:
+      id: hgnc:1343
+      label: TRAF3IP2
   association: GWAS
   notes: Act1 adaptor protein for IL-17 receptor signaling.
   evidence:
@@ -8662,11 +10077,26 @@ genetic:
     snippet: &#34;Seven loci harbored genes with recognized immune functions (IL28RA, REL, IFIH1, ERAP1, TRAF3IP2, NFKBIA and TYK2).&#34;
     explanation: &#34;This GWAS directly implicates TRAF3IP2 as a psoriasis susceptibility locus in the IL-17 signaling pathway.&#34;
 - name: TNFAIP3
+  gene_term:
+    preferred_term: TNFAIP3
+    term:
+      id: hgnc:11896
+      label: TNFAIP3
   association: Risk Factor
 - name: CARD14
+  gene_term:
+    preferred_term: CARD14
+    term:
+      id: hgnc:16446
+      label: CARD14
   association: Causative
   notes: Rare familial psoriasis
 - name: IL36RN
+  gene_term:
+    preferred_term: IL36RN
+    term:
+      id: hgnc:15561
+      label: IL36RN
   association: Pustular subtype risk factor
   subtype: Pustular Psoriasis
   notes: Encodes IL-36 receptor antagonist; enriched in generalized pustular psoriasis.
@@ -8683,6 +10113,11 @@ genetic:
     snippet: &#34;IL36RN | interleukin 36 receptor antagonist | hgnc:15561 | Disease-causing germline mutation(s) (loss of function) in&#34;
     explanation: Orphanet classifies IL36RN loss-of-function mutations as disease-causing in GPP.
 - name: IL1RL2
+  gene_term:
+    preferred_term: IL1RL2
+    term:
+      id: hgnc:5999
+      label: IL1RL2
   association: Pustular subtype pathway gene
   subtype: Pustular Psoriasis
   notes: Encodes the IL-36 receptor that mediates keratinocyte-driven pustular inflammation.
@@ -8694,6 +10129,11 @@ genetic:
     snippet: &#34;Blockade of IL-1F6 receptor also resolves the inflammatory changes in human psoriatic lesional skin transplanted onto immunodeficient mice.&#34;
     explanation: &#34;This supports IL1RL2/IL-36 receptor signaling as a mechanistically relevant driver of psoriasis inflammation.&#34;
 - name: AP1S3
+  gene_term:
+    preferred_term: AP1S3
+    term:
+      id: hgnc:18971
+      label: AP1S3
   association: Pustular subtype risk factor
   subtype: Pustular Psoriasis
   notes: Pustular psoriasis gene linking keratinocyte autophagy defects to IL-36 overproduction.
@@ -8710,60 +10150,207 @@ genetic:
     snippet: &#34;AP1S3 | adaptor related protein complex 1 subunit sigma 3 | hgnc:18971 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet classifies AP1S3 mutations as disease-causing in GPP.
 - name: BACH2
+  gene_term:
+    preferred_term: BACH2
+    term:
+      id: hgnc:14078
+      label: BACH2
   association: GWAS
   notes: Transcription factor regulating Treg/effector T cell balance and B cell class switching
 - name: STAT3
+  gene_term:
+    preferred_term: STAT3
+    term:
+      id: hgnc:11364
+      label: STAT3
   association: GWAS
   notes: Signal transducer mediating Th17 differentiation via JAK-STAT pathway
 - name: IL10
+  gene_term:
+    preferred_term: IL10
+    term:
+      id: hgnc:5962
+      label: IL10
   association: GWAS
   notes: Anti-inflammatory cytokine critical for immune tolerance
 - name: CD28
+  gene_term:
+    preferred_term: CD28
+    term:
+      id: hgnc:1653
+      label: CD28
   association: GWAS
   notes: T cell co-stimulatory receptor required for T cell activation
 - name: EGR2
+  gene_term:
+    preferred_term: EGR2
+    term:
+      id: hgnc:3239
+      label: EGR2
   association: GWAS
   notes: Transcription factor involved in T cell anergy and peripheral tolerance
 - name: ETS1
+  gene_term:
+    preferred_term: ETS1
+    term:
+      id: hgnc:3488
+      label: ETS1
   association: GWAS
   notes: Transcription factor regulating T and B cell development and immune cell differentiation
 - name: IRF4
+  gene_term:
+    preferred_term: IRF4
+    term:
+      id: hgnc:6119
+      label: IRF4
   association: GWAS
   notes: Transcription factor essential for Th17 and Th2 cell differentiation and plasma cell development
 - name: IRF8
+  gene_term:
+    preferred_term: IRF8
+    term:
+      id: hgnc:5358
+      label: IRF8
   association: GWAS
   notes: Interferon regulatory factor controlling myeloid cell development and type I interferon response
 - name: SATB1
+  gene_term:
+    preferred_term: SATB1
+    term:
+      id: hgnc:10541
+      label: SATB1
   association: GWAS
   notes: Chromatin organizer regulating T cell development and lineage commitment
 - name: IKZF1
+  gene_term:
+    preferred_term: IKZF1
+    term:
+      id: hgnc:13176
+      label: IKZF1
   association: GWAS
   notes: Ikaros transcription factor essential for lymphocyte development and differentiation
 - name: SMAD3
+  gene_term:
+    preferred_term: SMAD3
+    term:
+      id: hgnc:6769
+      label: SMAD3
   association: GWAS
   notes: TGF-beta signaling mediator regulating T cell differentiation and immune tolerance
 - name: REL
+  gene_term:
+    preferred_term: REL
+    term:
+      id: hgnc:9954
+      label: REL
   association: GWAS
   notes: NF-kB subunit c-Rel controlling lymphocyte activation and survival
 - name: PRDM1
+  gene_term:
+    preferred_term: PRDM1
+    term:
+      id: hgnc:9346
+      label: PRDM1
   association: GWAS
   notes: Blimp-1 transcription factor regulating T cell and B cell terminal differentiation
 - name: PTPN22
+  gene_term:
+    preferred_term: PTPN22
+    term:
+      id: hgnc:9652
+      label: PTPN22
   association: GWAS
   notes: Protein tyrosine phosphatase modulating T cell receptor signaling threshold
 environmental:
 - name: Streptococcal Infection
+  exposure_term:
+    preferred_term: Infectious agent exposure
+    term:
+      id: ECTO:3000000
+      label: exposure to organism
   notes: Triggers guttate psoriasis
+  evidence:
+  - reference: PMID:9466065
+    reference_title: &#34;Streptococcal tonsillitis and its association with psoriasis: a review&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: they frequently herald a first attack of guttate psoriasis or a reactivation
+      of chronic plaque psoriasis is well recognized
+    explanation: Group A streptococcal upper respiratory infection precedes first-attack
+      guttate psoriasis and reactivation of plaque disease.
 - name: Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Common trigger for flares
+  evidence:
+  - reference: PMID:29516474
+    reference_title: &#34;The associations between psychological stress and psoriasis: a systematic review&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: demonstrates a probable temporal association between different measures
+      of psychological stress and onset, recurrence, and severity of psoriasis
+    explanation: Systematic review of the temporal ordering, which is what makes stress
+      a plausible trigger rather than a consequence of visible disease.
 - name: Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
   notes: Risk factor and worsens disease
+  evidence:
+  - reference: PMID:26553732
+    reference_title: &#34;Psoriasis and Smoking: A Systematic Literature Review and Meta-Analysis With Qualitative Analysis of Effect of Smoking on Psoriasis Severity&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Eight articles of 11 with data on smoking and psoriasis severity suggested
+      that severity increases with smoking status
+    explanation: Covers the second half of the annotation (worsens disease); the same
+      meta-analysis pooled a relative risk of 1.88 for smoking in psoriasis patients
+      versus controls.
 - name: Obesity
-  notes: Associated with severity
+  notes: Higher BMI is a causal risk factor for psoriasis
+  evidence:
+  - reference: PMID:30703100
+    reference_title: &#34;Evidence of a causal relationship between body mass index and psoriasis: A mendelian randomization study&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: MR analyses provided evidence that higher BMI causally increases the
+      odds of psoriasis
+    explanation: Mendelian randomization over ~750,000 individuals, which addresses
+      the confounding that leaves observational obesity-psoriasis associations ambiguous
+      in direction.
 - name: Medications
+  exposure_term:
+    preferred_term: medication exposure
+    term:
+      id: ECTO:0000509
+      label: exposure to drug
   notes: Beta blockers, lithium, antimalarials can trigger
+  evidence:
+  - reference: PMID:19661544
+    reference_title: Psoriasis induced or aggravated by drugs
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: drugs with strong evidence for a causal relationship to psoriasis including
+      lithium, beta blockers, and synthetic antimalarial drugs
+    explanation: Names exactly the three drug classes recorded in this annotation
+      as the group with the strongest causal evidence.
 - name: Skin Trauma
   notes: Koebner phenomenon
+  evidence:
+  - reference: PMID:36394984
+    reference_title: Characteristics and pathogenesis of Koebner phenomenon
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: triggers may drive skin inflammation to induce a psoriatic phenotype
+      through multiple signalling pathways and thereby cause Koebner phenomenon in
+      susceptible individuals
+    explanation: Gives the mechanism by which trauma produces new psoriatic lesions
+      in uninvolved skin, and notes psoriasis is one of the true Koebner diseases.
 treatments:
 - name: Topical Corticosteroids
   description: First-line for limited disease.
@@ -9370,7 +10957,7 @@ Psoriasis pathophysiology centers on an IL‑23→Th17→IL‑17/IL‑22 axis th
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Psoriasis", "mondoId": "MONDO:0005083", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriasis", "yamlRevision": "abb4c674a839"};
+        const OS_CONFIG = {"diseaseName": "Psoriasis", "mondoId": "MONDO:0005083", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriasis", "yamlRevision": "f35b46eacad0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9789,5 +11376,73 @@ Psoriasis pathophysiology centers on an IL‑23→Th17→IL‑17/IL‑22 axis th
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

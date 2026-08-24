@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3751,6 +3919,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3768,6 +3944,122 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Derived from this entry&#39;s disease term MONDO:0006143 (cervical squamous cell carcinoma), whose NCIT cross-reference NCIT:C4028 (Cervical Squamous Cell Carcinoma) is a descendant of NCIT:C2929 (Squamous Cell Carcinoma), the term this enum value is bound to.">Squamous Cell Carcinoma</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Cervical squamous cell carcinoma is managed as a gynecologic solid-tumor oncology problem (surgery, chemoradiation).">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -3954,16 +4246,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Squamous epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000076">CL:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3990,16 +4287,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Viral process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016032">GO:0016032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Viral process (GO:0016032). GO:0016032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4016,6 +4318,7 @@
 
 
                 </div>
+
 
 
 
@@ -4082,16 +4385,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Squamous epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000076">CL:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4118,16 +4426,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Negative regulation of p53 signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1901797" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1901797">GO:1901797</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1901797" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:1901797</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Negative regulation of p53 signaling, annotated with negative regulation of signal transduction by p53 class mediator (GO:1901797). GO:1901797 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4148,6 +4461,7 @@
 
 
                 </div>
+
 
 
 
@@ -4214,16 +4528,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Squamous epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000076">CL:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4240,6 +4559,7 @@
 
 
                 </div>
+
 
 
 
@@ -4313,16 +4633,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Squamous epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000076">CL:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Squamous epithelial cell (CL:0000076). CL:0000076 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4339,6 +4664,7 @@
 
 
                 </div>
+
 
 
 
@@ -4456,14 +4782,21 @@
                         Anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4492,14 +4825,21 @@
                         Pelvic Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pelvic pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034267">HP:0034267</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0034267</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4528,14 +4868,21 @@
                         Abnormal Vaginal Bleeding
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal vaginal bleeding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034263">HP:0034263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0034263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal vaginal bleeding (HP:0034263). HP:0034263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4555,14 +4902,21 @@
                         Postcoital Vaginal Bleeding
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Postcoital vaginal bleeding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034264" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034264">HP:0034264</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034264" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0034264</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postcoital vaginal bleeding (HP:0034264). HP:0034264 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4582,14 +4936,21 @@
                         Abnormal Vaginal Discharge
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal vaginal discharge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034269">HP:0034269</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0034269</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal vaginal discharge (HP:0034269). HP:0034269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4655,7 +5016,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -4701,7 +5067,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -4801,7 +5172,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4831,16 +5207,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pembrolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -4863,7 +5244,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -4917,6 +5303,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette smoking</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cigarette smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-17">ECTO:0100003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -4987,6 +5400,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Persistent infection with high-risk human papillomavirus (HPV) is the near-universal cause of cervical squamous cell carcinoma. HPV-16 and HPV-18 together account for approximately 70-71% of cases globally.</div>
 
 
@@ -5038,11 +5455,148 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    DLEU2 promotes cell motility and immune infiltration in cervical squamous cell carcinoma through reciprocal feed-forward activation of E2F1
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE291247" target="_blank">geo:GSE291247</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Cancer metastasis is the primary cause of high mortality in patients with cervical squamous cell carcinoma (CESC). The invasive ability of cancer cells is enhanced by increased cell motility, which contributes to their distant metastasis. The oncogenic lncRNA DLEU2, implicated in tumor progression and prognosis, remains understudied in CESC. This study investigated how DLEU2 enhances cell motility and regulates immune infiltration in CESC. We found that DLEU2 was upregulated in CESC tissues and correlated with poor prognosis in advanced-stage patients. Functionally, DLEU2 knockdown suppressed cell migration and invasion, while its overexpression enhanced motility.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=16</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42091655" target="_blank" style="color: var(--secondary);">PMID:42091655</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Cervical Squamous Cell Carcinoma (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Decipher heterogeneity of cervical squamous cell carcinoma and adenocarcinoma with different HPV status: combining scRNA and TCR-seq with 3D organoid
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE197461" target="_blank">geo:GSE197461</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Although adenocarcinoma of the cervix (ADC) exhibits a more malignant phenotype and poorer prognosis than squamous cell carcinoma (SCC), they are treated identically. This clinical dilemma calls for deeper investigation into differences between SCC and ADC. We studied 3 human papillomavirus (HPV)-positive SCC, 3 HPV-associated (HPVA) and 2 non-HPV-associated (NHPVA) ADC samples with single-cell RNA and T cell receptor sequencing plus 3D organoid verification. Notably, we revealed the malignant origin of epithelial cells characterized by stemness and poor differentiation and the potential mechanism of HPVA and NHPVA oncogenesis, deciphering differences between SCC and ADC.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=16</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37794698" target="_blank" style="color: var(--secondary);">PMID:37794698</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Cervical Squamous Cell Carcinoma (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Lnc-GATS-3:3/MCM7 promotes the proliferation and invasion of cervical squamous cell carcinoma cells by regulating the CDK/Rb/E2F signaling pathway
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE318000" target="_blank">geo:GSE318000</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study investigated the role and mechanism of lnc-GATS-3:3/Mini-chromosome maintenance protein 7 (MCM7) in the proliferation, invasion, migration, and apoptosis of SiHa cervical cancer cells. Whole transcriptome sequencing was conducted on matched pairs of cervical cancer and normal tissue samples, followed by GO and KEGG enrichment analysis. The cis method was utilized to identify lncRNAs and mRNAs associated with the cell cycle. The expression levels of lnc-GATS-3:3 and MCM7 in cervical cancer and normal tissues were measured using qRT-PCR.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=8</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Cervical Squamous Cell Carcinoma (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5061,13 +5615,25 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cervical Squamous Cell Carcinoma
 creation_date: &#34;2026-05-12T20:30:00Z&#34;
-updated_date: &#34;2026-05-13T12:00:00Z&#34;
 category: Complex
 disease_term:
   preferred_term: cervical squamous cell carcinoma
   term:
     id: MONDO:0006143
     label: cervical squamous cell carcinoma
+classifications:
+  icdo_morphology:
+    classification_value: Squamous Cell Carcinoma
+    notes: &gt;-
+      Derived from this entry&#39;s disease term MONDO:0006143 (cervical squamous
+      cell carcinoma), whose NCIT cross-reference NCIT:C4028 (Cervical Squamous
+      Cell Carcinoma) is a descendant of NCIT:C2929 (Squamous Cell Carcinoma),
+      the term this enum value is bound to.
+  harrisons_chapter:
+  - classification_value: ONCOLOGY_HEMATOLOGY
+    notes: &gt;-
+      Cervical squamous cell carcinoma is managed as a gynecologic solid-tumor
+      oncology problem (surgery, chemoradiation).
 parents:
 - Cervical Cancer
 description: &gt;-
@@ -5323,6 +5889,11 @@ phenotypes:
       label: Anemia
 environmental:
 - name: Cigarette smoking
+  exposure_term:
+    preferred_term: exposure to cigarette smoking
+    term:
+      id: ECTO:0100003
+      label: exposure to cigarette smoking
   effect: HARMFUL
   description: &gt;-
     Cigarette smoking is an independent cervical-cancer risk factor whose
@@ -5420,6 +5991,41 @@ treatments:
       id: NCIT:C15346
       label: Vaccination
 datasets:
+- accession: geo:GSE291247
+  title: DLEU2 promotes cell motility and immune infiltration in cervical squamous cell carcinoma through reciprocal feed-forward activation of E2F1
+  description: Cancer metastasis is the primary cause of high mortality in patients with cervical squamous cell carcinoma (CESC). The invasive ability of cancer cells is enhanced by increased cell motility, which contributes to their distant metastasis. The oncogenic lncRNA DLEU2, implicated in tumor progression and prognosis, remains understudied in CESC. This study investigated how DLEU2 enhances cell motility and regulates immune infiltration in CESC. We found that DLEU2 was upregulated in CESC tissues and correlated with poor prognosis in advanced-stage patients. Functionally, DLEU2 knockdown suppressed cell migration and invasion, while its overexpression enhanced motility.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 16
+  publication: PMID:42091655
+  notes: Identified by GEO DataSets index search for Cervical Squamous Cell Carcinoma (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE197461
+  title: &#39;Decipher heterogeneity of cervical squamous cell carcinoma and adenocarcinoma with different HPV status: combining scRNA and TCR-seq with 3D organoid&#39;
+  description: Although adenocarcinoma of the cervix (ADC) exhibits a more malignant phenotype and poorer prognosis than squamous cell carcinoma (SCC), they are treated identically. This clinical dilemma calls for deeper investigation into differences between SCC and ADC. We studied 3 human papillomavirus (HPV)-positive SCC, 3 HPV-associated (HPVA) and 2 non-HPV-associated (NHPVA) ADC samples with single-cell RNA and T cell receptor sequencing plus 3D organoid verification. Notably, we revealed the malignant origin of epithelial cells characterized by stemness and poor differentiation and the potential mechanism of HPVA and NHPVA oncogenesis, deciphering differences between SCC and ADC.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 16
+  publication: PMID:37794698
+  notes: Identified by GEO DataSets index search for Cervical Squamous Cell Carcinoma (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE318000
+  title: Lnc-GATS-3:3/MCM7 promotes the proliferation and invasion of cervical squamous cell carcinoma cells by regulating the CDK/Rb/E2F signaling pathway
+  description: This study investigated the role and mechanism of lnc-GATS-3:3/Mini-chromosome maintenance protein 7 (MCM7) in the proliferation, invasion, migration, and apoptosis of SiHa cervical cancer cells. Whole transcriptome sequencing was conducted on matched pairs of cervical cancer and normal tissue samples, followed by GO and KEGG enrichment analysis. The cis method was utilized to identify lncRNAs and mRNAs associated with the cell cycle. The expression levels of lnc-GATS-3:3 and MCM7 in cervical cancer and normal tissues were measured using qRT-PCR.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 8
+  notes: Identified by GEO DataSets index search for Cervical Squamous Cell Carcinoma (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -5982,7 +6588,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cervical Squamous Cell Carcinoma", "mondoId": "MONDO:0006143", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cervical_Squamous_Cell_Carcinoma", "yamlRevision": "ecc0e35e038e"};
+        const OS_CONFIG = {"diseaseName": "Cervical Squamous Cell Carcinoma", "mondoId": "MONDO:0006143", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cervical_Squamous_Cell_Carcinoma", "yamlRevision": "eed3fe4fa9c4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6401,5 +7007,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

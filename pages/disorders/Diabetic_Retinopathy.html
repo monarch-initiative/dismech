@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Diabetic%20Retinopathy"
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3727,7 +3895,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3753,6 +3921,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -3780,27 +3956,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
+
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4068,16 +4321,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4104,19 +4362,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4213,17 +4477,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pericyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000669">CL:0000669</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pericyte (CL:0000669). CL:0000669 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4244,10 +4515,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal vascular endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4274,16 +4548,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4310,19 +4589,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4397,16 +4682,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4433,16 +4723,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4451,6 +4746,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4468,10 +4765,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019221">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4498,19 +4798,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4628,16 +4934,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4664,19 +4975,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4765,16 +5082,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal vascular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal vascular endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4801,16 +5123,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4837,19 +5164,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4953,7 +5286,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blood-Retinal Barrier Breakdown\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the inner blood-retinal barrier (formed by retinal vascular endothelium with tight junctions) by VEGF, inflammatory cytokines, and loss of pericyte support allows plasma proteins and fluid to leak into the retinal parenchyma. Oxidative stress is a key driver of BRB disruption, which also promotes neurodegeneration and angiogenesis. BRB breakdown is the immediate cause of diabetic macular edema (DME) through fluid accumulation in the macular subfield, and contributes to ischemia through progressive endothelial dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"retina\"]}}, {\"id\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hyperglycemia activates four major biochemical pathways\\u2014increased polyol pathway flux, increased advanced glycation end product (AGE) formation, activation of protein kinase C (PKC) isoforms, and increased hexosamine pathway flux\\u2014all of which converge on a single unifying mechanism: overproduction of superoxide by the mitochondrial electron-transport chain. This excess reactive oxygen species (ROS) production drives oxidative stress that initiates the downstream cascade of retinal neurovascular injury, BRB disruption, neurodegeneration, and angiogenesis. DR is now recognized as a neurovascular disorder arising from chronic hyperglycemia-induced oxidative stress, inflammation, and vascular dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"retina\"]}}, {\"id\": \"Intravitreal Anti-VEGF Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for center-involving diabetic macular edema (CI-DME) and vision-threatening PDR complications. Agents (ranibizumab, bevacizumab, aflibercept, faricimab) neutralize VEGF-A, reducing vascular permeability and pathological neovascularization. Landmark trials (RISE/RIDE for ranibizumab; VIVID/VISTA for aflibercept; PROTOCOL T) demonstrated superior outcomes over macular laser for CI-DME, with 18\\u201345% of patients gaining \\u226515 ETDRS letters. Best outcomes require frequent injections and close monitoring; real-world outcomes often fall short of trials due to treatment burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"anti-VEGF biologic\"]}}, {\"id\": \"Macular Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fluid accumulation in the macula due to BRB breakdown; center-involving diabetic macular edema (CI-DME) is the most common cause of moderate vision loss in DR and can occur at any stage of retinopathy. Characterized by retinal thickening of the central 1 mm subfield on optical coherence tomography. Anti-VEGF is the standard of care for CI-DME.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040049\"}}, {\"id\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A persistent pro-inflammatory milieu in the diabetic retina is maintained by elevated TNF-\\u03b1, IL-1\\u03b2, and IL-6, alongside activation of resident microglia. NF-\\u03baB and Toll-like receptor (TLR) signaling amplify cytokine production, and oxidative stress interacts with inflammation in a self-amplifying cycle in which each factor amplifies the other. This inflammatory environment promotes BRB breakdown, endothelial dysfunction, and retinal neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"retina\"]}}, {\"id\": \"Panretinal Laser Photocoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Established standard of care for high-risk proliferative diabetic retinopathy (PDR). Panretinal photocoagulation (PRP) ablates ischemic peripheral retina, reducing the hypoxic stimulus for pathological VEGF production and causing regression of neovascularization. Network meta-analysis of 14 RCTs found anti-VEGF slightly superior to PRP for short-term visual acuity but PRP remains the backbone long-term treatment for PDR, particularly where frequent anti-VEGF injections cannot be sustained.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pars Plana Vitrectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the vitreous, indicated for non-clearing vitreous hemorrhage, tractional retinal detachment involving or threatening the macula, and severe fibrovascular proliferation in PDR. Restores optical clarity and allows retinal reattachment. Altered pharmacokinetics in vitrectomized eyes (faster clearance of intravitreal agents) may require modification of anti-VEGF treatment intervals.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative and metabolic injury selectively destroys retinal pericytes, the stabilizing mural cells of the microvasculature, while simultaneously damaging vascular endothelial cells. Pericyte loss is the earliest histopathological hallmark of DR and destabilizes the retinal microvasculature by disrupting ANGPT2-Tie2 signaling: interaction between angiopoietin 2 and the Tie2 receptor results in aberrant signaling that further drives pericyte loss, neovascularization, and inflammation. Progressive capillary closure and acellular capillary formation lead to retinal ischemia, which upregulates VEGF as the pro-angiogenic signal driving PDR.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pericyte\", \"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"VEGF-Driven Retinal Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive retinal ischemia from capillary closure drives upregulation of vascular endothelial growth factor A (VEGF-A), the central molecular mediator of pathological neovascularization that defines PDR. VEGF is recognized as a crucial and central molecule in abnormal neovascularization, and anti-VEGF therapy is now the most successful form of treatment for retinal vascular disorders including DR. Notch signaling and hypoxia-inducible factors (HIFs) also contribute to pathological vessel growth. New fibrovascular membranes grow from the optic disc and retinal surface into the vitreous cavity, where rupture causes vitreous hemorrhage and contracture causes tractional retinal detachment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"Vitreous Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rupture of fragile neovascular vessels in PDR causes blood to enter the vitreous cavity. Presents as sudden painless vision loss ranging from floaters to complete visual obscuration. A major complication of PDR and a key endpoint in comparative treatment trials.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Proliferative Diabetic Retinopathy\"], \"term_id\": \"HP:0007902\"}}], \"edges\": [{\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial ROS overproduction directly damages retinal pericytes and endothelial cells, initiating the microvascular degeneration that underlies DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress activates NF-\\u03baB signaling and the NLRP3 inflammasome, driving cytokine production and microglial activation in the retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericyte loss and endothelial cell injury disrupt tight junctions, causing blood-retinal barrier failure and increased vascular permeability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ischemia from capillary degeneration drives VEGF overexpression, triggering pathological neovascularization that defines PDR.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive pericyte loss and capillary closure cause retinal ischemia, which upregulates VEGF as the primary angiogenic signal.\"]}, {\"source\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines disrupt tight junctions between retinal endothelial cells, increasing vascular permeability and contributing to BRB failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Retinal Barrier Breakdown\", \"target\": \"Macular Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRB failure allows plasma constituents to leak into the macular area, causing retinal thickening and diabetic macular edema, the major cause of moderate vision impairment in DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VEGF-Driven Retinal Neovascularization\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile neovascular vessels on the retinal surface and vitreous face rupture, causing vitreous hemorrhage and acute vision loss in PDR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Macular Edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pars Plana Vitrectomy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blood-Retinal Barrier Breakdown\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the inner blood-retinal barrier (formed by retinal vascular endothelium with tight junctions) by VEGF, inflammatory cytokines, and loss of pericyte support allows plasma proteins and fluid to leak into the retinal parenchyma. Oxidative stress is a key driver of BRB disruption, which also promotes neurodegeneration and angiogenesis. BRB breakdown is the immediate cause of diabetic macular edema (DME) through fluid accumulation in the macular subfield, and contributes to ischemia through progressive endothelial dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"retina\"]}}, {\"id\": \"Chronic Hyperglycemia\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diabetes Duration\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hyperglycemia activates four major biochemical pathways\\u2014increased polyol pathway flux, increased advanced glycation end product (AGE) formation, activation of protein kinase C (PKC) isoforms, and increased hexosamine pathway flux\\u2014all of which converge on a single unifying mechanism: overproduction of superoxide by the mitochondrial electron-transport chain. This excess reactive oxygen species (ROS) production drives oxidative stress that initiates the downstream cascade of retinal neurovascular injury, BRB disruption, neurodegeneration, and angiogenesis. DR is now recognized as a neurovascular disorder arising from chronic hyperglycemia-induced oxidative stress, inflammation, and vascular dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"retina\"]}}, {\"id\": \"Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intravitreal Anti-VEGF Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for center-involving diabetic macular edema (CI-DME) and vision-threatening PDR complications. Agents (ranibizumab, bevacizumab, aflibercept, faricimab) neutralize VEGF-A, reducing vascular permeability and pathological neovascularization. Landmark trials (RISE/RIDE for ranibizumab; VIVID/VISTA for aflibercept; PROTOCOL T) demonstrated superior outcomes over macular laser for CI-DME, with 18\\u201345% of patients gaining \\u226515 ETDRS letters. Best outcomes require frequent injections and close monitoring; real-world outcomes often fall short of trials due to treatment burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"anti-VEGF biologic\"]}}, {\"id\": \"Macular Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fluid accumulation in the macula due to BRB breakdown; center-involving diabetic macular edema (CI-DME) is the most common cause of moderate vision loss in DR and can occur at any stage of retinopathy. Characterized by retinal thickening of the central 1 mm subfield on optical coherence tomography. Anti-VEGF is the standard of care for CI-DME.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040049\"}}, {\"id\": \"Nephropathy and Proteinuria\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A persistent pro-inflammatory milieu in the diabetic retina is maintained by elevated TNF-\\u03b1, IL-1\\u03b2, and IL-6, alongside activation of resident microglia. NF-\\u03baB and Toll-like receptor (TLR) signaling amplify cytokine production, and oxidative stress interacts with inflammation in a self-amplifying cycle in which each factor amplifies the other. This inflammatory environment promotes BRB breakdown, endothelial dysfunction, and retinal neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"retina\"]}}, {\"id\": \"Panretinal Laser Photocoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Established standard of care for high-risk proliferative diabetic retinopathy (PDR). Panretinal photocoagulation (PRP) ablates ischemic peripheral retina, reducing the hypoxic stimulus for pathological VEGF production and causing regression of neovascularization. Network meta-analysis of 14 RCTs found anti-VEGF slightly superior to PRP for short-term visual acuity but PRP remains the backbone long-term treatment for PDR, particularly where frequent anti-VEGF injections cannot be sustained.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pars Plana Vitrectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the vitreous, indicated for non-clearing vitreous hemorrhage, tractional retinal detachment involving or threatening the macula, and severe fibrovascular proliferation in PDR. Restores optical clarity and allows retinal reattachment. Altered pharmacokinetics in vitrectomized eyes (faster clearance of intravitreal agents) may require modification of anti-VEGF treatment intervals.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative and metabolic injury selectively destroys retinal pericytes, the stabilizing mural cells of the microvasculature, while simultaneously damaging vascular endothelial cells. Pericyte loss is the earliest histopathological hallmark of DR and destabilizes the retinal microvasculature by disrupting ANGPT2-Tie2 signaling: interaction between angiopoietin 2 and the Tie2 receptor results in aberrant signaling that further drives pericyte loss, neovascularization, and inflammation. Progressive capillary closure and acellular capillary formation lead to retinal ischemia, which upregulates VEGF as the pro-angiogenic signal driving PDR.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pericyte\", \"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"VEGF-Driven Retinal Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive retinal ischemia from capillary closure drives upregulation of vascular endothelial growth factor A (VEGF-A), the central molecular mediator of pathological neovascularization that defines PDR. VEGF is recognized as a crucial and central molecule in abnormal neovascularization, and anti-VEGF therapy is now the most successful form of treatment for retinal vascular disorders including DR. Notch signaling and hypoxia-inducible factors (HIFs) also contribute to pathological vessel growth. New fibrovascular membranes grow from the optic disc and retinal surface into the vitreous cavity, where rupture causes vitreous hemorrhage and contracture causes tractional retinal detachment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"Vitreous Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rupture of fragile neovascular vessels in PDR causes blood to enter the vitreous cavity. Presents as sudden painless vision loss ranging from floaters to complete visual obscuration. A major complication of PDR and a key endpoint in comparative treatment trials.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Proliferative Diabetic Retinopathy\"], \"term_id\": \"HP:0007902\"}}], \"edges\": [{\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial ROS overproduction directly damages retinal pericytes and endothelial cells, initiating the microvascular degeneration that underlies DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress activates NF-\\u03baB signaling and the NLRP3 inflammasome, driving cytokine production and microglial activation in the retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericyte loss and endothelial cell injury disrupt tight junctions, causing blood-retinal barrier failure and increased vascular permeability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ischemia from capillary degeneration drives VEGF overexpression, triggering pathological neovascularization that defines PDR.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive pericyte loss and capillary closure cause retinal ischemia, which upregulates VEGF as the primary angiogenic signal.\"]}, {\"source\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines disrupt tight junctions between retinal endothelial cells, increasing vascular permeability and contributing to BRB failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Retinal Barrier Breakdown\", \"target\": \"Macular Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRB failure allows plasma constituents to leak into the macular area, causing retinal thickening and diabetic macular edema, the major cause of moderate vision impairment in DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VEGF-Driven Retinal Neovascularization\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile neovascular vessels on the retinal surface and vitreous face rupture, causing vitreous hemorrhage and acute vision loss in PDR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Hyperglycemia\", \"target\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The exposure and the node are the same fact: sustained glucose elevation drives the polyol, hexosamine, protein kinase C and advanced glycation pathways this node names.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diabetes Duration\", \"target\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Duration is not a separate exposure but the integral of the same one: damage accumulates with cumulative glycaemic exposure, which is why ten years or more carries the highest odds ratio in this cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertension\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Adds haemodynamic stress to retinal capillaries already injured metabolically, which is why blood-pressure control slows retinopathy independently of glycaemic control. It targets the vascular node rather than the metabolic one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nephropathy and Proteinuria\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Not an exposure acting on the retina but a marker that the same diabetic microvascular process is already established elsewhere. Proteinuria signals generalised endothelial injury, which is why nephropathy predicts retinopathy without causing it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Macular Edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pars Plana Vitrectomy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4992,14 +5325,21 @@
                         Visual Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000505">HP:0000505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5051,14 +5391,21 @@
                         Macular Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macular edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040049">HP:0040049</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0040049</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetic macular edema, annotated with Macular edema (HP:0040049). HP:0040049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5110,14 +5457,21 @@
                         Neovascular Glaucoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glaucoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000501</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neovascular glaucoma, annotated with Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5178,14 +5532,21 @@
                         Retinal Hemorrhage
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal hemorrhage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000573" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000573">HP:0000573</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000573" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000573</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal hemorrhage (HP:0000573). HP:0000573 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5238,14 +5599,21 @@
                         Vitreous Hemorrhage
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vitreous hemorrhage
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007902">HP:0007902</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0007902</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vitreous hemorrhage (HP:0007902). HP:0007902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5319,14 +5687,21 @@
                         Tractional Retinal Detachment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tractional retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007917" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007917">HP:0007917</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007917</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tractional retinal detachment (HP:0007917). HP:0007917 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5424,7 +5799,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5454,16 +5834,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         anti-VEGF biologic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20401">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anti-VEGF biologic, annotated with Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5509,17 +5894,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Macular edema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040049">HP:0040049</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0040049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Macular edema (HP:0040049). HP:0040049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Vitreous hemorrhage
@@ -5527,10 +5919,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007902">HP:0007902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0007902</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Vitreous hemorrhage (HP:0007902). HP:0007902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5623,7 +6018,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">laser photocoagulation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">laser photocoagulation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is laser photocoagulation, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
 
 
@@ -5679,16 +6079,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Vitreous hemorrhage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007902">HP:0007902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007902</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Vitreous hemorrhage (HP:0007902). HP:0007902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5759,7 +6164,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5797,16 +6207,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Vitreous hemorrhage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007902">HP:0007902</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007902" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007902</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Vitreous hemorrhage (HP:0007902). HP:0007902 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5865,6 +6280,10 @@
                 <div class="item-name">Chronic Hyperglycemia</div>
 
 
+
+
+
+
                 <div class="item-desc">The primary modifiable risk factor for DR onset and progression. Poor glycemic control (elevated HbA1c) is among the strongest independent predictors of DR development. Landmark trials (DCCT for type 1; UKPDS for type 2) established that intensive glycemic control substantially reduces DR incidence and progression. ADA recommends achieving individualized glycemic targets to reduce DR risk.
 </div>
 
@@ -5905,10 +6324,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The exposure and the node are the same fact: sustained glucose elevation drives the polyol, hexosamine, protein kinase C and advanced glycation pathways this node names.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy."</div>
+
+
+                <div class="evidence-explanation">Reports poor glycaemic control with an adjusted odds ratio of 3.83 for retinopathy, the exposure this node is built on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-diabetes-duration" data-dismech-node="Diabetes Duration" data-dismech-type="environmental">
                 <div class="item-name">Diabetes Duration</div>
+
+
+
+
 
 
                 <div class="item-desc">Duration of diabetes is among the strongest predictors of DR onset; risk increases substantially with each decade. Virtually all patients with type 1 diabetes develop some degree of DR after 20 years of disease.
@@ -5951,10 +6426,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Duration is not a separate exposure but the integral of the same one: damage accumulates with cumulative glycaemic exposure, which is why ten years or more carries the highest odds ratio in this cohort.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ten years and longer with diabetes (AOR = 4.36, 95% CI: 1.71-7.01), hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy."</div>
+
+
+                <div class="evidence-explanation">Reports an adjusted odds ratio of 4.36 for ten years or longer with diabetes, the highest in the cited analysis, reflecting cumulative rather than distinct exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-hypertension" data-dismech-node="Hypertension" data-dismech-type="environmental">
                 <div class="item-name">Hypertension</div>
+
+
+
+
 
 
                 <div class="item-desc">Co-existing hypertension accelerates retinal microvascular damage and DR progression. Blood pressure control (target &lt;130/80 mmHg per ADA) reduces DR progression risk and is a key element of systemic management.
@@ -5997,10 +6528,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Retinal Vascular Cell Injury and Pericyte Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Adds haemodynamic stress to retinal capillaries already injured metabolically, which is why blood-pressure control slows retinopathy independently of glycaemic control. It targets the vascular node rather than the metabolic one.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy."</div>
+
+
+                <div class="evidence-explanation">Reports an adjusted odds ratio of 2.54 for hypertension, an effect on the retinal vasculature separate from glycaemic control.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-nephropathy-and-proteinuria" data-dismech-node="Nephropathy and Proteinuria" data-dismech-type="environmental">
                 <div class="item-name">Nephropathy and Proteinuria</div>
+
+
+
+
 
 
                 <div class="item-desc">Diabetic nephropathy co-occurs with retinopathy due to shared microvascular vulnerability. Proteinuria is an independent predictor of DR risk and progression, and reflects systemic endothelial dysfunction.
@@ -6065,6 +6652,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Retinal Vascular Cell Injury and Pericyte Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Not an exposure acting on the retina but a marker that the same diabetic microvascular process is already established elsewhere. Proteinuria signals generalised endothelial injury, which is why nephropathy predicts retinopathy without causing it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Retinopathy affects one in four patients with diabetes. Diabetic patients with longer duration, hypertension, poor glycemic control, and positive proteinuria should receive special care."</div>
+
+
+                <div class="evidence-explanation">Names longer duration, hypertension and poor control alongside proteinuria among the factors identifying patients with retinopathy, a marker of shared microvascular disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -6077,6 +6716,58 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    N-acetyl-L-cysteine ethyl ester (NACET) induces the transcription factor NRF2 in the retina and prevents its aging and diabetic retinopathy. [III]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE299877" target="_blank">geo:GSE299877</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Age-related macular degeneration (AMD) and diabetic retinopathy (DR) are leading causes of visual impairment in older people, with oxidative stress playing a central role in the development of these diseases. In fact, the cells of the retina are particularly susceptible to oxidative damage due to high metabolic activity and exposure to light. Glutathione (GSH), a key intracellular antioxidant, is essential for retinal protection but it becomes limited during aging and in diabetes patients.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41205411" target="_blank" style="color: var(--secondary);">PMID:41205411</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Diabetic Retinopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6106,16 +6797,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Macular edema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040049">HP:0040049</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0040049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Macular edema (HP:0040049). HP:0040049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6159,6 +6855,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6632,6 +7331,23 @@ phenotypes:
   subtype: Proliferative Diabetic Retinopathy
 environmental:
 - name: Chronic Hyperglycemia
+  influences_mechanisms:
+  - target: Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The exposure and the node are the same fact: sustained glucose elevation
+      drives the polyol, hexosamine, protein kinase C and advanced glycation
+      pathways this node names.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
+      explanation: &gt;-
+        Reports poor glycaemic control with an adjusted odds ratio of 3.83 for
+        retinopathy, the exposure this node is built on.
   notes: &gt;
     The primary modifiable risk factor for DR onset and progression. Poor glycemic
     control (elevated HbA1c) is among the strongest independent predictors of DR
@@ -6647,6 +7363,24 @@ environmental:
     snippet: &#34;poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
     explanation: Meta-analysis quantifies poor glycemic control as conferring ~3.8-fold odds of DR, establishing it as the primary modifiable systemic risk factor.
 - name: Diabetes Duration
+  influences_mechanisms:
+  - target: Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Duration is not a separate exposure but the integral of the same one:
+      damage accumulates with cumulative glycaemic exposure, which is why ten
+      years or more carries the highest odds ratio in this cohort.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Ten years and longer with diabetes (AOR = 4.36, 95% CI: 1.71-7.01), hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
+      explanation: &gt;-
+        Reports an adjusted odds ratio of 4.36 for ten years or longer with
+        diabetes, the highest in the cited analysis, reflecting cumulative
+        rather than distinct exposure.
   notes: &gt;
     Duration of diabetes is among the strongest predictors of DR onset; risk
     increases substantially with each decade. Virtually all patients with type 1
@@ -6659,6 +7393,24 @@ environmental:
     snippet: &#34;Ten years and longer with diabetes (AOR = 4.36, 95% CI: 1.71-7.01), hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
     explanation: Meta-analysis demonstrates that ≥10 years of diabetes confers over 4-fold adjusted odds of DR, making duration the strongest identified risk factor in this cohort.
 - name: Hypertension
+  influences_mechanisms:
+  - target: Retinal Vascular Cell Injury and Pericyte Loss
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Adds haemodynamic stress to retinal capillaries already injured
+      metabolically, which is why blood-pressure control slows retinopathy
+      independently of glycaemic control. It targets the vascular node rather
+      than the metabolic one.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
+      explanation: &gt;-
+        Reports an adjusted odds ratio of 2.54 for hypertension, an effect on
+        the retinal vasculature separate from glycaemic control.
   notes: &gt;
     Co-existing hypertension accelerates retinal microvascular damage and DR
     progression. Blood pressure control (target &lt;130/80 mmHg per ADA) reduces DR
@@ -6671,6 +7423,25 @@ environmental:
     snippet: &#34;hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
     explanation: Meta-analysis identifies hypertension as an independent risk factor conferring ~2.5-fold adjusted odds of DR, supporting blood pressure control as a protective intervention.
 - name: Nephropathy and Proteinuria
+  influences_mechanisms:
+  - target: Retinal Vascular Cell Injury and Pericyte Loss
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Not an exposure acting on the retina but a marker that the same diabetic
+      microvascular process is already established elsewhere. Proteinuria
+      signals generalised endothelial injury, which is why nephropathy
+      predicts retinopathy without causing it.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Retinopathy affects one in four patients with diabetes. Diabetic patients with longer duration, hypertension, poor glycemic control, and positive proteinuria should receive special care.&#34;
+      explanation: &gt;-
+        Names longer duration, hypertension and poor control alongside
+        proteinuria among the factors identifying patients with retinopathy, a
+        marker of shared microvascular disease.
   notes: &gt;
     Diabetic nephropathy co-occurs with retinopathy due to shared microvascular
     vulnerability. Proteinuria is an independent predictor of DR risk and
@@ -6858,6 +7629,19 @@ classifications:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;12. Retinopathy, Neuropathy, and Foot Care: Standards of Care in Diabetes-2025.&#34;
       explanation: ADA Standards of Care section on retinopathy is organized within diabetes care guidelines, confirming DR classification as an endocrine-metabolic complication.
+datasets:
+- accession: geo:GSE299877
+  title: N-acetyl-L-cysteine ethyl ester (NACET) induces the transcription factor NRF2 in the retina and prevents its aging and diabetic retinopathy. [III]
+  description: Age-related macular degeneration (AMD) and diabetic retinopathy (DR) are leading causes of visual impairment in older people, with oxidative stress playing a central role in the development of these diseases. In fact, the cells of the retina are particularly susceptible to oxidative damage due to high metabolic activity and exposure to light. Glutathione (GSH), a key intracellular antioxidant, is essential for retinal protection but it becomes limited during aging and in diabetes patients.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 20
+  publication: PMID:41205411
+  notes: Identified by GEO DataSets index search for Diabetic Retinopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7258,7 +8042,7 @@ and DME classification into center-involving vs nonecenter-involving by clinical
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diabetic Retinopathy", "mondoId": "MONDO:0005266", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetic_Retinopathy", "yamlRevision": "df155ad8e7ac"};
+        const OS_CONFIG = {"diseaseName": "Diabetic Retinopathy", "mondoId": "MONDO:0005266", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetic_Retinopathy", "yamlRevision": "7829bc4c9cfe"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7677,5 +8461,73 @@ and DME classification into center-involving vs nonecenter-involving by clinical
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Marfan%20Syndrome"
@@ -3707,6 +3873,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3768,7 +3936,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3793,6 +3961,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#datasets">
@@ -3837,6 +4013,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3846,9 +4092,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 30 &#34;Overgrowth (tall stature) syndromes with skeletal involvement&#34;; listed as &#34;Marfan syndrome&#34;.">overgrowth syndromes with skeletal involvement</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4298,16 +4560,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4332,15 +4599,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         FBN1
 
 
-    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3603">hgnc:3603</a>
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3603</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4368,16 +4642,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         elastic fiber assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048251">GO:0048251</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048251</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased elastic fiber assembly (GO:0048251). GO:0048251 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4398,6 +4677,7 @@
 
 
                 </div>
+
 
 
 
@@ -4528,16 +4808,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4564,16 +4849,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4582,6 +4872,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4599,10 +4891,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060395">GO:0060395</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060395</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased SMAD protein signal transduction (GO:0060395). GO:0060395 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4629,19 +4924,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000947">UBERON:0000947</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0000947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4699,17 +5000,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4730,10 +5038,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4760,16 +5071,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4789,16 +5105,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4821,19 +5142,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         aorta tunica media
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003618" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003618">UBERON:0003618</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003618" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0003618</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta tunica media (UBERON:0003618). UBERON:0003618 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4923,17 +5250,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4954,10 +5288,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4984,17 +5321,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular response to mechanical stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071260">GO:0071260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0071260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cellular response to mechanical stimulus (GO:0071260). GO:0071260 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5015,10 +5359,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007229">GO:0007229</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007229</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves integrin-mediated signaling pathway (GO:0007229). GO:0007229 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5041,19 +5388,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000947">UBERON:0000947</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5087,17 +5440,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5118,10 +5478,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5148,17 +5511,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5179,10 +5549,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5205,17 +5578,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         aorta tunica intima
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003619" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003619">UBERON:0003619</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003619" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0003619</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta tunica intima (UBERON:0003619). UBERON:0003619 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         aorta tunica media
@@ -5223,13 +5603,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003618" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003618">UBERON:0003618</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003618" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0003618</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta tunica media (UBERON:0003618). UBERON:0003618 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5263,17 +5647,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular associated smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5294,10 +5685,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5324,17 +5718,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrial ATP synthesis coupled electron transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042775">GO:0042775</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0042775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitochondrial ATP synthesis coupled electron transport (GO:0042775). GO:0042775 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5355,10 +5756,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5381,19 +5785,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         aorta
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000947">UBERON:0000947</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000947" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0000947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aorta (UBERON:0000947). UBERON:0000947 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5443,7 +5853,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root beginning in childhood, with risk of life-threatening aortic dissection.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-threatening tear in the aortic wall allowing blood to enter between tissue layers, the leading cause of death in untreated Marfan syndrome.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the aortic root diameter, typically measured by echocardiography and tracked using Z-scores adjusted for age and body surface area.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers and toes (spider-like digits), often demonstrated by positive wrist and thumb signs.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Dural Ectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widening or ballooning of the dural sac, typically in the lumbosacral spine, reflecting connective-tissue weakness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100775\"}}, {\"id\": \"Dysregulated TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective fibrillin-1 microfibrils fail to sequester latent TGF-beta complexes, leading to increased bioavailable TGF-beta and excessive SMAD2/3 signaling that drives vascular smooth muscle cell phenotypic switching and ECM remodeling.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\", \"SMAD protein signal transduction\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superior and temporal displacement of the lens due to weakened zonular fibers, affecting visual acuity.\", \"meta\": {\"evidence_count\": 9, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001083\"}}, {\"id\": \"Extracellular Matrix Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased matrix metalloproteinase activity, elastic fiber fragmentation, altered collagen composition, and proteoglycan accumulation (especially versican) weaken the aortic wall medial layer.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"proteolysis\"], \"locations\": [\"aorta tunica media\"]}}, {\"id\": \"FBN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FBN1 Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"elastic fiber assembly\"], \"genes\": [\"FBN1\"], \"gene_terms\": [{\"label\": \"FBN1\", \"id\": \"hgnc:3603\"}]}}, {\"id\": \"Impaired Mechanotransduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perturbed integrin-fibrillin interactions alter focal adhesion signaling and mechanosensing, contributing to maladaptive vascular smooth muscle cell responses to hemodynamic stress.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"cellular response to mechanical stimulus\", \"integrin-mediated signaling pathway\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging evidence implicates mitochondrial dysfunction and oxidative stress in vascular smooth muscle cells and endothelial cells as contributors to thoracic aortic aneurysm progression in Marfan syndrome.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\", \"response to oxidative stress\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incompetence of the mitral valve causing retrograde blood flow from the left ventricle into the left atrium during systole.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001653\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myxomatous degeneration of mitral valve leaflets causing prolapse into the left atrium during systole, often accompanied by mitral regurgitation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Pulmonary Artery Dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widening of the main pulmonary artery reflecting the same fibrillin-1-deficient, medial-weakness great-vessel pathology that affects the aorta, detectable on cross-sectional imaging.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004927\"}}, {\"id\": \"Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Separation of the neurosensory retina from the underlying retinal pigment epithelium, a recognized ocular complication of Marfan syndrome related to axial globe elongation and lattice/vitreoretinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000541\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine occurring in approximately 63% of Marfan syndrome patients, often progressive.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spontaneous Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous lung collapse occurring in 5-11% of patients due to apical blebs from connective tissue abnormalities.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002108\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionately tall stature with long limbs and increased arm span-to-height ratio.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001519\"}}, {\"id\": \"Vascular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiotensin II type 1 receptor signaling and chemokine pathways recruit macrophages and promote inflammatory mediators that exacerbate vascular smooth muscle cell dysfunction and ECM degradation.\", \"meta\": {\"cell_types\": [\"macrophage\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"], \"locations\": [\"aorta tunica intima\", \"aorta tunica media\"]}}], \"edges\": [{\"source\": \"FBN1 Gene Mutation\", \"target\": \"Dysregulated TGF-beta Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective fibrillin microfibrils fail to properly sequester latent TGF-beta complexes.\"}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of normal fibrillin scaffold destabilizes elastic fiber architecture and ECM integrity.\"}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Impaired Mechanotransduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered fibrillin-integrin interactions impair mechanosensing in load-bearing connective tissues.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess SMAD signaling increases protease activity and maladaptive ECM turnover.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent TGF-beta activity accelerates medial degeneration and progressive root dilation.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated growth factor signaling contributes to long bone overgrowth.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective tissue growth signaling contributes to elongated digits.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elastic fiber fragmentation and collagen disarray weaken the aortic wall.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue degeneration in valve leaflets promotes prolapse.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak zonular microfibrils predispose to lens displacement.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ligamentous laxity and vertebral connective tissue weakness promote spinal curvature.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Spontaneous Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile connective tissue in lung apices increases risk of spontaneous pneumothorax.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Pulmonary Artery Dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrillin-1 deficiency and medial weakness affect the great vessels beyond the aorta, dilating the main pulmonary artery.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak ocular microfibrils, axial globe elongation, and zonular instability predispose to retinal detachment.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Dural Ectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakened dural connective tissue stretches under chronic cerebrospinal-fluid pulsation, producing lumbosacral dural ectasia.\"}, {\"source\": \"Impaired Mechanotransduction\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maladaptive vascular smooth muscle responses to pulsatile stress accelerate root enlargement.\"}, {\"source\": \"Vascular Inflammation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory ECM damage and smooth muscle dysfunction increase risk of acute intimal tearing.\"}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative injury amplifies wall fragility and susceptibility to dissection in advanced disease.\"}, {\"source\": \"Aortic Aneurysm\", \"target\": \"Aortic Dissection\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive dilation weakens the aortic wall, predisposing to acute dissection.\"}, {\"source\": \"Mitral Valve Prolapse\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive myxomatous leaflet degeneration and prolapse render the mitral valve incompetent, producing mitral regurgitation.\"}, {\"source\": \"FBN1\", \"target\": \"FBN1 Gene Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root beginning in childhood, with risk of life-threatening aortic dissection.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Life-threatening tear in the aortic wall allowing blood to enter between tissue layers, the leading cause of death in untreated Marfan syndrome.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive enlargement of the aortic root diameter, typically measured by echocardiography and tracked using Z-scores adjusted for age and body surface area.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers and toes (spider-like digits), often demonstrated by positive wrist and thumb signs.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Dural Ectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widening or ballooning of the dural sac, typically in the lumbosacral spine, reflecting connective-tissue weakness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100775\"}}, {\"id\": \"Dysregulated TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective fibrillin-1 microfibrils fail to sequester latent TGF-beta complexes, leading to increased bioavailable TGF-beta and excessive SMAD2/3 signaling that drives vascular smooth muscle cell phenotypic switching and ECM remodeling.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\", \"SMAD protein signal transduction\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Superior and temporal displacement of the lens due to weakened zonular fibers, affecting visual acuity.\", \"meta\": {\"evidence_count\": 9, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001083\"}}, {\"id\": \"Extracellular Matrix Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased matrix metalloproteinase activity, elastic fiber fragmentation, altered collagen composition, and proteoglycan accumulation (especially versican) weaken the aortic wall medial layer.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\", \"proteolysis\"], \"locations\": [\"aorta tunica media\"]}}, {\"id\": \"FBN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FBN1 Gene Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the FBN1 gene result in defective fibrillin-1 protein, which affects the elasticity and strength of connective tissues.\", \"meta\": {\"evidence_count\": 8, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"elastic fiber assembly\"], \"genes\": [\"FBN1\"], \"gene_terms\": [{\"label\": \"FBN1\", \"id\": \"hgnc:3603\"}]}}, {\"id\": \"Impaired Mechanotransduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perturbed integrin-fibrillin interactions alter focal adhesion signaling and mechanosensing, contributing to maladaptive vascular smooth muscle cell responses to hemodynamic stress.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"cellular response to mechanical stimulus\", \"integrin-mediated signaling pathway\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Emerging evidence implicates mitochondrial dysfunction and oxidative stress in vascular smooth muscle cells and endothelial cells as contributors to thoracic aortic aneurysm progression in Marfan syndrome.\", \"meta\": {\"cell_types\": [\"vascular associated smooth muscle cell\", \"endothelial cell\"], \"biological_processes\": [\"mitochondrial ATP synthesis coupled electron transport\", \"response to oxidative stress\"], \"locations\": [\"aorta\"]}}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Incompetence of the mitral valve causing retrograde blood flow from the left ventricle into the left atrium during systole.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001653\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myxomatous degeneration of mitral valve leaflets causing prolapse into the left atrium during systole, often accompanied by mitral regurgitation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"Moderate Dynamic Aerobic Activity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Regular moderate-intensity dynamic (aerobic) activity undertaken within the restrictions above - for example a 10,000-steps-per-day walking target - rather than sedentary avoidance of all exertion.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Pulmonary Artery Dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widening of the main pulmonary artery reflecting the same fibrillin-1-deficient, medial-weakness great-vessel pathology that affects the aorta, detectable on cross-sectional imaging.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004927\"}}, {\"id\": \"Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Separation of the neurosensory retina from the underlying retinal pigment epithelium, a recognized ocular complication of Marfan syndrome related to axial globe elongation and lattice/vitreoretinal degeneration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000541\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine occurring in approximately 63% of Marfan syndrome patients, often progressive.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Spontaneous Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous lung collapse occurring in 5-11% of patients due to apical blebs from connective tissue abnormalities.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002108\"}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionately tall stature with long limbs and increased arm span-to-height ratio.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001519\"}}, {\"id\": \"Vascular Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiotensin II type 1 receptor signaling and chemokine pathways recruit macrophages and promote inflammatory mediators that exacerbate vascular smooth muscle cell dysfunction and ECM degradation.\", \"meta\": {\"cell_types\": [\"macrophage\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"], \"locations\": [\"aorta tunica intima\", \"aorta tunica media\"]}}, {\"id\": \"Vigorous Isometric and Competitive Sport Restriction\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Avoidance of maximal-effort isometric/static exertion (heavy weight lifting), high-intensity exercise, and competitive or contact sport, which acutely raise blood pressure and hemodynamic stress on a fragile aortic wall.\\n\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"FBN1 Gene Mutation\", \"target\": \"Dysregulated TGF-beta Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective fibrillin microfibrils fail to properly sequester latent TGF-beta complexes.\"}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of normal fibrillin scaffold destabilizes elastic fiber architecture and ECM integrity.\"}, {\"source\": \"FBN1 Gene Mutation\", \"target\": \"Impaired Mechanotransduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered fibrillin-integrin interactions impair mechanosensing in load-bearing connective tissues.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Extracellular Matrix Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess SMAD signaling increases protease activity and maladaptive ECM turnover.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent TGF-beta activity accelerates medial degeneration and progressive root dilation.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated growth factor signaling contributes to long bone overgrowth.\"}, {\"source\": \"Dysregulated TGF-beta Signaling\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective tissue growth signaling contributes to elongated digits.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elastic fiber fragmentation and collagen disarray weaken the aortic wall.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue degeneration in valve leaflets promotes prolapse.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak zonular microfibrils predispose to lens displacement.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ligamentous laxity and vertebral connective tissue weakness promote spinal curvature.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Spontaneous Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile connective tissue in lung apices increases risk of spontaneous pneumothorax.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Pulmonary Artery Dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrillin-1 deficiency and medial weakness affect the great vessels beyond the aorta, dilating the main pulmonary artery.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weak ocular microfibrils, axial globe elongation, and zonular instability predispose to retinal detachment.\"}, {\"source\": \"Extracellular Matrix Remodeling\", \"target\": \"Dural Ectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakened dural connective tissue stretches under chronic cerebrospinal-fluid pulsation, producing lumbosacral dural ectasia.\"}, {\"source\": \"Impaired Mechanotransduction\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maladaptive vascular smooth muscle responses to pulsatile stress accelerate root enlargement.\"}, {\"source\": \"Vascular Inflammation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory ECM damage and smooth muscle dysfunction increase risk of acute intimal tearing.\"}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative injury amplifies wall fragility and susceptibility to dissection in advanced disease.\"}, {\"source\": \"Aortic Aneurysm\", \"target\": \"Aortic Dissection\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive dilation weakens the aortic wall, predisposing to acute dissection.\"}, {\"source\": \"Mitral Valve Prolapse\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Progressive myxomatous leaflet degeneration and prolapse render the mitral valve incompetent, producing mitral regurgitation.\"}, {\"source\": \"Vigorous Isometric and Competitive Sport Restriction\", \"target\": \"Aortic Dissection\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"The first protective link in this backfill, and the direction is the point: the exposure is the restriction itself, so what it does is prevent rather than cause. It targets the dissection phenotype because that is the event restriction is meant to avert, and the intervening step is the acute rise in blood pressure and wall stress that this entry models as impaired mechanotransduction. Graded partial throughout, because the guideline item states the intention of the restriction rather than a measured reduction. One export caveat is worth recording here rather than leaving for someone to rediscover: the exposure is named for the restriction, but the KGX exporter maps it to an exposure-to-strenuous-exercise term, so a protective predicate on this link inverts on export and reads as strenuous exercise being protective. The problem predates this link, since the free-text effect already matched, but the structured predicate is now the authoritative path. Tracked as issue #2656.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Moderate Dynamic Aerobic Activity\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"The complementary half of activity modification, and the better-evidenced of the two protective links: this one has an intervention. Patients instructed to walk ten thousand steps a day had a significantly lower aortic root Z score than controls, which measures the outcome this node holds rather than an intention. Held simultaneously with the restriction link by design, since what is restricted is exercise intensity and type rather than physical activity itself.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"FBN1\", \"target\": \"FBN1 Gene Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5496,14 +5906,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic aneurysm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004942" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004942">HP:0004942</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004942" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004942</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic Aneurysm (HP:0004942). HP:0004942 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5610,14 +6027,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic dissection
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002647">HP:0002647</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002647</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic Dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5715,14 +6139,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001634">HP:0001634</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001634</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5783,14 +6214,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic root aneurysm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002616">HP:0002616</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002616</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5844,14 +6282,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001659">HP:0001659</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001659</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5914,14 +6359,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ectopia lentis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001083">HP:0001083</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001083</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ectopia Lentis (HP:0001083). HP:0001083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6023,14 +6475,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000545">HP:0000545</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000545</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6084,14 +6543,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000541</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6154,14 +6620,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Striae distensae
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001065">HP:0001065</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001065" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001065</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Striae distensae (HP:0001065). HP:0001065 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6224,14 +6697,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arachnodactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001166">HP:0001166</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001166</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6329,14 +6809,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pes planus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001763">HP:0001763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6399,14 +6886,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6506,14 +7000,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus carinatum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000768">HP:0000768</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000768</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6567,14 +7068,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus excavatum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000767">HP:0000767</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000767</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6628,14 +7136,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6698,14 +7213,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010535">HP:0010535</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0010535</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6768,14 +7290,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Disproportionate tall stature
+
+                        <span class="phenotype-term-label">Disproportionate tall stature</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001519">HP:0001519</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001519</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disproportionate tall stature (HP:0001519). HP:0001519 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6884,14 +7415,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spontaneous pneumothorax
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002108" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002108">HP:0002108</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002108</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spontaneous pneumothorax (HP:0002108). HP:0002108 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6993,14 +7531,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tricuspid valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001704">HP:0001704</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001704</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tricuspid valve prolapse (HP:0001704). HP:0001704 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7054,14 +7599,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ascending tubular aorta aneurysm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004970" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004970">HP:0004970</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0004970</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ascending tubular aorta aneurysm (HP:0004970). HP:0004970 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7115,14 +7667,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Slender build
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001533" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001533">HP:0001533</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001533" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001533</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Slender build (HP:0001533). HP:0001533 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7176,14 +7735,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dural ectasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100775" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100775">HP:0100775</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100775" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0100775</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dural ectasia (HP:0100775). HP:0100775 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7237,14 +7803,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012432" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012432">HP:0012432</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012432" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0012432</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic fatigue (HP:0012432). HP:0012432 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7298,14 +7871,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Protrusio acetabuli
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003179" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003179">HP:0003179</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0003179</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Protrusio acetabuli (HP:0003179). HP:0003179 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7359,14 +7939,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001653">HP:0001653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7420,14 +8007,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary artery dilatation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004927" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004927">HP:0004927</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004927" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0004927</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary artery dilatation (HP:0004927). HP:0004927 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7762,7 +8356,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta adrenergic agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">beta adrenergic agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta adrenergic agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7884,7 +8483,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7914,16 +8518,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         losartan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6541">CHEBI:6541</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:6541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7946,7 +8555,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8046,7 +8660,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8170,7 +8789,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8303,21 +8927,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Vigorous isometric and competitive sport exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000031" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000031">ECTO:6000031</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000031" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-61">ECTO:6000031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Vigorous isometric and competitive sport exposure, annotated with exposure to strenuous exercise (ECTO:6000031). ECTO:6000031 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Deliberately scoped to the restriction half of activity modification. The complementary, aortoprotective effect of moderate dynamic (aerobic) activity is curated as the separate &#34;Moderate Dynamic Aerobic Activity&#34; exposure below, so that exercise-benefit evidence is no longer attached to a restriction claim (issue #6953). Both exposures are held simultaneously in current practice: exercise intensity and type, not physical activity per se, are what is restricted. This node and the moderate-activity node below previously shared XCO:0000059, which made the KGX exporter emit two identical subject/predicate/ object edges; they now carry distinct ECTO terms (ECTO:6000031 strenuous vs ECTO:6000002 exercise), which the schema also prefers over XCO, so the split is visible downstream. OPEN QUESTION: the exported subject is the exposure (strenuous exercise) while this node&#39;s effect is phrased for the protective restriction, so the edge still reads &#34;strenuous exercise reduces risk&#34;. Whether to keep both arms PROTECTIVE or re-express this one as &#34;increases risk&#34; is left to the structured effect_polarity enum in issue #2656.
@@ -8408,6 +9041,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PROTECTS_AGAINST
+                        </span>
+
+                        <strong style="color: #115e59;">Aortic Dissection</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The first protective link in this backfill, and the direction is the point: the exposure is the restriction itself, so what it does is prevent rather than cause. It targets the dissection phenotype because that is the event restriction is meant to avert, and the intervening step is the acute rise in blood pressure and wall stress that this entry models as impaired mechanotransduction. Graded partial throughout, because the guideline item states the intention of the restriction rather than a measured reduction. One export caveat is worth recording here rather than leaving for someone to rediscover: the exposure is named for the restriction, but the KGX exporter maps it to an exposure-to-strenuous-exercise term, so a protective predicate on this link inverts on export and reads as strenuous exercise being protective. The problem predates this link, since the free-text effect already matched, but the structured predicate is now the authoritative path. Tracked as issue #2656.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36072558" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36072558" target="_blank">PMID:36072558</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Current guidelines for patients with thoracic aortic aneurysms or dissections (TAD) restrict vigorous exertion with the intention to prevent acute aortic dissections."</div>
+
+
+                <div class="evidence-explanation">States that current guidelines restrict vigorous exertion with the intention of preventing acute aortic events. An intention, which is what guidelines encode, not a demonstrated effect.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9789865" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9789865" target="_blank">PMID:9789865</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The person with Marfan syndrome is often tall and agile and may unknowingly participate in certain physical activities and sports, putting himself or herself at risk for aortic dissection and sudden death."</div>
+
+
+                <div class="evidence-explanation">Notes that affected people are often tall and agile and may unknowingly take part in activities that put them at risk of dissection and sudden death. It establishes the hazard the restriction addresses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-moderate-dynamic-aerobic-activity" data-dismech-node="Moderate Dynamic Aerobic Activity" data-dismech-type="environmental">
@@ -8415,21 +9122,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Moderate dynamic aerobic activity exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000002" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000002">ECTO:6000002</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000002" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-62">ECTO:6000002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Moderate dynamic aerobic activity exposure, annotated with exposure to exercise (ECTO:6000002). ECTO:6000002 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Split out from the former single &#34;Physical Activity Restrictions&#34; node so that exercise-benefit evidence attaches to a claim it actually supports (issue #6953). The human trial evidence is pediatric and single-centre and the supporting aortic-wall data are murine, so the aortoprotective claim should be read as emerging rather than settled.
@@ -8519,6 +9235,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PROTECTS_AGAINST
+                        </span>
+
+                        <strong style="color: #115e59;">Aortic Root Aneurysm</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The complementary half of activity modification, and the better-evidenced of the two protective links: this one has an intervention. Patients instructed to walk ten thousand steps a day had a significantly lower aortic root Z score than controls, which measures the outcome this node holds rather than an intention. Held simultaneously with the restriction link by design, since what is restricted is exercise intensity and type rather than physical activity itself.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36453629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36453629" target="_blank">PMID:36453629</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We instructed patients to take 10 000 steps per day, tracked by an activity tracker... AoR Z score in the intervention group had a significantly lower rate of change per year compared with the controls (rate of change, -0.24 versus +0.008; P=0.01)."</div>
+
+
+                <div class="evidence-explanation">Intervention study in which patients instructed to walk ten thousand steps a day had a significantly lower aortic root Z score. A measured effect on the dilation this node describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28947563" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28947563" target="_blank">PMID:28947563</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Over the 5-month experimental period, aortic root dilation rate was significantly greater in the sedentary MF group, compared with the wild-type group (∆mm, 0.27±0.07 versus 0.13±0.02, respectively). Exercise significantly blunted the aortic root dilation rate in MF mice compared with sedentary..."</div>
+
+
+                <div class="evidence-explanation">Aortic root dilation was significantly greater in sedentary mutant animals than in wild type over five months. Converges from an animal model, so it is carried at partial and not alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8632,6 +9422,140 @@
 
         <!-- Differential Diagnoses -->
 
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">1</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Marfan Syndrome:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Loeys-Dietz_Syndrome.html">Loeys-Dietz Syndrome</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0018954" target="_blank">
+                            MONDO:0018954
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Autosomal dominant aortopathy caused by mutations in components of the TGF-beta signaling pathway - most commonly heterozygous TGFBR1, TGFBR2, SMAD3 or TGFB2, with TGFB3, SMAD2 and IPO8 also curated as causative. It shares aortic root aneurysm, overlapping skeletal features (scoliosis, pectus deformity, arachnodactyly, joint laxity) and increased aortic-wall TGF-beta signaling with Marfan syndrome, and both conform to the aortopathy_tgfbeta_dysregulation module, so the two are readily confused when only cardiovascular and skeletal findings are considered.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Loeys-Dietz syndrome carries a craniofacial and vascular triad not associated with Marfan syndrome - hypertelorism, bifid uvula or cleft palate, and generalized arterial tortuosity with aneurysm throughout the arterial tree.</li>
+
+                        <li>Ectopia lentis is a cardinal diagnostic feature of Marfan syndrome under the revised Ghent nosology but was absent in every proband of the original Loeys-Dietz cohort (0/16).</li>
+
+                        <li>Loeys-Dietz syndrome follows a more aggressive vascular course, dissecting at younger ages and smaller aortic diameters (mean age at death 26.0 years in the initial cohorts), so surveillance intervals and surgical thresholds differ from those used in Marfan syndrome.</li>
+
+                        <li>The causal gene separates the two entities - FBN1 in Marfan syndrome versus a TGF-beta pathway gene in Loeys-Dietz syndrome (TGFBR1, TGFBR2, SMAD3, TGFB2, TGFB3, SMAD2, IPO8) - so molecular testing is the definitive discriminator.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (6 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16928994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16928994" target="_blank">PMID:16928994</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disease is characterized by the triad of arterial tortuosity and aneurysms, hypertelorism, and bifid uvula or cleft palate and is caused by heterozygous mutations in the genes encoding transforming growth factor beta receptors 1 and 2"</div>
+
+
+                <div class="evidence-explanation">Establishes the craniofacial and vascular triad plus the TGFBR1/TGFBR2 etiology that separate Loeys-Dietz syndrome from FBN1-related Marfan syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16928994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16928994" target="_blank">PMID:16928994</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The natural history of both types was characterized by aggressive arterial aneurysms (mean age at death, 26.0 years)"</div>
+
+
+                <div class="evidence-explanation">Quantifies the more aggressive vascular natural history that makes the distinction from Marfan syndrome clinically consequential.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15731757" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15731757" target="_blank">PMID:15731757</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ectopia lentis 0/16 (0%) Typical 1/15"</div>
+
+
+                <div class="evidence-explanation">The original cohort&#39;s direct comparison table records ectopia lentis in 0 of 16 Loeys-Dietz probands while listing it as typical for Marfan syndrome, supporting ectopia lentis as a discriminating feature.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 3 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
 
@@ -8671,9 +9595,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         thoracic aorta tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001515" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-63">UBERON:0001515</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples thoracic aorta tissue, annotated with thoracic aorta (UBERON:0001515). UBERON:0001515 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -8734,9 +9672,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         ascending aorta tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001496" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-64">UBERON:0001496</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples ascending aorta tissue, annotated with ascending aorta (UBERON:0001496). UBERON:0001496 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -8773,6 +9725,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8791,7 +9746,6 @@
 synonyms:
 - Marfan syndrome, FBN1-related
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-27T12:39:26Z&#39;
 description: Marfan syndrome is an autosomal dominant connective tissue disorder caused by mutations in FBN1, which encodes fibrillin-1. It affects multiple organ systems including the cardiovascular system (aortic root dilation and dissection), skeleton (tall stature, arachnodactyly, scoliosis), and eyes (ectopia lentis).
 category: Genetic
 parents:
@@ -10086,8 +11040,122 @@ diagnosis:
     evidence_source: HUMAN_CLINICAL
     snippet: The position of the lens was noted by observing the eye in different gaze directions in maximal mydriasis during slit lamp examination.
     explanation: The study confirms that slit lamp examination is used to detect lens dislocation (ectopia lentis) in patients with Marfan syndrome.
+differential_diagnoses:
+- name: Loeys-Dietz Syndrome
+  disease_term:
+    preferred_term: Loeys-Dietz syndrome
+    term:
+      id: MONDO:0018954
+      label: Loeys-Dietz syndrome
+  description: &gt;-
+    Autosomal dominant aortopathy caused by mutations in components of the
+    TGF-beta signaling pathway - most commonly heterozygous TGFBR1, TGFBR2,
+    SMAD3 or TGFB2, with TGFB3, SMAD2 and IPO8 also curated as causative. It
+    shares aortic root aneurysm, overlapping skeletal features (scoliosis,
+    pectus deformity, arachnodactyly, joint laxity) and increased aortic-wall
+    TGF-beta signaling with Marfan syndrome, and both conform to the
+    aortopathy_tgfbeta_dysregulation module, so the two are readily confused when
+    only cardiovascular and skeletal findings are considered.
+  distinguishing_features:
+  - Loeys-Dietz syndrome carries a craniofacial and vascular triad not associated with Marfan syndrome - hypertelorism, bifid uvula or cleft palate, and generalized arterial tortuosity with aneurysm throughout the arterial tree.
+  - Ectopia lentis is a cardinal diagnostic feature of Marfan syndrome under the revised Ghent nosology but was absent in every proband of the original Loeys-Dietz cohort (0/16).
+  - Loeys-Dietz syndrome follows a more aggressive vascular course, dissecting at younger ages and smaller aortic diameters (mean age at death 26.0 years in the initial cohorts), so surveillance intervals and surgical thresholds differ from those used in Marfan syndrome.
+  - The causal gene separates the two entities - FBN1 in Marfan syndrome versus a TGF-beta pathway gene in Loeys-Dietz syndrome (TGFBR1, TGFBR2, SMAD3, TGFB2, TGFB3, SMAD2, IPO8) - so molecular testing is the definitive discriminator.
+  evidence:
+  - reference: PMID:16928994
+    reference_title: &#34;Aneurysm syndromes caused by mutations in the TGF-beta receptor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The disease is characterized by the triad of arterial tortuosity and aneurysms, hypertelorism, and bifid uvula or cleft palate and is caused by heterozygous mutations in the genes encoding transforming growth factor beta receptors 1 and 2&#34;
+    explanation: Establishes the craniofacial and vascular triad plus the TGFBR1/TGFBR2 etiology that separate Loeys-Dietz syndrome from FBN1-related Marfan syndrome.
+  - reference: PMID:16928994
+    reference_title: &#34;Aneurysm syndromes caused by mutations in the TGF-beta receptor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The natural history of both types was characterized by aggressive arterial aneurysms (mean age at death, 26.0 years)&#34;
+    explanation: Quantifies the more aggressive vascular natural history that makes the distinction from Marfan syndrome clinically consequential.
+  - reference: PMID:15731757
+    reference_title: &#34;A syndrome of altered cardiovascular, craniofacial, neurocognitive and skeletal development caused by mutations in TGFBR1 or TGFBR2.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ectopia lentis 0/16 (0%) Typical 1/15&#34;
+    explanation: The original cohort&#39;s direct comparison table records ectopia lentis in 0 of 16 Loeys-Dietz probands while listing it as typical for Marfan syndrome, supporting ectopia lentis as a discriminating feature.
+  - reference: PMID:20591885
+    reference_title: &#34;The revised Ghent nosology for the Marfan syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;aortic root aneurysm and ectopia lentis are the cardinal clinical features&#34;
+    explanation: The revised Ghent nosology makes ectopia lentis a cardinal criterion for Marfan syndrome, which is why its absence redirects the differential toward Loeys-Dietz syndrome.
+  - reference: PMID:20591885
+    reference_title: &#34;The revised Ghent nosology for the Marfan syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The recognition of variable clinical expression and the recently extended differential diagnosis further confound accurate diagnostic decision making.&#34;
+    explanation: The nosology panel explicitly identifies the expanded differential diagnosis as a source of diagnostic error, motivating this differential entry.
+  - reference: PMID:24577266
+    reference_title: &#34;Loeys-Dietz syndrome: a primer for diagnosis and management.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Unlike the increased risk of aortic dissection at or above the 5.0-cm aortic root dimension in Marfan syndrome, dissections have occurred in individuals with LDS 1, 2, or 3 at aortic dimensions of 3.9–4.0 cm&#34;
+    explanation: Supplies the aortic-diameter half of the distinguishing feature. Marfan syndrome carries the increased dissection risk at or above a 5.0-cm aortic root, whereas Loeys-Dietz dissections have occurred at 3.9-4.0 cm, which is why surveillance intervals and surgical thresholds differ between the two.
+  notes: &gt;-
+    Historical nosology note. After a second Marfan-overlapping locus was mapped
+    to 3p24.2-p25 and TGFBR2 mutations were identified there, TGF-beta receptor
+    aortopathy was labelled &#34;Marfan syndrome type 2&#34; (MFS2, Marfan syndrome type
+    II), and reviews as recent as 2020 still present TGFBR1/TGFBR2 disease as a
+    Marfan subtype. MONDO has since obsoleted that entity - MONDO:0017308
+    &#34;obsolete Marfan syndrome type 2&#34;, subset speculative, definition &#34;OBSOLETE.
+    Hypothesized form of Marfan; dubious&#34; - with no replacement term. dismech
+    therefore curates the TGF-beta receptor aortopathies as Loeys-Dietz syndrome
+    (MONDO:0018954), a separate Disease entry reached through this differential,
+    and Marfan syndrome carries no type 2 subtype. Note that MONDO retired MFS2
+    as a dubious entity rather than asserting that MFS2 is equivalent to
+    Loeys-Dietz syndrome; the obsolete CURIE must not be cited as a term
+    anywhere in the knowledge base. The two diseases are related as sibling
+    members of the Heritable_Thoracic_Aortic_Disease grouping, not as parent and
+    subtype.
 environmental:
 - name: Vigorous Isometric and Competitive Sport Restriction
+  influences_mechanisms:
+  - target: Aortic Dissection
+    environmental_effect: PROTECTS_AGAINST
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The first protective link in this backfill, and the direction is the
+      point: the exposure is the restriction itself, so what it does is
+      prevent rather than cause. It targets the dissection phenotype because
+      that is the event restriction is meant to avert, and the intervening
+      step is the acute rise in blood pressure and wall stress that this entry
+      models as impaired mechanotransduction.
+      Graded partial throughout, because the guideline item states the
+      intention of the restriction rather than a measured reduction. One
+      export caveat is worth recording here rather than leaving for someone to
+      rediscover: the exposure is named for the restriction, but the KGX
+      exporter maps it to an exposure-to-strenuous-exercise term, so a
+      protective predicate on this link inverts on export and reads as
+      strenuous exercise being protective. The problem predates this link,
+      since the free-text effect already matched, but the structured predicate
+      is now the authoritative path. Tracked as issue #2656.
+    evidence:
+    - reference: PMID:36072558
+      reference_title: &#34;Safety of exercise for adults with thoracic aortic aneurysms and dissections.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Current guidelines for patients with thoracic aortic aneurysms or dissections (TAD) restrict vigorous exertion with the intention to prevent acute aortic dissections.&#34;
+      explanation: &gt;-
+        States that current guidelines restrict vigorous exertion with the
+        intention of preventing acute aortic events. An intention, which is
+        what guidelines encode, not a demonstrated effect.
+    - reference: PMID:9789865
+      reference_title: &#34;Exercise and the Marfan syndrome.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The person with Marfan syndrome is often tall and agile and may unknowingly participate in certain physical activities and sports, putting himself or herself at risk for aortic dissection and sudden death.&#34;
+      explanation: &gt;-
+        Notes that affected people are often tall and agile and may
+        unknowingly take part in activities that put them at risk of
+        dissection and sudden death. It establishes the hazard the restriction
+        addresses.
   description: &gt;
     Avoidance of maximal-effort isometric/static exertion (heavy weight lifting),
     high-intensity exercise, and competitive or contact sport, which acutely raise
@@ -10142,6 +11210,38 @@ environmental:
       id: ECTO:6000031
       label: exposure to strenuous exercise
 - name: Moderate Dynamic Aerobic Activity
+  influences_mechanisms:
+  - target: Aortic Root Aneurysm
+    environmental_effect: PROTECTS_AGAINST
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The complementary half of activity modification, and the
+      better-evidenced of the two protective links: this one has an
+      intervention. Patients instructed to walk ten thousand steps a day had a
+      significantly lower aortic root Z score than controls, which measures
+      the outcome this node holds rather than an intention. Held
+      simultaneously with the restriction link by design, since what is
+      restricted is exercise intensity and type rather than physical activity
+      itself.
+    evidence:
+    - reference: PMID:36453629
+      reference_title: &#34;Can 10 000 Healthy Steps a Day Slow Aortic Root Dilation in Pediatric Patients With Marfan Syndrome?&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We instructed patients to take 10 000 steps per day, tracked by an activity tracker... AoR Z score in the intervention group had a significantly lower rate of change per year compared with the controls (rate of change, -0.24 versus +0.008; P=0.01).&#34;
+      explanation: &gt;-
+        Intervention study in which patients instructed to walk ten thousand
+        steps a day had a significantly lower aortic root Z score. A measured
+        effect on the dilation this node describes.
+    - reference: PMID:28947563
+      reference_title: &#34;Cardiovascular Benefits of Moderate Exercise Training in Marfan Syndrome: Insights From an Animal Model.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Over the 5-month experimental period, aortic root dilation rate was significantly greater in the sedentary MF group, compared with the wild-type group (∆mm, 0.27±0.07 versus 0.13±0.02, respectively). Exercise significantly blunted the aortic root dilation rate in MF mice compared with sedentary MF littermates (∆mm, 0.10±0.04 versus 0.27±0.07, respectively).&#34;
+      explanation: &gt;-
+        Aortic root dilation was significantly greater in sedentary mutant
+        animals than in wild type over five months. Converges from an animal
+        model, so it is carried at partial and not alone.
   description: &gt;
     Regular moderate-intensity dynamic (aerobic) activity undertaken within the
     restrictions above - for example a 10,000-steps-per-day walking target - rather
@@ -10779,7 +11879,7 @@ Marfan syndrome is caused predominantly by pathogenic variants in FBN1, encoding
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Marfan Syndrome", "mondoId": "MONDO:0007947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Marfan_Syndrome", "yamlRevision": "85344436878f"};
+        const OS_CONFIG = {"diseaseName": "Marfan Syndrome", "mondoId": "MONDO:0007947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Marfan_Syndrome", "yamlRevision": "d799dc18aafc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11198,5 +12298,73 @@ Marfan syndrome is caused predominantly by pathogenic variants in FBN1, encoding
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

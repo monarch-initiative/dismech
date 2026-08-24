@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3565,6 +3731,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Coronary%20Artery%20Disease"
@@ -3695,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3703,7 +3873,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3737,6 +3907,14 @@
             </a>
 
 
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
@@ -3759,6 +3937,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3774,7 +3960,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3801,27 +3987,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">CARDIOVASCULAR</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4378,10 +4641,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         randomized temporal causal-mediation trial
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type randomized temporal causal-mediation trial.</span>
     </span>
 
 
@@ -4484,10 +4753,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         longitudinal lipoprotein particle and remnant profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by longitudinal lipoprotein particle and remnant profiling.</span>
     </span>
 
 
@@ -4547,10 +4822,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         longitudinal lipidomic, lipoprotein, and membrane-biophysics profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by longitudinal lipidomic, lipoprotein, and membrane-biophysics profiling.</span>
     </span>
 
 
@@ -4574,10 +4855,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         inflammatory-resolution and platelet functional assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by inflammatory-resolution and platelet functional assay.</span>
     </span>
 
 
@@ -4637,10 +4924,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         serial coronary computed tomographic angiography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by serial coronary computed tomographic angiography.</span>
     </span>
 
 
@@ -4664,10 +4957,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         intravascular plaque imaging
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by intravascular plaque imaging.</span>
     </span>
 
 
@@ -4727,10 +5026,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         blinded cardiovascular event adjudication
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by blinded cardiovascular event adjudication.</span>
     </span>
 
 
@@ -5000,79 +5305,33 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">6</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-plaque-formation" data-dismech-node="Atherosclerotic Plaque Formation" data-dismech-type="pathophysiology">
-                <div class="item-name">Atherosclerotic Plaque Formation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction" data-dismech-node="Endothelial Dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Endothelial Dysfunction</div>
 
-                <div class="item-desc">Lipid accumulation in arterial walls triggers inflammatory response, leading to foam cell formation and fibrous cap development. Progressive plaque growth narrows the coronary arteries.
-</div>
+                <div class="item-desc">At atherosclerosis-prone arterial sites, disturbed flow is associated with endothelial stress and senescence, while reduced endothelial nitric-oxide biosynthesis represents the vasomotor dysfunction that impairs dilation. This nonconforming coronary endothelial-function branch is modeled separately from the conserved subendothelial apoB-retention trigger. The cited disturbed-flow evidence derives from mouse carotid arteries and human carotid plaques, so its transfer to coronary endothelial dysfunction is explicitly partial.</div>
 
 
 
                 <div class="item-meta">
 
-                    <span class="tag tag-cell">
-                        Macrophage
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
 
 
                     <span class="tag tag-cell">
-                        Foam Cell
+                        Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000891">CL:0000891</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000115</a>
 
 
 
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    <span class="tag tag-cell">
-                        Vascular Smooth Muscle Cell
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
-
-
-
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5099,16 +5358,1005 @@
 
                 <div class="item-meta">
 
+
+
+                    <span class="tag tag-bio">
+                        Nitric Oxide Production
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006809</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Nitric Oxide Production, annotated with nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Coronary Endothelial Injury and Subendothelial LDL Retention</span>
+
+	                            <span class="crosslink-desc">Connects the vasomotor and disturbed-flow endothelial branch to the conserved retention trigger without asserting that reduced nitric oxide alone is sufficient for apoB retention.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CD36 + positive ECs exhibited significant senescence phenotypes following disturbed flow stimulation."</div>
+
+
+                <div class="evidence-explanation">Supports disturbed-flow-associated endothelial senescence as one component of endothelial dysfunction. It does not directly measure nitric-oxide biosynthesis and comes from a mouse carotid model, so it is not treated as direct coronary or nitric-oxide evidence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Atherosclerosis tends to occur in regions of disturbed blood flow. This study explored how disturbed flow aggravates atherosclerosis using single-cell RNA-seq (scRNA-seq) datasets from mouse carotid arteries under disturbed flow and human carotid artery plaques."</div>
+
+
+                <div class="evidence-explanation">Supports disturbed flow as a regional context for atherosclerosis and endothelial dysfunction. It does not directly establish reduced nitric-oxide biosynthesis or a coronary-specific effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-coronary-endothelial-injury-and-subendothelial-ldl-retention" data-dismech-node="Coronary Endothelial Injury and Subendothelial LDL Retention" data-dismech-type="pathophysiology">
+                <div class="item-name">Coronary Endothelial Injury and Subendothelial LDL Retention</div>
+
+                <div class="item-desc">In the coronary arterial intima, endothelial injury and dysfunction permit infiltration and retention of apoB-containing lipoproteins in the subendothelial space. Retained and modified lipoproteins initiate local inflammation and monocyte recruitment, providing the coronary trigger for atheroma formation.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Endothelial Cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000115</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Cholesterol Homeostasis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042632" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042632</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Cholesterol Homeostasis (GO:0042632). GO:0042632 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Monocyte Recruitment and Macrophage Foam Cell Formation</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26844337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"infiltration and retention of apoB containing lipoproteins in the artery wall is a critical initiating event that sparks an inflammatory response and promotes the development of atherosclerosis."</div>
+
+
+                <div class="evidence-explanation">Establishes arterial-wall apoB retention as the initiating event; coronary arterial intima is the disease-specific location represented here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-recruitment-and-macrophage-foam-cell-formation" data-dismech-node="Monocyte Recruitment and Macrophage Foam Cell Formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Monocyte Recruitment and Macrophage Foam Cell Formation</div>
+
+                <div class="item-desc">In the coronary intima, recruited monocytes become macrophages and internalize retained apoB-containing lipoproteins, forming lipid-laden foam cells. Their inflammatory feed-forward loop promotes further lipoprotein oxidation, endothelial activation, monocyte recruitment, and foam-cell formation.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Macrophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        Foam Cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000891" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000891</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Foam Cell (CL:0000891). CL:0000891 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Foam Cell Differentiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0090077" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0090077</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Foam Cell Differentiation (GO:0090077). GO:0090077 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
                     <span class="tag tag-bio">
                         Arterial Wall Lipid Accumulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019915">GO:0019915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0019915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Arterial Wall Lipid Accumulation, annotated with lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Inflammatory Response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atherosclerotic Plaque Formation</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26844337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Internalization of the apoB containing lipoproteins by macrophages promotes foam cell formation, which is the hallmark of the fatty streak phase of atherosclerosis."</div>
+
+
+                <div class="evidence-explanation">Directly supports macrophage uptake of apoB lipoproteins and foam-cell formation in the fatty streak.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26844337" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Macrophage inflammation results in enhanced oxidative stress and cytokine/chemokine secretion, causing more LDL/remnant oxidation, endothelial cell activation, monocyte recruitment, and foam cell formation."</div>
+
+
+                <div class="evidence-explanation">Documents the macrophage inflammatory loop that amplifies foam-cell formation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atherosclerotic-plaque-formation" data-dismech-node="Atherosclerotic Plaque Formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Atherosclerotic Plaque Formation</div>
+
+                <div class="item-desc">In the inflamed coronary intima, vascular smooth muscle cells switch to a synthetic, migratory phenotype, proliferate, and organize extracellular matrix to build the fibrofatty plaque and its fibrous cap. This is the atomic smooth-muscle-cell and matrix assembly step of coronary atheroma formation.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Vascular Smooth Muscle Cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000359</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Smooth Muscle Cell Proliferation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048661" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0048661</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Smooth Muscle Cell Proliferation, annotated with positive regulation of smooth muscle cell proliferation (GO:0048661). GO:0048661 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        Extracellular Matrix Organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Advanced Atheroma with Necrotic Core and Fibrous Cap</span>
+
+	                            <span class="crosslink-desc">Continued lipid accumulation, foam-cell death, and matrix remodeling intervene between initial fibrofatty plaque assembly and advanced atheroma.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39518492" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39518492" target="_blank">PMID:39518492</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We examine the cellular and molecular processes that drive the formation of calcified plaques, highlighting the roles of inflammation, lipid accumulation, and smooth muscle cell proliferation."</div>
+
+
+                <div class="evidence-explanation">Supports lipid accumulation, inflammation, and smooth-muscle-cell proliferation as contributors to coronary plaque formation. It does not by itself establish the specific phenotypic-switching or matrix-assembly sequence represented by this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37595697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"vascular smooth muscle cell phenotypic switching through transdifferentiation and stem/progenitor cell activation resulting in the promotion of inflammation, calcification, and secretion of extracellular matrix, altering fibrous cap structure, and necrotic core growth."</div>
+
+
+                <div class="evidence-explanation">Directly supports smooth-muscle-cell phenotypic switching and extracellular-matrix secretion in plaque assembly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-advanced-atheroma-with-necrotic-core-and-fibrous-cap" data-dismech-node="Advanced Atheroma with Necrotic Core and Fibrous Cap" data-dismech-type="pathophysiology">
+                <div class="item-name">Advanced Atheroma with Necrotic Core and Fibrous Cap</div>
+
+                <div class="item-desc">Continued lipid accumulation, foam-cell death, and matrix remodeling produce a mature coronary atheroma with a necrotic lipid core beneath a fibrous cap. Expansion of the core and local plaque microenvironment can destabilize the cap and create a rupture-prone coronary lesion.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Vascular Smooth Muscle Cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000359</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular Smooth Muscle Cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Extracellular Matrix Organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0030198</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        Coronary Artery
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001621</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Coronary Artery (UBERON:0001621). UBERON:0001621 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Plaque Rupture and Thrombosis</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37595697" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the local arterial microenvironment of a stable atheroma promotes destabilizing conditions that result in the transition to an unstable atheroma."</div>
+
+
+                <div class="evidence-explanation">Human histopathology and vascular-imaging evidence supports transition of a stable mature atheroma to an unstable lesion; coronary artery is the disease-specific location substituted here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38639096" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38639096" target="_blank">PMID:38639096</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Advanced stages of atherosclerosis progression and symptomatic carotid plaques were largely characterized by 3 smooth muscle cells (SMCs), and 3 macrophage subtype clusters with extracellular matrix organization/osteogenic (SMC), and M1-type proinflammatory/Trem2-high lipid-associated..."</div>
+
+
+                <div class="evidence-explanation">Supports the smooth-muscle-cell, extracellular-matrix, and lipid-associated macrophage composition of advanced human atherosclerotic plaque. The tissue studied was carotid plaque, so this is partial support for conserved advanced-atheroma biology rather than direct coronary evidence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notable increases in VEGFA+ macrophages were discovered in the disturbed flow stimulation group, displaying a pronounced M1 pro-inflammatory phenotype associated with the severity of atherosclerosis and plaque stability."</div>
+
+
+                <div class="evidence-explanation">Supports an inflammatory macrophage phenotype associated with plaque severity and stability, not rupture or thrombosis. The disturbed-flow comparison is from a mouse carotid model, so support for coronary advanced atheroma is partial.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-plaque-rupture-and-thrombosis" data-dismech-node="Plaque Rupture and Thrombosis" data-dismech-type="pathophysiology">
+                <div class="item-name">Plaque Rupture and Thrombosis</div>
+
+                <div class="item-desc">Rupture of an unstable coronary atheroma, or endothelial erosion over it, exposes thrombogenic material and triggers platelet activation, coagulation, and thrombotic coronary occlusion, causing acute coronary syndrome and myocardial infarction.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        Platelet
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000233</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        Thrombosis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0007596</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Thrombosis, annotated with blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5138,16 +6386,17 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39518492" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37595697" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39518492" target="_blank">PMID:39518492</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -5157,334 +6406,32 @@
 
                 </div>
 
-                <div class="evidence-snippet">"We examine the cellular and molecular processes that drive the formation of calcified plaques, highlighting the roles of inflammation, lipid accumulation, and smooth muscle cell proliferation."</div>
+                <div class="evidence-snippet">"Destabilization is characterized by several different plaque phenotypes that cause major clinical events such as acute coronary syndrome and cerebrovascular strokes."</div>
 
 
-                <div class="evidence-explanation">This review directly supports the role of lipid accumulation and inflammation in driving plaque formation in coronary artery disease.</div>
+                <div class="evidence-explanation">Histopathology and vascular-imaging evidence directly connects unstable atheroma phenotypes with acute coronary syndrome, supporting this terminal coronary consequence.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38639096" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:37595697" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38639096" target="_blank">PMID:38639096</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Advanced stages of atherosclerosis progression and symptomatic carotid plaques were largely characterized by 3 smooth muscle cells (SMCs), and 3 macrophage subtype clusters with extracellular matrix organization/osteogenic (SMC), and M1-type proinflammatory/Trem2-high lipid-associated..."</div>
+                <div class="evidence-snippet">"Endothelial erosion without rupture has more recently been shown to be a common phenotype to promote thrombosis as well."</div>
 
 
-                <div class="evidence-explanation">Single-cell analysis confirms the presence of lipid-associated macrophages and smooth muscle cells in advanced atherosclerotic plaques, supporting foam cell formation and plaque progression. Note the tissue studied is carotid plaque; the mechanism is applied here to the coronary bed as conserved atherogenesis, not demonstrated in coronary arteries by this study.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Notable increases in VEGFA+ macrophages were discovered in the disturbed flow stimulation group, displaying a pronounced M1 pro-inflammatory phenotype associated with the severity of atherosclerosis and plaque stability."</div>
-
-
-                <div class="evidence-explanation">This study identifies specific macrophage populations with pro-inflammatory phenotypes that contribute to atherosclerotic plaque formation and progression.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction" data-dismech-node="Endothelial Dysfunction" data-dismech-type="pathophysiology">
-                <div class="item-name">Endothelial Dysfunction</div>
-
-                <div class="item-desc">Damage to the endothelial lining promotes lipid deposition, platelet adhesion, and inflammatory cell recruitment. Reduced nitric oxide production impairs vasodilation.
-</div>
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-cell">
-                        Endothelial Cell
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        Nitric Oxide Production
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006809">GO:0006809</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↓ DECREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CD36 + positive ECs exhibited significant senescence phenotypes following disturbed flow stimulation."</div>
-
-
-                <div class="evidence-explanation">This study demonstrates that endothelial cells undergo senescence under disturbed flow conditions, a key mechanism in endothelial dysfunction during atherosclerosis.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Atherosclerosis tends to occur in regions of disturbed blood flow. This study explored how disturbed flow aggravates atherosclerosis using single-cell RNA-seq (scRNA-seq) datasets from mouse carotid arteries under disturbed flow and human carotid artery plaques."</div>
-
-
-                <div class="evidence-explanation">Disturbed flow-induced endothelial dysfunction is a primary mechanism for atherosclerosis initiation in specific arterial regions. Evidence is from mouse carotid arteries and human carotid plaques, extrapolated here to the coronary bed.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-	            </div>
-
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-plaque-rupture-and-thrombosis" data-dismech-node="Plaque Rupture and Thrombosis" data-dismech-type="pathophysiology">
-                <div class="item-name">Plaque Rupture and Thrombosis</div>
-
-                <div class="item-desc">Unstable plaques with thin fibrous caps are prone to rupture, exposing thrombogenic material and triggering acute coronary events (myocardial infarction).
-</div>
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-cell">
-                        Platelet
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        Thrombosis
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
-
-
-
-                    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40594772" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40594772" target="_blank">PMID:40594772</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Notable increases in VEGFA+ macrophages were discovered in the disturbed flow stimulation group, displaying a pronounced M1 pro-inflammatory phenotype associated with the severity of atherosclerosis and plaque stability."</div>
-
-
-                <div class="evidence-explanation">Pro-inflammatory macrophages contribute to plaque instability, which predisposes to rupture and thrombotic complications.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38639096" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38639096" target="_blank">PMID:38639096</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"By identifying and integrating the most gene-rich single-cell subclusters of atherosclerosis to date with a coronary artery disease framework of GRNs, GRN39 was identified and independently validated as being critical for the transformation of contractile SMCs into an osteogenic phenotype..."</div>
-
-
-                <div class="evidence-explanation">Smooth muscle cell transformation into osteogenic phenotypes contributes to plaque vulnerability and symptomatic disease, increasing risk of rupture and thrombotic events.</div>
+                <div class="evidence-explanation">Directly supports endothelial erosion as a thrombosis-promoting alternative to fibrous-cap rupture in the coronary consequence node.</div>
 
 
 
@@ -5504,6 +6451,29 @@
 
 
         <!-- Causal Graph (Pathograph) -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Coronary Artery Disease</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Advanced Atheroma with Necrotic Core and Fibrous Cap\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Continued lipid accumulation, foam-cell death, and matrix remodeling produce a mature coronary atheroma with a necrotic lipid core beneath a fibrous cap. Expansion of the core and local plaque microenvironment can destabilize the cap and create a rupture-prone coronary lesion.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Vascular Smooth Muscle Cell\"], \"biological_processes\": [\"Extracellular Matrix Organization\"], \"role\": \"effector\", \"locations\": [\"Coronary Artery\"]}}, {\"id\": \"Atherosclerotic Plaque Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the inflamed coronary intima, vascular smooth muscle cells switch to a synthetic, migratory phenotype, proliferate, and organize extracellular matrix to build the fibrofatty plaque and its fibrous cap. This is the atomic smooth-muscle-cell and matrix assembly step of coronary atheroma formation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\"], \"biological_processes\": [\"Smooth Muscle Cell Proliferation\", \"Extracellular Matrix Organization\"], \"role\": \"central_effector\"}}, {\"id\": \"Coronary Endothelial Injury and Subendothelial LDL Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the coronary arterial intima, endothelial injury and dysfunction permit infiltration and retention of apoB-containing lipoproteins in the subendothelial space. Retained and modified lipoproteins initiate local inflammation and monocyte recruitment, providing the coronary trigger for atheroma formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial Cell\"], \"biological_processes\": [\"Cholesterol Homeostasis\"], \"role\": \"trigger\"}}, {\"id\": \"Endothelial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At atherosclerosis-prone arterial sites, disturbed flow is associated with endothelial stress and senescence, while reduced endothelial nitric-oxide biosynthesis represents the vasomotor dysfunction that impairs dilation. This nonconforming coronary endothelial-function branch is modeled separately from the conserved subendothelial apoB-retention trigger. The cited disturbed-flow evidence derives from mouse carotid arteries and human carotid plaques, so its transfer to coronary endothelial dysfunction is explicitly partial.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial Cell\"], \"biological_processes\": [\"Nitric Oxide Production\"]}}, {\"id\": \"Monocyte Recruitment and Macrophage Foam Cell Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the coronary intima, recruited monocytes become macrophages and internalize retained apoB-containing lipoproteins, forming lipid-laden foam cells. Their inflammatory feed-forward loop promotes further lipoprotein oxidation, endothelial activation, monocyte recruitment, and foam-cell formation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\", \"Foam Cell\"], \"biological_processes\": [\"Foam Cell Differentiation\", \"Arterial Wall Lipid Accumulation\", \"Inflammatory Response\"], \"role\": \"amplifier\"}}, {\"id\": \"Plaque Rupture and Thrombosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rupture of an unstable coronary atheroma, or endothelial erosion over it, exposes thrombogenic material and triggers platelet activation, coagulation, and thrombotic coronary occlusion, causing acute coronary syndrome and myocardial infarction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Platelet\"], \"biological_processes\": [\"Thrombosis\"], \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Endothelial Dysfunction\", \"target\": \"Coronary Endothelial Injury and Subendothelial LDL Retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connects the vasomotor and disturbed-flow endothelial branch to the conserved retention trigger without asserting that reduced nitric oxide alone is sufficient for apoB retention.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased endothelial permeability and apoB-lipoprotein entry\", \"subendothelial lipoprotein modification and retention\"]}, {\"source\": \"Coronary Endothelial Injury and Subendothelial LDL Retention\", \"target\": \"Monocyte Recruitment and Macrophage Foam Cell Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monocyte Recruitment and Macrophage Foam Cell Formation\", \"target\": \"Atherosclerotic Plaque Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atherosclerotic Plaque Formation\", \"target\": \"Advanced Atheroma with Necrotic Core and Fibrous Cap\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued lipid accumulation, foam-cell death, and matrix remodeling intervene between initial fibrofatty plaque assembly and advanced atheroma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"continued lipid accumulation\", \"foam-cell apoptosis/death with defective efferocytosis and necrotic-core growth\", \"vascular smooth muscle cell and extracellular-matrix remodeling\"]}, {\"source\": \"Advanced Atheroma with Necrotic Core and Fibrous Cap\", \"target\": \"Plaque Rupture and Thrombosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
 
 
         <!-- Phenotypes -->
@@ -5540,14 +6510,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Angina pectoris
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001681">HP:0001681</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001681</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Angina Pectoris (HP:0001681). HP:0001681 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5571,14 +6548,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myocardial infarction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001658">HP:0001658</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001658</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myocardial Infarction (HP:0001658). HP:0001658 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5643,14 +6627,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5913,7 +6904,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">statin therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">statin therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is statin therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -5991,7 +6987,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6021,16 +7022,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         icosapent ethyl
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_84883" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:84883">CHEBI:84883</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_84883" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:84883</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses icosapent ethyl, annotated with ethyl (5Z,8Z,11Z,14Z,17Z)-icosapentaenoate (CHEBI:84883). CHEBI:84883 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6131,7 +7137,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antiplatelet therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">antiplatelet therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antiplatelet therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6209,7 +7220,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">ACE inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">ACE inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6240,16 +7256,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ACE inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C247">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6272,7 +7293,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta-blocker therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">beta-blocker therapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6318,7 +7344,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">percutaneous coronary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">percutaneous coronary intervention<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is percutaneous coronary intervention (NCIT:C99521). NCIT:C99521 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Percutaneous Coronary Intervention</span>
 
 
@@ -6364,7 +7395,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">coronary artery bypass grafting</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">coronary artery bypass grafting<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is coronary artery bypass grafting, annotated with Coronary Artery Bypass Surgery (NCIT:C51998). NCIT:C51998 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Coronary Artery Bypass Surgery</span>
 
 
@@ -6419,11 +7455,92 @@
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
-
-                <div class="item-desc">Major modifiable risk factor, promotes endothelial damage</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-37">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Major modifiable risk factor, with a dose-response relationship to myocardial infarction risk.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15364185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15364185" target="_blank">PMID:15364185</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Smoking (odds ratio 2.87 for current vs never, PAR 35.7% for current and former vs never)"</div>
+
+
+                <div class="evidence-explanation">INTERHEART, a standardised case-control study of acute myocardial infarction across 52 countries with 15152 cases and 14820 controls. Establishes smoking as one of the largest modifiable contributors to population attributable risk.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16920470" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16920470" target="_blank">PMID:16920470</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"risk increased by 5.6% for every additional cigarette smoked"</div>
+
+
+                <div class="evidence-explanation">The tobacco-specific INTERHEART analysis. Quoted for the dose-response relationship, which is the part of the note the odds ratio alone does not establish.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6432,11 +7549,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-high-fat-diet" data-dismech-node="High-Fat Diet" data-dismech-type="environmental">
                 <div class="item-name">High-Fat Diet</div>
 
-
-                <div class="item-desc">Elevates LDL cholesterol</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        high dietary lipid exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0090010" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-38">ECTO:0090010</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased high dietary lipid exposure, annotated with exposure to lipid in food (ECTO:0090010). ECTO:0090010 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Dietary saturated fat raises serum cholesterol and cardiovascular event risk. The measured effect on LDL specifically is small; the robust finding is the reduction in combined cardiovascular events when saturated fat is reduced.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32428300" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32428300" target="_blank">PMID:32428300</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meta-regression suggested that greater reductions in saturated fat (reflected in greater reductions in serum cholesterol) resulted in greater reductions in risk of CVD events, explaining most heterogeneity between trials"</div>
+
+
+                <div class="evidence-explanation">Cochrane review of 15 randomised controlled trials with about 59000 participants. Note this source qualifies the original note rather than simply confirming it: the same abstract reports only small reductions in LDL cholesterol from reducing saturated fat, so LDL elevation is a weaker claim than the cardiovascular event effect, and the note was rewritten accordingly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6445,11 +7621,92 @@
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
                 <div class="item-name">Sedentary Lifestyle</div>
 
-
-                <div class="item-desc">Contributes to metabolic syndrome</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        sedentary lifestyle
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-39">ECTO:6000004</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Physical inactivity is an independent contributor to myocardial infarction risk. Low physical activity is associated with metabolic syndrome, but sedentary behaviour measured as screen time is not, so the metabolic-syndrome route is not a settled mechanism for this exposure.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15364185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15364185" target="_blank">PMID:15364185</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"regular physical activity (0.86, PAR 12.2%)"</div>
+
+
+                <div class="evidence-explanation">INTERHEART reports regular physical activity as protective against myocardial infarction with a population attributable risk of 12.2 percent for its absence, which is the evidence that inactivity is a risk factor for this disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27997601" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27997601" target="_blank">PMID:27997601</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"for sedentary behavior, represented by screen time &gt; 2 hours/day, a significant association was not identified"</div>
+
+
+                <div class="evidence-explanation">Cited as a caveat, not support. This meta-analysis of eighteen studies found low physical activity significantly associated with metabolic syndrome, but sedentary behaviour measured as screen time was NOT significantly associated overall - only on weekends in subgroup analysis. It is an adolescent population, so it does not settle the question in adults, but it is enough to show the metabolic-syndrome mechanism should not be stated flatly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6459,10 +7716,46 @@
                 <div class="item-name">Obesity</div>
 
 
-                <div class="item-desc">Associated with dyslipidemia and inflammation</div>
 
 
 
+
+                <div class="item-desc">Abdominal obesity is an independent contributor to myocardial infarction risk.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15364185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15364185" target="_blank">PMID:15364185</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"abdominal obesity (1.12 for top vs lowest tertile and 1.62 for middle vs lowest tertile, PAR 20.1% for top two tertiles vs lowest tertile)"</div>
+
+
+                <div class="evidence-explanation">INTERHEART. Note the measure is abdominal obesity by waist/hip ratio rather than body mass index, which is a more specific claim than the entry name suggests.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6603,6 +7896,346 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Differential Gene Expression related to Telomere Length in Arterial Wall Tissues and Granulocytes of Patients with Coronary Artery Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE289957" target="_blank">geo:GSE289957</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Shortened telomere length (TL) in blood cells is associated with atherosclerotic coronary artery disease (CAD). However, the mechanistic pathways underlying TL attrition in arterial wall tissues for patients with CAD remain unclear. In this study, we evaluated TL in arterial wall tissues and granulocytes and correlated these measurements with data on gene expressions in the arterial wall tissues of patients with CAD.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=34</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42211145" target="_blank" style="color: var(--secondary);">PMID:42211145</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Coronary Artery Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole Blood Transcriptomics Differentiates Circulating Gene Expression Between Coronary Artery Disease and Peripheral Artery Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE310095" target="_blank">geo:GSE310095</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Coronary artery disease (CAD) and peripheral artery disease (PAD) are prevalent atherosclerotic disorders that exhibit distinct clinical and pathological presentations. We used whole-blood RNA sequencing to investigate circulating transcriptomic differences between PAD and CAD. Whole-blood RNA sequencing was performed in 71 subjects 40-65 years of age with symptomatic PAD (n=20) or CAD (n=51). Patients with concomitant PAD and CAD were excluded. Differential expression analysis was performed to compare circulating gene expression in patients with PAD and patients with CAD. We identified 106 genes differentially expressed between PAD and CAD (p adj. &lt; 0.1).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=71</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41661212" target="_blank" style="color: var(--secondary);">PMID:41661212</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Coronary Artery Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    RNA-seq analysis of human monocytes in patients with and without coronary atherosclerosis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE282042" target="_blank">geo:GSE282042</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We conducted RNA-Seq transcriptome profiling on monocytes isolated from patients undergoing coronary angiography. After the procedure, patients were divided into two groups: those without coronary artery stenosis (&#34;w.o. CA&#34;, n=11) and those with coronary artery stenosis (&#34;w. CA&#34;, n=9). All patients were men, aged 61±6 years. CD14+ monocytes were isolated, and RNA-seq was performed on the Illumina NextSeq 2000 platform. This data was analyzed to identify changes in gene expression profiles associated with coronary atherosclerosis. Transcriptome analysis revealed an upregulation of numerous inflammatory genes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40350260" target="_blank" style="color: var(--secondary);">PMID:40350260</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Coronary Artery Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Coronary Artery Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000003" target="_blank">ega:EGAS00000000003</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Bipolar disorder (CAD) using the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Coronary Artery Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Coronary Artery Disease - Combined Controls
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000004" target="_blank">ega:EGAS00000000004</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Coronary Artery Disease (CAD) using six disease collections together with the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Coronary Artery Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Coronary Artery Disease, Hypertension, T2D - combined cases
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000005" target="_blank">ega:EGAS00000000005</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study using the cardiovascular disease CAD, HT and T2D as combined case collection and the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Coronary Artery Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Metabolomics Approach to Identify Molecules and Pathways Involved in the Development of Atherosclerotic Coronary Artery Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000306" target="_blank">metabolomics_workbench:ST000306</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Coronary Artery Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    TAILS identifies candidate substrates and biomarkers of ADAMTS7, a therapeutic protease target in coronary artery disease
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000088508" target="_blank">massive:MSV000088508</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">MacDonald BT, Keshishian H, Mundorff CC, Arduini A, Lai D, Bendinelli K, Popp NR, Bhandary B, Clauser KR, Specht H, Elowe NH, Laprise D, Xing Y, Kaushik VK, Carr SA, Ellinor PT. Loss-of-function mutations in the secreted enzyme ADAMTS7 (a disintegrin and metalloproteinase with thrombospondin motifs 7) are associated with protection for coronary artery disease (CAD). ADAMTS7 catalytic inhibition has been proposed as a therapeutic strategy for treating CAD; however, the lack of an endogenous substrate has hindered the development of activity-based biomarkers.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Coronary Artery Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Lipidomics-based algorithms can enhance prediction of obstructive coronary artery disease
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000095097" target="_blank">massive:MSV000095097</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Lipidomics-based algorithms can enhance prediction of obstructive coronary artery disease</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Coronary Artery Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -6668,6 +8301,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6684,7 +8320,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Coronary Artery Disease
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Coronary artery disease (CAD) is the narrowing or obstruction of the coronary
   arteries by atherosclerotic plaque, driven by endothelial dysfunction, lipid
@@ -6702,54 +8337,16 @@ disease_term:
     id: MONDO:0021661
     label: coronary atherosclerosis
 pathophysiology:
-- name: Atherosclerotic Plaque Formation
-  description: &gt;
-    Lipid accumulation in arterial walls triggers inflammatory response,
-    leading to foam cell formation and fibrous cap development. Progressive
-    plaque growth narrows the coronary arteries.
-  cell_types:
-  - preferred_term: Macrophage
-    term:
-      id: CL:0000235
-      label: macrophage
-  - preferred_term: Foam Cell
-    term:
-      id: CL:0000891
-      label: foam cell
-  - preferred_term: Vascular Smooth Muscle Cell
-    term:
-      id: CL:0000359
-      label: vascular associated smooth muscle cell
-  biological_processes:
-  - preferred_term: Arterial Wall Lipid Accumulation
-    term:
-      id: GO:0019915
-      label: lipid storage
-    modifier: INCREASED
-  evidence:
-  - reference: PMID:39518492
-    reference_title: &#34;From Cells to Plaques: The Molecular Pathways of Coronary Artery Calcification and Disease.&#34;
-    supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &#34;We examine the cellular and molecular processes that drive the formation of calcified plaques, highlighting the roles of inflammation, lipid accumulation, and smooth muscle cell proliferation.&#34;
-    explanation: This review directly supports the role of lipid accumulation and inflammation in driving plaque formation in coronary artery disease.
-  - reference: PMID:38639096
-    reference_title: &#34;Single-Cell Gene-Regulatory Networks of Advanced Symptomatic Atherosclerosis.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Advanced stages of atherosclerosis progression and symptomatic carotid plaques were largely characterized by 3 smooth muscle cells (SMCs), and 3 macrophage subtype clusters with extracellular matrix organization/osteogenic (SMC), and M1-type proinflammatory/Trem2-high lipid-associated (macrophage) phenotypes.&#34;
-    explanation: Single-cell analysis confirms the presence of lipid-associated macrophages and smooth muscle cells in advanced atherosclerotic plaques, supporting foam cell formation and plaque progression. Note the tissue studied is carotid plaque; the mechanism is applied here to the coronary bed as conserved atherogenesis, not demonstrated in coronary arteries by this study.
-  - reference: PMID:40594772
-    reference_title: &#34;Single-cell RNA-seq analysis of mouse carotid artery under disturbed flow and human carotid plaques identifies key cell populations in atherosclerosis development.&#34;
-    supports: PARTIAL
-    evidence_source: MODEL_ORGANISM
-    snippet: &#34;Notable increases in VEGFA+ macrophages were discovered in the disturbed flow stimulation group, displaying a pronounced M1 pro-inflammatory phenotype associated with the severity of atherosclerosis and plaque stability.&#34;
-    explanation: This study identifies specific macrophage populations with pro-inflammatory phenotypes that contribute to atherosclerotic plaque formation and progression.
 - name: Endothelial Dysfunction
-  description: &gt;
-    Damage to the endothelial lining promotes lipid deposition, platelet
-    adhesion, and inflammatory cell recruitment. Reduced nitric oxide
-    production impairs vasodilation.
+  description: &gt;-
+    At atherosclerosis-prone arterial sites, disturbed flow is associated with
+    endothelial stress and senescence, while reduced endothelial nitric-oxide
+    biosynthesis represents the vasomotor dysfunction that impairs dilation.
+    This nonconforming coronary endothelial-function branch is modeled
+    separately from the conserved subendothelial apoB-retention trigger. The
+    cited disturbed-flow evidence derives from mouse carotid arteries and human
+    carotid plaques, so its transfer to coronary endothelial dysfunction is
+    explicitly partial.
   cell_types:
   - preferred_term: Endothelial Cell
     term:
@@ -6767,18 +8364,324 @@ pathophysiology:
     supports: PARTIAL
     evidence_source: MODEL_ORGANISM
     snippet: &#34;CD36 + positive ECs exhibited significant senescence phenotypes following disturbed flow stimulation.&#34;
-    explanation: This study demonstrates that endothelial cells undergo senescence under disturbed flow conditions, a key mechanism in endothelial dysfunction during atherosclerosis.
+    explanation: &gt;-
+      Supports disturbed-flow-associated endothelial senescence as one component
+      of endothelial dysfunction. It does not directly measure nitric-oxide
+      biosynthesis and comes from a mouse carotid model, so it is not treated as
+      direct coronary or nitric-oxide evidence.
   - reference: PMID:40594772
     reference_title: &#34;Single-cell RNA-seq analysis of mouse carotid artery under disturbed flow and human carotid plaques identifies key cell populations in atherosclerosis development.&#34;
     supports: PARTIAL
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Atherosclerosis tends to occur in regions of disturbed blood flow. This study explored how disturbed flow aggravates atherosclerosis using single-cell RNA-seq (scRNA-seq) datasets from mouse carotid arteries under disturbed flow and human carotid artery plaques.&#34;
-    explanation: Disturbed flow-induced endothelial dysfunction is a primary mechanism for atherosclerosis initiation in specific arterial regions. Evidence is from mouse carotid arteries and human carotid plaques, extrapolated here to the coronary bed.
+    explanation: &gt;-
+      Supports disturbed flow as a regional context for atherosclerosis and
+      endothelial dysfunction. It does not directly establish reduced
+      nitric-oxide biosynthesis or a coronary-specific effect.
+  downstream:
+  - target: Coronary Endothelial Injury and Subendothelial LDL Retention
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - increased endothelial permeability and apoB-lipoprotein entry
+    - subendothelial lipoprotein modification and retention
+    description: &gt;-
+      Connects the vasomotor and disturbed-flow endothelial branch to the
+      conserved retention trigger without asserting that reduced nitric oxide
+      alone is sufficient for apoB retention.
+    evidence:
+    - reference: PMID:26844337
+      reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &gt;-
+        Arterial injury causes endothelial dysfunction promoting modification of
+        apoB containing lipoproteins and infiltration of monocytes into the
+        subendothelial space.
+      explanation: &gt;-
+        Links arterial injury and endothelial dysfunction to subendothelial apoB
+        modification and monocyte entry, but does not isolate nitric-oxide loss
+        or directly establish every intermediate in lipoprotein retention.
+- name: Coronary Endothelial Injury and Subendothelial LDL Retention
+  conforms_to: &#34;atherogenesis#Endothelial Dysfunction and Subendothelial LDL Retention&#34;
+  role: trigger
+  description: &gt;-
+    In the coronary arterial intima, endothelial injury and dysfunction permit
+    infiltration and retention of apoB-containing lipoproteins in the
+    subendothelial space. Retained and modified lipoproteins initiate local
+    inflammation and monocyte recruitment, providing the coronary trigger for
+    atheroma formation.
+  cell_types:
+  - preferred_term: Endothelial Cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  biological_processes:
+  - preferred_term: Cholesterol Homeostasis
+    term:
+      id: GO:0042632
+      label: cholesterol homeostasis
+    modifier: DYSREGULATED
+  evidence:
+  - reference: PMID:26844337
+    reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      infiltration and retention of apoB containing lipoproteins in the artery
+      wall is a critical initiating event that sparks an inflammatory response
+      and promotes the development of atherosclerosis.
+    explanation: &gt;-
+      Establishes arterial-wall apoB retention as the initiating event; coronary
+      arterial intima is the disease-specific location represented here.
+  downstream:
+  - target: Monocyte Recruitment and Macrophage Foam Cell Formation
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:26844337
+      reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Arterial injury causes endothelial dysfunction promoting modification of
+        apoB containing lipoproteins and infiltration of monocytes into the
+        subendothelial space.
+      explanation: &gt;-
+        Directly links endothelial injury and modified apoB lipoproteins to
+        monocyte entry into the subendothelial space.
+- name: Monocyte Recruitment and Macrophage Foam Cell Formation
+  conforms_to: &#34;atherogenesis#Monocyte Recruitment and Macrophage Foam Cell Formation&#34;
+  role: amplifier
+  description: &gt;-
+    In the coronary intima, recruited monocytes become macrophages and internalize
+    retained apoB-containing lipoproteins, forming lipid-laden foam cells. Their
+    inflammatory feed-forward loop promotes further lipoprotein oxidation,
+    endothelial activation, monocyte recruitment, and foam-cell formation.
+  cell_types:
+  - preferred_term: Macrophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  - preferred_term: Foam Cell
+    term:
+      id: CL:0000891
+      label: foam cell
+  biological_processes:
+  - preferred_term: Foam Cell Differentiation
+    term:
+      id: GO:0090077
+      label: foam cell differentiation
+    modifier: INCREASED
+  - preferred_term: Arterial Wall Lipid Accumulation
+    term:
+      id: GO:0019915
+      label: lipid storage
+    modifier: INCREASED
+  - preferred_term: Inflammatory Response
+    term:
+      id: GO:0006954
+      label: inflammatory response
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:26844337
+    reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Internalization of the apoB containing lipoproteins by macrophages promotes
+      foam cell formation, which is the hallmark of the fatty streak phase of
+      atherosclerosis.
+    explanation: &gt;-
+      Directly supports macrophage uptake of apoB lipoproteins and foam-cell
+      formation in the fatty streak.
+  - reference: PMID:26844337
+    reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Macrophage inflammation results in enhanced oxidative stress and
+      cytokine/chemokine secretion, causing more LDL/remnant oxidation,
+      endothelial cell activation, monocyte recruitment, and foam cell formation.
+    explanation: &gt;-
+      Documents the macrophage inflammatory loop that amplifies foam-cell
+      formation.
+  downstream:
+  - target: Atherosclerotic Plaque Formation
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:26844337
+      reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Macrophage inflammatory chemoattractants stimulate infiltration and
+        proliferation of smooth muscle cells. Smooth muscle cells produce the
+        extracellular matrix providing a stable fibrous barrier between plaque
+        prothrombotic factors and platelets.
+      explanation: &gt;-
+        Connects macrophage inflammation to smooth-muscle-cell proliferation and
+        extracellular-matrix production, the next core stage.
+- name: Atherosclerotic Plaque Formation
+  conforms_to: &#34;atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation&#34;
+  role: central_effector
+  description: &gt;-
+    In the inflamed coronary intima, vascular smooth muscle cells switch to a
+    synthetic, migratory phenotype, proliferate, and organize extracellular
+    matrix to build the fibrofatty plaque and its fibrous cap. This is the atomic
+    smooth-muscle-cell and matrix assembly step of coronary atheroma formation.
+  cell_types:
+  - preferred_term: Vascular Smooth Muscle Cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  biological_processes:
+  - preferred_term: Smooth Muscle Cell Proliferation
+    term:
+      id: GO:0048661
+      label: positive regulation of smooth muscle cell proliferation
+    modifier: INCREASED
+  - preferred_term: Extracellular Matrix Organization
+    term:
+      id: GO:0030198
+      label: extracellular matrix organization
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:39518492
+    reference_title: &#34;From Cells to Plaques: The Molecular Pathways of Coronary Artery Calcification and Disease.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &#34;We examine the cellular and molecular processes that drive the formation of calcified plaques, highlighting the roles of inflammation, lipid accumulation, and smooth muscle cell proliferation.&#34;
+    explanation: &gt;-
+      Supports lipid accumulation, inflammation, and smooth-muscle-cell
+      proliferation as contributors to coronary plaque formation. It does not
+      by itself establish the specific phenotypic-switching or matrix-assembly
+      sequence represented by this node.
+  - reference: PMID:37595697
+    reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      vascular smooth muscle cell phenotypic switching through
+      transdifferentiation and stem/progenitor cell activation resulting in the
+      promotion of inflammation, calcification, and secretion of extracellular
+      matrix, altering fibrous cap structure, and necrotic core growth.
+    explanation: &gt;-
+      Directly supports smooth-muscle-cell phenotypic switching and
+      extracellular-matrix secretion in plaque assembly.
+  downstream:
+  - target: Advanced Atheroma with Necrotic Core and Fibrous Cap
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    intermediate_mechanisms:
+    - continued lipid accumulation
+    - foam-cell apoptosis/death with defective efferocytosis and necrotic-core growth
+    - vascular smooth muscle cell and extracellular-matrix remodeling
+    description: &gt;-
+      Continued lipid accumulation, foam-cell death, and matrix remodeling
+      intervene between initial fibrofatty plaque assembly and advanced atheroma.
+    evidence:
+    - reference: PMID:26844337
+      reference_title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Unresolved inflammation results in formation of vulnerable plaques
+        characterized by enhanced macrophage apoptosis and defective efferocytosis
+        of apoptotic cells resulting in necrotic cell death leading to increased
+        smooth muscle cell death, decreased extracellular matrix production, and
+        collagen degradation by macrophage proteases.
+      explanation: &gt;-
+        Identifies macrophage/foam-cell death and extracellular-matrix remodeling
+        as known intermediates in progression toward vulnerable advanced plaque.
+- name: Advanced Atheroma with Necrotic Core and Fibrous Cap
+  conforms_to: &#34;atherogenesis#Advanced Atheroma with Necrotic Core and Fibrous Cap&#34;
+  role: effector
+  description: &gt;-
+    Continued lipid accumulation, foam-cell death, and matrix remodeling produce
+    a mature coronary atheroma with a necrotic lipid core beneath a fibrous cap.
+    Expansion of the core and local plaque microenvironment can destabilize the
+    cap and create a rupture-prone coronary lesion.
+  cell_types:
+  - preferred_term: Vascular Smooth Muscle Cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  locations:
+  - preferred_term: Coronary Artery
+    term:
+      id: UBERON:0001621
+      label: coronary artery
+  biological_processes:
+  - preferred_term: Extracellular Matrix Organization
+    term:
+      id: GO:0030198
+      label: extracellular matrix organization
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:37595697
+    reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the local arterial microenvironment of a stable atheroma promotes
+      destabilizing conditions that result in the transition to an unstable
+      atheroma.
+    explanation: &gt;-
+      Human histopathology and vascular-imaging evidence supports transition of
+      a stable mature atheroma to an unstable lesion; coronary artery is the
+      disease-specific location substituted here.
+  - reference: PMID:38639096
+    reference_title: &#34;Single-Cell Gene-Regulatory Networks of Advanced Symptomatic Atherosclerosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Advanced stages of atherosclerosis progression and symptomatic carotid plaques were largely characterized by 3 smooth muscle cells (SMCs), and 3 macrophage subtype clusters with extracellular matrix organization/osteogenic (SMC), and M1-type proinflammatory/Trem2-high lipid-associated (macrophage) phenotypes.&#34;
+    explanation: &gt;-
+      Supports the smooth-muscle-cell, extracellular-matrix, and lipid-associated
+      macrophage composition of advanced human atherosclerotic plaque. The tissue
+      studied was carotid plaque, so this is partial support for conserved
+      advanced-atheroma biology rather than direct coronary evidence.
+  - reference: PMID:40594772
+    reference_title: &#34;Single-cell RNA-seq analysis of mouse carotid artery under disturbed flow and human carotid plaques identifies key cell populations in atherosclerosis development.&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Notable increases in VEGFA+ macrophages were discovered in the disturbed flow stimulation group, displaying a pronounced M1 pro-inflammatory phenotype associated with the severity of atherosclerosis and plaque stability.&#34;
+    explanation: &gt;-
+      Supports an inflammatory macrophage phenotype associated with plaque
+      severity and stability, not rupture or thrombosis. The disturbed-flow
+      comparison is from a mouse carotid model, so support for coronary advanced
+      atheroma is partial.
+  - reference: PMID:38639096
+    reference_title: &#34;Single-Cell Gene-Regulatory Networks of Advanced Symptomatic Atherosclerosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;By identifying and integrating the most gene-rich single-cell subclusters of atherosclerosis to date with a coronary artery disease framework of GRNs, GRN39 was identified and independently validated as being critical for the transformation of contractile SMCs into an osteogenic phenotype promoting advanced, symptomatic atherosclerosis.&#34;
+    explanation: &gt;-
+      Supports smooth-muscle-cell transformation in advanced symptomatic
+      atherosclerosis. It does not directly demonstrate plaque rupture or
+      thrombosis, so it is retained here as partial support for the advanced
+      plaque stage.
+  downstream:
+  - target: Plaque Rupture and Thrombosis
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37595697
+      reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        There are several rupture-associated phenotypes causing thrombotic
+        vascular occlusion including simple fibrous cap rupture of an atheroma,
+        fibrous cap rupture at site of previous rupture-and-repair of an atheroma,
+        and nodular calcification with rupture.
+      explanation: &gt;-
+        Directly supports the causal transition from advanced atheroma rupture to
+        thrombotic vascular occlusion.
 - name: Plaque Rupture and Thrombosis
-  description: &gt;
-    Unstable plaques with thin fibrous caps are prone to rupture, exposing
-    thrombogenic material and triggering acute coronary events (myocardial
-    infarction).
+  conforms_to: &#34;atherogenesis#Plaque Rupture, Thrombosis, and Ischemic Events&#34;
+  role: consequence
+  description: &gt;-
+    Rupture of an unstable coronary atheroma, or endothelial erosion over it,
+    exposes thrombogenic material and triggers platelet activation, coagulation,
+    and thrombotic coronary occlusion, causing acute coronary syndrome and
+    myocardial infarction.
   cell_types:
   - preferred_term: Platelet
     term:
@@ -6789,19 +8692,30 @@ pathophysiology:
     term:
       id: GO:0007596
       label: blood coagulation
+    modifier: INCREASED
   evidence:
-  - reference: PMID:40594772
-    reference_title: &#34;Single-cell RNA-seq analysis of mouse carotid artery under disturbed flow and human carotid plaques identifies key cell populations in atherosclerosis development.&#34;
-    supports: PARTIAL
-    evidence_source: MODEL_ORGANISM
-    snippet: &#34;Notable increases in VEGFA+ macrophages were discovered in the disturbed flow stimulation group, displaying a pronounced M1 pro-inflammatory phenotype associated with the severity of atherosclerosis and plaque stability.&#34;
-    explanation: Pro-inflammatory macrophages contribute to plaque instability, which predisposes to rupture and thrombotic complications.
-  - reference: PMID:38639096
-    reference_title: &#34;Single-Cell Gene-Regulatory Networks of Advanced Symptomatic Atherosclerosis.&#34;
-    supports: PARTIAL
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;By identifying and integrating the most gene-rich single-cell subclusters of atherosclerosis to date with a coronary artery disease framework of GRNs, GRN39 was identified and independently validated as being critical for the transformation of contractile SMCs into an osteogenic phenotype promoting advanced, symptomatic atherosclerosis.&#34;
-    explanation: Smooth muscle cell transformation into osteogenic phenotypes contributes to plaque vulnerability and symptomatic disease, increasing risk of rupture and thrombotic events.
+  - reference: PMID:37595697
+    reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Destabilization is characterized by several different plaque phenotypes
+      that cause major clinical events such as acute coronary syndrome and
+      cerebrovascular strokes.
+    explanation: &gt;-
+      Histopathology and vascular-imaging evidence directly connects unstable
+      atheroma phenotypes with acute coronary syndrome, supporting this terminal
+      coronary consequence.
+  - reference: PMID:37595697
+    reference_title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Endothelial erosion without rupture has more recently been shown to be a
+      common phenotype to promote thrombosis as well.
+    explanation: &gt;-
+      Directly supports endothelial erosion as a thrombosis-promoting alternative
+      to fibrous-cap rupture in the coronary consequence node.
 mechanistic_hypotheses:
 - hypothesis_group_id: pgs_context_amplification
   hypothesis_label: Amplification of polygenic CAD risk in adverse contexts via shared endothelial-dysfunction convergence
@@ -7081,13 +8995,100 @@ genetic:
     explanation: Genome-wide association scanning identified the chromosome 9p21 interval as a common CHD risk locus, quantifying the effect size in risk-allele homozygotes.
 environmental:
 - name: Smoking
-  notes: Major modifiable risk factor, promotes endothelial damage
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  notes: Major modifiable risk factor, with a dose-response relationship to
+    myocardial infarction risk.
+  review_notes: The prior note also asserted that smoking promotes endothelial
+    damage. That mechanism is not carried by either epidemiologic source cited here
+    and is not evidenced in this entry; it belongs in pathophysiology with its own
+    citation rather than as an unsourced clause on an exposure.
+  evidence:
+  - reference: PMID:15364185
+    reference_title: &#34;Effect of potentially modifiable risk factors associated with myocardial infarction in 52 countries (the INTERHEART study): case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Smoking (odds ratio 2.87 for current vs never, PAR 35.7% for current and former vs never)&#34;
+    explanation: &#34;INTERHEART, a standardised case-control study of acute myocardial infarction across 52 countries with 15152 cases and 14820 controls. Establishes smoking as one of the largest modifiable contributors to population attributable risk.&#34;
+  - reference: PMID:16920470
+    reference_title: &#34;Tobacco use and risk of myocardial infarction in 52 countries in the INTERHEART study: a case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;risk increased by 5.6% for every additional cigarette smoked&#34;
+    explanation: &#34;The tobacco-specific INTERHEART analysis. Quoted for the dose-response relationship, which is the part of the note the odds ratio alone does not establish.&#34;
 - name: High-Fat Diet
-  notes: Elevates LDL cholesterol
+  exposure_term:
+    preferred_term: high dietary lipid exposure
+    modifier: INCREASED
+    term:
+      id: ECTO:0090010
+      label: exposure to lipid in food
+  notes: Dietary saturated fat raises serum cholesterol and cardiovascular event
+    risk. The measured effect on LDL specifically is small; the robust finding is
+    the reduction in combined cardiovascular events when saturated fat is reduced.
+  review_notes: The bound exposure term is broader than the cited evidence. The term
+    is total dietary lipid, while the citation concerns saturated fat specifically -
+    a distinction that matters, because trials reducing total fat do not show the
+    same event reduction. ECTO was searched for a saturated-fat-specific exposure
+    term and has none; the available matches are CHEBI and CDNO chemical classes,
+    which are not exposure classes and would not validate against the exposure-term
+    enum. The note therefore says saturated fat explicitly so the claim is scoped
+    correctly even though the term is not.
+  evidence:
+  - reference: PMID:32428300
+    reference_title: &#34;Reduction in saturated fat intake for cardiovascular disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Meta-regression suggested that greater reductions in saturated fat (reflected in greater reductions in serum cholesterol) resulted in greater reductions in risk of CVD events, explaining most heterogeneity between trials&#34;
+    explanation: &#34;Cochrane review of 15 randomised controlled trials with about 59000 participants. Note this source qualifies the original note rather than simply confirming it: the same abstract reports only small reductions in LDL cholesterol from reducing saturated fat, so LDL elevation is a weaker claim than the cardiovascular event effect, and the note was rewritten accordingly.&#34;
 - name: Sedentary Lifestyle
-  notes: Contributes to metabolic syndrome
+  exposure_term:
+    preferred_term: sedentary lifestyle
+    term:
+      id: ECTO:6000004
+      label: exposure to sedentary lifestyle
+  notes: Physical inactivity is an independent contributor to myocardial infarction
+    risk. Low physical activity is associated with metabolic syndrome, but sedentary
+    behaviour measured as screen time is not, so the metabolic-syndrome route is not
+    a settled mechanism for this exposure.
+  review_notes: The prior note read simply that a sedentary lifestyle contributes to
+    metabolic syndrome. The cited meta-analysis separates low physical activity from
+    sedentary behaviour and finds only the former significantly associated with
+    metabolic syndrome, so the note was split accordingly rather than left as a flat
+    claim. That meta-analysis is in adolescents and does not settle the question in
+    adults; it is enough to show the claim needs qualifying, not enough to refute it.
+  evidence:
+  - reference: PMID:15364185
+    reference_title: &#34;Effect of potentially modifiable risk factors associated with myocardial infarction in 52 countries (the INTERHEART study): case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;regular physical activity (0.86, PAR 12.2%)&#34;
+    explanation: &#34;INTERHEART reports regular physical activity as protective against myocardial infarction with a population attributable risk of 12.2 percent for its absence, which is the evidence that inactivity is a risk factor for this disease.&#34;
+  - reference: PMID:27997601
+    reference_title: &#34;Physical Activity, Sedentary Behavior, Cardiorespiratory Fitness and Metabolic Syndrome in Adolescents: Systematic Review and Meta-Analysis of Observational Evidence.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;for sedentary behavior, represented by screen time &gt; 2 hours/day, a significant association was not identified&#34;
+    explanation: &#34;Cited as a caveat, not support. This meta-analysis of eighteen studies found low physical activity significantly associated with metabolic syndrome, but sedentary behaviour measured as screen time was NOT significantly associated overall - only on weekends in subgroup analysis. It is an adolescent population, so it does not settle the question in adults, but it is enough to show the metabolic-syndrome mechanism should not be stated flatly.&#34;
 - name: Obesity
-  notes: Associated with dyslipidemia and inflammation
+  notes: Abdominal obesity is an independent contributor to myocardial infarction risk.
+  review_notes: Two separate caveats. First, obesity is a disease entity with its own
+    MONDO identity, not an environmental exposure, so this entry is modelling a host
+    state in the environmental block - the pattern tracked by issue 8551. It is cited
+    here rather than left bare because the evidence is real and moves with the entry
+    if it is later re-homed. Second, the prior note asserted association with
+    dyslipidemia and inflammation; the cited source establishes the association with
+    myocardial infarction, not that mechanism, so the note was narrowed.
+  evidence:
+  - reference: PMID:15364185
+    reference_title: &#34;Effect of potentially modifiable risk factors associated with myocardial infarction in 52 countries (the INTERHEART study): case-control study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;abdominal obesity (1.12 for top vs lowest tertile and 1.62 for middle vs lowest tertile, PAR 20.1% for top two tertiles vs lowest tertile)&#34;
+    explanation: &#34;INTERHEART. Note the measure is abdominal obesity by waist/hip ratio rather than body mass index, which is a more specific claim than the entry name suggests.&#34;
 treatments:
 - name: Statins
   description: Lower LDL cholesterol and stabilize atherosclerotic plaques.
@@ -7542,6 +9543,80 @@ discussions:
       formulation rather than purified IPE, so it does not refute an
       IPE-specific mechanism.
 datasets:
+- accession: geo:GSE289957
+  title: Differential Gene Expression related to Telomere Length in Arterial Wall Tissues and Granulocytes of Patients with Coronary Artery Disease
+  description: Shortened telomere length (TL) in blood cells is associated with atherosclerotic coronary artery disease (CAD). However, the mechanistic pathways underlying TL attrition in arterial wall tissues for patients with CAD remain unclear. In this study, we evaluated TL in arterial wall tissues and granulocytes and correlated these measurements with data on gene expressions in the arterial wall tissues of patients with CAD.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 34
+  publication: PMID:42211145
+  notes: Identified by GEO DataSets index search for Coronary Artery Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE310095
+  title: Whole Blood Transcriptomics Differentiates Circulating Gene Expression Between Coronary Artery Disease and Peripheral Artery Disease
+  description: Coronary artery disease (CAD) and peripheral artery disease (PAD) are prevalent atherosclerotic disorders that exhibit distinct clinical and pathological presentations. We used whole-blood RNA sequencing to investigate circulating transcriptomic differences between PAD and CAD. Whole-blood RNA sequencing was performed in 71 subjects 40-65 years of age with symptomatic PAD (n=20) or CAD (n=51). Patients with concomitant PAD and CAD were excluded. Differential expression analysis was performed to compare circulating gene expression in patients with PAD and patients with CAD. We identified 106 genes differentially expressed between PAD and CAD (p adj. &lt; 0.1).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 71
+  publication: PMID:41661212
+  notes: Identified by GEO DataSets index search for Coronary Artery Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE282042
+  title: RNA-seq analysis of human monocytes in patients with and without coronary atherosclerosis
+  description: &#39;We conducted RNA-Seq transcriptome profiling on monocytes isolated from patients undergoing coronary angiography. After the procedure, patients were divided into two groups: those without coronary artery stenosis (&#34;w.o. CA&#34;, n=11) and those with coronary artery stenosis (&#34;w. CA&#34;, n=9). All patients were men, aged 61±6 years. CD14+ monocytes were isolated, and RNA-seq was performed on the Illumina NextSeq 2000 platform. This data was analyzed to identify changes in gene expression profiles associated with coronary atherosclerosis. Transcriptome analysis revealed an upregulation of numerous inflammatory genes.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 20
+  publication: PMID:40350260
+  notes: Identified by GEO DataSets index search for Coronary Artery Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00000000003
+  title: WTCCC case-control study for Coronary Artery Disease
+  description: WTCCC genome-wide case-control association study for Bipolar disorder (CAD) using the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Coronary Artery Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00000000004
+  title: WTCCC case-control study for Coronary Artery Disease - Combined Controls
+  description: WTCCC genome-wide case-control association study for Coronary Artery Disease (CAD) using six disease collections together with the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Coronary Artery Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00000000005
+  title: WTCCC case-control study for Coronary Artery Disease, Hypertension, T2D - combined cases
+  description: WTCCC genome-wide case-control association study using the cardiovascular disease CAD, HT and T2D as combined case collection and the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Coronary Artery Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST000306
+  title: Metabolomics Approach to Identify Molecules and Pathways Involved in the Development of Atherosclerotic Coronary Artery Disease
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Coronary Artery Disease&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000088508
+  title: TAILS identifies candidate substrates and biomarkers of ADAMTS7, a therapeutic protease target in coronary artery disease
+  description: MacDonald BT, Keshishian H, Mundorff CC, Arduini A, Lai D, Bendinelli K, Popp NR, Bhandary B, Clauser KR, Specht H, Elowe NH, Laprise D, Xing Y, Kaushik VK, Carr SA, Ellinor PT. Loss-of-function mutations in the secreted enzyme ADAMTS7 (a disintegrin and metalloproteinase with thrombospondin motifs 7) are associated with protection for coronary artery disease (CAD). ADAMTS7 catalytic inhibition has been proposed as a therapeutic strategy for treating CAD; however, the lack of an endogenous substrate has hindered the development of activity-based biomarkers.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Coronary Artery Disease&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000095097
+  title: Lipidomics-based algorithms can enhance prediction of obstructive coronary artery disease
+  description: Lipidomics-based algorithms can enhance prediction of obstructive coronary artery disease
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Coronary Artery Disease&#34;). Retrieved 2026-08-02.
 references:
 - reference: DOI:10.1038/s41598-025-07395-7
   title: Single-cell RNA-seq analysis of mouse carotid artery under disturbed flow and human carotid plaques identifies key cell populations in atherosclerosis development
@@ -7558,6 +9633,12 @@ references:
 - reference: DOI:10.3390/jcm13216352
   title: &#39;From Cells to Plaques: The Molecular Pathways of Coronary Artery Calcification and Disease&#39;
   findings: []
+- reference: PMID:37595697
+  title: The microenvironment of the atheroma expresses phenotypes of plaque instability.
+  findings: []
+- reference: PMID:26844337
+  title: The Role of Lipids and Lipoproteins in Atherosclerosis.
+  findings: []
 </pre>
             </div>
         </div>
@@ -7573,7 +9654,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">5</span>
+                    <span class="card-count">7</span>
                 </div>
 
                 <div class="reference-entry">
@@ -7652,6 +9733,40 @@ references:
                             </div>
 
                             <div class="reference-title">From Cells to Plaques: The Molecular Pathways of Coronary Artery Calcification and Disease</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37595697" target="_blank">PMID:37595697</a>
+                            </div>
+
+                            <div class="reference-title">The microenvironment of the atheroma expresses phenotypes of plaque instability.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/26844337" target="_blank">PMID:26844337</a>
+                            </div>
+
+                            <div class="reference-title">The Role of Lipids and Lipoproteins in Atherosclerosis.</div>
 
                         </div>
 
@@ -8761,7 +10876,7 @@ Platelet/coagulation activation → CORONARY THROMBOSIS → MI / sudden death
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Coronary Artery Disease", "mondoId": "MONDO:0021661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coronary_Artery_Disease", "yamlRevision": "68b08e1c9542"};
+        const OS_CONFIG = {"diseaseName": "Coronary Artery Disease", "mondoId": "MONDO:0021661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Coronary_Artery_Disease", "yamlRevision": "4b303a615eda"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9180,5 +11295,73 @@ Platelet/coagulation activation → CORONARY THROMBOSIS → MI / sudden death
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

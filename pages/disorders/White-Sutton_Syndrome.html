@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=White-Sutton%20Syndrome"
@@ -3599,7 +3765,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                White-Sutton syndrome (WHSUS; intellectual disability-microcephaly-strabismus-behavioral abnormalities syndrome; OMIM 616364) is an autosomal dominant neurodevelopmental disorder caused by heterozygous, usually de novo, loss-of-function variants in POGZ (1q21.3), which encodes pogo transposable element-derived protein with zinc finger domain - a multidomain chromatin-binding nuclear protein that acts in transcriptional regulation and neuronal development. The phenotype spans a wide cognitive range, from learning difficulties with a distinctive dysexecutive/attentional profile through to severe intellectual disability, and is accompanied by developmental delay that is disproportionately marked in speech and language, hypotonia, autism spectrum disorder and other behavioural problems. Commonly reported additional features are seizures, refractive errors and strabismus, hearing loss, sleep disturbance (particularly obstructive sleep apnoea), feeding and gastrointestinal problems, mild male genital abnormalities and urinary tract involvement. Increased body mass index, craniofacial dysmorphism (microcephaly, broad forehead, midface hypoplasia, flat nasal bridge, triangular mouth) and structural brain malformations are also documented. POGZ variants account for roughly 0.14% of clinical exomes performed for neurological indications.
+                White-Sutton syndrome (WHSUS; intellectual disability-microcephaly-strabismus-behavioral abnormalities syndrome; OMIM 616364) is an autosomal dominant neurodevelopmental disorder caused by heterozygous, usually de novo, pathogenic variants in POGZ (1q21.3), most of which are sequence-classified as loss of function. POGZ encodes pogo transposable element-derived protein with zinc finger domain, a multidomain chromatin-binding nuclear protein that acts in transcriptional regulation and neuronal development. The phenotype spans a wide cognitive range, from learning difficulties with a distinctive dysexecutive/attentional profile through to severe intellectual disability, and is accompanied by developmental delay that is disproportionately marked in speech and language, hypotonia, autism spectrum disorder and other behavioural problems. Commonly reported additional features are seizures, refractive errors and strabismus, hearing loss, sleep disturbance (particularly obstructive sleep apnoea), feeding and gastrointestinal problems, mild male genital abnormalities and urinary tract involvement. Increased body mass index, craniofacial dysmorphism (microcephaly, broad forehead, midface hypoplasia, flat nasal bridge, triangular mouth) and structural brain malformations are also documented. In one referral diagnostic laboratory, POGZ variants accounted for roughly 0.14% of clinical exomes performed for neurological indications; that figure is a diagnostic yield, not population prevalence.
             </p>
 
         </header>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3723,7 +3891,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">21</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3733,7 +3901,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3742,7 +3910,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3761,7 +3929,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3787,6 +3955,14 @@
             </a>
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3811,29 +3987,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3961,7 +4215,125 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="whsus_allelic_mechanism">
+                <div class="item-name">Do pathogenic POGZ alleles act uniformly through haploinsufficiency, or do stable NMD-escaping truncations produce additional dominant-negative or gain-of-function effects that explain their greater clinical severity?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">whsus_allelic_mechanism</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-pathogenic-pogz-variant-dysfunction">pathophysiology#Pathogenic POGZ Variant Dysfunction</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Heterozygous loss-of-function variants establish reduced POGZ activity as a major disease mechanism, but the strongest genotype-phenotype study found greater severity for truncations predicted to escape NMD and explicitly proposed dominant-negative or gain-of-function effects. That proposal is an inference from variant position and clinical severity, not a direct demonstration of mutant-transcript stability, truncated-protein abundance or altered chromatin occupancy. Resolving the allelic mechanism is important for interpreting genotype-severity associations and for deciding whether simple restoration of POGZ dosage would address all pathogenic allele classes.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Isogenic comparison of NMD-triggering and NMD-escaping POGZ alleles</div>
+
+            </div>
+
+            <div class="experiment-id">whsus_isogenic_allelic_mechanism</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Introduce representative NMD-triggering and NMD-escaping truncations into the same human iPSC background, differentiate them into neural progenitors and neurons, and compare allele-specific RNA, mutant-protein abundance, nuclear localisation, POGZ/HP1 chromatin occupancy, transcriptional output, neuronal differentiation and migration. Include correction of patient alleles and selective knockdown of the mutant transcript.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Phenotypes proportional to total functional POGZ dosage and rescued by wild-type restoration would support haploinsufficiency; effects unique to NMD-escaping alleles that improve after mutant-selective knockdown would support an additional dominant-negative or gain-of-function mechanism.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35052493" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35052493" target="_blank">PMID:35052493</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study suggests that gain-of-function or dominant negative effect through escaping NMD and the location of the variants in the prolin-rich domain of the protein may play an important role in the severity of manifestations of POGZ-associated neurodevelopmental disorders."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly frame the alternative allelic mechanism as a suggestion, identifying a material unresolved causal question rather than a demonstrated mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
             </div>
 
             <div class="item-box discussion-box anchor-target" id="whsus_excitability_reversibility">
@@ -4155,10 +4527,10 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pogz-loss-of-function" data-dismech-node="POGZ Loss of Function" data-dismech-type="pathophysiology">
-                <div class="item-name">POGZ Loss of Function</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-pogz-variant-dysfunction" data-dismech-node="Pathogenic POGZ Variant Dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">Pathogenic POGZ Variant Dysfunction</div>
 
-                <div class="item-desc">Heterozygous nonsense, frameshift and splice variants, and a minority of missense variants, in POGZ reduce or alter the function of a multidomain nuclear protein. The genotype-phenotype relationship is not a simple dosage gradient: missense variants are associated with milder phenotypes, while truncating variants predicted to ESCAPE nonsense-mediated decay produce the most severe phenotypes, and within that group variants in the proline-rich region are the most severe of all. This pattern argues that a gain-of-function or dominant-negative effect from a stable truncated protein, rather than pure haploinsufficiency, drives the severe end of the spectrum.</div>
+                <div class="item-desc">Heterozygous nonsense, frameshift and splice variants, and a minority of missense variants, in POGZ reduce or alter the function of a multidomain nuclear protein. The genotype-phenotype relationship is not a simple dosage gradient: missense variants are associated with milder phenotypes, while truncating variants predicted to ESCAPE nonsense-mediated decay produce the most severe phenotypes, and within that group variants in the proline-rich region are the most severe of all. The authors infer that a gain-of-function or dominant-negative effect from a stable truncated protein may contribute to the severe end of the spectrum, but this allelic mechanism has not been demonstrated experimentally.</div>
 
 
 
@@ -4171,15 +4543,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         POGZ
 
 
-    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18801">hgnc:18801</a>
+    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:18801</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves POGZ (hgnc:18801). hgnc:18801 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4208,16 +4587,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chromatin binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003682" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003682">GO:0003682</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003682" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003682</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal chromatin binding (GO:0003682). GO:0003682 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4238,6 +4622,7 @@
 
 
                 </div>
+
 
 
 
@@ -4299,7 +4684,7 @@
                 <div class="evidence-snippet">"White-Sutton syndrome (WHSUS) is a neurodevelopmental disorder caused by heterozygous loss-of-function variants in POGZ."</div>
 
 
-                <div class="evidence-explanation">Establishes heterozygous POGZ loss of function as the cause of the disorder.</div>
+                <div class="evidence-explanation">Establishes heterozygous POGZ loss-of-function variants as a major cause of the disorder, while the neutral node name also accommodates pathogenic missense alleles and unresolved effects of NMD-escaping truncations.</div>
 
 
 
@@ -4372,16 +4757,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         heterochromatin formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031507" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031507">GO:0031507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0031507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heterochromatin formation (GO:0031507). GO:0031507 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4406,16 +4796,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transcription corepressor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003714" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003714">GO:0003714</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003714" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0003714</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased transcription corepressor activity (GO:0003714). GO:0003714 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4436,6 +4831,7 @@
 
 
                 </div>
+
 
 
 
@@ -4554,16 +4950,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of DNA-templated transcription
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006355">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4584,6 +4985,7 @@
 
 
                 </div>
+
 
 
 
@@ -4706,16 +5108,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4742,16 +5149,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell proliferation in forebrain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021846" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021846">GO:0021846</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021846" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0021846</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell proliferation in forebrain (GO:0021846). GO:0021846 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4771,16 +5183,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         mitotic cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000278" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000278">GO:0000278</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000278" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0000278</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mitotic cell cycle (GO:0000278). GO:0000278 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4801,6 +5218,7 @@
 
 
                 </div>
+
 
 
 
@@ -4913,17 +5331,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4944,10 +5369,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0010012">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0010012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4974,16 +5402,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cerebral cortex neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021895">GO:0021895</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0021895</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cerebral cortex neuron differentiation (GO:0021895). GO:0021895 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5007,6 +5440,24 @@
 
 
 
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-q1042r-pogz-patient-derived-ipsc-neural-model">Q1042R POGZ patient-derived iPSC neural model</a>
+
+                            <span class="crosslink-meta">IPSC DERIVED MODEL</span>
+
+
+                            <span class="crosslink-desc">Models impaired neuronal differentiation and migration in human patient-derived neural cells.</span>
+
+                        </div>
+
+                    </div>
+                </div>
 
 
 
@@ -5054,9 +5505,53 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We established iPSC lines using immortalized B cells obtained from that patient and an unaffected healthy control (Supplementary Fig. 6) and differentiated each iPSC lines into NSCs."</div>
+
+
+                <div class="evidence-explanation">Establishes the patient-derived and control human iPSC neural-stem-cell system used to test the cellular developmental phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the neuronal differentiation is impaired in patient-derived NSCs."</div>
+
+
+                <div class="evidence-explanation">Directly supports impaired neuronal differentiation in the patient-derived human neural model.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5080,28 +5575,8 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
-                    </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We also develop the first mouse model heterozygous for a de novo POGZ mutation identified in a patient with ASD, and we identify ASD-like abnormalities in the mice."</div>
-
-
-                <div class="evidence-explanation">Establishes the heterozygous knock-in mouse that reproduces disease-relevant behavioural abnormalities.</div>
-
-
-
-            </div>
-
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -5118,16 +5593,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5144,6 +5624,7 @@
 
 
                 </div>
+
 
 
 
@@ -5263,16 +5744,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cerebral cortex neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0010012">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0010012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5289,6 +5775,7 @@
 
 
                 </div>
+
 
 
 
@@ -5380,7 +5867,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy is managed with standard antiseizure medication. Unlike several other syndromic epilepsies, seizure control is generally achievable, with one or multiple agents.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is a defining feature of the syndrome, though not all individuals meet criteria. Formal ascertainment is incomplete: in one systematically evaluated national cohort only a single patient underwent formal autism assessment.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, independent mouse model - brain-specific conditional Pogz knockout - localises the strongest transcriptional consequence of Pogz loss to the cerebellum and shows a corresponding physiological defect: reduced simple- and complex-spike firing frequency and increased inhibitory synaptic input amplitude in Purkinje cells. This model also reproduces microcephaly and growth impairment, matching the human phenotype. It is curated as a parallel arm to the cortical node rather than subsumed into it, because the two models implicate different circuits and, notably, report opposite social phenotypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"]}}, {\"id\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ is a multidomain nuclear protein that binds chromatin and participates in transcriptional regulation. Loss of normal POGZ function therefore perturbs the transcriptional programs it controls in the developing nervous system, which is the proximate step linking the genetic lesion to abnormal cortical development.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of DNA-templated transcription\"]}}, {\"id\": \"Elevated Neuronal Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heterozygous Pogz mouse, social deficits can be treated by compensatory inhibition of elevated cell excitability, identifying raised neuronal excitability as a functionally causal and pharmacologically reversible node rather than a fixed developmental endpoint. This is the single most therapeutically interesting finding in the disorder and is the reason a reversibility discussion is recorded. It is currently mouse-only.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"]}}, {\"id\": \"Impaired Cortical Neuronal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-associated de novo POGZ variants impair neuronal development in the developing mouse brain and in induced pluripotent cell lines derived from a patient. The consequence in the mature animal is impaired cortical network function, which is the cellular substrate proposed for the cognitive and behavioural phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\", \"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment spans a wide range. In an unbiased national cohort of 19 individuals, 14 had frank intellectual disability (6 mild, 5 moderate, 3 severe) and the remaining 5 had learning disabilities with a shared neurocognitive profile of language difficulties, dysexecutive syndrome, attention disorders, slowness and social difficulties. Milder presentations are therefore likely to be under-ascertained.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ localises to pericentric heterochromatin in the same distribution as HP1-alpha and represses transcription in a dual-luciferase reporter assay. That repression is HP1-dependent: an H840A substitution in the HP1-binding zinc-finger-like (HPZ) domain, which abolishes the POGZ-HP1-alpha interaction, also abolishes repression. The HP1-binding step is therefore the molecular mechanism by which POGZ acts as a negative regulator of transcription, and is the specific activity lost in White-Sutton syndrome. The evidence is in vitro (HEK293 reporter assay, N2A immunofluorescence), so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"heterochromatin formation\"], \"molecular_functions\": [\"transcription corepressor activity\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is part of the recognisable craniofacial pattern and is named in the MONDO/Orphanet description of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep disturbance, particularly obstructive sleep apnoea, is a commonly reported feature. A validated sleep-disordered-breathing questionnaire identified symptoms of obstructive sleep apnoea in 4 of 12 individuals screened, suggesting it is under-detected without active screening.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"POGZ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}], \"presence\": \"Positive\", \"association\": \"Causal - heterozygous loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"POGZ Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift and splice variants, and a minority of missense variants, in POGZ reduce or alter the function of a multidomain nuclear protein. The genotype-phenotype relationship is not a simple dosage gradient: missense variants are associated with milder phenotypes, while truncating variants predicted to ESCAPE nonsense-mediated decay produce the most severe phenotypes, and within that group variants in the proline-rich region are the most severe of all. This pattern argues that a gain-of-function or dominant-negative effect from a stable truncated protein, rather than pure haploinsufficiency, drives the severe end of the spectrum.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"chromatin binding\"], \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}]}}, {\"id\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the embryonic (E15.5) cerebral cortex of Pogz-deficient mice the number of pHH3-positive mitotic cells is significantly reduced and the Tbr2-positive intermediate-progenitor layer is correspondingly expanded, while the Pax6-positive apical-progenitor layer is unchanged. The authors interpret this as accelerated exit from the cell cycle - a shift from symmetric proliferative to asymmetric differentiative division - which depletes the progenitor pool available to generate cortical neurons. The finding is mouse-only, so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cell proliferation in forebrain\", \"mitotic cell cycle\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a recurrent feature that was not recognised in the original descriptions. Onset is mostly in infancy (1-4 years), with both focal and generalised seizures, EEG abnormalities predominantly in the frontal regions, and seizure control achievable with one or multiple antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sleep Apnea Assessment and Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because obstructive sleep apnoea is common but symptom-based recognition is poor, active screening with a validated sleep-disordered-breathing questionnaire is warranted, with sleep-medicine management of those who screen positive.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Speech and Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay is the most consistently reported developmental feature and was present in every individual in one 22-person series.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language acquisition is the developmental domain most consistently and severely affected, making speech-language therapy a core intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structural Brain Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain malformations are an established association. Reported MRI features include cortical and cerebellar atrophy, delayed myelination and brainstem hypoplasia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012443\"}}], \"edges\": [{\"source\": \"POGZ Loss of Function\", \"target\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function compromises the HP1-dependent repressive activity that POGZ exerts at pericentric heterochromatin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POGZ Loss of Function\", \"target\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Independently of its transcriptional-repressor role, POGZ is required for normal mitotic progression, so its loss reduces the number of dividing cortical progenitors. Curated as a separate arm from the transcriptional node because the reported intermediates are mitotic (kinetochore assembly and chromosome segregation) rather than transcriptional.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"POGZ Loss of Function\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function perturbs its transcriptional-regulatory role in the nucleus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the HP1-dependent repressive activity is the molecular basis for the transcriptional dysregulation - most conspicuously gene upregulation - seen when POGZ function is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed transcriptional output in neural progenitors and developing neurons impairs cortical development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of POGZ\u0027s negative transcriptional regulation produces the largest gene upregulation in cerebellum, with a corresponding Purkinje cell defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early depletion of the cycling progenitor pool reduces the neurons available to build the cortex, which is the developmental lesion the downstream node represents.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Elevated Neuronal Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development yields neurons with elevated intrinsic excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cortical development underlies the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Structural Brain Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental lesion produces the structural brain abnormalities documented on imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development is the presumed substrate for the epilepsy; the intermediates are not established and no excitation/inhibition-imbalance claim is asserted.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same conditional-knockout model that shows the cerebellar defect also reproduces microcephaly and growth impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated Neuronal Excitability\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated excitability underlies the social deficits in the mouse model, the behavioural correlate of the human autistic phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Speech and Language Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sleep Apnea Assessment and Management\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"POGZ\", \"target\": \"POGZ Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Medication\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epilepsy is managed with standard antiseizure medication. A disorder-focused review reports that seizure control may be reached with one or multiple agents, without establishing comparative efficacy for any regimen.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autistic Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder is a defining feature of the syndrome, though not all individuals meet criteria. Formal ascertainment is incomplete: in one systematically evaluated national cohort only a single patient underwent formal autism assessment.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000729\"}}, {\"id\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second, independent mouse model - brain-specific conditional Pogz knockout - localises the strongest transcriptional consequence of Pogz loss to the cerebellum and shows a corresponding physiological defect: reduced simple- and complex-spike firing frequency and increased inhibitory synaptic input amplitude in Purkinje cells. This model also reproduces microcephaly and growth impairment, matching the human phenotype. It is curated as a parallel arm to the cortical node rather than subsumed into it, because the two models implicate different circuits and, notably, report opposite social phenotypes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Purkinje cell\"]}}, {\"id\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ is a multidomain nuclear protein that binds chromatin and participates in transcriptional regulation. Loss of normal POGZ function therefore perturbs the transcriptional programs it controls in the developing nervous system, which is the proximate step linking the genetic lesion to abnormal cortical development.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"regulation of DNA-templated transcription\"]}}, {\"id\": \"Elevated Neuronal Excitability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the heterozygous Pogz mouse, social deficits can be treated by compensatory inhibition of elevated cell excitability, identifying raised neuronal excitability as a functionally causal and pharmacologically reversible node rather than a fixed developmental endpoint. This is the single most therapeutically interesting finding in the disorder and is the reason a reversibility discussion is recorded. It is currently mouse-only.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cerebral cortex neuron\"]}}, {\"id\": \"Impaired Cortical Neuronal Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease-associated de novo POGZ variants impair neuronal development in the developing mouse brain and in induced pluripotent cell lines derived from a patient. The consequence in the mature animal is impaired cortical network function, which is the cellular substrate proposed for the cognitive and behavioural phenotype.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neural progenitor cell\", \"cerebral cortex neuron\"], \"biological_processes\": [\"cerebral cortex neuron differentiation\"], \"experimental_models\": [{\"name\": \"Q1042R POGZ patient-derived iPSC neural model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Models impaired neuronal differentiation and migration in human patient-derived neural cells.\"}]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment spans a wide range. In an unbiased national cohort of 19 individuals, 14 had frank intellectual disability (6 mild, 5 moderate, 3 severe) and the remaining 5 had learning disabilities with a shared neurocognitive profile of language difficulties, dysexecutive syndrome, attention disorders, slowness and social difficulties. Milder presentations are therefore likely to be under-ascertained.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POGZ localises to pericentric heterochromatin in the same distribution as HP1-alpha and represses transcription in a dual-luciferase reporter assay. That repression is HP1-dependent: an H840A substitution in the HP1-binding zinc-finger-like (HPZ) domain, which abolishes the POGZ-HP1-alpha interaction, also abolishes repression. The HP1-binding step is therefore the molecular mechanism by which POGZ acts as a negative regulator of transcription, and is the specific activity lost in White-Sutton syndrome. The evidence is in vitro (HEK293 reporter assay, N2A immunofluorescence), so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"heterochromatin formation\"], \"molecular_functions\": [\"transcription corepressor activity\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is part of the recognisable craniofacial pattern and is named in the MONDO/Orphanet description of the syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"POGZ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}], \"presence\": \"Positive\", \"association\": \"Causal - heterozygous pathogenic variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Pathogenic POGZ Variant Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous nonsense, frameshift and splice variants, and a minority of missense variants, in POGZ reduce or alter the function of a multidomain nuclear protein. The genotype-phenotype relationship is not a simple dosage gradient: missense variants are associated with milder phenotypes, while truncating variants predicted to ESCAPE nonsense-mediated decay produce the most severe phenotypes, and within that group variants in the proline-rich region are the most severe of all. The authors infer that a gain-of-function or dominant-negative effect from a stable truncated protein may contribute to the severe end of the spectrum, but this allelic mechanism has not been demonstrated experimentally.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"chromatin binding\"], \"genes\": [\"POGZ\"], \"gene_terms\": [{\"label\": \"POGZ\", \"id\": \"hgnc:18801\"}]}}, {\"id\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the embryonic (E15.5) cerebral cortex of Pogz-deficient mice the number of pHH3-positive mitotic cells is significantly reduced and the Tbr2-positive intermediate-progenitor layer is correspondingly expanded, while the Pax6-positive apical-progenitor layer is unchanged. The authors interpret this as accelerated exit from the cell cycle - a shift from symmetric proliferative to asymmetric differentiative division - which depletes the progenitor pool available to generate cortical neurons. The finding is mouse-only, so this node is curated at provisional confidence.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"cell proliferation in forebrain\", \"mitotic cell cycle\"]}}, {\"id\": \"Q1042R POGZ patient-derived iPSC neural model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient-derived neural stem cells carrying POGZ p.Gln1042Arg showed reduced early neuronal differentiation, increased proliferation and attenuated radial migration relative to control cells. The donor was ascertained for sporadic ASD rather than as part of a White-Sutton syndrome cohort, so this is an informative human POGZ-neurodevelopmental-disorder model rather than a representative model of the full syndrome or its allelic spectrum.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"patient-derived POGZ p.Gln1042Arg cells\", \"unaffected control-derived cells\"], \"publication\": \"PMID:32103003\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a recurrent feature that was not recognised in the original descriptions. Onset is mostly in infancy (1-4 years), with both focal and generalised seizures, EEG abnormalities predominantly in the frontal regions, and seizure control achievable with one or multiple antiseizure medications.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech and Language Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay is the most consistently reported developmental feature and was present in every individual in one 22-person series.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Speech and Language Specialist Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language acquisition is the developmental domain most consistently affected. GeneReviews places it within specialist standard care, but the available review does not define a syndrome-specific therapy protocol or quantify treatment response.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Structural Brain Malformation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain malformations are an established association. Reported MRI features include cortical and cerebellar atrophy, delayed myelination and brainstem hypoplasia.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012443\"}}], \"edges\": [{\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function compromises the HP1-dependent repressive activity that POGZ exerts at pericentric heterochromatin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Independently of its transcriptional-repressor role, POGZ is required for normal mitotic progression, so its loss reduces the number of dividing cortical progenitors. Curated as a separate arm from the transcriptional node because the reported intermediates are mitotic (kinetochore assembly and chromosome segregation) rather than transcriptional.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pathogenic POGZ Variant Dysfunction\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered POGZ function perturbs its transcriptional-regulatory role in the nucleus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of POGZ-HP1 Heterochromatin Repression\", \"target\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the HP1-dependent repressive activity is the molecular basis for the transcriptional dysregulation - most conspicuously gene upregulation - seen when POGZ function is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed transcriptional output in neural progenitors and developing neurons impairs cortical development.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted POGZ-Dependent Transcriptional Regulation\", \"target\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of POGZ\u0027s negative transcriptional regulation produces the largest gene upregulation in cerebellum, with a corresponding Purkinje cell defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Premature Cell-Cycle Exit in Cortical Progenitors\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early depletion of the cycling progenitor pool reduces the neurons available to build the cortex, which is the developmental lesion the downstream node represents.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Elevated Neuronal Excitability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development yields neurons with elevated intrinsic excitability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired cortical development underlies the cognitive impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Structural Brain Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same developmental lesion produces the structural brain abnormalities documented on imaging.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Cortical Neuronal Development\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cortical development is the presumed substrate for the epilepsy; the intermediates are not established and no excitation/inhibition-imbalance claim is asserted.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebellar Purkinje Cell Circuit Dysfunction\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same conditional-knockout model that shows the cerebellar defect also reproduces microcephaly and growth impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Elevated Neuronal Excitability\", \"target\": \"Autistic Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated excitability underlies the social deficits in the mouse model, the behavioural correlate of the human autistic phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Speech and Language Specialist Care\", \"target\": \"Speech and Language Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure Medication\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Q1042R POGZ patient-derived iPSC neural model\", \"target\": \"Impaired Cortical Neuronal Development\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models impaired neuronal differentiation and migration in human patient-derived neural cells.\"}, {\"source\": \"POGZ\", \"target\": \"Pathogenic POGZ Variant Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5393,7 +5880,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">21</span>
+                <span class="card-count">27</span>
             </div>
 
 
@@ -5401,7 +5888,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
@@ -5413,9 +5900,11 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(10)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5435,14 +5924,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital heart disease, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5517,24 +6015,33 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-and-gastrointestinal-problems" data-dismech-node="Feeding and Gastrointestinal Problems" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-involvement" data-dismech-node="Gastrointestinal Involvement" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Feeding and Gastrointestinal Problems
+                        Gastrointestinal Involvement
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Feeding difficulties
+
+                        <span class="phenotype-term-label">Abnormality of the gastrointestinal tract</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the gastrointestinal tract (HP:0011024). HP:0011024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5562,10 +6069,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"A higher-than-expected proportion of cases also had gastrointestinal phenotypes, both functional and anatomical, as well as genitourinary anomalies."</div>
+                <div class="evidence-snippet">"GI involvement occurred in the majority (17/19, 89%) of the individuals for whom information was available."</div>
 
 
-                <div class="evidence-explanation">Establishes gastrointestinal phenotypes as over-represented, spanning functional and anatomical categories.</div>
+                <div class="evidence-explanation">Quantifies any gastrointestinal involvement at 89%, supporting the VERY_FREQUENT band for the broad phenotype.</div>
 
 
 
@@ -5603,6 +6110,210 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding Difficulties" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Feeding Difficulties
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eleven (11/18, 61%) had a history of feeding difficulties."</div>
+
+
+                <div class="evidence-explanation">Quantifies feeding difficulties at 61%, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysphagia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nine subjects (9/17, 53%) had dysphagia/swallowing problems"</div>
+
+
+                <div class="evidence-explanation">Quantifies dysphagia or swallowing problems at 53%, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-constipation" data-dismech-node="Constipation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Constipation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"eight (8/17, 47%) had constipation."</div>
+
+
+                <div class="evidence-explanation">Quantifies constipation at 47%, supporting the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
@@ -5619,14 +6330,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5711,14 +6431,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5803,14 +6530,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the genitourinary system
+
+                        <span class="phenotype-term-label">Abnormality of the genitourinary system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000119">HP:0000119</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000119</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the genitourinary system (HP:0000119). HP:0000119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5895,14 +6631,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,14 +6699,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Midface retrusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6026,14 +6776,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6086,7 +6843,7 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
@@ -6096,14 +6853,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6179,14 +6943,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6262,14 +7033,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
+
+                        <span class="phenotype-term-label">Delayed speech and language development</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6316,6 +7096,74 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor Delay
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Some degree of motor delay was reported for 19/22 (86%) patients (delay was questionable in one additional case)."</div>
+
+
+                <div class="evidence-explanation">Quantifies motor delay at 86%, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autistic Behavior
@@ -6323,14 +7171,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autistic behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000729</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6428,14 +7283,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical behavior
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6511,14 +7375,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250), qualified as infantile onset, range 1.0-4.0y. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6645,14 +7516,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6728,14 +7606,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obstructive sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002870">HP:0002870</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002870</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6750,13 +7635,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6766,7 +7651,7 @@
                 <div class="evidence-snippet">"A validated sleep disordered breathing questionnaire identified symptoms of obstructive sleep apnea in 4/12 (33%) individuals."</div>
 
 
-                <div class="evidence-explanation">Quantifies obstructive sleep apnoea symptoms at 33% on active screening, at the lower edge of the FREQUENT (30-79%) band.</div>
+                <div class="evidence-explanation">A questionnaire found obstructive-sleep-apnoea symptoms in 33%, but did not confirm all cases polysomnographically; it therefore only partially supports the phenotype-specific rate.</div>
 
 
 
@@ -6811,14 +7696,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
+
+                        <span class="phenotype-term-label">Gait disturbance</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6870,8 +7764,107 @@
             <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-body-weight" data-dismech-node="Increased Body Weight" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Body Weight
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0004324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased body weight (HP:0004324). HP:0004324 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, 6/16 (37.5%) were overweight or obese."</div>
+
+
+                <div class="evidence-explanation">Directly quantifies overweight or obesity at 37.5%, supporting the FREQUENT band without inferring a threshold frequency from a mean BMI z-score.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34645992" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34645992" target="_blank">PMID:34645992</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"increased risk of obesity"</div>
+
+
+                <div class="evidence-explanation">Independently confirms increased obesity risk in a pooled analysis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-refractive-error" data-dismech-node="Refractive Error" data-dismech-type="phenotype">
@@ -6881,14 +7874,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of refraction
+
+                        <span class="phenotype-term-label">Abnormality of refraction</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000539" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000539">HP:0000539</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000539</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of refraction (HP:0000539). HP:0000539 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6979,21 +7981,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-body-mass-index" data-dismech-node="Increased Body Mass Index" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-vomiting" data-dismech-node="Episodic Vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Increased Body Mass Index
+                        Episodic Vomiting
 
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Overweight
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025502" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025502">HP:0025502</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002572</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episodic vomiting (HP:0002572). HP:0002572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7004,7 +8013,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -7021,19 +8030,67 @@
 
                 </div>
 
-                <div class="evidence-snippet">"we observed an increased body mass index (BMI) z-score compared to the general population (mean 0.59, median 0.9; p 0.0253)"</div>
+                <div class="evidence-snippet">"Cyclic vomiting was reported in 6/16 (37.5%) of subjects"</div>
 
 
-                <div class="evidence-explanation">Quantifies a statistically significant upward shift in BMI z-score relative to the general population. This is a mean, not a proportion above a threshold - a +0.59 z-score shift implies roughly 15% of individuals above the 95th centile, which is why the band is OCCASIONAL rather than FREQUENT.</div>
+                <div class="evidence-explanation">Quantifies recurrent cyclic vomiting at 37.5%, supporting the FREQUENT band and mapping it to the broader HP episodic-vomiting concept.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34645992" data-dismech-supports="SUPPORT">
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-male-genital-abnormalities" data-dismech-node="Male Genital Abnormalities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Male Genital Abnormalities
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the male genitalia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010461" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0010461</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the male genitalia (HP:0010461). HP:0010461 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34645992" target="_blank">PMID:34645992</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -7043,10 +8100,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"increased risk of obesity"</div>
+                <div class="evidence-snippet">"Mild male genital anomalies were reported in four of 14 (28.6%) male subjects including undescended testes, hypoplastic scrotum, hypoplastic testes and micropenis, and redundant foreskin with phimosis."</div>
 
 
-                <div class="evidence-explanation">Independently confirms increased obesity risk in a pooled analysis.</div>
+                <div class="evidence-explanation">Quantifies the broad male-genital phenotype at 28.6%, supporting the OCCASIONAL band and enumerating its reported manifestations.</div>
 
 
 
@@ -7069,14 +8126,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal brain morphology
+
+                        <span class="phenotype-term-label">Abnormal brain morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012443">HP:0012443</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012443</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7152,14 +8218,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Broad forehead
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000337">HP:0000337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7249,7 +8322,7 @@
                 <div class="item-name">
                     POGZ
 
-                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal - heterozygous loss-of-function variants)</span>
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal - heterozygous pathogenic variants)</span>
 
                 </div>
 
@@ -7257,20 +8330,23 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POGZ
 
 
-    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18801">hgnc:18801</a>
+    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:18801</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POGZ (hgnc:18801). hgnc:18801 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
                     <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
-
-                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
 
@@ -7369,7 +8445,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-standard-of-care-management" data-dismech-node="Multidisciplinary Standard-of-Care Management" data-dismech-type="treatment">
@@ -7378,7 +8454,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7472,13 +8553,18 @@
 
             </div>
 
-            <div class="item-box treatment-box anchor-target" id="treatment-speech-and-language-therapy" data-dismech-node="Speech and Language Therapy" data-dismech-type="treatment">
+            <div class="item-box treatment-box anchor-target" id="treatment-speech-and-language-specialist-care" data-dismech-node="Speech and Language Specialist Care" data-dismech-type="treatment">
                 <div class="item-name">
-                    Speech and Language Therapy
+                    Speech and Language Specialist Care
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech and language therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech and language therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -7508,12 +8594,14 @@
 
 
 
-                <div class="item-desc">Speech and language acquisition is the developmental domain most consistently and severely affected, making speech-language therapy a core intervention.</div>
+                <div class="item-desc">Speech and language acquisition is the developmental domain most consistently affected. GeneReviews places it within specialist standard care, but the available review does not define a syndrome-specific therapy protocol or quantify treatment response.</div>
 
 
 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed speech and language development
@@ -7521,10 +8609,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000750</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7538,13 +8629,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34529370" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:34529370" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34529370" target="_blank">PMID:34529370</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7554,7 +8645,7 @@
                 <div class="evidence-snippet">"speech and language acquisition, behavioral issues, seizures"</div>
 
 
-                <div class="evidence-explanation">GeneReviews includes speech and language acquisition among the domains managed by specialists per standard care.</div>
+                <div class="evidence-explanation">GeneReviews supports specialist management of speech and language acquisition, but the excerpt does not evaluate a specific speech-language therapy protocol or outcome.</div>
 
 
 
@@ -7573,7 +8664,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7602,12 +8698,14 @@
 
 
 
-                <div class="item-desc">Epilepsy is managed with standard antiseizure medication. Unlike several other syndromic epilepsies, seizure control is generally achievable, with one or multiple agents.</div>
+                <div class="item-desc">Epilepsy is managed with standard antiseizure medication. A disorder-focused review reports that seizure control may be reached with one or multiple agents, without establishing comparative efficacy for any regimen.</div>
 
 
 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
@@ -7615,10 +8713,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7648,102 +8749,7 @@
                 <div class="evidence-snippet">"seizure control might be reached with one or multiple antiepileptic drugs"</div>
 
 
-                <div class="evidence-explanation">Documents that seizure control is generally achievable with antiseizure medication in this disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
-            <div class="item-box treatment-box anchor-target" id="treatment-sleep-apnea-assessment-and-management" data-dismech-node="Sleep Apnea Assessment and Management" data-dismech-type="treatment">
-                <div class="item-name">
-                    Sleep Apnea Assessment and Management
-                </div>
-                <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
-
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-                <div class="item-desc">Because obstructive sleep apnoea is common but symptom-based recognition is poor, active screening with a validated sleep-disordered-breathing questionnaire is warranted, with sleep-medicine management of those who screen positive.</div>
-
-
-
-                <div class="item-meta" style="margin-top: 8px;">
-                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
-
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
-                        Obstructive sleep apnea
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002870">HP:0002870</a>
-
-
-
-                    </span>
-
-                </div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31782611" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31782611" target="_blank">PMID:31782611</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A validated sleep disordered breathing questionnaire identified symptoms of obstructive sleep apnea in 4/12 (33%) individuals."</div>
-
-
-                <div class="evidence-explanation">Demonstrates that active questionnaire-based screening detects obstructive sleep apnoea in a third of individuals, supporting systematic screening.</div>
+                <div class="evidence-explanation">Reports that seizure control may be achieved with one or multiple antiseizure medications, without comparing regimens.</div>
 
 
 
@@ -7762,7 +8768,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -8005,10 +9016,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"are involved in heterochromatin formation, or participate in complexes that bind different isotypes of the human heterochromatin protein 1 (HP1)"</div>
+                <div class="evidence-snippet">"heterochromatin formation, or participate in complexes that bind different isotypes of the human heterochromatin protein 1 (HP1) (e.g. SUV420H113, ADNP14 and POGZ15–19)."</div>
 
 
-                <div class="evidence-explanation">The paper&#39;s framing places POGZ in a small group of high-confidence ASD risk genes acting through HP1-binding chromatin complexes; ADNP is one of the exemplars named in that list, which is what makes it the mechanistically nearest differential rather than merely a phenotypic look-alike.</div>
+                <div class="evidence-explanation">The paper explicitly names ADNP and POGZ among high-confidence ASD-risk genes linked to HP1-binding chromatin biology, supporting mechanistic proximity while not establishing clinical indistinguishability.</div>
 
 
 
@@ -8114,17 +9125,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Anxiety
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Autistic behavior
@@ -8132,11 +9150,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000729</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Attention deficit hyperactivity disorder
@@ -8144,10 +9167,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0007018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8216,6 +9242,602 @@
 
         <!-- Experimental Models -->
 
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-q1042r-pogz-patient-derived-ipsc-neural-model" data-dismech-node="Q1042R POGZ patient-derived iPSC neural model" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Q1042R POGZ patient-derived iPSC neural model
+
+                    <span class="tag tag-exp-model-type">IPSC_DERIVED_MODEL</span>
+
+
+                </div>
+
+                <div class="item-desc">Patient-derived neural stem cells carrying POGZ p.Gln1042Arg showed reduced early neuronal differentiation, increased proliferation and attenuated radial migration relative to control cells. The donor was ascertained for sporadic ASD rather than as part of a White-Sutton syndrome cohort, so this is an informative human POGZ-neurodevelopmental-disorder model rather than a representative model of the full syndrome or its allelic spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-condition">patient-derived POGZ p.Gln1042Arg cells</span>
+
+                    <span class="tag tag-condition">unaffected control-derived cells</span>
+
+                </div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+
+
+                    <span class="tag tag-cell">
+
+                        neural progenitor cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-51">CL:0011020</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-cell">
+
+                        neuron
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000540</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+
+
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-53">NCBITaxon:9606</a>
+
+
+
+                            <span class="pill-tip" role="tooltip" id="pill-tip-53">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
+                        </div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Immortalized B cells from a person with sporadic ASD and de novo POGZ p.Gln1042Arg, and from an unaffected control, reprogrammed to iPSCs</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">iPSC differentiation to neural stem cells, followed by early neuronal differentiation and radial-migration assays</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:32103003">PMID:32103003</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-cortical-neuronal-development">Impaired Cortical Neuronal Development</a>
+
+
+
+                <span class="crosslink-desc">Models impaired neuronal differentiation and migration in human patient-derived neural cells.</span>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The proportion of MAP2+ neurons was significantly lower in the patient-derived NSCs than in the control NSCs, suggesting that neuronal differentiation is impaired in the patient-derived NSCs"</div>
+
+
+                <div class="evidence-explanation">Directly links the patient-derived neural model to impaired neuronal differentiation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Patient-derived neural stem cells showed impaired early neuronal differentiation.</div>
+
+
+            <div class="finding-supporting">"the neuronal differentiation is impaired in patient-derived NSCs"</div>
+
+
+
+
+        </div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Radial migration of young patient-derived neurons was attenuated.</div>
+
+
+            <div class="finding-supporting">"the radial migration of young neurons was significantly attenuated in the patient-derived NSCs"</div>
+
+
+
+
+        </div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Patient-derived neural stem cells showed increased proliferation relative to control cells.</div>
+
+
+            <div class="finding-supporting">"the patient-derived NSCs exhibited higher bromodeoxyuridine (BrdU) incorporation than the control NSCs"</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">The publication describes the donor as an ASD patient with a pathogenic POGZ variant; it does not establish that this single model captures the breadth of clinically diagnosed White-Sutton syndrome.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We established iPSC lines using immortalized B cells obtained from that patient and an unaffected healthy control (Supplementary Fig. 6) and differentiated each iPSC lines into NSCs."</div>
+
+
+                <div class="evidence-explanation">Establishes the patient-derived and control iPSC-to-neural-stem-cell model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the radial migration of young neurons was significantly attenuated in the patient-derived NSCs"</div>
+
+
+                <div class="evidence-explanation">Supports the migration component of the model phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the patient-derived NSCs exhibited higher bromodeoxyuridine (BrdU) incorporation than the control NSCs"</div>
+
+
+                <div class="evidence-explanation">Supports increased proliferation in patient-derived neural stem cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-heterozygous-knock-in-of-a-patient-derived-de-novo-pogz-mutation-mouse" data-dismech-node="Heterozygous knock-in of a patient-derived de novo POGZ mutation Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Heterozygous knock-in of a patient-derived de novo POGZ mutation Mouse
+
+                </div>
+
+                <div class="item-desc">The first mouse model heterozygous for a de novo POGZ mutation identified in a patient ascertained for ASD. It shows ASD-like abnormalities and impaired mature cortical network function, and its social deficits are reversible by compensatory inhibition of elevated cell excitability. The model is informative for POGZ-associated neurodevelopmental disease but does not represent the full White-Sutton phenotype or allelic spectrum.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Autistic behavior</span>
+
+                    <span class="tag tag-phenotype">Impaired cortical development</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Heterozygous knock-in of a patient-derived de novo POGZ mutation</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POGZ
+
+
+    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:18801</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns POGZ (hgnc:18801). hgnc:18801 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32103003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32103003" target="_blank">PMID:32103003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We also develop the first mouse model heterozygous for a de novo POGZ mutation identified in a patient with ASD, and we identify ASD-like abnormalities in the mice."</div>
+
+
+                <div class="evidence-explanation">Establishes construct and ASD-related face validity of the heterozygous knock-in mouse while retaining the publication&#39;s donor ascertainment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-brain-specific-conditional-pogz-knockout-mouse" data-dismech-node="Brain-specific conditional Pogz knockout Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Brain-specific conditional Pogz knockout Mouse
+
+                </div>
+
+                <div class="item-desc">An independent brain-specific conditional knockout that reproduces microcephaly, growth impairment, and learning and motor deficits, and localises the dominant transcriptional and physiological consequence of Pogz loss to the cerebellum. Important caveat: this model shows INCREASED sociability, the opposite direction to the heterozygous knock-in model, so the two are not interchangeable for testing social-behaviour hypotheses.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Microcephaly</span>
+
+                    <span class="tag tag-phenotype">Growth impairment</span>
+
+                    <span class="tag tag-phenotype">Learning and motor deficits</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Brain-specific conditional Pogz knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        POGZ
+
+
+    <a href="https://bioregistry.io/hgnc:18801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:18801</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns POGZ (hgnc:18801). hgnc:18801 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33203851" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33203851" target="_blank">PMID:33203851</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we generate a brain specific conditional knockout mouse model deficient for Pogz, an ASD risk gene."</div>
+
+
+                <div class="evidence-explanation">Describes the second, independent mouse model of Pogz deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33203851" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33203851" target="_blank">PMID:33203851</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pogz deficient mice show microcephaly, growth impairment, increased sociability, learning and motor deficits, mimicking several of the human symptoms."</div>
+
+
+                <div class="evidence-explanation">Face validity is partial - microcephaly, growth impairment and learning/motor deficits match the human phenotype, but the increased sociability does not and contradicts the other model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Computational Models -->
 
@@ -8238,10 +9860,10 @@ description: &gt;-
   intellectual disability-microcephaly-strabismus-behavioral abnormalities
   syndrome; OMIM 616364) is an autosomal dominant
   neurodevelopmental disorder caused by heterozygous, usually de novo,
-  loss-of-function variants in POGZ (1q21.3), which encodes pogo transposable
-  element-derived protein with zinc finger domain - a multidomain chromatin-binding
-  nuclear protein that acts in transcriptional regulation and neuronal
-  development. The phenotype spans a wide cognitive range, from learning
+  pathogenic variants in POGZ (1q21.3), most of which are sequence-classified as
+  loss of function. POGZ encodes pogo transposable element-derived protein with
+  zinc finger domain, a multidomain chromatin-binding nuclear protein that acts in
+  transcriptional regulation and neuronal development. The phenotype spans a wide cognitive range, from learning
   difficulties with a distinctive dysexecutive/attentional profile through to
   severe intellectual disability, and is accompanied by developmental delay that
   is disproportionately marked in speech and language, hypotonia, autism spectrum
@@ -8251,8 +9873,10 @@ description: &gt;-
   mild male genital abnormalities and urinary tract involvement. Increased body
   mass index, craniofacial dysmorphism (microcephaly, broad forehead, midface
   hypoplasia, flat nasal bridge, triangular mouth) and structural brain
-  malformations are also documented. POGZ variants account for roughly 0.14% of
-  clinical exomes performed for neurological indications.
+  malformations are also documented. In one referral diagnostic laboratory, POGZ
+  variants accounted for roughly 0.14% of clinical exomes performed for
+  neurological indications; that figure is a diagnostic yield, not population
+  prevalence.
 category: Mendelian
 parents:
 - Neurodevelopmental Disorder
@@ -8299,22 +9923,6 @@ references:
   tags:
   - GeneReviews
 prevalence:
-- population: Individuals undergoing clinical exome sequencing for neurological indications (Baylor Genetics laboratory database)
-  measure_type: UNKNOWN
-  prevalence_class: ABOVE_1_IN_1000
-  rate_per_100000: 140.0
-  notes: &gt;-
-    Not a population prevalence. POGZ variants were implicated in approximately
-    0.14% of clinical exomes performed for neurological indications, which is a
-    diagnostic yield within an ascertained testing population rather than a
-    general-population rate.
-  evidence:
-  - reference: PMID:31782611
-    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Analysis of the Baylor Genetics clinical laboratory database revealed that POGZ variants were implicated in approximately 0.14% of cases who underwent clinical exome sequencing for neurological indications with or without involvement of other body systems.&#34;
-    explanation: Gives the diagnostic yield of POGZ variants among clinically sequenced neurological cases. The rate is encoded against that ascertained testing population only, and measure_type is UNKNOWN because a diagnostic yield is not a point prevalence, an incidence, or any other standard occurrence measure.
 - population: Published individuals worldwide
   measure_type: CASES_IN_LITERATURE
   prevalence_class: ULTRA_RARE
@@ -8364,7 +9972,7 @@ inheritance:
     snippet: &#34;we identified 12 individuals from 10 families with pathogenic or likely pathogenic variants in POGZ (eight de novo and two inherited)&#34;
     explanation: Quantifies the de novo versus inherited split in a clinical series, documenting that familial transmission occurs.
 pathophysiology:
-- name: POGZ Loss of Function
+- name: Pathogenic POGZ Variant Dysfunction
   biological_scale: MOLECULAR
   description: &gt;-
     Heterozygous nonsense, frameshift and splice variants, and a minority of
@@ -8373,9 +9981,10 @@ pathophysiology:
     gradient: missense variants are associated with milder phenotypes, while
     truncating variants predicted to ESCAPE nonsense-mediated decay produce the
     most severe phenotypes, and within that group variants in the proline-rich
-    region are the most severe of all. This pattern argues that a gain-of-function
-    or dominant-negative effect from a stable truncated protein, rather than pure
-    haploinsufficiency, drives the severe end of the spectrum.
+    region are the most severe of all. The authors infer that a gain-of-function
+    or dominant-negative effect from a stable truncated protein may contribute to
+    the severe end of the spectrum, but this allelic mechanism has not been
+    demonstrated experimentally.
   genes:
   - preferred_term: POGZ
     term:
@@ -8412,7 +10021,7 @@ pathophysiology:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;White-Sutton syndrome (WHSUS) is a neurodevelopmental disorder caused by heterozygous loss-of-function variants in POGZ.&#34;
-    explanation: Establishes heterozygous POGZ loss of function as the cause of the disorder.
+    explanation: Establishes heterozygous POGZ loss-of-function variants as a major cause of the disorder, while the neutral node name also accommodates pathogenic missense alleles and unresolved effects of NMD-escaping truncations.
   - reference: PMID:35052493
     reference_title: &#34;Genotype-Phenotype Comparison in POGZ-Related Neurodevelopmental Disorders by Using Clinical Scoring.&#34;
     supports: SUPPORT
@@ -8628,6 +10237,18 @@ pathophysiology:
   - reference: PMID:32103003
     reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
     supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;We established iPSC lines using immortalized B cells obtained from that patient and an unaffected healthy control (Supplementary Fig. 6) and differentiated each iPSC lines into NSCs.&#34;
+    explanation: Establishes the patient-derived and control human iPSC neural-stem-cell system used to test the cellular developmental phenotype.
+  - reference: PMID:32103003
+    reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;the neuronal differentiation is impaired in patient-derived NSCs.&#34;
+    explanation: Directly supports impaired neuronal differentiation in the patient-derived human neural model.
+  - reference: PMID:32103003
+    reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Our results provide insight into how de novo mutations on high-confidence ASD genes lead to impaired mature cortical network function, which underlies the cellular pathogenesis of NDDs, including ASD.&#34;
     explanation: States the impaired-mature-cortical-network outcome that this node represents.
@@ -8781,6 +10402,24 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We observed a broad spectrum of intellectual disability and/or developmental delay with or without autism, and speech delay in all individuals.&#34;
     explanation: Speech delay was present in all 22 individuals of this series, supporting a VERY_FREQUENT band.
+- category: Developmental
+  name: Motor Delay
+  description: &gt;-
+    Motor development is delayed in most affected individuals; one systematically
+    phenotyped series reported some degree of motor delay in 19 of 22 people.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Motor delay
+    term:
+      id: HP:0001270
+      label: Motor delay
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Some degree of motor delay was reported for 19/22 (86%) patients (delay was questionable in one additional case).&#34;
+    explanation: Quantifies motor delay at 86%, supporting the VERY_FREQUENT band.
 - category: Neurological
   name: Hypotonia
   description: &gt;-
@@ -9037,10 +10676,10 @@ phenotypes:
   evidence:
   - reference: PMID:31782611
     reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A validated sleep disordered breathing questionnaire identified symptoms of obstructive sleep apnea in 4/12 (33%) individuals.&#34;
-    explanation: Quantifies obstructive sleep apnoea symptoms at 33% on active screening, at the lower edge of the FREQUENT (30-79%) band.
+    explanation: A questionnaire found obstructive-sleep-apnoea symptoms in 33%, but did not confirm all cases polysomnographically; it therefore only partially supports the phenotype-specific rate.
   - reference: PMID:34529370
     reference_title: &#34;White-Sutton Syndrome.&#34;
     supports: SUPPORT
@@ -9048,10 +10687,35 @@ phenotypes:
     snippet: &#34;hearing loss, sleep disturbance (particularly sleep apnea), feeding and gastrointestinal problems&#34;
     explanation: GeneReviews identifies sleep apnoea specifically as the characteristic sleep disturbance.
 - category: Gastrointestinal
-  name: Feeding and Gastrointestinal Problems
+  name: Gastrointestinal Involvement
   description: &gt;-
-    Feeding difficulties and gastrointestinal problems, both functional (reflux,
-    constipation) and anatomical, occur at a higher-than-expected proportion.
+    Gastrointestinal involvement is very common and heterogeneous. Specific
+    feeding, swallowing, bowel and vomiting manifestations are represented
+    separately below where the cohort provides phenotype-specific numerators.
+  frequency: VERY_FREQUENT
+  phenotype_term:
+    preferred_term: Abnormality of the gastrointestinal tract
+    term:
+      id: HP:0011024
+      label: Abnormality of the gastrointestinal tract
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;GI involvement occurred in the majority (17/19, 89%) of the individuals for whom information was available.&#34;
+    explanation: Quantifies any gastrointestinal involvement at 89%, supporting the VERY_FREQUENT band for the broad phenotype.
+  - reference: PMID:34529370
+    reference_title: &#34;White-Sutton Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;feeding and gastrointestinal problems, mild genital abnormalities in males, and urinary tract involvement in both males and females&#34;
+    explanation: GeneReviews lists feeding and gastrointestinal problems among the commonly reported additional features.
+- category: Gastrointestinal
+  name: Feeding Difficulties
+  description: &gt;-
+    Feeding difficulties were reported in a majority of one systematically
+    surveyed cohort.
   frequency: FREQUENT
   phenotype_term:
     preferred_term: Feeding difficulties
@@ -9063,35 +10727,77 @@ phenotypes:
     reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A higher-than-expected proportion of cases also had gastrointestinal phenotypes, both functional and anatomical, as well as genitourinary anomalies.&#34;
-    explanation: Establishes gastrointestinal phenotypes as over-represented, spanning functional and anatomical categories.
-  - reference: PMID:34529370
-    reference_title: &#34;White-Sutton Syndrome.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;feeding and gastrointestinal problems, mild genital abnormalities in males, and urinary tract involvement in both males and females&#34;
-    explanation: GeneReviews lists feeding and gastrointestinal problems among the commonly reported additional features.
-- category: Metabolic
-  name: Increased Body Mass Index
-  description: &gt;-
-    Body mass index z-score is shifted upward relative to the general population
-    and increased risk of obesity is an established association. The available
-    evidence is a distribution shift (mean BMI z-score +0.59) rather than a
-    proportion above an obesity threshold, so the band is set conservatively and
-    the phenotype is bound to the overweight rather than the obesity term.
-  frequency: OCCASIONAL
+    snippet: &#34;Eleven (11/18, 61%) had a history of feeding difficulties.&#34;
+    explanation: Quantifies feeding difficulties at 61%, supporting the FREQUENT band.
+- category: Gastrointestinal
+  name: Dysphagia
+  description: Swallowing problems were reported in just over half of one systematically surveyed cohort.
+  frequency: FREQUENT
   phenotype_term:
-    preferred_term: Overweight
+    preferred_term: Dysphagia
     term:
-      id: HP:0025502
-      label: Overweight
+      id: HP:0002015
+      label: Dysphagia
   evidence:
   - reference: PMID:31782611
     reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;we observed an increased body mass index (BMI) z-score compared to the general population (mean 0.59, median 0.9; p 0.0253)&#34;
-    explanation: Quantifies a statistically significant upward shift in BMI z-score relative to the general population. This is a mean, not a proportion above a threshold - a +0.59 z-score shift implies roughly 15% of individuals above the 95th centile, which is why the band is OCCASIONAL rather than FREQUENT.
+    snippet: &#34;Nine subjects (9/17, 53%) had dysphagia/swallowing problems&#34;
+    explanation: Quantifies dysphagia or swallowing problems at 53%, supporting the FREQUENT band.
+- category: Gastrointestinal
+  name: Constipation
+  description: Constipation was reported in nearly half of individuals with gastrointestinal data in one cohort.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Constipation
+    term:
+      id: HP:0002019
+      label: Constipation
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;eight (8/17, 47%) had constipation.&#34;
+    explanation: Quantifies constipation at 47%, supporting the FREQUENT band.
+- category: Gastrointestinal
+  name: Episodic Vomiting
+  description: &gt;-
+    Recurrent episodes described as cyclic vomiting are a notable component of
+    the gastrointestinal phenotype.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Episodic vomiting
+    term:
+      id: HP:0002572
+      label: Episodic vomiting
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cyclic vomiting was reported in 6/16 (37.5%) of subjects&#34;
+    explanation: Quantifies recurrent cyclic vomiting at 37.5%, supporting the FREQUENT band and mapping it to the broader HP episodic-vomiting concept.
+- category: Metabolic
+  name: Increased Body Weight
+  description: &gt;-
+    Overweight or obesity affected 6 of 16 individuals with available body-mass
+    data in one cohort, and a pooled analysis independently identified increased
+    obesity risk.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Increased body weight
+    term:
+      id: HP:0004324
+      label: Increased body weight
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Overall, 6/16 (37.5%) were overweight or obese.&#34;
+    explanation: Directly quantifies overweight or obesity at 37.5%, supporting the FREQUENT band without inferring a threshold frequency from a mean BMI z-score.
   - reference: PMID:34645992
     reference_title: &#34;Further delineation of the clinical spectrum of White-Sutton syndrome: 12 new individuals and a review of the literature.&#34;
     supports: SUPPORT
@@ -9124,6 +10830,24 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;as well as genitourinary anomalies&#34;
     explanation: Confirms genitourinary anomalies as over-represented in this series.
+- category: Genitourinary
+  name: Male Genital Abnormalities
+  description: &gt;-
+    Mild abnormalities reported in affected males include undescended or
+    hypoplastic testes, scrotal hypoplasia, micropenis and foreskin anomalies.
+  frequency: OCCASIONAL
+  phenotype_term:
+    preferred_term: Abnormality of the male genitalia
+    term:
+      id: HP:0010461
+      label: Abnormality of the male genitalia
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mild male genital anomalies were reported in four of 14 (28.6%) male subjects including undescended testes, hypoplastic scrotum, hypoplastic testes and micropenis, and redundant foreskin with phimosis.&#34;
+    explanation: Quantifies the broad male-genital phenotype at 28.6%, supporting the OCCASIONAL band and enumerating its reported manifestations.
 - category: Neurological
   name: Structural Brain Malformation
   description: &gt;-
@@ -9229,6 +10953,43 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The relationship between congenital heart disease and White-Sutton syndrome as described in both the GeneReview and OMIM databases (#616,364) remains unclear.&#34;
     explanation: Records that the association was not established in the authoritative databases at the time, which is why this phenotype is curated as emerging and the evidence as partial.
+imaging_findings:
+- name: Structural brain abnormalities on MRI
+  modality: MRI
+  imaging_finding_term:
+    preferred_term: Abnormal brain morphology
+    term:
+      id: HP:0012443
+      label: Abnormal brain morphology
+  description: &gt;-
+    Reported MRI abnormalities include cortical and cerebellar atrophy, delayed
+    myelination and brainstem hypoplasia. These findings are variable and
+    supportive, not diagnostic.
+  located_in:
+    preferred_term: brain
+    term:
+      id: UBERON:0000955
+      label: brain
+  phenotype_term:
+    preferred_term: Abnormal brain morphology
+    term:
+      id: HP:0012443
+      label: Abnormal brain morphology
+  diagnostic: false
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:34645992
+    reference_title: &#34;Further delineation of the clinical spectrum of White-Sutton syndrome: 12 new individuals and a review of the literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;seizures, and structural brain malformations&#34;
+    explanation: Establishes structural brain malformations as part of the reported clinical spectrum.
+  - reference: PMID:31136090
+    reference_title: &#34;POGZ-related epilepsy: Case report and review of the literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;major brain MR features include cortical and cerebellar atrophy, delayed myelination, and brainstem hypoplasia&#34;
+    explanation: Enumerates the MRI appearances represented by this imaging finding.
 genetic:
 - name: POGZ
   gene_term:
@@ -9236,9 +10997,8 @@ genetic:
     term:
       id: hgnc:18801
       label: POGZ
-  association: Causal - heterozygous loss-of-function variants
+  association: Causal - heterozygous pathogenic variants
   relationship_type: CAUSATIVE
-  variant_origin: DE_NOVO
   presence: Positive
   notes: &gt;-
     POGZ is at 1q21.3. Most pathogenic variants are heterozygous and de novo, and
@@ -9279,7 +11039,10 @@ diagnosis:
     genome sequencing or a neurodevelopmental gene panel. Because the cognitive
     phenotype extends down to learning difficulties, the authors of the French
     cohort argue that children with learning disabilities may benefit from
-    next-generation sequencing rather than being excluded from testing.
+    next-generation sequencing rather than being excluded from testing. In one
+    diagnostic laboratory, POGZ variants accounted for approximately 0.14% of
+    clinical exomes referred for neurological indications; this is a referral
+    yield, not a population prevalence estimate.
   presence: Positive in affected individuals
   diagnosis_term:
     preferred_term: molecular genetic testing
@@ -9299,6 +11062,33 @@ diagnosis:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It highlights that pathogenic variations in the same genes can be reported in a large spectrum of neurocognitive profiles, and that children with learning disabilities could benefit from next generation sequencing techniques.&#34;
     explanation: Supports extending genomic testing to milder learning-disability presentations, which is a direct diagnostic-strategy implication of the phenotypic range.
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Analysis of the Baylor Genetics clinical laboratory database revealed that POGZ variants were implicated in approximately 0.14% of cases who underwent clinical exome sequencing for neurological indications with or without involvement of other body systems.&#34;
+    explanation: Records the diagnosis yield in an ascertained referral laboratory while explicitly keeping it separate from population occurrence.
+- name: Sleep-Disordered-Breathing Assessment
+  description: &gt;-
+    Sleep symptoms should be assessed as part of routine specialist follow-up.
+    In one small cohort, a validated sleep-disordered-breathing questionnaire
+    identified obstructive-sleep-apnoea symptoms in 4 of 12 individuals; this
+    establishes a screening observation, not the accuracy of a diagnostic test or
+    a syndrome-specific treatment protocol.
+  results: Questionnaire symptoms of obstructive sleep apnea were identified in 4 of 12 individuals screened.
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A validated sleep disordered breathing questionnaire identified symptoms of obstructive sleep apnea in 4/12 (33%) individuals.&#34;
+    explanation: Documents questionnaire-based detection of obstructive-sleep-apnoea symptoms while not claiming polysomnographic confirmation or management efficacy.
+  - reference: PMID:34529370
+    reference_title: &#34;White-Sutton Syndrome.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Surveillance: Follow up of the common manifestations at each clinic visit.&#34;
+    explanation: Supports routine follow-up of common manifestations, including the sleep disturbance identified elsewhere in the same GeneReviews abstract, but does not prescribe a sleep-specific protocol.
 differential_diagnoses:
 - name: Other Syndromic Intellectual Disability with Autism
   description: &gt;-
@@ -9345,8 +11135,8 @@ differential_diagnoses:
     reference_title: &#34;Pogz deficiency leads to transcription dysregulation and impaired cerebellar activity underlying autism-like behavior in mice.&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;are involved in heterochromatin formation, or participate in complexes that bind different isotypes of the human heterochromatin protein 1 (HP1)&#34;
-    explanation: The paper&#39;s framing places POGZ in a small group of high-confidence ASD risk genes acting through HP1-binding chromatin complexes; ADNP is one of the exemplars named in that list, which is what makes it the mechanistically nearest differential rather than merely a phenotypic look-alike.
+    snippet: &#34;heterochromatin formation, or participate in complexes that bind different isotypes of the human heterochromatin protein 1 (HP1) (e.g. SUV420H113, ADNP14 and POGZ15–19).&#34;
+    explanation: The paper explicitly names ADNP and POGZ among high-confidence ASD-risk genes linked to HP1-binding chromatin biology, supporting mechanistic proximity while not establishing clinical indistinguishability.
 - name: Other Chromatinopathy-Associated Neurodevelopmental Disorders
   description: &gt;-
     CHAMP1, CHD8, KBG syndrome (ANKRD11), Coffin-Siris syndrome (BAF complex)
@@ -9363,6 +11153,28 @@ differential_diagnoses:
   description: &gt;-
     Shares hypotonia, developmental delay, behavioural difficulties and obesity;
     distinguished by methylation testing of the 15q11-q13 region.
+progression:
+- phase: Neurodevelopmental presentation and clinical recognition
+  age_range: First evaluation from one week to 28 years in one reported cohort
+  notes: &gt;-
+    The disorder is developmental, but age at recognition is broad and diagnostic
+    delay can be prolonged. One cohort reported first medical evaluation from the
+    neonatal period to adulthood and a delay from first concern to molecular
+    diagnosis of more than 15 years in some individuals. Published cohorts do not
+    yet define adult longitudinal progression, mortality or life expectancy.
+  evidence:
+  - reference: PMID:31782611
+    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ages at first medical evaluation ranged from one week (presenting with birth defects) to 28 years (subject seen for calcinosis cutis, and noted to have mild intellectual disability and polydactyly). Median age at diagnosis was eight years, and the time from initial concern to diagnosis ranged from two months to over 15 years.&#34;
+    explanation: Directly supports the broad recognition range and prolonged diagnostic delay; it does not establish the natural history of manifestations in adulthood.
+  - reference: PMID:34529370
+    reference_title: &#34;White-Sutton Syndrome.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;White-Sutton syndrome is a neurodevelopmental disorder characterized by a wide spectrum of cognitive dysfunction, developmental delays (particularly in speech and language acquisition), hypotonia, autism spectrum disorder, and other behavioral problems.&#34;
+    explanation: Establishes the developmental nature of the presentation but does not provide longitudinal adult-course data.
 treatments:
 - name: Multidisciplinary Standard-of-Care Management
   description: &gt;-
@@ -9390,10 +11202,12 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surveillance: Follow up of the common manifestations at each clinic visit.&#34;
     explanation: States the recommended surveillance regimen.
-- name: Speech and Language Therapy
+- name: Speech and Language Specialist Care
   description: &gt;-
     Speech and language acquisition is the developmental domain most consistently
-    and severely affected, making speech-language therapy a core intervention.
+    affected. GeneReviews places it within specialist standard care, but the
+    available review does not define a syndrome-specific therapy protocol or
+    quantify treatment response.
   treatment_term:
     preferred_term: speech and language therapy
     term:
@@ -9408,15 +11222,15 @@ treatments:
   evidence:
   - reference: PMID:34529370
     reference_title: &#34;White-Sutton Syndrome.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;speech and language acquisition, behavioral issues, seizures&#34;
-    explanation: GeneReviews includes speech and language acquisition among the domains managed by specialists per standard care.
+    explanation: GeneReviews supports specialist management of speech and language acquisition, but the excerpt does not evaluate a specific speech-language therapy protocol or outcome.
 - name: Antiseizure Medication
   description: &gt;-
-    Epilepsy is managed with standard antiseizure medication. Unlike several other
-    syndromic epilepsies, seizure control is generally achievable, with one or
-    multiple agents.
+    Epilepsy is managed with standard antiseizure medication. A disorder-focused
+    review reports that seizure control may be reached with one or multiple
+    agents, without establishing comparative efficacy for any regimen.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -9434,30 +11248,7 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;seizure control might be reached with one or multiple antiepileptic drugs&#34;
-    explanation: Documents that seizure control is generally achievable with antiseizure medication in this disorder.
-- name: Sleep Apnea Assessment and Management
-  description: &gt;-
-    Because obstructive sleep apnoea is common but symptom-based recognition is
-    poor, active screening with a validated sleep-disordered-breathing
-    questionnaire is warranted, with sleep-medicine management of those who
-    screen positive.
-  treatment_term:
-    preferred_term: supportive care
-    term:
-      id: NCIT:C15747
-      label: Supportive Care
-  target_phenotypes:
-  - preferred_term: Obstructive sleep apnea
-    term:
-      id: HP:0002870
-      label: Obstructive sleep apnea
-  evidence:
-  - reference: PMID:31782611
-    reference_title: &#34;Phenotypic expansion of POGZ-related intellectual disability syndrome (White-Sutton syndrome).&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;A validated sleep disordered breathing questionnaire identified symptoms of obstructive sleep apnea in 4/12 (33%) individuals.&#34;
-    explanation: Demonstrates that active questionnaire-based screening detects obstructive sleep apnoea in a third of individuals, supporting systematic screening.
+    explanation: Reports that seizure control may be achieved with one or multiple antiseizure medications, without comparing regimens.
 - name: Genetic Counseling
   description: &gt;-
     Counselling covers the autosomal dominant, predominantly de novo mechanism,
@@ -9512,6 +11303,78 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is therefore essential to define more precisely the psychological characteristics of patients and the psychiatric comorbidities that may be associated with this condition in order to adapt behavioural, environmental and therapeutic management strategies.&#34;
     explanation: States the study objective, which is descriptive characterisation rather than intervention.
+experimental_models:
+- name: Q1042R POGZ patient-derived iPSC neural model
+  experimental_model_type: IPSC_DERIVED_MODEL
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_types:
+  - preferred_term: neural progenitor cell
+    term:
+      id: CL:0011020
+      label: neural progenitor cell
+  - preferred_term: neuron
+    term:
+      id: CL:0000540
+      label: neuron
+  cell_source: &gt;-
+    Immortalized B cells from a person with sporadic ASD and de novo POGZ
+    p.Gln1042Arg, and from an unaffected control, reprogrammed to iPSCs
+  culture_system: iPSC differentiation to neural stem cells, followed by early neuronal differentiation and radial-migration assays
+  conditions:
+  - patient-derived POGZ p.Gln1042Arg cells
+  - unaffected control-derived cells
+  publication: PMID:32103003
+  description: &gt;-
+    Patient-derived neural stem cells carrying POGZ p.Gln1042Arg showed reduced
+    early neuronal differentiation, increased proliferation and attenuated
+    radial migration relative to control cells. The donor was ascertained for
+    sporadic ASD rather than as part of a White-Sutton syndrome cohort, so this
+    is an informative human POGZ-neurodevelopmental-disorder model rather than a
+    representative model of the full syndrome or its allelic spectrum.
+  modeled_mechanisms:
+  - target: Impaired Cortical Neuronal Development
+    description: Models impaired neuronal differentiation and migration in human patient-derived neural cells.
+    evidence:
+    - reference: PMID:32103003
+      reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;The proportion of MAP2+ neurons was significantly lower in the patient-derived NSCs than in the control NSCs, suggesting that neuronal differentiation is impaired in the patient-derived NSCs&#34;
+      explanation: Directly links the patient-derived neural model to impaired neuronal differentiation.
+  findings:
+  - statement: Patient-derived neural stem cells showed impaired early neuronal differentiation.
+    supporting_text: &#34;the neuronal differentiation is impaired in patient-derived NSCs&#34;
+  - statement: Radial migration of young patient-derived neurons was attenuated.
+    supporting_text: &#34;the radial migration of young neurons was significantly attenuated in the patient-derived NSCs&#34;
+  - statement: Patient-derived neural stem cells showed increased proliferation relative to control cells.
+    supporting_text: &#34;the patient-derived NSCs exhibited higher bromodeoxyuridine (BrdU) incorporation than the control NSCs&#34;
+  evidence:
+  - reference: PMID:32103003
+    reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;We established iPSC lines using immortalized B cells obtained from that patient and an unaffected healthy control (Supplementary Fig. 6) and differentiated each iPSC lines into NSCs.&#34;
+    explanation: Establishes the patient-derived and control iPSC-to-neural-stem-cell model.
+  - reference: PMID:32103003
+    reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;the radial migration of young neurons was significantly attenuated in the patient-derived NSCs&#34;
+    explanation: Supports the migration component of the model phenotype.
+  - reference: PMID:32103003
+    reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;the patient-derived NSCs exhibited higher bromodeoxyuridine (BrdU) incorporation than the control NSCs&#34;
+    explanation: Supports increased proliferation in patient-derived neural stem cells.
+  notes: &gt;-
+    The publication describes the donor as an ASD patient with a pathogenic POGZ
+    variant; it does not establish that this single model captures the breadth of
+    clinically diagnosed White-Sutton syndrome.
 animal_models:
 - species: Mouse
   genotype: Heterozygous knock-in of a patient-derived de novo POGZ mutation
@@ -9525,17 +11388,18 @@ animal_models:
   - Impaired cortical development
   description: &gt;-
     The first mouse model heterozygous for a de novo POGZ mutation identified in a
-    patient. It shows ASD-like abnormalities and impaired mature cortical network
-    function, and - critically - the social deficits are reversible by
-    compensatory inhibition of elevated cell excitability, making it the key
-    system for testing therapeutic hypotheses in this disorder.
+    patient ascertained for ASD. It shows ASD-like abnormalities and impaired
+    mature cortical network function, and its social deficits are reversible by
+    compensatory inhibition of elevated cell excitability. The model is
+    informative for POGZ-associated neurodevelopmental disease but does not
+    represent the full White-Sutton phenotype or allelic spectrum.
   evidence:
   - reference: PMID:32103003
     reference_title: &#34;Pathogenic POGZ mutation causes impaired cortical development and reversible autism-like phenotypes.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;We also develop the first mouse model heterozygous for a de novo POGZ mutation identified in a patient with ASD, and we identify ASD-like abnormalities in the mice.&#34;
-    explanation: Establishes construct and face validity of the heterozygous knock-in mouse for White-Sutton syndrome.
+    explanation: Establishes construct and ASD-related face validity of the heterozygous knock-in mouse while retaining the publication&#39;s donor ascertainment.
 - species: Mouse
   genotype: Brain-specific conditional Pogz knockout
   genes:
@@ -9568,6 +11432,47 @@ animal_models:
     snippet: &#34;Pogz deficient mice show microcephaly, growth impairment, increased sociability, learning and motor deficits, mimicking several of the human symptoms.&#34;
     explanation: Face validity is partial - microcephaly, growth impairment and learning/motor deficits match the human phenotype, but the increased sociability does not and contradicts the other model.
 discussions:
+- discussion_id: whsus_allelic_mechanism
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  prompt: &gt;-
+    Do pathogenic POGZ alleles act uniformly through haploinsufficiency, or do
+    stable NMD-escaping truncations produce additional dominant-negative or
+    gain-of-function effects that explain their greater clinical severity?
+  attaches_to:
+  - pathophysiology#Pathogenic POGZ Variant Dysfunction
+  rationale: &gt;-
+    Heterozygous loss-of-function variants establish reduced POGZ activity as a
+    major disease mechanism, but the strongest genotype-phenotype study found
+    greater severity for truncations predicted to escape NMD and explicitly
+    proposed dominant-negative or gain-of-function effects. That proposal is an
+    inference from variant position and clinical severity, not a direct
+    demonstration of mutant-transcript stability, truncated-protein abundance or
+    altered chromatin occupancy. Resolving the allelic mechanism is important for
+    interpreting genotype-severity associations and for deciding whether simple
+    restoration of POGZ dosage would address all pathogenic allele classes.
+  proposed_experiments:
+  - experiment_id: whsus_isogenic_allelic_mechanism
+    name: Isogenic comparison of NMD-triggering and NMD-escaping POGZ alleles
+    description: &gt;-
+      Introduce representative NMD-triggering and NMD-escaping truncations into
+      the same human iPSC background, differentiate them into neural progenitors
+      and neurons, and compare allele-specific RNA, mutant-protein abundance,
+      nuclear localisation, POGZ/HP1 chromatin occupancy, transcriptional output,
+      neuronal differentiation and migration. Include correction of patient
+      alleles and selective knockdown of the mutant transcript.
+    decision_criterion: &gt;-
+      Phenotypes proportional to total functional POGZ dosage and rescued by
+      wild-type restoration would support haploinsufficiency; effects unique to
+      NMD-escaping alleles that improve after mutant-selective knockdown would
+      support an additional dominant-negative or gain-of-function mechanism.
+  evidence:
+  - reference: PMID:35052493
+    reference_title: &#34;Genotype-Phenotype Comparison in POGZ-Related Neurodevelopmental Disorders by Using Clinical Scoring.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our study suggests that gain-of-function or dominant negative effect through escaping NMD and the location of the variants in the prolin-rich domain of the protein may play an important role in the severity of manifestations of POGZ-associated neurodevelopmental disorders.&#34;
+    explanation: The authors explicitly frame the alternative allelic mechanism as a suggestion, identifying a material unresolved causal question rather than a demonstrated mechanism.
 - discussion_id: whsus_excitability_reversibility
   kind: HUMAN_MODEL_MISMATCH
   status: OPEN
@@ -10019,7 +11924,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "White-Sutton Syndrome", "mondoId": "MONDO:0014606", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "White-Sutton_Syndrome", "yamlRevision": "e67b7754a1a7"};
+        const OS_CONFIG = {"diseaseName": "White-Sutton Syndrome", "mondoId": "MONDO:0014606", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "White-Sutton_Syndrome", "yamlRevision": "f34fb85aef6f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10438,5 +12343,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

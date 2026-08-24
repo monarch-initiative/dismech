@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3827,29 +3995,107 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">CARDIOVASCULAR</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4676,16 +4922,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4706,6 +4957,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4717,10 +4972,13 @@
         ACTN2
 
 
-    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:164">hgnc:164</a>
+    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:164</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4747,6 +5005,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         Sarcomere organization
@@ -4754,10 +5014,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045214">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0045214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Sarcomere organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4782,16 +5045,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         actin filament binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051015">GO:0051015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0051015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal actin filament binding (GO:0051015). GO:0051015 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4800,6 +5068,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4817,10 +5087,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008307" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008307">GO:0008307</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008307" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0008307</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal structural constituent of muscle (GO:0008307). GO:0008307 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4846,19 +5119,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5023,16 +5302,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5059,16 +5343,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006936">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006936</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Muscle contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5088,16 +5377,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Intracellular calcium ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006874">GO:0006874</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006874</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Intracellular calcium ion homeostasis (GO:0006874). GO:0006874 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5139,6 +5433,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5269,16 +5564,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5305,16 +5605,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inclusion body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070841">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0070841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5323,6 +5628,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5340,10 +5647,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043161">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0043161</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5363,16 +5673,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5414,6 +5729,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5531,16 +5847,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5567,16 +5888,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cell communication by electrical coupling involved in cardiac conduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086064">GO:0086064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0086064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Cell communication by electrical coupling involved in cardiac conduction (GO:0086064). GO:0086064 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5618,6 +5944,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5708,16 +6035,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5744,16 +6076,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Myofibril assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030239" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030239">GO:0030239</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030239" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030239</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Myofibril assembly (GO:0030239). GO:0030239 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5773,16 +6110,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Cardiac muscle hypertrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0003300</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cardiac muscle hypertrophy (GO:0003300). GO:0003300 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5824,6 +6166,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5899,16 +6242,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Response to angiotensin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990776" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990776">GO:1990776</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990776" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:1990776</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to angiotensin (GO:1990776). GO:1990776 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5929,6 +6277,7 @@
 
 
                 </div>
+
 
 
 
@@ -5995,17 +6344,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6026,10 +6382,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6056,16 +6415,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6074,6 +6438,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -6091,10 +6457,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010659">GO:0010659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0010659</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cardiac muscle cell apoptotic process (GO:0010659). GO:0010659 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6121,19 +6490,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6229,19 +6604,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6349,16 +6730,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6385,16 +6771,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Heart contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0060047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Heart contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6421,19 +6812,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6554,16 +6951,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Heart contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0060047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Heart contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6584,6 +6986,7 @@
 
 
                 </div>
+
 
 
 
@@ -6675,7 +7078,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTN2 A868T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Variant in the EF 3-4 region that interacts with titin, studied in explanted myocardium from a heart-failure patient; associated with increased myofilament calcium sensitivity and reduced sinusoidal stiffness.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Ala119Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Actin-binding-domain missense variant segregating with a strikingly heterogeneous cardiac phenotype (left ventricular noncompaction, dilated cardiomyopathy, idiopathic ventricular fibrillation, sudden unexplained death) in two families sharing a common ancestral haplotype; also reported in hypertrophic cardiomyopathy, and shown to perturb Z-disc localization and dynamics in cardiomyocytes.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"ACTN2 Q9R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the N-terminal region identified in a patient with dilated cardiomyopathy; abolishes the alpha-actinin-2 interaction with muscle LIM protein in cell-based assays. The founding CMD1AA variant.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"Adverse Ventricular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte hypertrophy and loss, cardiac fibroblast activation, and interstitial matrix deposition remodel the ventricle. In ACTN2 disease the net geometry is variable \\u2014 the same gene, and sometimes the same variant, can yield a dilated, hypertrophic, restrictive, or noncompacted ventricle, and the dominant pattern can differ between relatives \\u2014 but the remodeling machinery itself is the conserved cardiomyopathy step.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac fibroblast\", \"Cardiomyocyte\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Cardiac muscle cell apoptotic process\"], \"role\": \"central_effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACTN2 encodes alpha-actinin-2, the only alpha-actinin isoform expressed in cardiac muscle. As an antiparallel homodimer it cross-links thin filaments from adjacent sarcomeres at the Z-disc, anchors the N-terminal (Z-disc) region of titin, and provides a docking platform for Z-disc partners including muscle LIM protein (MLP/CSRP3). Disease-associated variants are distributed across the actin-binding calponin-homology domains, the spectrin-repeat rod, and the C-terminal EF-hand/calmodulin-like region; they perturb actin binding, titin interaction, Z-disc incorporation, protein stability, or partner binding rather than abolishing the protein, and haploinsufficiency is not an established mechanism.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Sarcomere organization\"], \"molecular_functions\": [\"actin filament binding\", \"structural constituent of muscle\"], \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"role\": \"trigger\", \"locations\": [\"Myocardium\"]}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular dilation with systolic dysfunction, the defining feature of CMD1AA. It may be the sole cardiac manifestation or coexist with noncompaction, hypertrophy, or arrhythmia in the same family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Failed Trabecular Compaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ACTN2 carriers show left ventricular noncompaction \\u2014 prominent trabeculae with deep intertrabecular recesses over a thin compacted layer \\u2014 either isolated or together with ventricular dilation, which is why the OMIM entity is designated \\\"with or without LVNC\\\". In a large rare-variant association analysis, ACTN2 truncating variants were among the few lesions associated specifically with noncompaction rather than shared with DCM/HCM, suggesting a partly distinct developmental route, plausibly through impaired cardiomyocyte maturation.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard heart-failure therapy for left ventricular systolic dysfunction \\u2014 the four contemporary HFrEF pillars: an angiotensin receptor-neprilysin inhibitor (or an ACE inhibitor / angiotensin receptor blocker where ARNI is not tolerated), a beta-blocker, a mineralocorticoid receptor antagonist, and an SGLT2 inhibitor \\u2014 which together target the neurohormonal amplifier of adverse remodeling. There is no ACTN2-specific disease-modifying therapy, so management is the generic DCM regimen.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan)\", \"ACE inhibitor (alternative to ARNI)\", \"beta-blocker\", \"mineralocorticoid receptor antagonist (spironolactone as the class exemplar)\", \"SGLT2 inhibitor\"]}}, {\"id\": \"Heart Failure and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is structural and functional cardiac impairment: symptomatic heart failure that may progress to end-stage disease requiring transplantation, and \\u2014 because the arrhythmic arm can act independently of pump failure \\u2014 syncope, ventricular fibrillation, and sudden cardiac death, sometimes as the presenting event in an otherwise well relative.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Heart contraction\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the Z-disc both transmits force between sarcomeres and relays regulatory information to the thin and thick filaments, an abnormal alpha-actinin-2 degrades contraction and relaxation simultaneously. Explanted myocardium carrying an ACTN2 EF-hand variant shows increased myofilament calcium sensitivity, reduced sinusoidal stiffness, faster tension redevelopment, and increased thick-to-thin filament separation, while patient-derived iPSC-cardiomyocytes show impaired contractility and aberrant calcium handling. Truncated alpha-actinin-2 that is still incorporated into the sarcomere distorts Z-disc ultrastructure, a dominant-negative pattern.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Muscle contraction\", \"Intracellular calcium ion homeostasis\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.\"}]}}, {\"id\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9-generated heterozygous functional knock-out hiPSC lines carrying either a wild-type or a missense ACTN2 allele, differentiated to cardiomyocytes and assembled into engineered heart tissue, and profiled by immunofluorescence, live-cell imaging, RNA sequencing, and mass spectrometry. Provides the isogenic comparison underlying the proteopathy arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:36078153\"}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The remodeled ventricle dilates and loses systolic shortening, producing the defining CMD1AA phenotype: left ventricular enlargement with reduced ejection fraction in the absence of loading conditions or coronary disease sufficient to explain it. Penetrance is incomplete and expression is heterogeneous, so affected relatives may be asymptomatic, dilated, hypertrophic, or arrhythmic; population data on DCM-gene carriers show that arrhythmia without substantial ventricular dilation is a common early expression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Heart contraction\"], \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the sarcomere, the C-terminus of alpha-actinin-2 interacts with sarcolemma-associated proteins including alpha-actinin-1 (ACTN1) and connexin-43 (GJA1). C-terminal truncation disrupts these interactions, providing a mechanistic route from a Z-disc protein defect to impaired electrical coupling, arrhythmia, and abnormal relaxation. Clinically, ACTN2 carriers show atrial and ventricular arrhythmias, conduction abnormalities, and idiopathic ventricular fibrillation, which can precede or occur without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Cell communication by electrical coupling involved in cardiac conduction\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.\"}]}}, {\"id\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"For a subset of variants, mutant alpha-actinin-2 is destabilized, misfolds, and aggregates within the cardiomyocyte. In isogenic hiPSC-cardiomyocyte models the mutant allele produces protein aggregation, multinucleation, hypertrophy, and myofibrillar disarray with activation of both the ubiquitin-proteasome system and the autophagy-lysosome pathway, loss of sarcomere-associated proteins, and reduced force in engineered heart tissue; an Actn2 missense knock-in mouse independently shows a destabilized protein with increased ubiquitin-proteasome activity. This proteopathy arm is variant-specific and has not been demonstrated in patient myocardium.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Inclusion body assembly\", \"Proteasome-mediated ubiquitin-dependent protein catabolic process\", \"Autophagy\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.\"}]}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As in other cardiomyopathies, the fall in contractile performance activates the renin-angiotensin-aldosterone and sympathetic systems. Initially compensatory, chronic activation drives cardiomyocyte hypertrophy, apoptosis, and fibrosis, converting the primary Z-disc lesion into progressive structural remodeling; this axis is what standard heart-failure pharmacotherapy targets in ACTN2 disease as in DCM generally.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to angiotensin\"], \"role\": \"amplifier\"}}, {\"id\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cell-derived cardiomyocytes generated from carriers of monoallelic and biallelic ACTN2 protein-truncating variants, characterized by RNA sequencing, video-based edge detection of contraction, immunohistochemistry, electron microscopy, and affinity-purification mass spectrometry, with CRISPR-Cas9 verification of the stop-gain variant. The reference human model for the ACTN2 contractile and Z-disc-ultrastructure phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:34802252\"}}, {\"id\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The converging consequence of impaired Z-disc mechanics and (for some variants) mutant protein destabilization is disorganized myofibrillar architecture with hypertrophic growth of the cardiomyocyte. Patient-derived iPSC-cardiomyocytes carrying ACTN2 truncating variants are hypertrophic and show sarcomeric structural disarray, impaired contractility, and aberrant calcium signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Myofibril assembly\", \"Cardiac muscle hypertrophy\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.\"}]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden unexplained death, including in young and previously asymptomatic relatives, has been reported in ACTN2 kindreds and can be the sentinel event that brings a family to genetic evaluation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Ventricular Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular arrhythmia \\u2014 including premature ventricular beats and idiopathic ventricular fibrillation causing resuscitated cardiac arrest \\u2014 occurs in ACTN2 carriers, at times without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004308\"}}], \"edges\": [{\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variant-specific arm: only some mutant alpha-actinin-2 proteins are destabilized and aggregate.\", \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Failed Trabecular Compaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACTN2 truncating variants are among the few lesions specifically associated with a noncompaction phenotype, but the developmental path from Z-disc dysfunction to failed trabecular compaction is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Ventricular Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurohormonal Activation\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adverse Ventricular Remodeling\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Trabecular Compaction\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Heart Failure and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ACTN2 Pathogenic Variants\", \"target\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTN2 Q9R\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 Ala119Thr\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 A868T\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTN2 A868T\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Variant in the EF 3-4 region that interacts with titin, studied in explanted myocardium from a heart-failure patient; associated with increased myofilament calcium sensitivity and reduced sinusoidal stiffness.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Ala119Thr\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Actin-binding-domain missense variant segregating with a strikingly heterogeneous cardiac phenotype (left ventricular noncompaction, dilated cardiomyopathy, idiopathic ventricular fibrillation, sudden unexplained death) in two families sharing a common ancestral haplotype; also reported in hypertrophic cardiomyopathy, and shown to perturb Z-disc localization and dynamics in cardiomyocytes.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"ACTN2 Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"ACTN2 Q9R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant in the N-terminal region identified in a patient with dilated cardiomyopathy; abolishes the alpha-actinin-2 interaction with muscle LIM protein in cell-based assays. The founding CMD1AA variant.\", \"meta\": {\"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}]}}, {\"id\": \"Adverse Ventricular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiomyocyte hypertrophy and loss, cardiac fibroblast activation, and interstitial matrix deposition remodel the ventricle. In ACTN2 disease the net geometry is variable \\u2014 the same gene, and sometimes the same variant, can yield a dilated, hypertrophic, restrictive, or noncompacted ventricle, and the dominant pattern can differ between relatives \\u2014 but the remodeling machinery itself is the conserved cardiomyopathy step.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac fibroblast\", \"Cardiomyocyte\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Cardiac muscle cell apoptotic process\"], \"role\": \"central_effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACTN2 encodes alpha-actinin-2, the only alpha-actinin isoform expressed in cardiac muscle. As an antiparallel homodimer it cross-links thin filaments from adjacent sarcomeres at the Z-disc, anchors the N-terminal (Z-disc) region of titin, and provides a docking platform for Z-disc partners including muscle LIM protein (MLP/CSRP3). Disease-associated variants are distributed across the actin-binding calponin-homology domains, the spectrin-repeat rod, and the C-terminal EF-hand/calmodulin-like region; they perturb actin binding, titin interaction, Z-disc incorporation, protein stability, or partner binding rather than abolishing the protein, and haploinsufficiency is not an established mechanism.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Sarcomere organization\"], \"molecular_functions\": [\"actin filament binding\", \"structural constituent of muscle\"], \"genes\": [\"ACTN2\"], \"gene_terms\": [{\"label\": \"ACTN2\", \"id\": \"hgnc:164\"}], \"role\": \"trigger\", \"locations\": [\"Myocardium\"]}}, {\"id\": \"Dilated Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular dilation with systolic dysfunction, the defining feature of CMD1AA. It may be the sole cardiac manifestation or coexist with noncompaction, hypertrophy, or arrhythmia in the same family.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Failed Trabecular Compaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of ACTN2 carriers show left ventricular noncompaction \\u2014 prominent trabeculae with deep intertrabecular recesses over a thin compacted layer \\u2014 either isolated or together with ventricular dilation, which is why the OMIM entity is designated \\\"with or without LVNC\\\". In a large rare-variant association analysis, ACTN2 truncating variants were among the few lesions associated specifically with noncompaction rather than shared with DCM/HCM, suggesting a partly distinct developmental route, plausibly through impaired cardiomyocyte maturation.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard heart-failure therapy for left ventricular systolic dysfunction \\u2014 the four contemporary HFrEF pillars: an angiotensin receptor-neprilysin inhibitor (or an ACE inhibitor / angiotensin receptor blocker where ARNI is not tolerated), a beta-blocker, a mineralocorticoid receptor antagonist, and an SGLT2 inhibitor \\u2014 which together target the neurohormonal amplifier of adverse remodeling. There is no ACTN2-specific disease-modifying therapy, so management is the generic DCM regimen.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan)\", \"ACE inhibitor (alternative to ARNI)\", \"beta-blocker\", \"mineralocorticoid receptor antagonist (spironolactone as the class exemplar)\", \"SGLT2 inhibitor\"]}}, {\"id\": \"Heart Failure and Sudden Cardiac Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint is structural and functional cardiac impairment: symptomatic heart failure that may progress to end-stage disease requiring transplantation, and \\u2014 because the arrhythmic arm can act independently of pump failure \\u2014 syncope, ventricular fibrillation, and sudden cardiac death, sometimes as the presenting event in an otherwise well relative.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Heart contraction\"], \"role\": \"consequence\"}}, {\"id\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the Z-disc both transmits force between sarcomeres and relays regulatory information to the thin and thick filaments, an abnormal alpha-actinin-2 degrades contraction and relaxation simultaneously. Explanted myocardium carrying an ACTN2 EF-hand variant shows increased myofilament calcium sensitivity, reduced sinusoidal stiffness, faster tension redevelopment, and increased thick-to-thin filament separation, while patient-derived iPSC-cardiomyocytes show impaired contractility and aberrant calcium handling. Truncated alpha-actinin-2 that is still incorporated into the sarcomere distorts Z-disc ultrastructure, a dominant-negative pattern.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Muscle contraction\", \"Intracellular calcium ion homeostasis\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.\"}]}}, {\"id\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"CRISPR/Cas9-generated heterozygous functional knock-out hiPSC lines carrying either a wild-type or a missense ACTN2 allele, differentiated to cardiomyocytes and assembled into engineered heart tissue, and profiled by immunofluorescence, live-cell imaging, RNA sequencing, and mass spectrometry. Provides the isogenic comparison underlying the proteopathy arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:36078153\"}}, {\"id\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The remodeled ventricle dilates and loses systolic shortening, producing the defining CMD1AA phenotype: left ventricular enlargement with reduced ejection fraction in the absence of loading conditions or coronary disease sufficient to explain it. Penetrance is incomplete and expression is heterogeneous, so affected relatives may be asymptomatic, dilated, hypertrophic, or arrhythmic; population data on DCM-gene carriers show that arrhythmia without substantial ventricular dilation is a common early expression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Heart contraction\"], \"role\": \"effector\", \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the sarcomere, the C-terminus of alpha-actinin-2 interacts with sarcolemma-associated proteins including alpha-actinin-1 (ACTN1) and connexin-43 (GJA1). C-terminal truncation disrupts these interactions, providing a mechanistic route from a Z-disc protein defect to impaired electrical coupling, arrhythmia, and abnormal relaxation. Clinically, ACTN2 carriers show atrial and ventricular arrhythmias, conduction abnormalities, and idiopathic ventricular fibrillation, which can precede or occur without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Cell communication by electrical coupling involved in cardiac conduction\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.\"}]}}, {\"id\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"For a subset of variants, mutant alpha-actinin-2 is destabilized, misfolds, and aggregates within the cardiomyocyte. In isogenic hiPSC-cardiomyocyte models the mutant allele produces protein aggregation, multinucleation, hypertrophy, and myofibrillar disarray with activation of both the ubiquitin-proteasome system and the autophagy-lysosome pathway, loss of sarcomere-associated proteins, and reduced force in engineered heart tissue; an Actn2 missense knock-in mouse independently shows a destabilized protein with increased ubiquitin-proteasome activity. This proteopathy arm is variant-specific and has not been demonstrated in patient myocardium.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Inclusion body assembly\", \"Proteasome-mediated ubiquitin-dependent protein catabolic process\", \"Autophagy\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.\"}]}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"As in other cardiomyopathies, the fall in contractile performance activates the renin-angiotensin-aldosterone and sympathetic systems. Initially compensatory, chronic activation drives cardiomyocyte hypertrophy, apoptosis, and fibrosis, converting the primary Z-disc lesion into progressive structural remodeling; this axis is what standard heart-failure pharmacotherapy targets in ACTN2 disease as in DCM generally.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to angiotensin\"], \"role\": \"amplifier\"}}, {\"id\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Induced pluripotent stem cell-derived cardiomyocytes generated from carriers of monoallelic and biallelic ACTN2 protein-truncating variants, characterized by RNA sequencing, video-based edge detection of contraction, immunohistochemistry, electron microscopy, and affinity-purification mass spectrometry, with CRISPR-Cas9 verification of the stop-gain variant. The reference human model for the ACTN2 contractile and Z-disc-ultrastructure phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:34802252\"}}, {\"id\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The converging consequence of impaired Z-disc mechanics and (for some variants) mutant protein destabilization is disorganized myofibrillar architecture with hypertrophic growth of the cardiomyocyte. Patient-derived iPSC-cardiomyocytes carrying ACTN2 truncating variants are hypertrophic and show sarcomeric structural disarray, impaired contractility, and aberrant calcium signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiomyocyte\"], \"biological_processes\": [\"Myofibril assembly\", \"Cardiac muscle hypertrophy\"], \"role\": \"effector\", \"experimental_models\": [{\"name\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.\"}]}}, {\"id\": \"Sudden Cardiac Death\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sudden unexplained death, including in young and previously asymptomatic relatives, has been reported in ACTN2 kindreds and can be the sentinel event that brings a family to genetic evaluation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001645\"}}, {\"id\": \"Ventricular Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ventricular arrhythmia \\u2014 including premature ventricular beats and idiopathic ventricular fibrillation causing resuscitated cardiac arrest \\u2014 occurs in ACTN2 carriers, at times without overt ventricular dilation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004308\"}}], \"edges\": [{\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variant-specific arm: only some mutant alpha-actinin-2 proteins are destabilized and aggregate.\", \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"target\": \"Failed Trabecular Compaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ACTN2 truncating variants are among the few lesions specifically associated with a noncompaction phenotype, but the developmental path from Z-disc dysfunction to failed trabecular compaction is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_zdisc_force_transmission_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"actn2_variant_specific_proteotoxicity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Ventricular Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"target\": \"Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurohormonal Activation\", \"target\": \"Adverse Ventricular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adverse Ventricular Remodeling\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Trabecular Compaction\", \"target\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Heart Failure and Sudden Cardiac Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left Ventricular Dilation and Systolic Dysfunction\", \"target\": \"Dilated Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Guideline-Directed Heart Failure Pharmacotherapy\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Impaired Z-Disc Force Transmission and Myofilament Regulation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.\"}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Sarcomeric Disarray and Cardiomyocyte Hypertrophy\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.\"}, {\"source\": \"Patient-derived ACTN2 truncating-variant iPSC-cardiomyocytes\", \"target\": \"Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.\"}, {\"source\": \"Isogenic ACTN2 missense hiPSC-cardiomyocytes and engineered heart tissue\", \"target\": \"Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.\"}, {\"source\": \"ACTN2 Pathogenic Variants\", \"target\": \"Alpha-Actinin-2 Z-Disc Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTN2 Q9R\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 Ala119Thr\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACTN2 A868T\", \"target\": \"ACTN2 Pathogenic Variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6714,14 +7117,21 @@
                         Dilated Cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6795,14 +7205,21 @@
                         Ventricular Arrhythmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventricular arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004308">HP:0004308</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0004308</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6876,14 +7293,21 @@
                         Atrial Fibrillation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110), qualified as temporality recurrent. HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6953,14 +7377,21 @@
                         Sudden Cardiac Death
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001645</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7034,14 +7465,21 @@
                         Congestive Heart Failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635), qualified as course progressive. HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7111,14 +7549,21 @@
                         Hypertrophic Cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertrophic cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001639">HP:0001639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7203,14 +7648,21 @@
                         Left Ventricular Noncompaction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular noncompaction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030682" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030682">HP:0030682</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030682" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030682</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular noncompaction (HP:0030682). HP:0030682 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7284,14 +7736,21 @@
                         Restrictive Cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Restrictive cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001723">HP:0001723</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001723" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001723</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Restrictive cardiomyopathy (HP:0001723). HP:0001723 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7367,14 +7826,21 @@
                         Myocardial Fibrosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myocardial fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001685" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001685">HP:0001685</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001685" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001685</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7474,13 +7940,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACTN2
 
 
-    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:164">hgnc:164</a>
+    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:164</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7593,13 +8064,18 @@
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: ACTN2
 
 
-    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:164">hgnc:164</a>
+    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:164</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7633,13 +8109,18 @@
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: ACTN2
 
 
-    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:164">hgnc:164</a>
+    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:164</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7673,13 +8154,18 @@
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: ACTN2
 
 
-    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:164">hgnc:164</a>
+    <a href="https://bioregistry.io/hgnc:164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:164</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in ACTN2 (hgnc:164). hgnc:164 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -7726,7 +8212,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7756,17 +8247,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C190796" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C190796">NCIT:C190796</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190796" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C190796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan), annotated with Angiotensin Receptor-Neprilysin Inhibitor (NCIT:C190796). NCIT:C190796 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ACE inhibitor (alternative to ARNI)
@@ -7774,11 +8272,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C247">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (alternative to ARNI), annotated with ACE Inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         beta-blocker
@@ -7786,11 +8289,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29576">NCIT:C29576</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C29576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-blocker, annotated with Beta-Adrenergic Antagonist (NCIT:C29576). NCIT:C29576 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         mineralocorticoid receptor antagonist (spironolactone as the class exemplar)
@@ -7798,11 +8306,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C840" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C840">NCIT:C840</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C840" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C840</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mineralocorticoid receptor antagonist (spironolactone as the class exemplar), annotated with Spironolactone (NCIT:C840). NCIT:C840 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         SGLT2 inhibitor
@@ -7810,10 +8323,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C98083" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C98083">NCIT:C98083</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C98083" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C98083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7886,7 +8402,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Implantable Cardioverter-Defibrillator Placement</span>
 
 
@@ -7964,7 +8485,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -8064,7 +8590,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -8549,15 +9080,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8567,15 +9103,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-53">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-53">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8603,42 +9144,56 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-z-disc-force-transmission-and-myofilament-regulation">Impaired Z-Disc Force Transmission and Myofilament Regulation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-z-disc-force-transmission-and-myofilament-regulation">Impaired Z-Disc Force Transmission and Myofilament Regulation</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-sarcomeric-disarray-and-cardiomyocyte-hypertrophy">Sarcomeric Disarray and Cardiomyocyte Hypertrophy</a>
-
-                            <span class="crosslink-desc">Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.</span>
+                <span class="crosslink-desc">Contractility and electron-microscopy readouts measure Z-disc ultrastructure and force generation in the variant background.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-loss-of-sarcolemmal-partner-coupling-and-arrhythmogenesis">Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis</a>
-
-                            <span class="crosslink-desc">Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-sarcomeric-disarray-and-cardiomyocyte-hypertrophy">Sarcomeric Disarray and Cardiomyocyte Hypertrophy</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">Immunohistochemistry quantifies cellular hypertrophy and myofibrillar disarray.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-loss-of-sarcolemmal-partner-coupling-and-arrhythmogenesis">Loss of Sarcolemmal Partner Coupling and Arrhythmogenesis</a>
+
+
+
+                <span class="crosslink-desc">Affinity-purification mass spectrometry identified the loss of ACTN1 and GJA1 interactions on C-terminal truncation.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8696,15 +9251,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-54">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8714,15 +9274,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-55">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-55">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8755,22 +9320,28 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mutant-alpha-actinin-2-destabilization-and-proteostatic-stress">Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mutant-alpha-actinin-2-destabilization-and-proteostatic-stress">Mutant Alpha-Actinin-2 Destabilization and Proteostatic Stress</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">The isogenic pair isolates variant-specific protein aggregation and proteolytic-system activation from genetic background effects.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8814,6 +9385,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12268,5 +12842,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3768,6 +3936,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4140,6 +4316,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4231,16 +4408,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Skeletal Muscle Fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal Muscle Fiber, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4267,15 +4449,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         DUX4
 
 
-    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:50800">hgnc:50800</a>
+    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:50800</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves increased DUX4 (hgnc:50800). hgnc:50800 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4307,16 +4496,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4333,6 +4527,7 @@
 
 
                 </div>
+
 
 
 
@@ -4396,6 +4591,7 @@
                 <div class="item-name">Progressive Myofiber Loss and Fatty Replacement</div>
 
                 <div class="item-desc">The clinical pattern of FSHD reflects chronic degeneration of selected facial, scapular, humeral, truncal, and lower-extremity muscles, usually with marked asymmetry and variable progression.</div>
+
 
 
 
@@ -4560,14 +4756,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4630,14 +4833,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weakness of facial musculature
+
+                        <span class="phenotype-term-label">Weakness of facial musculature</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030319">HP:0030319</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0030319</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4700,14 +4912,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4770,14 +4989,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4840,14 +5066,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scapular winging
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003691">HP:0003691</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003691" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0003691</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scapular winging (HP:0003691). HP:0003691 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4945,13 +5178,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DUX4
 
 
-    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:50800">hgnc:50800</a>
+    <a href="https://bioregistry.io/hgnc:50800" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:50800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DUX4 (hgnc:50800). hgnc:50800 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5009,13 +5247,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMCHD1
 
 
-    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29090">hgnc:29090</a>
+    <a href="https://bioregistry.io/hgnc:29090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:29090</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5082,7 +5325,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -5160,7 +5408,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -5238,7 +5491,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5349,6 +5607,208 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Iron supplementation alleviates pathologies in a mouse model of facioscapulohumeral muscular dystrophy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE261617" target="_blank">geo:GSE261617</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Facioscapulohumeral muscular dystrophy (FSHD) is a genetic muscle disease caused by ectopic expression of the toxic protein DUX4, resulting in muscle weakness. However, the mechanism by which DUX4 exerts its toxicity remains unclear. In this study, we observed abnormal iron accumulation in muscles of patients with FSHD and in muscle-specific DUX4-expressing (DUX4-Tg) mice. Treatment with iron chelators, an iron-deficient diet, and genetic modifications inhibiting intracellular uptake of iron did not improve but rather exacerbated FSHD pathology in DUX4-Tg mice.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=23</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40591405" target="_blank" style="color: var(--secondary);">PMID:40591405</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Facioscapulohumeral Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    DUX4.6 siRNA in vitro activity in FSHD patient-derived myotubes
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE291267" target="_blank">geo:GSE291267</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Facioscapulohumeral muscular dystrophy (FSHD) is an autosomal dominant muscular disease caused by the aberrant ectopic expression of DUX4 in skeletal muscle. There are no approved therapies for FSHD to date, and strategies aimed at reducing DUX4 expression in skeletal muscle of FSHD patients are promising therapeutic approaches. Here we demonstrate DUX4.6 siRNA activity in reducing DUX4-regulated gene expression in FSHD patient-derived myotubes in vitro.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=32</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41994867" target="_blank" style="color: var(--secondary);">PMID:41994867</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Facioscapulohumeral Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Hit-and-run silencing of endogenous DUX4 by targeting DNA hypomethylation on D4Z4 repeats in facioscapulohumeral muscular dystrophy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE201185" target="_blank">geo:GSE201185</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MULTI OMICS</span>
+
+
+                    <span class="tag tag-dataset">n=11</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Facioscapulohumeral Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A circulating biomarker for severity of facioscapulohumeral muscular dystrophy
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001007350" target="_blank">ega:EGAS00001007350</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Facioscapulohumeral muscular dystrophy (FSHD) is a prevalent, incurable skeletal myopathy. Clinical trials for FSHD are hindered by heterogeneous biomarkers poorly associated with clinical severity, requiring invasive muscle biopsy. Macroscopically FSHD presents with slow fatty replacement of muscle, rapidly accelerated by inflammation. Mis-expression of the transcription factor DUX4 is currently accepted to underlie FSHD pathogenesis and mechanisms including PAX7 target gene repression have been proposed.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Facioscapulohumeral Muscular Dystrophy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    3D tissue engineered human skeletal muscle modelling Facioscapulohumeral Muscular Dystrophy
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000000502" target="_blank">ega:EGAS50000000502</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">acioscapulohumeral muscular dystrophy (FSHD) is caused by sporadic misexpression of the transcription factor double homeobox 4 (DUX4) in skeletal muscles. So far, monolayer cultures and animal models have been used to study the FSHD disease mechanism and for FSHD therapy development, but these models do not fully recapitulate the disease and there is a lack of knowledge on how DUX4 misexpression leads to skeletal muscle dysfunction. To overcome these barriers, we have developed a 3D tissue engineered skeletal muscle (3D-TESM) model by generating genetically matched myogenic progenitors (MPs) from human induced pluripotent stem cells of three mosaic FSHD patients.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Facioscapulohumeral Muscular Dystrophy&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -5570,6 +6030,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -5586,7 +6049,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Facioscapulohumeral Muscular Dystrophy
 creation_date: &#34;2026-04-21T04:46:26Z&#34;
-updated_date: &#34;2026-04-26T22:36:45Z&#34;
 description: &gt;-
   Facioscapulohumeral muscular dystrophy (FSHD) is a dominantly inherited
   muscular dystrophy characterized by progressive, often asymmetric weakness
@@ -6264,6 +6726,59 @@ clinical_trials:
   notes: &gt;-
     ClinicalTrials.gov listed this study as not yet recruiting on 2026-02-27;
     mapped to schema enum NOT_RECRUITING.
+datasets:
+- accession: geo:GSE261617
+  title: Iron supplementation alleviates pathologies in a mouse model of facioscapulohumeral muscular dystrophy
+  description: Facioscapulohumeral muscular dystrophy (FSHD) is a genetic muscle disease caused by ectopic expression of the toxic protein DUX4, resulting in muscle weakness. However, the mechanism by which DUX4 exerts its toxicity remains unclear. In this study, we observed abnormal iron accumulation in muscles of patients with FSHD and in muscle-specific DUX4-expressing (DUX4-Tg) mice. Treatment with iron chelators, an iron-deficient diet, and genetic modifications inhibiting intracellular uptake of iron did not improve but rather exacerbated FSHD pathology in DUX4-Tg mice.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 23
+  publication: PMID:40591405
+  notes: Identified by GEO DataSets index search for Facioscapulohumeral Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE291267
+  title: DUX4.6 siRNA in vitro activity in FSHD patient-derived myotubes
+  description: Facioscapulohumeral muscular dystrophy (FSHD) is an autosomal dominant muscular disease caused by the aberrant ectopic expression of DUX4 in skeletal muscle. There are no approved therapies for FSHD to date, and strategies aimed at reducing DUX4 expression in skeletal muscle of FSHD patients are promising therapeutic approaches. Here we demonstrate DUX4.6 siRNA activity in reducing DUX4-regulated gene expression in FSHD patient-derived myotubes in vitro.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 32
+  publication: PMID:41994867
+  notes: Identified by GEO DataSets index search for Facioscapulohumeral Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE201185
+  title: Hit-and-run silencing of endogenous DUX4 by targeting DNA hypomethylation on D4Z4 repeats in facioscapulohumeral muscular dystrophy
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MULTI_OMICS
+  sample_count: 11
+  notes: Identified by GEO DataSets index search for Facioscapulohumeral Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001007350
+  title: A circulating biomarker for severity of facioscapulohumeral muscular dystrophy
+  description: Facioscapulohumeral muscular dystrophy (FSHD) is a prevalent, incurable skeletal myopathy. Clinical trials for FSHD are hindered by heterogeneous biomarkers poorly associated with clinical severity, requiring invasive muscle biopsy. Macroscopically FSHD presents with slow fatty replacement of muscle, rapidly accelerated by inflammation. Mis-expression of the transcription factor DUX4 is currently accepted to underlie FSHD pathogenesis and mechanisms including PAX7 target gene repression have been proposed.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Facioscapulohumeral Muscular Dystrophy&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS50000000502
+  title: 3D tissue engineered human skeletal muscle modelling Facioscapulohumeral Muscular Dystrophy
+  description: acioscapulohumeral muscular dystrophy (FSHD) is caused by sporadic misexpression of the transcription factor double homeobox 4 (DUX4) in skeletal muscles. So far, monolayer cultures and animal models have been used to study the FSHD disease mechanism and for FSHD therapy development, but these models do not fully recapitulate the disease and there is a lack of knowledge on how DUX4 misexpression leads to skeletal muscle dysfunction. To overcome these barriers, we have developed a 3D tissue engineered skeletal muscle (3D-TESM) model by generating genetically matched myogenic progenitors (MPs) from human induced pluripotent stem cells of three mosaic FSHD patients.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Facioscapulohumeral Muscular Dystrophy&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -6699,7 +7214,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Facioscapulohumeral Muscular Dystrophy", "mondoId": "MONDO:0001347", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Facioscapulohumeral_Muscular_Dystrophy", "yamlRevision": "b7890f7e22b9"};
+        const OS_CONFIG = {"diseaseName": "Facioscapulohumeral Muscular Dystrophy", "mondoId": "MONDO:0001347", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Facioscapulohumeral_Muscular_Dystrophy", "yamlRevision": "60f17cafebef"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7118,5 +7633,73 @@ clinical_trials:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

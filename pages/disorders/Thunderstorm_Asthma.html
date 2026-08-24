@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Thunderstorm%20Asthma"
@@ -3699,6 +3865,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3736,7 +3904,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3901,16 +4069,21 @@ grass pollen allergens as respirable aerosols."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to osmotic stress (pollen grain rupture)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006970" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006970">GO:0006970</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006970" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006970</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to osmotic stress (pollen grain rupture), annotated with response to osmotic stress (GO:0006970). GO:0006970 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3931,6 +4104,7 @@ grass pollen allergens as respirable aerosols."</div>
 
 
                 </div>
+
 
 
 
@@ -4024,16 +4198,21 @@ in the size range 0.12 to 4.67 microm; they were loaded..."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         bronchial epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4050,6 +4229,7 @@ in the size range 0.12 to 4.67 microm; they were loaded..."</div>
 
 
                 </div>
+
 
 
 
@@ -4154,16 +4334,21 @@ often severe."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         bronchial epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4190,16 +4375,21 @@ often severe."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4220,6 +4410,7 @@ often severe."</div>
 
 
                 </div>
+
 
 
 
@@ -4324,17 +4515,24 @@ pre-date atopy and development of allergic disease"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         mast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4355,11 +4553,16 @@ pre-date atopy and development of allergic disease"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4380,10 +4583,13 @@ pre-date atopy and development of allergic disease"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000546">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4410,16 +4616,21 @@ pre-date atopy and development of allergic disease"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         type I hypersensitivity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016068" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016068">GO:0016068</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016068" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0016068</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type I hypersensitivity (GO:0016068). GO:0016068 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4428,6 +4639,8 @@ pre-date atopy and development of allergic disease"</div>
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4445,10 +4658,13 @@ pre-date atopy and development of allergic disease"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043303">GO:0043303</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0043303</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mast cell degranulation (GO:0043303). GO:0043303 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4468,16 +4684,21 @@ pre-date atopy and development of allergic disease"</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         type 2 immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042092">GO:0042092</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0042092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased type 2 immune response (GO:0042092). GO:0042092 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4498,6 +4719,7 @@ pre-date atopy and development of allergic disease"</div>
 
 
                 </div>
+
 
 
 
@@ -4566,16 +4788,21 @@ pre-date atopy and development of allergic disease"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         goblet cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000160">CL:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves goblet cell (CL:0000160). CL:0000160 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4602,16 +4829,21 @@ pre-date atopy and development of allergic disease"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         airway smooth muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006939">GO:0006939</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006939" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased airway smooth muscle contraction, annotated with smooth muscle contraction (GO:0006939). GO:0006939 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4632,6 +4864,7 @@ pre-date atopy and development of allergic disease"</div>
 
 
                 </div>
+
 
 
 
@@ -4703,7 +4936,7 @@ outbreaks reported globally over the last four decades."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allergen Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allergen-specific immunotherapy (e.g., to ryegrass pollen) is an immunological strategy to reduce individual susceptibility in sensitized patients at risk of thunderstorm asthma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast-cell-derived mediators provoke airway smooth muscle contraction (bronchospasm), mucosal edema, and mucus hypersecretion, producing acute variable airflow obstruction. Because exposure is sudden and intense and affects many sensitized individuals simultaneously, the result is an epidemic of acute, sometimes near-fatal, asthma attacks within a short window.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"goblet cell\"], \"biological_processes\": [\"airway smooth muscle contraction\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled corticosteroids for control and systemic corticosteroids for acute severe exacerbations reduce airway inflammation. Preventive inhaled corticosteroid use in at-risk pollen-allergic patients is part of risk reduction strategies.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The respirable allergen-bearing particles released by ruptured pollen are small enough to bypass upper-airway filtration and deposit on the bronchial epithelium of the lower airways, delivering a sudden, high allergen dose directly to the asthmatic effector site. This explains why pollen \\u2014 long linked to asthma despite grains being too large to reach the bronchi \\u2014 can trigger lower-airway disease under thunderstorm conditions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"]}}, {\"id\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In individuals sensitized to grass pollen (and/or Alternaria) allergens, the inhaled respirable allergen cross-links allergen-specific IgE bound to high-affinity receptors on airway mucosal mast cells, triggering degranulation and release of histamine, leukotrienes, and prostaglandins (type I immediate hypersensitivity). Recruitment of eosinophils and type 2 helper T cells amplifies the type 2 inflammatory response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\", \"eosinophil\", \"T-helper 2 cell\"], \"biological_processes\": [\"type I hypersensitivity\", \"mast cell degranulation\", \"type 2 immune response\"]}}, {\"id\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line rescue therapy for acute bronchospasm during a thunderstorm asthma attack; inhaled SABAs (e.g., salbutamol/albuterol) relax airway smooth muscle. Patients with pollen allergy, including those with only seasonal rhinitis, should have access to reliever therapy and be warned about exposure during thunderstorms in the pollen season.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"salbutamol (albuterol)\"]}}, {\"id\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During a thunderstorm in the pollen season, dry updrafts entrain whole pollen grains into the high humidity at the cloud base, where the grains imbibe water and rupture by osmotic shock; cold downdrafts and outflows then carry the fragments to ground level and concentrate them in a shallow band of air. This releases respirable allergenic particles (cytoplasmic starch granules and other paucimicronic components, ~0.5-2.5 \\u00b5m) from grains that are themselves too large (\u003e10 \\u00b5m) to enter the lower airways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to osmotic stress (pollen grain rupture)\"]}}], \"edges\": [{\"source\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"target\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture converts non-respirable pollen grains into respirable allergen-laden aerosols capable of penetrating the lower airways.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a sensitized airway, deposited allergen cross-links specific IgE on mucosal mast cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mast-cell mediators induce airway smooth muscle contraction, mucus secretion, and edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allergen Immunotherapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allergen Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allergen-specific immunotherapy (e.g., to ryegrass pollen) is an immunological strategy to reduce individual susceptibility in sensitized patients at risk of thunderstorm asthma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast-cell-derived mediators provoke airway smooth muscle contraction (bronchospasm), mucosal edema, and mucus hypersecretion, producing acute variable airflow obstruction. Because exposure is sudden and intense and affects many sensitized individuals simultaneously, the result is an epidemic of acute, sometimes near-fatal, asthma attacks within a short window.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"goblet cell\"], \"biological_processes\": [\"airway smooth muscle contraction\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled corticosteroids for control and systemic corticosteroids for acute severe exacerbations reduce airway inflammation. Preventive inhaled corticosteroid use in at-risk pollen-allergic patients is part of risk reduction strategies.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The respirable allergen-bearing particles released by ruptured pollen are small enough to bypass upper-airway filtration and deposit on the bronchial epithelium of the lower airways, delivering a sudden, high allergen dose directly to the asthmatic effector site. This explains why pollen \\u2014 long linked to asthma despite grains being too large to reach the bronchi \\u2014 can trigger lower-airway disease under thunderstorm conditions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"]}}, {\"id\": \"Grass (Ryegrass) Pollen Sensitization and Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sensitization to grass pollen \\u2014 ryegrass (Lolium perenne) in particular \\u2014 together with acute outdoor exposure during the storm is a core risk factor. In the Melbourne cohort, ryegrass pollen sensitization was present in 100% of assessed patients.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In individuals sensitized to grass pollen (and/or Alternaria) allergens, the inhaled respirable allergen cross-links allergen-specific IgE bound to high-affinity receptors on airway mucosal mast cells, triggering degranulation and release of histamine, leukotrienes, and prostaglandins (type I immediate hypersensitivity). Recruitment of eosinophils and type 2 helper T cells amplifies the type 2 inflammatory response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\", \"eosinophil\", \"T-helper 2 cell\"], \"biological_processes\": [\"type I hypersensitivity\", \"mast cell degranulation\", \"type 2 immune response\"]}}, {\"id\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line rescue therapy for acute bronchospasm during a thunderstorm asthma attack; inhaled SABAs (e.g., salbutamol/albuterol) relax airway smooth muscle. Patients with pollen allergy, including those with only seasonal rhinitis, should have access to reliever therapy and be warned about exposure during thunderstorms in the pollen season.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"salbutamol (albuterol)\"]}}, {\"id\": \"Outdoor Mold (Alternaria/Cladosporium) Sensitization\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sensitization to outdoor fungal spores, especially Alternaria alternata (and Cladosporium), is an additional and in some settings dominant risk factor; spore counts rise during thunderstorms.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During a thunderstorm in the pollen season, dry updrafts entrain whole pollen grains into the high humidity at the cloud base, where the grains imbibe water and rupture by osmotic shock; cold downdrafts and outflows then carry the fragments to ground level and concentrate them in a shallow band of air. This releases respirable allergenic particles (cytoplasmic starch granules and other paucimicronic components, ~0.5-2.5 \\u00b5m) from grains that are themselves too large (\u003e10 \\u00b5m) to enter the lower airways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to osmotic stress (pollen grain rupture)\"]}}, {\"id\": \"Thunderstorm During Pollen Season\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The defining trigger: a thunderstorm (specifically its cold outflow) in the grass-pollen or outdoor-mold season. Outbreaks are tightly, temporally linked to thunderstorm activity and do not occur outside pollen/spore seasons.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}], \"edges\": [{\"source\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"target\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture converts non-respirable pollen grains into respirable allergen-laden aerosols capable of penetrating the lower airways.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a sensitized airway, deposited allergen cross-links specific IgE on mucosal mast cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mast-cell mediators induce airway smooth muscle contraction, mucus secretion, and edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thunderstorm During Pollen Season\", \"target\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The storm is not a background condition here, it is the mechanism: outflow concentrates intact pollen at ground level and the humidity ruptures the grains osmotically. Exposure and the physical event this node describes are the same thing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Grass (Ryegrass) Pollen Sensitization and Exposure\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Pre-existing ryegrass-specific IgE is what converts inhaled pollen fragments into mast cell degranulation. Without sensitization the same particle load produces no attack, which is why this targets the IgE step rather than the deposition step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outdoor Mold (Alternaria/Cladosporium) Sensitization\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Mould sensitization marks a population at elevated risk of epidemic asthma alongside the grass-pollen arm, but the cited evidence is predictive rather than mechanistic and does not establish mould as the particle driving these events.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allergen Immunotherapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4742,14 +4975,21 @@ outbreaks reported globally over the last four decades."</div>
                         Wheezing
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wheezing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030828">HP:0030828</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030828</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4804,14 +5044,21 @@ often severe"</div>
                         Dyspnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094), qualified as temporality acute. HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4883,14 +5130,21 @@ hospital admission, and intensive care admission."</div>
                         Cough
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4952,14 +5206,21 @@ associated with grass pollination, particularly after moist weather conditions."
                         Acute Asthma Exacerbation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Asthma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002099">HP:0002099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099), qualified as temporality acute. HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5032,14 +5293,21 @@ of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6)."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Allergic rhinitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003193">HP:0003193</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003193</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5091,14 +5359,21 @@ of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6)."</div>
                         Airway Obstruction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Airway obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006536">HP:0006536</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006536</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Airway obstruction (HP:0006536), qualified as temporality acute. HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5171,14 +5446,23 @@ downdraught from a thunderstorm"</div>
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure requiring assisted ventilation
+
+                        <span class="phenotype-term-label">Respiratory failure requiring assisted ventilation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004887">HP:0004887</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004887" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0004887</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure requiring assisted ventilation (HP:0004887). HP:0004887 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5277,7 +5561,12 @@ ETSA deaths are evaluated."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5307,16 +5596,21 @@ ETSA deaths are evaluated."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         salbutamol (albuterol)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2549" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2549">CHEBI:2549</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2549" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-21">CHEBI:2549</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses salbutamol (albuterol), annotated with albuterol (CHEBI:2549). CHEBI:2549 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5388,7 +5682,12 @@ prevent ETSA are discussed"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5418,16 +5717,21 @@ prevent ETSA are discussed"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50858">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-23">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -5498,7 +5802,12 @@ prevent ETSA are discussed"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">immunotherapy procedure<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy procedure, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -5593,7 +5902,12 @@ prevent ETSA are discussed"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">therapeutic avoidance of environmental exposure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">therapeutic avoidance of environmental exposure<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is therapeutic avoidance of environmental exposure, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -5682,6 +5996,33 @@ immunological risk reduction and preventive strategies."</div>
             <div class="item-box environmental-box anchor-target" id="environmental-thunderstorm-during-pollen-season" data-dismech-node="Thunderstorm During Pollen Season" data-dismech-type="environmental">
                 <div class="item-name">Thunderstorm During Pollen Season</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        thunderstorm exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_1000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-26">ECTO:1000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is thunderstorm exposure, annotated with exposure to thunderstorm (ECTO:1000029). ECTO:1000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">The defining trigger: a thunderstorm (specifically its cold outflow) in the grass-pollen or outdoor-mold season. Outbreaks are tightly, temporally linked to thunderstorm activity and do not occur outside pollen/spore seasons.</div>
@@ -5724,10 +6065,88 @@ The association was strongest in late spring and summer."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Thunderstorm Concentration and Osmotic Rupture of Pollen Grains</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The storm is not a background condition here, it is the mechanism: outflow concentrates intact pollen at ground level and the humidity ruptures the grains osmotically. Exposure and the physical event this node describes are the same thing.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11359963" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11359963" target="_blank">PMID:11359963</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thunderstorm outflows were detected on 33% of epidemic days and only 3% of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6). The association was strongest in late spring and summer."</div>
+
+
+                <div class="evidence-explanation">Thunderstorm outflows were present on a third of epidemic days versus 3% of control days, a fifteenfold odds ratio tying the meteorological event to the epidemics.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26765082" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26765082" target="_blank">PMID:26765082</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"thunderstorms can concentrate pollen grains at ground level which may then release allergenic particles of respirable size in the atmosphere after their rupture by osmotic shock"</div>
+
+
+                <div class="evidence-explanation">Covers the second half of this node, which the epidemiological evidence above does not: the storm both concentrates grains at ground level and ruptures them osmotically to release respirable allergenic particles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-grass-ryegrass-pollen-sensitization-and-exposure" data-dismech-node="Grass (Ryegrass) Pollen Sensitization and Exposure" data-dismech-type="environmental">
                 <div class="item-name">Grass (Ryegrass) Pollen Sensitization and Exposure</div>
+
+
+
+
 
 
 
@@ -5771,10 +6190,66 @@ asthma."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pre-existing ryegrass-specific IgE is what converts inhaled pollen fragments into mast cell degranulation. Without sensitization the same particle load produces no attack, which is why this targets the IgE step rather than the deposition step.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29229087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29229087" target="_blank">PMID:29229087</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that ryegrass pollen sensitization, clinical allergic rhinitis, and acute allergen exposure constitute a risk-factor &#39;trifecta&#39; for thunderstorm asthma."</div>
+
+
+                <div class="evidence-explanation">Identifies ryegrass pollen sensitization, allergic rhinitis and acute allergen exposure as jointly constituting the risk, the IgE-dependent arm this node represents.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-outdoor-mold-alternaria-cladosporium-sensitization" data-dismech-node="Outdoor Mold (Alternaria/Cladosporium) Sensitization" data-dismech-type="environmental">
                 <div class="item-name">Outdoor Mold (Alternaria/Cladosporium) Sensitization</div>
+
+
+
+
 
 
 
@@ -5819,6 +6294,58 @@ likely to be the important factor in thunderstorm-related asthma."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Mould sensitization marks a population at elevated risk of epidemic asthma alongside the grass-pollen arm, but the cited evidence is predictive rather than mechanistic and does not establish mould as the particle driving these events.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17624415" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17624415" target="_blank">PMID:17624415</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alternaria alternata sensitivity is a compelling predictor of epidemic asthma in patients with seasonal asthma and grass pollen allergy and is likely to be the important factor in thunderstorm-related asthma."</div>
+
+
+                <div class="evidence-explanation">Reports Alternaria sensitivity as a compelling predictor of epidemic asthma in seasonal asthma patients, a predictive association rather than a demonstrated trigger.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -5837,6 +6364,9 @@ likely to be the important factor in thunderstorm-related asthma."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6239,6 +6769,39 @@ phenotypes:
 
 environmental:
 - name: Thunderstorm During Pollen Season
+  exposure_term:
+    preferred_term: thunderstorm exposure
+    term:
+      id: ECTO:1000029
+      label: exposure to thunderstorm
+  influences_mechanisms:
+  - target: Thunderstorm Concentration and Osmotic Rupture of Pollen Grains
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The storm is not a background condition here, it is the mechanism:
+      outflow concentrates intact pollen at ground level and the humidity
+      ruptures the grains osmotically. Exposure and the physical event this
+      node describes are the same thing.
+    evidence:
+    - reference: PMID:11359963
+      reference_title: &#34;Thunderstorm outflows preceding epidemics of asthma during spring and summer.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Thunderstorm outflows were detected on 33% of epidemic days and only 3% of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6). The association was strongest in late spring and summer.&#34;
+      explanation: &gt;-
+        Thunderstorm outflows were present on a third of epidemic days versus
+        3% of control days, a fifteenfold odds ratio tying the meteorological
+        event to the epidemics.
+    - reference: PMID:26765082
+      reference_title: &#34;Thunderstorm-related asthma: what happens and why.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;thunderstorms can concentrate pollen grains at ground level which may then release allergenic particles of respirable size in the atmosphere after their rupture by osmotic shock&#34;
+      explanation: &gt;-
+        Covers the second half of this node, which the epidemiological evidence
+        above does not: the storm both concentrates grains at ground level and
+        ruptures them osmotically to release respirable allergenic particles.
   description: &gt;-
     The defining trigger: a thunderstorm (specifically its cold outflow) in
     the grass-pollen or outdoor-mold season. Outbreaks are tightly,
@@ -6256,6 +6819,25 @@ environmental:
       Quantifies the thunderstorm-outflow association with epidemic asthma
       days and its seasonal (pollen-season) confinement.
 - name: Grass (Ryegrass) Pollen Sensitization and Exposure
+  influences_mechanisms:
+  - target: IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Pre-existing ryegrass-specific IgE is what converts inhaled pollen
+      fragments into mast cell degranulation. Without sensitization the same
+      particle load produces no attack, which is why this targets the IgE step
+      rather than the deposition step.
+    evidence:
+    - reference: PMID:29229087
+      reference_title: &#34;Who&#39;s at risk of thunderstorm asthma? The ryegrass pollen trifecta and lessons learnt from the Melbourne thunderstorm epidemic.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We conclude that ryegrass pollen sensitization, clinical allergic rhinitis, and acute allergen exposure constitute a risk-factor &#39;trifecta&#39; for thunderstorm asthma.&#34;
+      explanation: &gt;-
+        Identifies ryegrass pollen sensitization, allergic rhinitis and acute
+        allergen exposure as jointly constituting the risk, the IgE-dependent
+        arm this node represents.
   description: &gt;-
     Sensitization to grass pollen — ryegrass (Lolium perenne) in particular —
     together with acute outdoor exposure during the storm is a core risk
@@ -6273,6 +6855,25 @@ environmental:
       Identifies the ryegrass-sensitization / allergic-rhinitis / acute-exposure
       &#34;trifecta&#34; as the susceptibility profile for thunderstorm asthma.
 - name: Outdoor Mold (Alternaria/Cladosporium) Sensitization
+  influences_mechanisms:
+  - target: IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Mould sensitization marks a population at elevated risk of epidemic
+      asthma alongside the grass-pollen arm, but the cited evidence is
+      predictive rather than mechanistic and does not establish mould as the
+      particle driving these events.
+    evidence:
+    - reference: PMID:17624415
+      reference_title: &#34;Epidemic asthma and the role of the fungal mold Alternaria alternata.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Alternaria alternata sensitivity is a compelling predictor of epidemic asthma in patients with seasonal asthma and grass pollen allergy and is likely to be the important factor in thunderstorm-related asthma.&#34;
+      explanation: &gt;-
+        Reports Alternaria sensitivity as a compelling predictor of epidemic
+        asthma in seasonal asthma patients, a predictive association rather
+        than a demonstrated trigger.
   description: &gt;-
     Sensitization to outdoor fungal spores, especially Alternaria alternata
     (and Cladosporium), is an additional and in some settings dominant risk
@@ -6997,7 +7598,7 @@ Cascading immune and environmental insults cause severe epithelial damage, goble
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thunderstorm Asthma", "mondoId": "MONDO:0004784", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thunderstorm_Asthma", "yamlRevision": "7c81ef1c04c2"};
+        const OS_CONFIG = {"diseaseName": "Thunderstorm Asthma", "mondoId": "MONDO:0004784", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thunderstorm_Asthma", "yamlRevision": "3e2008a9e971"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7416,5 +8017,73 @@ Cascading immune and environmental insults cause severe epithelial damage, goble
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

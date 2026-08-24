@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3705,6 +3871,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3792,6 +3960,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4436,16 +4612,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Skeletal Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal Muscle Cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4472,16 +4653,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neuromuscular Transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007274">GO:0007274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neuromuscular Transmission, annotated with neuromuscular synaptic transmission (GO:0007274). GO:0007274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4498,6 +4684,7 @@
 
 
                 </div>
+
 
 
 
@@ -4577,16 +4764,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Complement Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Complement Activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4603,6 +4795,7 @@
 
 
                 </div>
+
 
 
 
@@ -4697,16 +4890,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Thymic Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002293" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002293">CL:0002293</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002293" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002293</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Thymic Epithelial Cell, annotated with epithelial cell of thymus (CL:0002293). CL:0002293 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4723,6 +4921,7 @@
 
 
                 </div>
+
 
 
 
@@ -4880,14 +5079,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Raynaud phenomenon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030880">HP:0030880</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0030880</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4950,14 +5156,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5022,14 +5235,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5092,14 +5312,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperthyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000836">HP:0000836</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000836</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5164,14 +5391,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000508">HP:0000508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5227,14 +5461,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diplopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000651">HP:0000651</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000651</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5299,14 +5540,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glycosuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003076">HP:0003076</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003076</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5371,14 +5619,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weakness of facial musculature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030319">HP:0030319</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0030319</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5443,14 +5698,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5515,14 +5777,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle Weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5578,14 +5847,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skeletal muscle atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003202">HP:0003202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5650,14 +5926,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5713,14 +5996,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paresthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003401</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5783,14 +6073,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5846,14 +6143,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5918,14 +6222,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5990,14 +6301,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ophthalmoparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000597" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000597">HP:0000597</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000597" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000597</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmoparesis (HP:0000597). HP:0000597 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6053,14 +6371,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001618">HP:0001618</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001618</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6116,14 +6441,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bulbar palsy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001283">HP:0001283</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001283</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6179,14 +6511,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigable weakness of skeletal muscles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030197" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030197">HP:0030197</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030197</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigable weakness of skeletal muscles (HP:0030197). HP:0030197 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6242,14 +6581,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Difficulty climbing stairs
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003551">HP:0003551</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Difficulty climbing stairs (HP:0003551). HP:0003551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6305,14 +6651,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal thymus morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000777" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000777">HP:0000777</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000777</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal thymus morphology (HP:0000777). HP:0000777 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6368,14 +6721,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thymus hyperplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010516">HP:0010516</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010516</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thymus hyperplasia (HP:0010516). HP:0010516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6431,14 +6791,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thymoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100522" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100522">HP:0100522</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100522" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100522</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thymoma (HP:0100522). HP:0100522 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6494,14 +6861,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myositis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100614" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100614">HP:0100614</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100614" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100614</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myositis (HP:0100614). HP:0100614 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6557,14 +6931,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tongue atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012473">HP:0012473</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012473</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6620,14 +7001,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Single fiber EMG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030006" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030006">HP:0030006</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0030006</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Single fiber EMG abnormality (HP:0030006). HP:0030006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6683,14 +7071,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-neuromuscular Junction acetylcholine receptor antibody positivity
+
+                        <span class="phenotype-term-label">Anti-neuromuscular Junction acetylcholine receptor antibody positivity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030208" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030208">HP:0030208</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030208</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-neuromuscular Junction acetylcholine receptor antibody positivity (HP:0030208). HP:0030208 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6746,14 +7143,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-muscle-specific tyrosine kinase antibody
+
+                        <span class="phenotype-term-label">Anti-muscle-specific tyrosine kinase antibody</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030210" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030210">HP:0030210</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030210</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-muscle-specific tyrosine kinase antibody (HP:0030210). HP:0030210 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6809,14 +7215,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-Lrp4 antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000046" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:5000046">HP:5000046</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_5000046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:5000046</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-Lrp4 antibody positivity (HP:5000046). HP:5000046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6872,14 +7285,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-titin antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000038" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:5000038">HP:5000038</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_5000038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:5000038</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-titin antibody positivity (HP:5000038). HP:5000038 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6935,14 +7355,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-ryanodine receptor antibody
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000047" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:5000047">HP:5000047</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_5000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:5000047</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-ryanodine receptor antibody (HP:5000047). HP:5000047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6998,14 +7425,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-Kv1.4 antibody
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000048" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:5000048">HP:5000048</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_5000048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:5000048</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-Kv1.4 antibody (HP:5000048). HP:5000048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7061,14 +7495,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anti-DCC netrin 1 receptor antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000881" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000881">HP:6000881</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000881" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:6000881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anti-DCC netrin 1 receptor antibody positivity (HP:6000881). HP:6000881 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7122,14 +7563,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hashimoto thyroiditis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000872">HP:0000872</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000872</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7185,14 +7633,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rheumatoid arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001370" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001370">HP:0001370</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001370</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rheumatoid arthritis (HP:0001370). HP:0001370 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7248,14 +7703,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Systemic lupus erythematosus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002725">HP:0002725</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002725</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7311,14 +7773,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Primary adrenal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008207" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008207">HP:0008207</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0008207</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7517,6 +7986,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CHRNA1
+
+
+    <a href="https://bioregistry.io/hgnc:1955" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:1955</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHRNA1 (hgnc:1955). hgnc:1955 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -7545,7 +8036,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">acetylcholinesterase inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">acetylcholinesterase inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is acetylcholinesterase inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7576,16 +8072,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         acetylcholinesterase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47792" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47792">NCIT:C47792</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47792" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C47792</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acetylcholinesterase inhibitor (NCIT:C47792). NCIT:C47792 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7676,7 +8177,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">corticosteroid agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">corticosteroid agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is corticosteroid agent therapy, annotated with Systemic Corticosteroid Therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -7753,7 +8259,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">thymectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">thymectomy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Thymectomy</span>
 
 
@@ -7867,7 +8378,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immune suppressant agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">immune suppressant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
@@ -7931,7 +8447,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immune suppressant agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">immune suppressant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
@@ -7995,7 +8516,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immune suppressant agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">immune suppressant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immune suppressant agent therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
@@ -8059,7 +8585,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">complement 5 inhibitor agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">complement 5 inhibitor agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is complement 5 inhibitor agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8090,16 +8621,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         complement inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C199456" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C199456">NCIT:C199456</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C199456" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C199456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8294,7 +8830,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">FcRn antagonist therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">FcRn antagonist therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8414,7 +8955,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">FcRn antagonist therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">FcRn antagonist therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8563,11 +9109,92 @@
             <div class="item-box environmental-box anchor-target" id="environmental-infections" data-dismech-node="Infections" data-dismech-type="environmental">
                 <div class="item-name">Infections</div>
 
-
-                <div class="item-desc">May trigger or exacerbate disease</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        Infectious agent exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000000" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-55">ECTO:3000000</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Infectious agent exposure, annotated with exposure to organism (ECTO:3000000). ECTO:3000000 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">May trigger or exacerbate disease, and is the single most common identified precipitant of myasthenic crisis. No specific pathogen has been established.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9153452" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9153452" target="_blank">PMID:9153452</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infection (usually pneumonia or upper respiratory infection) was the most common precipitating factor (38%), followed by no obvious cause (30%) and aspiration (10%)"</div>
+
+
+                <div class="evidence-explanation">Retrospective review of 73 myasthenic crisis episodes over twelve years. Quantifies infection as the leading identified precipitant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29372387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29372387" target="_blank">PMID:29372387</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MG can be triggered and worsened by infections. No virus or other pathogen has been proven to have a specific link to MG"</div>
+
+
+                <div class="evidence-explanation">Review supporting both halves of the note: infection as trigger and as exacerbant, together with the negative finding that no specific organism is established. The second sentence is the reason this entry is not narrowed to a named pathogen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -8576,11 +9203,92 @@
             <div class="item-box environmental-box anchor-target" id="environmental-medications" data-dismech-node="Medications" data-dismech-type="environmental">
                 <div class="item-name">Medications</div>
 
-
-                <div class="item-desc">Aminoglycosides, beta-blockers, and others may worsen</div>
-
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
+
+                    <span class="tag tag-env">
+                        medication exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-56">ECTO:0000509</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is medication exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-desc">Drugs that interfere with neuromuscular transmission may worsen disease. Fluoroquinolones are the best-evidenced example, including positive rechallenge.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21879778" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21879778" target="_blank">PMID:21879778</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Six patients (16%) experienced a positive rechallenge, with recurrent myasthenia gravis exacerbation after fluoroquinolone reintroduction"</div>
+
+
+                <div class="evidence-explanation">Analysis of 37 cases from the US FDA adverse event reporting system and the literature. Rechallenge is quoted in preference to the raw case count because recurrence on reintroduction is what distinguishes a drug effect from coincident deterioration in a relapsing disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29372387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29372387" target="_blank">PMID:29372387</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infections should be actively treated, but a few antibiotics are avoided due to potential interference with neuromuscular transmission"</div>
+
+
+                <div class="evidence-explanation">Supports the general mechanism named in the note - interference with neuromuscular transmission - and the clinical practice of avoiding particular antibiotics. It does not name which agents, which is why the note does not either.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -8588,6 +9296,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-stress" data-dismech-node="Stress" data-dismech-type="environmental">
                 <div class="item-name">Stress</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-57">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Physical or emotional stress can trigger exacerbations</div>
@@ -8603,10 +9338,46 @@
                 <div class="item-name">Pregnancy</div>
 
 
-                <div class="item-desc">Variable effects on disease course</div>
 
 
 
+
+                <div class="item-desc">Variable effects on disease course, with the risk concentrated after delivery rather than during gestation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42127347" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42127347" target="_blank">PMID:42127347</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During pregnancy, women were not more likely to be hospitalized for MG than in the prepregnancy year"</div>
+
+
+                <div class="evidence-explanation">Population study of 112 women and 176 singleton pregnancies. The same abstract reports a roughly fivefold increase in prolonged MG admissions in the first three months postpartum, sustained across the first twelve months, so the variability the note describes is directional rather than random: gestation itself was not associated with more hospitalization, the postpartum period was.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -8683,11 +9454,224 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Thymic B lineage cell landscape in Myasthenia gravis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE233180" target="_blank">geo:GSE233180</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Here, we provide a comprehensive and unbiased atlas of hematopoietic cell colonization in thymi derived from 12 immunotherapy-naïve patients with early-onset AChR-Ab+ MG (EOMG) using single-cell RNA sequencing (scRNA‑seq).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40117520" target="_blank" style="color: var(--secondary);">PMID:40117520</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Myasthenia Gravis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single-cell RNA-seq data of human PBMC from Myasthenia Gravis patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227835" target="_blank">geo:GSE227835</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Myasthenia Gravis (MG) is a chronic autoimmune disorder characterized by severe muscle weakness. However, the seronegative MG patient subgroup, which accounts for about 15% of MG patients, remains challenging diagnosis, and the immunopathology is understudied. Therefore, we performed single-cell RNA-sequencing analysis by peripheral blood and plasma proteome analysis for the seronegative MG patients. Numerical abnormalities were observed in multiple immune cells including B-cells compared to healthy controls (HC) and correlated with disease activities.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=40</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38711503" target="_blank" style="color: var(--secondary);">PMID:38711503</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Myasthenia Gravis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Elevated N-linked glycosylation of IgG variable regions in myasthenia gravis disease subtypes
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE182038" target="_blank">geo:GSE182038</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Elevated N-linked glycosylation of immunoglobulin G variable regions (IgG-VN-Glyc) is an emerging molecular phenotype associated with autoimmune disorders. To test the broader specificity of elevated IgG-VN-Glyc, we studied patients with distinct subtypes of myasthenia gravis (MG), a B cell-mediated autoimmune disease. Our experimental design included adaptive immune receptor repertoire sequencing to quantify and characterize N-glycosylation sites in the global B cell receptor repertoire, proteomics to examine glycosylation patterns of the circulating IgG, and production of human-derived recombinant autoantibodies, which were studied with mass spectrometry and antigen binding assays to confi...</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=31</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/34544801" target="_blank" style="color: var(--secondary);">PMID:34544801</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Myasthenia Gravis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole genome sequencing of 25 South African individuals with myasthenia gravis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003462" target="_blank">ega:EGAS00001003462</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study investigated the genetic basis of an ophthalmoplegic subphenotype of MG (OP-MG) which occurs in a proportion of myasthenics with juvenile symptom onset and African genetic ancestry. This OP-MG subphenotype is characterised by treatment resistant weakness of the extraocular muscles (EOMs) and the pathogenetic mechanism(s) underlying its development is unknown. The aim of this study was to use a hypothesis-generating genome-wide case-control analysis to identify candidate OP-MG susceptibility genes and pathways.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/30881381" target="_blank" style="color: var(--secondary);">PMID:30881381</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Myasthenia Gravis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genome-wide Association Study of Myasthenia Gravis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000726" target="_blank">dbgap:phs000726</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The purpose of this project was to conduct a genome-wide associate study to search for the genetic factors that predispose to myasthenia gravis. The rationale for this study lies in the fact that, although the immunological and physiological processes affecting the neuromuscular junctions of myasthenia gravis patients are well understood, the spectrum of genetic factors that predispose to myasthenia gravis and influence its disease manifestations are not well known.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Myasthenia Gravis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8706,7 +9690,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Myasthenia Gravis
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-04-28T17:00:00Z&#39;
 description: &gt;-
   Myasthenia gravis is an autoimmune disorder in which autoantibodies, most commonly against the acetylcholine receptor, target the postsynaptic neuromuscular junction.
   Antibody binding triggers receptor internalization and classical complement activation with membrane attack complex formation, destroying postsynaptic membrane and impairing neuromuscular transmission.
@@ -9658,17 +10641,92 @@ genetic:
       The GWAS supports distinct genetic contributions by age at onset, matching
       the research synthesis emphasis on early- versus late-onset MG.
 - name: CHRNA1
+  gene_term:
+    preferred_term: CHRNA1
+    term:
+      id: hgnc:1955
+      label: CHRNA1
   association: Risk Factor
   notes: Acetylcholine receptor alpha subunit, rare variants
 environmental:
 - name: Infections
-  notes: May trigger or exacerbate disease
+  exposure_term:
+    preferred_term: Infectious agent exposure
+    term:
+      id: ECTO:3000000
+      label: exposure to organism
+  notes: May trigger or exacerbate disease, and is the single most common identified
+    precipitant of myasthenic crisis. No specific pathogen has been established.
+  evidence:
+  - reference: PMID:9153452
+    reference_title: &#34;Myasthenic crisis: clinical features, mortality, complications, and risk factors for prolonged intubation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Infection (usually pneumonia or upper respiratory infection) was the most common precipitating factor (38%), followed by no obvious cause (30%) and aspiration (10%)&#34;
+    explanation: &#34;Retrospective review of 73 myasthenic crisis episodes over twelve years. Quantifies infection as the leading identified precipitant.&#34;
+  - reference: PMID:29372387
+    reference_title: &#34;Myasthenia gravis and infectious disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;MG can be triggered and worsened by infections. No virus or other pathogen has been proven to have a specific link to MG&#34;
+    explanation: &#34;Review supporting both halves of the note: infection as trigger and as exacerbant, together with the negative finding that no specific organism is established. The second sentence is the reason this entry is not narrowed to a named pathogen.&#34;
 - name: Medications
-  notes: Aminoglycosides, beta-blockers, and others may worsen
+  exposure_term:
+    preferred_term: medication exposure
+    term:
+      id: ECTO:0000509
+      label: exposure to drug
+  notes: Drugs that interfere with neuromuscular transmission may worsen disease.
+    Fluoroquinolones are the best-evidenced example, including positive rechallenge.
+  review_notes: The prior note named aminoglycosides and beta-blockers. Both are
+    long-standing clinical convention and appear on avoid-lists, but no source was
+    found whose abstract states either association directly, so the note now leads
+    with the agent class that is evidenced rather than asserting an unsourced drug
+    list. Aminoglycosides and beta-blockers should be reinstated by name if and when
+    a citable source is found; their omission here is an evidence gap, not a
+    judgement that the association is wrong.
+  evidence:
+  - reference: PMID:21879778
+    reference_title: &#34;Fluoroquinolone-associated myasthenia gravis exacerbation: evaluation of postmarketing reports from the US FDA adverse event reporting system and a literature review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Six patients (16%) experienced a positive rechallenge, with recurrent myasthenia gravis exacerbation after fluoroquinolone reintroduction&#34;
+    explanation: &#34;Analysis of 37 cases from the US FDA adverse event reporting system and the literature. Rechallenge is quoted in preference to the raw case count because recurrence on reintroduction is what distinguishes a drug effect from coincident deterioration in a relapsing disease.&#34;
+  - reference: PMID:29372387
+    reference_title: &#34;Myasthenia gravis and infectious disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Infections should be actively treated, but a few antibiotics are avoided due to potential interference with neuromuscular transmission&#34;
+    explanation: &#34;Supports the general mechanism named in the note - interference with neuromuscular transmission - and the clinical practice of avoiding particular antibiotics. It does not name which agents, which is why the note does not either.&#34;
 - name: Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Physical or emotional stress can trigger exacerbations
+  review_notes: Left deliberately uncited. Targeted PubMed searches (stress
+    precipitating myasthenic exacerbation; psychological stress and myasthenia
+    gravis onset; patient-reported trigger factors) returned no study whose
+    abstract states this claim directly. Note that the largest crisis-precipitant
+    series cited on the Infections entry records no obvious cause in 30 percent of
+    episodes rather than attributing them to stress. Per the evidence SOP the claim
+    is kept as a note rather than attached to an approximately-relevant citation.
 - name: Pregnancy
-  notes: Variable effects on disease course
+  notes: Variable effects on disease course, with the risk concentrated after
+    delivery rather than during gestation.
+  review_notes: Left without an exposure_term. ECTO was searched and carries no
+    pregnancy exposure class; the near matches are CHEBI chemical terms, which would
+    not validate against the exposure-term enum. Per the term-curation rule that no
+    term beats a bad one, this stays unbound rather than being forced onto an
+    approximate class.
+  evidence:
+  - reference: PMID:42127347
+    reference_title: &#34;Risk of Myasthenia Gravis Exacerbation During Pregnancy and Postpartum: A Nationwide Cohort Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;During pregnancy, women were not more likely to be hospitalized for MG than in the prepregnancy year&#34;
+    explanation: &#34;Population study of 112 women and 176 singleton pregnancies. The same abstract reports a roughly fivefold increase in prolonged MG admissions in the first three months postpartum, sustained across the first twelve months, so the variability the note describes is directional rather than random: gestation itself was not associated with more hospitalization, the postpartum period was.&#34;
 treatments:
 - name: Acetylcholinesterase Inhibitors
   description: First-line symptomatic treatment (pyridostigmine).
@@ -9909,7 +10967,57 @@ treatments:
       Rozanolixizumab blocks FcRn to accelerate IgG catabolism, reducing
       circulating AChR autoantibody levels and lessening antibody-mediated
       disruption of neuromuscular transmission.
-datasets: []
+datasets:
+- accession: geo:GSE233180
+  title: Thymic B lineage cell landscape in Myasthenia gravis
+  description: Here, we provide a comprehensive and unbiased atlas of hematopoietic cell colonization in thymi derived from 12 immunotherapy-naïve patients with early-onset AChR-Ab+ MG (EOMG) using single-cell RNA sequencing (scRNA‑seq).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 24
+  publication: PMID:40117520
+  notes: Identified by GEO DataSets index search for Myasthenia Gravis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE227835
+  title: Single-cell RNA-seq data of human PBMC from Myasthenia Gravis patients
+  description: Myasthenia Gravis (MG) is a chronic autoimmune disorder characterized by severe muscle weakness. However, the seronegative MG patient subgroup, which accounts for about 15% of MG patients, remains challenging diagnosis, and the immunopathology is understudied. Therefore, we performed single-cell RNA-sequencing analysis by peripheral blood and plasma proteome analysis for the seronegative MG patients. Numerical abnormalities were observed in multiple immune cells including B-cells compared to healthy controls (HC) and correlated with disease activities.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 40
+  publication: PMID:38711503
+  notes: Identified by GEO DataSets index search for Myasthenia Gravis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE182038
+  title: Elevated N-linked glycosylation of IgG variable regions in myasthenia gravis disease subtypes
+  description: Elevated N-linked glycosylation of immunoglobulin G variable regions (IgG-VN-Glyc) is an emerging molecular phenotype associated with autoimmune disorders. To test the broader specificity of elevated IgG-VN-Glyc, we studied patients with distinct subtypes of myasthenia gravis (MG), a B cell-mediated autoimmune disease. Our experimental design included adaptive immune receptor repertoire sequencing to quantify and characterize N-glycosylation sites in the global B cell receptor repertoire, proteomics to examine glycosylation patterns of the circulating IgG, and production of human-derived recombinant autoantibodies, which were studied with mass spectrometry and antigen binding assays to confi...
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 31
+  publication: PMID:34544801
+  notes: Identified by GEO DataSets index search for Myasthenia Gravis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001003462
+  title: Whole genome sequencing of 25 South African individuals with myasthenia gravis
+  description: This study investigated the genetic basis of an ophthalmoplegic subphenotype of MG (OP-MG) which occurs in a proportion of myasthenics with juvenile symptom onset and African genetic ancestry. This OP-MG subphenotype is characterised by treatment resistant weakness of the extraocular muscles (EOMs) and the pathogenetic mechanism(s) underlying its development is unknown. The aim of this study was to use a hypothesis-generating genome-wide case-control analysis to identify candidate OP-MG susceptibility genes and pathways.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:30881381
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Myasthenia Gravis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: dbgap:phs000726
+  title: Genome-wide Association Study of Myasthenia Gravis
+  description:  The purpose of this project was to conduct a genome-wide associate study to search for the genetic factors that predispose to myasthenia gravis. The rationale for this study lies in the fact that, although the immunological and physiological processes affecting the neuromuscular junctions of myasthenia gravis patients are well understood, the spectrum of genetic factors that predispose to myasthenia gravis and influence its disease manifestations are not well known.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Myasthenia Gravis&#34;). Retrieved 2026-08-02.
 references:
 - reference: PMID:38789789
   title: Treating myasthenia gravis beyond the eye clinic
@@ -10446,7 +11554,7 @@ Myasthenia gravis is a prototypic antibody-mediated autoimmune synaptopathy of t
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Myasthenia Gravis", "mondoId": "MONDO:0009688", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myasthenia_Gravis", "yamlRevision": "95c64cd63436"};
+        const OS_CONFIG = {"diseaseName": "Myasthenia Gravis", "mondoId": "MONDO:0009688", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myasthenia_Gravis", "yamlRevision": "a3ae88e7b217"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10865,5 +11973,73 @@ Myasthenia gravis is a prototypic antibody-mediated autoimmune synaptopathy of t
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

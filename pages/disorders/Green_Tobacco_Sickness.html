@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3560,7 +3726,7 @@
 
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Green%20Tobacco%20Sickness"
@@ -3692,6 +3858,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3721,7 +3889,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3810,6 +3978,7 @@
 
                 <div class="item-desc">Nicotine dissolved in dew, rainwater, or perspiration on tobacco leaf surfaces penetrates the skin upon direct contact, bypassing first-pass hepatic metabolism. The rate of absorption increases with moisture on leaves, ambient temperature, duration of skin contact, physical exertion, and compromised skin integrity. High ambient temperatures increase skin absorption and plasma nicotine concentrations by 30-45%. Physical labor shunts blood to the skin, further increasing dermal nicotine absorption.
 </div>
+
 
 
 
@@ -3942,16 +4111,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cholinergic Synaptic Transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007271">GO:0007271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0007271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cholinergic Synaptic Transmission, annotated with synaptic transmission, cholinergic (GO:0007271). GO:0007271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3972,6 +4146,7 @@
 
 
                 </div>
+
 
 
 
@@ -4113,16 +4288,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Response to Nicotine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035094" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035094">GO:0035094</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035094" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0035094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Nicotine (GO:0035094). GO:0035094 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4139,6 +4319,7 @@
 
 
                 </div>
+
 
 
 
@@ -4279,16 +4460,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cholinergic Synaptic Transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007271">GO:0007271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cholinergic Synaptic Transmission, annotated with synaptic transmission, cholinergic (GO:0007271). GO:0007271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4309,6 +4495,7 @@
 
 
                 </div>
+
 
 
 
@@ -4404,16 +4591,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neuromuscular Synaptic Transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007274">GO:0007274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neuromuscular Synaptic Transmission (GO:0007274). GO:0007274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4434,6 +4626,7 @@
 
 
                 </div>
+
 
 
 
@@ -4528,7 +4721,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal cramping and pain result from parasympathetic stimulation of gastrointestinal smooth muscle by nicotine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Autonomic Ganglia Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine-induced overstimulation of nAChRs at autonomic ganglia produces simultaneous parasympathetic and sympathetic hyperactivation. Parasympathetic effects include nausea, vomiting, diarrhea, increased salivation, and abdominal cramps via vagal and enteric nerve stimulation of gastrointestinal smooth muscle and secretory glands. Sympathetic effects include tachycardia, hypertension, and diaphoresis. The simultaneous overdrive of both branches produces the contradictory symptom profile characteristic of acute nicotine poisoning.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Nicotine\"]}}, {\"id\": \"Breathlessness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Breathlessness and labored respiration may occur as a respiratory complaint in GTS, likely due to nicotine effects on respiratory center and chest wall musculature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Central Nervous System Effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine crossing the blood-brain barrier acts on central nAChRs, directly stimulating the chemoreceptor trigger zone (area postrema) to produce reflex vomiting independent of peripheral gastrointestinal stimulation. Central nicotinic effects also alter cerebrovascular tone and vestibular processing, contributing to headache and dizziness. These central effects are mechanistically distinct from the peripheral autonomic ganglia dysfunction, though both contribute to the overall symptom profile.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Cholinergic Synaptic Transmission\"]}}, {\"id\": \"Chills\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chills and feeling cold are reported by affected workers, likely due to autonomic dysregulation of thermoregulation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0025143\"}}, {\"id\": \"Diaphoresis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sweating due to sympathetic cholinergic activation by nicotine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea results from parasympathetic stimulation of gastrointestinal motility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dizziness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dizziness and lightheadedness are common, resulting from nicotine effects on the central nervous system and possibly transient blood pressure changes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031972\"}}, {\"id\": \"Excessive Salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased salivation results from parasympathetic stimulation of salivary glands by nicotine acting on autonomic ganglia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache frequently accompanies other symptoms, likely due to direct central nervous system effects of nicotine and autonomic dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Occasional lowering of blood pressure or heart rate may occur due to vagal stimulation by nicotine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Nausea and Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea is the most commonly reported symptom, often accompanied by vomiting. These result from stimulation of the chemoreceptor trigger zone and vagal afferents by circulating nicotine.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002017\"}}, {\"id\": \"Neuromuscular Junction Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine overstimulates nAChRs at the neuromuscular junction (the synapse between motor neurons and skeletal muscle fibers), initially causing excessive muscle activation followed by receptor desensitization and depolarization block. This produces generalized weakness, prostration, and impaired respiratory muscle function contributing to breathlessness. This mechanism is analogous to the depolarizing block produced by succinylcholine and is mechanistically distinct from the autonomic and central nervous system effects.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Neuromuscular Synaptic Transmission\"]}}, {\"id\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed nicotine binds to nicotinic acetylcholine receptors (nAChRs) at autonomic ganglia, neuromuscular junctions, and in the central nervous system, causing initial stimulation followed by desensitization and blockade. This produces the characteristic constellation of gastrointestinal, neurological, and cardiovascular symptoms. Smokers and tobacco users may develop tolerance to nicotine effects via chronic nAChR desensitization, providing partial protection against GTS.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Cholinergic Synaptic Transmission\"]}}, {\"id\": \"Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pallor is a frequently reported sign, likely related to nicotine-induced peripheral vasoconstriction and autonomic dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000980\"}}, {\"id\": \"Transdermal Nicotine Absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine dissolved in dew, rainwater, or perspiration on tobacco leaf surfaces penetrates the skin upon direct contact, bypassing first-pass hepatic metabolism. The rate of absorption increases with moisture on leaves, ambient temperature, duration of skin contact, physical exertion, and compromised skin integrity. High ambient temperatures increase skin absorption and plasma nicotine concentrations by 30-45%. Physical labor shunts blood to the skin, further increasing dermal nicotine absorption.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized weakness and prostration are common, resulting from nicotinic receptor effects at neuromuscular junctions and general autonomic dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}], \"edges\": [{\"source\": \"Transdermal Nicotine Absorption\", \"target\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed nicotine enters systemic circulation and binds to nicotinic acetylcholine receptors throughout the body.\\n\"}, {\"source\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"target\": \"Autonomic Ganglia Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overstimulation of ganglionic nAChRs causes excessive parasympathetic and sympathetic activation leading to gastrointestinal and cardiovascular symptoms.\\n\"}, {\"source\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"target\": \"Central Nervous System Effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nicotine crosses the blood-brain barrier and acts on central nAChRs, triggering the chemoreceptor trigger zone and altering cerebrovascular tone.\\n\"}, {\"source\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"target\": \"Neuromuscular Junction Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overstimulation and subsequent desensitization of nAChRs at the neuromuscular junction impairs voluntary muscle function.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Nausea and Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic vagal and enteric nerve stimulation of gastrointestinal smooth muscle and secretory glands provokes nausea and vomiting.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic stimulation of gastrointestinal smooth muscle produces abdominal cramping and pain.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic stimulation of gastrointestinal motility produces diarrhea.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Excessive Salivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic stimulation of salivary glands at autonomic ganglia increases salivation.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Diaphoresis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sympathetic cholinergic activation of sweat glands produces excessive sweating.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Pallor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sympathetic-mediated peripheral vasoconstriction and autonomic dysfunction produce pallor.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive vagal (parasympathetic) tone occasionally lowers blood pressure and heart rate.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Chills\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic dysregulation of thermoregulation produces chills and a sensation of cold.\\n\"}, {\"source\": \"Central Nervous System Effects\", \"target\": \"Nausea and Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central stimulation of the chemoreceptor trigger zone (area postrema) produces reflex vomiting independent of peripheral GI stimulation.\\n\"}, {\"source\": \"Central Nervous System Effects\", \"target\": \"Dizziness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nicotinic effects on cerebrovascular tone and vestibular processing produce dizziness and lightheadedness.\\n\"}, {\"source\": \"Central Nervous System Effects\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nervous system nicotinic effects and altered cerebrovascular tone contribute to headache.\\n\"}, {\"source\": \"Neuromuscular Junction Disruption\", \"target\": \"Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor desensitization and depolarization block at the neuromuscular junction impair skeletal muscle activation, producing weakness and prostration.\\n\"}, {\"source\": \"Neuromuscular Junction Disruption\", \"target\": \"Breathlessness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired respiratory muscle function from neuromuscular junction blockade contributes to breathlessness.\\n\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal cramping and pain result from parasympathetic stimulation of gastrointestinal smooth muscle by nicotine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Autonomic Ganglia Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine-induced overstimulation of nAChRs at autonomic ganglia produces simultaneous parasympathetic and sympathetic hyperactivation. Parasympathetic effects include nausea, vomiting, diarrhea, increased salivation, and abdominal cramps via vagal and enteric nerve stimulation of gastrointestinal smooth muscle and secretory glands. Sympathetic effects include tachycardia, hypertension, and diaphoresis. The simultaneous overdrive of both branches produces the contradictory symptom profile characteristic of acute nicotine poisoning.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Nicotine\"]}}, {\"id\": \"Breathlessness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Breathlessness and labored respiration may occur as a respiratory complaint in GTS, likely due to nicotine effects on respiratory center and chest wall musculature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Central Nervous System Effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine crossing the blood-brain barrier acts on central nAChRs, directly stimulating the chemoreceptor trigger zone (area postrema) to produce reflex vomiting independent of peripheral gastrointestinal stimulation. Central nicotinic effects also alter cerebrovascular tone and vestibular processing, contributing to headache and dizziness. These central effects are mechanistically distinct from the peripheral autonomic ganglia dysfunction, though both contribute to the overall symptom profile.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Cholinergic Synaptic Transmission\"]}}, {\"id\": \"Chills\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chills and feeling cold are reported by affected workers, likely due to autonomic dysregulation of thermoregulation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0025143\"}}, {\"id\": \"Diaphoresis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Excessive sweating due to sympathetic cholinergic activation by nicotine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diarrhea results from parasympathetic stimulation of gastrointestinal motility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dizziness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dizziness and lightheadedness are common, resulting from nicotine effects on the central nervous system and possibly transient blood pressure changes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031972\"}}, {\"id\": \"Excessive Salivation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased salivation results from parasympathetic stimulation of salivary glands by nicotine acting on autonomic ganglia.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003781\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache frequently accompanies other symptoms, likely due to direct central nervous system effects of nicotine and autonomic dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Heat and Physical Exertion\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"High ambient temperatures and strenuous physical labor increase cutaneous blood flow, significantly enhancing transdermal nicotine absorption. Perspiration also dissolves additional nicotine from leaf surfaces.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Occasional lowering of blood pressure or heart rate may occur due to vagal stimulation by nicotine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002615\"}}, {\"id\": \"Lack of Protective Clothing\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Workers who do not wear waterproof gloves, long sleeves, or rain gear while handling wet tobacco have significantly higher risk of GTS. Washing with soap and water after work reduces skin nicotine by 96%.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nausea and Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea is the most commonly reported symptom, often accompanied by vomiting. These result from stimulation of the chemoreceptor trigger zone and vagal afferents by circulating nicotine.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002017\"}}, {\"id\": \"Neuromuscular Junction Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine overstimulates nAChRs at the neuromuscular junction (the synapse between motor neurons and skeletal muscle fibers), initially causing excessive muscle activation followed by receptor desensitization and depolarization block. This produces generalized weakness, prostration, and impaired respiratory muscle function contributing to breathlessness. This mechanism is analogous to the depolarizing block produced by succinylcholine and is mechanistically distinct from the autonomic and central nervous system effects.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Neuromuscular Synaptic Transmission\"]}}, {\"id\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed nicotine binds to nicotinic acetylcholine receptors (nAChRs) at autonomic ganglia, neuromuscular junctions, and in the central nervous system, causing initial stimulation followed by desensitization and blockade. This produces the characteristic constellation of gastrointestinal, neurological, and cardiovascular symptoms. Smokers and tobacco users may develop tolerance to nicotine effects via chronic nAChR desensitization, providing partial protection against GTS.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Cholinergic Synaptic Transmission\"]}}, {\"id\": \"Pallor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pallor is a frequently reported sign, likely related to nicotine-induced peripheral vasoconstriction and autonomic dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000980\"}}, {\"id\": \"Transdermal Nicotine Absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nicotine dissolved in dew, rainwater, or perspiration on tobacco leaf surfaces penetrates the skin upon direct contact, bypassing first-pass hepatic metabolism. The rate of absorption increases with moisture on leaves, ambient temperature, duration of skin contact, physical exertion, and compromised skin integrity. High ambient temperatures increase skin absorption and plasma nicotine concentrations by 30-45%. Physical labor shunts blood to the skin, further increasing dermal nicotine absorption.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized weakness and prostration are common, resulting from nicotinic receptor effects at neuromuscular junctions and general autonomic dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Wet Tobacco Leaf Contact\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Direct skin contact with wet or dew-covered green tobacco leaves during harvesting, topping, or handling. Moisture dissolves nicotine from leaf surfaces and facilitates transdermal absorption. Harvesting carries the greatest risk, followed by barning.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Work Inexperience\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Workers with less experience in tobacco farming are at higher risk for GTS. This may reflect attrition of susceptible individuals from the workforce and lack of acquired nicotine tolerance.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Transdermal Nicotine Absorption\", \"target\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed nicotine enters systemic circulation and binds to nicotinic acetylcholine receptors throughout the body.\\n\"}, {\"source\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"target\": \"Autonomic Ganglia Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overstimulation of ganglionic nAChRs causes excessive parasympathetic and sympathetic activation leading to gastrointestinal and cardiovascular symptoms.\\n\"}, {\"source\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"target\": \"Central Nervous System Effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nicotine crosses the blood-brain barrier and acts on central nAChRs, triggering the chemoreceptor trigger zone and altering cerebrovascular tone.\\n\"}, {\"source\": \"Nicotinic Acetylcholine Receptor Overstimulation\", \"target\": \"Neuromuscular Junction Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overstimulation and subsequent desensitization of nAChRs at the neuromuscular junction impairs voluntary muscle function.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Nausea and Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic vagal and enteric nerve stimulation of gastrointestinal smooth muscle and secretory glands provokes nausea and vomiting.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic stimulation of gastrointestinal smooth muscle produces abdominal cramping and pain.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic stimulation of gastrointestinal motility produces diarrhea.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Excessive Salivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic stimulation of salivary glands at autonomic ganglia increases salivation.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Diaphoresis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sympathetic cholinergic activation of sweat glands produces excessive sweating.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Pallor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sympathetic-mediated peripheral vasoconstriction and autonomic dysfunction produce pallor.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Hypotension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive vagal (parasympathetic) tone occasionally lowers blood pressure and heart rate.\\n\"}, {\"source\": \"Autonomic Ganglia Dysfunction\", \"target\": \"Chills\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic dysregulation of thermoregulation produces chills and a sensation of cold.\\n\"}, {\"source\": \"Central Nervous System Effects\", \"target\": \"Nausea and Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central stimulation of the chemoreceptor trigger zone (area postrema) produces reflex vomiting independent of peripheral GI stimulation.\\n\"}, {\"source\": \"Central Nervous System Effects\", \"target\": \"Dizziness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nicotinic effects on cerebrovascular tone and vestibular processing produce dizziness and lightheadedness.\\n\"}, {\"source\": \"Central Nervous System Effects\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nervous system nicotinic effects and altered cerebrovascular tone contribute to headache.\\n\"}, {\"source\": \"Neuromuscular Junction Disruption\", \"target\": \"Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor desensitization and depolarization block at the neuromuscular junction impair skeletal muscle activation, producing weakness and prostration.\\n\"}, {\"source\": \"Neuromuscular Junction Disruption\", \"target\": \"Breathlessness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired respiratory muscle function from neuromuscular junction blockade contributes to breathlessness.\\n\"}, {\"source\": \"Wet Tobacco Leaf Contact\", \"target\": \"Transdermal Nicotine Absorption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Dew or rain dissolves nicotine on the leaf surface into a film that contacts skin directly. This is the exposure the disease is named for, and it explains why harvesting early in the morning is the highest-risk task.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lack of Protective Clothing\", \"target\": \"Transdermal Nicotine Absorption\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Clothing is the barrier between the nicotine film and the skin, so its absence does not supply nicotine but removes the only thing limiting how much crosses. That is why covering exposed skin is the primary prevention.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heat and Physical Exertion\", \"target\": \"Transdermal Nicotine Absorption\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Thermoregulation works against the worker here: heat and hard labour shunt blood to the skin, which is exactly the compartment absorbing nicotine, so the same surface dose is taken up faster.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Work Inexperience\", \"target\": \"Transdermal Nicotine Absorption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Inexperience is a proxy rather than a mechanism, plausibly covering both unlearned protective habits and absent tolerance. The same study finds tobacco users at lower risk, consistent with a tolerance component.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4583,14 +4776,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002615">HP:0002615</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002615</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4653,14 +4853,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea and vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002017">HP:0002017</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002017</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea and vomiting (HP:0002017). HP:0002017 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4736,14 +4943,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002014</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4806,14 +5020,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Excessive salivation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003781">HP:0003781</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0003781</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4876,14 +5097,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperhidrosis
+
+                        <span class="phenotype-term-label">Hyperhidrosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000975">HP:0000975</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive sweating, annotated with Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4937,14 +5167,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pallor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000980">HP:0000980</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000980</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5007,14 +5244,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
+
+                        <span class="phenotype-term-label">Muscle weakness</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5077,14 +5323,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5147,14 +5400,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
+
+                        <span class="phenotype-term-label">Dyspnea</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Breathlessness, annotated with Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5217,14 +5479,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal cramps, annotated with Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5278,14 +5547,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chills
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025143">HP:0025143</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0025143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5348,14 +5624,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Presyncope
+
+                        <span class="phenotype-term-label">Presyncope</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031972" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031972">HP:0031972</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031972" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0031972</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dizziness and lightheadedness, annotated with Presyncope (HP:0031972). HP:0031972 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5453,7 +5738,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemical exposure avoidance</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">chemical exposure avoidance<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -5532,7 +5822,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5610,7 +5905,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemical exposure avoidance</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">chemical exposure avoidance<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -5711,7 +6011,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5800,21 +6105,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to tobacco
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100013" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0100013">ECTO:0100013</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100013" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-21">ECTO:0100013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco (ECTO:0100013). ECTO:0100013 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -5879,10 +6193,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Transdermal Nicotine Absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Dew or rain dissolves nicotine on the leaf surface into a film that contacts skin directly. This is the exposure the disease is named for, and it explains why harvesting early in the morning is the highest-risk task.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24526387" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24526387" target="_blank">PMID:24526387</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among men, age, being a non-smoker, hanging tobacco sticks in the barn, harvesting wet leaves, and exposure to physical exertion were risk factors for GTS."</div>
+
+
+                <div class="evidence-explanation">Names harvesting wet leaves directly among the risk factors for green tobacco sickness, the exposure this link records, rather than the indirect proxy of time spent in wet clothing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-lack-of-protective-clothing" data-dismech-node="Lack of Protective Clothing" data-dismech-type="environmental">
                 <div class="item-name">Lack of Protective Clothing</div>
+
+
+
+
 
 
 
@@ -5947,10 +6317,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Transdermal Nicotine Absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Clothing is the barrier between the nicotine film and the skin, so its absence does not supply nicotine but removes the only thing limiting how much crosses. That is why covering exposed skin is the primary prevention.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8367763" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8367763" target="_blank">PMID:8367763</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prevention, by covering exposed skin, seems to be the most effective way of dealing with GTS."</div>
+
+
+                <div class="evidence-explanation">States that covering exposed skin is the most effective way of preventing green tobacco sickness, identifying the barrier whose absence this link records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-heat-and-physical-exertion" data-dismech-node="Heat and Physical Exertion" data-dismech-type="environmental">
                 <div class="item-name">Heat and Physical Exertion</div>
+
+
+
+
 
 
 
@@ -5993,10 +6419,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Transdermal Nicotine Absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Thermoregulation works against the worker here: heat and hard labour shunt blood to the skin, which is exactly the compartment absorbing nicotine, so the same surface dose is taken up faster.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29618907" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29618907" target="_blank">PMID:29618907</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The combination of high ambient temperatures and hard physical labor shunts blood to the skin to help lower body temperature. The resultant increase in surface blood flow also significantly increases dermal absorption of nicotine."</div>
+
+
+                <div class="evidence-explanation">States that high ambient temperature combined with hard physical labour shunts blood to the skin, the circulatory change that accelerates uptake at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-work-inexperience" data-dismech-node="Work Inexperience" data-dismech-type="environmental">
                 <div class="item-name">Work Inexperience</div>
+
+
+
+
 
 
 
@@ -6038,6 +6520,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Transdermal Nicotine Absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Inexperience is a proxy rather than a mechanism, plausibly covering both unlearned protective habits and absent tolerance. The same study finds tobacco users at lower risk, consistent with a tolerance component.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11464390" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11464390" target="_blank">PMID:11464390</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Greater work experience (5+ years, ID = 0.87; first year ID = 2.41) and tobacco use (ID of 1.18 vs 2.39) were negatively associated with green tobacco sickness."</div>
+
+
+                <div class="evidence-explanation">Reports greater work experience and tobacco use both negatively associated with incidence, suggesting learned protection and tolerance rather than a direct effect on absorption.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6209,6 +6743,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6225,7 +6762,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Green Tobacco Sickness
 creation_date: &#34;2026-03-23T00:00:00Z&#34;
-updated_date: &#34;2026-05-09T03:15:56Z&#34;
 category: Environmental
 description: &gt;
   Green tobacco sickness (GTS) is an occupational illness caused by dermal absorption
@@ -6817,6 +7353,25 @@ progression:
     explanation: Confirms the self-limiting nature of GTS and supportive treatment approach.
 environmental:
 - name: Wet Tobacco Leaf Contact
+  influences_mechanisms:
+  - target: Transdermal Nicotine Absorption
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Dew or rain dissolves nicotine on the leaf surface into a film that
+      contacts skin directly. This is the exposure the disease is named for,
+      and it explains why harvesting early in the morning is the highest-risk
+      task.
+    evidence:
+    - reference: PMID:24526387
+      reference_title: &#34;Green tobacco sickness among tobacco farmers in southern Brazil.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Among men, age, being a non-smoker, hanging tobacco sticks in the barn, harvesting wet leaves, and exposure to physical exertion were risk factors for GTS.&#34;
+      explanation: &gt;-
+        Names harvesting wet leaves directly among the risk factors for
+        green tobacco sickness, the exposure this link records, rather than
+        the indirect proxy of time spent in wet clothing.
   description: &gt;
     Direct skin contact with wet or dew-covered green tobacco leaves during
     harvesting, topping, or handling. Moisture dissolves nicotine from leaf
@@ -6842,6 +7397,25 @@ environmental:
     snippet: &#34;Among men, age, being a non-smoker, hanging tobacco sticks in the barn, harvesting wet leaves, and exposure to physical exertion were risk factors for GTS.&#34;
     explanation: Brazilian study confirming wet leaf harvesting as a key risk factor.
 - name: Lack of Protective Clothing
+  influences_mechanisms:
+  - target: Transdermal Nicotine Absorption
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Clothing is the barrier between the nicotine film and the skin, so its
+      absence does not supply nicotine but removes the only thing limiting how
+      much crosses. That is why covering exposed skin is the primary
+      prevention.
+    evidence:
+    - reference: PMID:8367763
+      reference_title: &#34;Green tobacco sickness.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Prevention, by covering exposed skin, seems to be the most effective way of dealing with GTS.&#34;
+      explanation: &gt;-
+        States that covering exposed skin is the most effective way of
+        preventing green tobacco sickness, identifying the barrier whose
+        absence this link records.
   description: &gt;
     Workers who do not wear waterproof gloves, long sleeves, or rain gear
     while handling wet tobacco have significantly higher risk of GTS. Washing
@@ -6861,6 +7435,24 @@ environmental:
     snippet: &#34;Our study appears to reinforce the GTS prevention recommendations made by investigators in other tobacco growing regions, specifically the importance of minimizing close skin contact with tobacco leaves and avoiding dermal contact with the plants when they are wet.&#34;
     explanation: Shade-tobacco study reinforcing the importance of minimizing skin contact with wet tobacco.
 - name: Heat and Physical Exertion
+  influences_mechanisms:
+  - target: Transdermal Nicotine Absorption
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Thermoregulation works against the worker here: heat and hard labour
+      shunt blood to the skin, which is exactly the compartment absorbing
+      nicotine, so the same surface dose is taken up faster.
+    evidence:
+    - reference: PMID:29618907
+      reference_title: &#34;Green Tobacco Sickness: A Brief Review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The combination of high ambient temperatures and hard physical labor shunts blood to the skin to help lower body temperature. The resultant increase in surface blood flow also significantly increases dermal absorption of nicotine.&#34;
+      explanation: &gt;-
+        States that high ambient temperature combined with hard physical
+        labour shunts blood to the skin, the circulatory change that
+        accelerates uptake at this node.
   description: &gt;
     High ambient temperatures and strenuous physical labor increase cutaneous
     blood flow, significantly enhancing transdermal nicotine absorption.
@@ -6874,6 +7466,24 @@ environmental:
     snippet: &#34;The combination of high ambient temperatures and hard physical labor shunts blood to the skin to help lower body temperature. The resultant increase in surface blood flow also significantly increases dermal absorption of nicotine.&#34;
     explanation: Describes the physiological mechanism by which heat and exertion increase nicotine absorption.
 - name: Work Inexperience
+  influences_mechanisms:
+  - target: Transdermal Nicotine Absorption
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Inexperience is a proxy rather than a mechanism, plausibly covering both
+      unlearned protective habits and absent tolerance. The same study finds
+      tobacco users at lower risk, consistent with a tolerance component.
+    evidence:
+    - reference: PMID:11464390
+      reference_title: &#34;The incidence of green tobacco sickness among Latino farmworkers.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Greater work experience (5+ years, ID = 0.87; first year ID = 2.41) and tobacco use (ID of 1.18 vs 2.39) were negatively associated with green tobacco sickness.&#34;
+      explanation: &gt;-
+        Reports greater work experience and tobacco use both negatively
+        associated with incidence, suggesting learned protection and tolerance
+        rather than a direct effect on absorption.
   description: &gt;
     Workers with less experience in tobacco farming are at higher risk for
     GTS. This may reflect attrition of susceptible individuals from the
@@ -8097,7 +8707,7 @@ while considering key differentials such as pesticide poisoning and heat illness
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Green Tobacco Sickness", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Green_Tobacco_Sickness", "yamlRevision": "bdda44f506e8"};
+        const OS_CONFIG = {"diseaseName": "Green Tobacco Sickness", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Green_Tobacco_Sickness", "yamlRevision": "4625711bfab4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8516,5 +9126,73 @@ while considering key differentials such as pesticide poisoning and heat illness
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

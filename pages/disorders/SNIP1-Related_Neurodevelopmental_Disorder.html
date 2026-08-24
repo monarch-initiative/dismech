@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3701,6 +3867,8 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3823,27 +3991,104 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification" title="A mechanism-defined multisystem Mendelian disorder of a nuclear phosphopeptide-binding adaptor. The dominant burden is neurodevelopmental (epilepsy, developmental delay, intellectual disability), but the entry also spans craniofacial/calvarial, cardiac, airway, gastrointestinal, endocrine and sensory manifestations, so the cross-organ genetics chapter fits better than NEUROLOGIC alone.">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4726,15 +4971,22 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:30587</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4764,19 +5016,25 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005634">GO:0005634</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005634</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4902,15 +5160,22 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:30587</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4940,19 +5205,25 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         nuclear speck
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016607" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016607">GO:0016607</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016607" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0016607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal nuclear speck (GO:0016607). GO:0016607 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5086,15 +5357,22 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:30587</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5123,16 +5401,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phosphoserine residue binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050815" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050815">GO:0050815</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050815" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0050815</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased phosphoserine residue binding (GO:0050815). GO:0050815 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5153,6 +5436,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -5249,15 +5533,22 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:30587</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5284,16 +5575,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         RES complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070274">GO:0070274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0070274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased RES complex (GO:0070274). GO:0070274 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5303,19 +5599,25 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         spliceosomal complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005681" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005681">GO:0005681</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005681" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal spliceosomal complex (GO:0005681). GO:0005681 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5433,16 +5735,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000398">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0000398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5463,6 +5770,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -5561,16 +5869,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5597,16 +5910,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of alternative mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000381" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000381">GO:0000381</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000381" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0000381</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of alternative mRNA splicing, via spliceosome (GO:0000381). GO:0000381 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5627,6 +5945,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -5724,15 +6043,22 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:30587</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5759,6 +6085,8 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         regulation of transcription by RNA polymerase II
@@ -5766,10 +6094,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5794,16 +6125,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transcription coactivator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003713">GO:0003713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0003713</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves dysregulated transcription coactivator activity (GO:0003713). GO:0003713 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5824,6 +6160,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -5968,16 +6305,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5998,6 +6340,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -6133,16 +6476,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         canonical NF-kappaB signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007249">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6163,6 +6511,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -6289,16 +6638,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         PcG protein complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031519" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031519">GO:0031519</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031519" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0031519</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves dysregulated PcG protein complex (GO:0031519). GO:0031519 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6307,16 +6661,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         histone H3K27 trimethyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140951" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140951">GO:0140951</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140951" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0140951</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves dysregulated histone H3K27 trimethyltransferase activity (GO:0140951). GO:0140951 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6337,6 +6696,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -6456,17 +6816,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6487,10 +6854,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000681">CL:0000681</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves radial glial cell (CL:0000681). CL:0000681 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6517,16 +6887,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         intrinsic apoptotic signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097193" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097193">GO:0097193</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097193" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0097193</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased intrinsic apoptotic signaling pathway (GO:0097193). GO:0097193 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6546,16 +6921,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
                     <span class="tag tag-bio">
                         cerebral cortex neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021895">GO:0021895</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0021895</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cerebral cortex neuron differentiation (GO:0021895). GO:0021895 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6576,6 +6956,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -6695,16 +7076,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6725,6 +7111,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -6853,17 +7240,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6884,10 +7278,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6914,16 +7311,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         axon guidance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007411">GO:0007411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0007411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated axon guidance (GO:0007411). GO:0007411 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6943,16 +7345,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
                     <span class="tag tag-bio">
                         neuron migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001764">GO:0001764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0001764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6973,6 +7380,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -7070,16 +7478,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuron migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001764">GO:0001764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0001764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuron migration (GO:0001764). GO:0001764 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7100,6 +7513,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -7222,16 +7636,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7258,16 +7677,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         modulation of chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050804" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050804">GO:0050804</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050804" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0050804</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated modulation of chemical synaptic transmission (GO:0050804). GO:0050804 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7288,6 +7712,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -7381,6 +7806,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-name">Infantile-Onset Drug-Resistant Epilepsy</div>
 
                 <div class="item-desc">Every affected individual develops epilepsy. Seizure types include focal and generalised intractable seizures (myoclonic, absence, tonic-clonic) of infantile or childhood onset, and multiple intractable seizure types can afflict a single patient. Seizures may present initially as apnoea or breath-holding spells, and subclinical seizures occur. Febrile illness, sleep deprivation and hypoglycaemic episodes are recognised triggers. No antiepileptic medication has been identified that consistently provides effective seizure control.</div>
+
 
 
 
@@ -7515,6 +7941,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7617,6 +8044,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7681,6 +8109,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-name">Severe Global Developmental Impairment</div>
 
                 <div class="item-desc">The convergent clinical endpoint of the neurological arm. Global developmental delay and hypotonia with hyporeflexia are present in all affected individuals, and developmental delay is characterised as severe and non-verbal. Most affected individuals nonetheless achieve independent ambulation between 3 and 10 years, and some communicate with signs, gestures and sounds, so the disorder is severe but not uniformly without motor progress.</div>
+
 
 
 
@@ -7812,17 +8241,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         migratory cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7843,10 +8279,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7873,16 +8312,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         embryonic cranial skeleton morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048701">GO:0048701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0048701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal embryonic cranial skeleton morphogenesis (GO:0048701). GO:0048701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7903,6 +8347,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -8089,16 +8534,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8125,16 +8575,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         heart morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003007" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003007">GO:0003007</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003007" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0003007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heart morphogenesis (GO:0003007). GO:0003007 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8155,6 +8610,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -8223,16 +8679,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8249,6 +8710,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -8346,16 +8808,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8372,6 +8839,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -8485,16 +8953,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8511,6 +8984,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
                 </div>
+
 
 
 
@@ -8635,6 +9109,7 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-name">Neonatal Feeding Failure and Aspiration Risk</div>
 
                 <div class="item-desc">Poor feeding in the neonatal period is universal, and pulmonary aspiration with or without a gastrostomy tube affects 46%. This is the single most actionable node in the entry: elective gastrostomy is one of two interventions the cohort authors single out as able to reduce hospitalisations, alleviate suffering and prolong life. The proximate mechanism is not established, and more than one contributor is plausible (central hypotonia with poor suck and swallow coordination, upper airway malacia, and gastroesophageal reflux are all documented in the same individuals), so no single mechanism is asserted.</div>
+
 
 
 
@@ -8821,14 +9296,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8915,14 +9397,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8998,14 +9487,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Gastroesophageal Reflux
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastroesophageal reflux
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002020">HP:0002020</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9059,14 +9555,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Intestinal Malrotation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intestinal malrotation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002566">HP:0002566</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002566</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9131,14 +9634,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9225,14 +9735,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000821</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9295,14 +9812,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Proptosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000520">HP:0000520</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000520</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9358,14 +9882,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9450,14 +9981,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Craniosynostosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Craniosynostosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001363">HP:0001363</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001363</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Craniosynostosis (HP:0001363). HP:0001363 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9513,14 +10051,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cloverleaf skull
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002676">HP:0002676</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002676</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9576,14 +10121,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        High palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000218">HP:0000218</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000218</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9639,14 +10191,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wide mouth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000154">HP:0000154</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000154</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide mouth (HP:0000154). HP:0000154 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9722,14 +10281,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Midface Retrusion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Midface retrusion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0011800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9785,14 +10351,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micrognathia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9846,14 +10419,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Cleft Palate
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000175</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9907,14 +10487,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Macroglossia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macroglossia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000158">HP:0000158</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000158" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000158</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9968,14 +10555,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Bulbous Nose
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bulbous nose
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000414">HP:0000414</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000414</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulbous nose (HP:0000414). HP:0000414 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10029,14 +10623,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Long Palpebral Fissure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Long palpebral fissure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000637" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000637">HP:0000637</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000637" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000637</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long palpebral fissure (HP:0000637). HP:0000637 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10099,14 +10700,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Broad Thumb
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Broad thumb
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011304">HP:0011304</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0011304</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad thumb (HP:0011304). HP:0011304 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10160,14 +10768,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Brachydactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brachydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001156">HP:0001156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10223,14 +10838,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Talipes equinovarus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001762">HP:0001762</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10295,14 +10917,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoglycemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001943">HP:0001943</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001943</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10389,14 +11018,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10474,14 +11110,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10535,14 +11178,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Pectus Excavatum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus excavatum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000767">HP:0000767</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0000767</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10607,14 +11257,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10668,14 +11325,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Intellectual Disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10753,14 +11417,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10836,14 +11507,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         EEG Abnormality
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EEG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002353">HP:0002353</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0002353</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10897,14 +11575,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Ventriculomegaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventriculomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002119">HP:0002119</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0002119</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -10980,14 +11665,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Abnormal Cerebral White Matter Morphology
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal cerebral white matter morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002500">HP:0002500</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002500</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11041,14 +11733,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Hypoplasia of the Corpus Callosum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002079">HP:0002079</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0002079</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11104,14 +11803,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000717">HP:0000717</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0000717</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11187,14 +11893,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Attention Deficit Hyperactivity Disorder
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Attention deficit hyperactivity disorder
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0007018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11248,14 +11961,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Sleep Disturbance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11309,14 +12029,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Developmental Regression
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0002376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11370,14 +12097,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Tethered Cord
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tethered cord
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002144" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002144">HP:0002144</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002144" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0002144</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tethered cord (HP:0002144). HP:0002144 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11440,14 +12174,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Apnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002104">HP:0002104</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0002104</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11503,14 +12244,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aspiration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002835">HP:0002835</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0002835</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aspiration (HP:0002835). HP:0002835 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11575,14 +12323,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Small for gestational age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001518">HP:0001518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0001518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11667,14 +12422,23 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Drug-Resistant Epilepsy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Refractory drug response
+
+                        <span class="phenotype-term-label">Refractory drug response</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020174">HP:0020174</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-80">HP:0020174</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Refractory drug response (HP:0020174). HP:0020174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11730,14 +12494,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyporeflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001265">HP:0001265</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0001265</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11815,14 +12586,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal skull morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000929" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000929">HP:0000929</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000929" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-82">HP:0000929</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal skull morphology (HP:0000929). HP:0000929 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11900,14 +12678,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pierre-Robin sequence
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000201">HP:0000201</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-83">HP:0000201</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -11963,14 +12748,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular noncompaction cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011664">HP:0011664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-84">HP:0011664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular noncompaction cardiomyopathy (HP:0011664). HP:0011664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12026,14 +12818,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Laryngomalacia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001601" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001601">HP:0001601</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001601" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-85">HP:0001601</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Laryngomalacia (HP:0001601). HP:0001601 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12109,14 +12908,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Subglottic Stenosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Subglottic stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001607" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001607">HP:0001607</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-86">HP:0001607</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12172,14 +12978,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Umbilical hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001537">HP:0001537</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-87">HP:0001537</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Umbilical hernia (HP:0001537). HP:0001537 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12233,14 +13046,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Horizontal Nystagmus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Horizontal nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000666" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000666">HP:0000666</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000666" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-88">HP:0000666</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Horizontal nystagmus (HP:0000666). HP:0000666 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12294,14 +13114,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Septo-Optic Dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Septo-optic dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100842" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100842">HP:0100842</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-89">HP:0100842</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Septo-optic dysplasia (HP:0100842). HP:0100842 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12355,14 +13182,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Spastic Tetraplegia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spastic tetraplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002510">HP:0002510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-90">HP:0002510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic tetraplegia (HP:0002510). HP:0002510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12418,14 +13252,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tapered finger
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001182" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001182">HP:0001182</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-91">HP:0001182</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tapered finger (HP:0001182). HP:0001182 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12501,14 +13342,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                         Hypoplastic Toenails
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplastic toenails
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001800">HP:0001800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0001800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12608,13 +13456,18 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-93">hgnc:30587</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -12725,13 +13578,18 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
+
+
         <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: SNIP1
 
 
-    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30587">hgnc:30587</a>
+    <a href="https://bioregistry.io/hgnc:30587" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-94">hgnc:30587</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-94">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in SNIP1 (hgnc:30587). hgnc:30587 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -12834,7 +13692,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Anticonvulsant Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-95">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-95">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -12870,17 +13733,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-96">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Status epilepticus
@@ -12888,10 +13758,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002133">HP:0002133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-97">HP:0002133</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12962,7 +13835,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Gastrostomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-98">Gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-98">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -12998,17 +13876,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-99">HP:0011968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Aspiration
@@ -13016,10 +13901,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002835">HP:0002835</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002835" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-100">HP:0002835</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Aspiration (HP:0002835). HP:0002835 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13090,7 +13978,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-101">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-101">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13126,17 +14019,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-102">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-102">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Intellectual disability
@@ -13144,10 +14044,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-103">HP:0001249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13196,7 +14099,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-104">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13232,16 +14140,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Autism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000717">HP:0000717</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-105">HP:0000717</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-105">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Autism (HP:0000717). HP:0000717 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13290,7 +14203,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13320,16 +14238,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         melatonin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16796" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:16796">CHEBI:16796</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16796" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-107">CHEBI:16796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-107">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -13343,16 +14266,21 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sleep disturbance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-108">HP:0002360</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13401,7 +14329,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-109">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-109">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13437,17 +14370,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypothyroidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-110">HP:0000821</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-110">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypoglycemia
@@ -13455,10 +14395,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001943">HP:0001943</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-111">HP:0001943</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-111">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13507,7 +14450,12 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-112">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-112">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13543,17 +14491,24 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Strabismus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-113">HP:0000486</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Conductive hearing impairment
@@ -13561,10 +14516,13 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-114">HP:0000405</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -13943,6 +14901,9 @@ SNIP1 is a nuclear protein with an N-terminal nuclear localisation signal and a 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -20137,5 +21098,73 @@ craniofacial gestalt, airway compromise, CHD, early mortality
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

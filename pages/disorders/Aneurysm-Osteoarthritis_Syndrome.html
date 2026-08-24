@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3836,31 +4004,110 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">CARDIOVASCULAR</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4223,15 +4470,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SMAD3
 
 
-    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6769</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4259,16 +4513,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         SMAD protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060395">GO:0060395</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060395" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0060395</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal SMAD protein signal transduction (GO:0060395). GO:0060395 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4310,6 +4569,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4502,16 +4762,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4538,16 +4803,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SMAD3
 
 
-    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:6769</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4575,10 +4851,13 @@
         PRRX2
 
 
-    <a href="https://bioregistry.io/hgnc:21338" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21338">hgnc:21338</a>
+    <a href="https://bioregistry.io/hgnc:21338" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:21338</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRRX2 (hgnc:21338). hgnc:21338 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4606,16 +4885,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4636,6 +4920,7 @@
 
 
                 </div>
+
 
 
 
@@ -4726,16 +5011,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4762,16 +5052,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4792,6 +5087,7 @@
 
 
                 </div>
+
 
 
 
@@ -4860,16 +5156,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4896,16 +5197,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4926,6 +5232,7 @@
 
 
                 </div>
+
 
 
 
@@ -5016,17 +5323,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5047,10 +5361,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5077,16 +5394,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5128,6 +5450,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5243,16 +5566,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5273,6 +5601,7 @@
 
 
                 </div>
+
 
 
 
@@ -5373,16 +5702,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vascular smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5399,6 +5733,7 @@
 
 
                 </div>
+
 
 
 
@@ -5520,16 +5855,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5556,16 +5896,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of chondrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032330" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032330">GO:0032330</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032330" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0032330</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of chondrocyte differentiation (GO:0032330). GO:0032330 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5586,6 +5931,7 @@
 
 
                 </div>
+
 
 
 
@@ -5777,7 +6123,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiotensin Receptor Blocker Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin receptor blockers (e.g., losartan) are used to reduce hemodynamic stress and are hypothesized to attenuate dysregulated TGF-beta signaling in the aortic wall.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection of the aorta, which may occur at smaller diameters and younger ages than in Marfan syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The weakened, aneurysmal arterial wall is prone to dissection and rupture. A clinically critical feature shared with other Loeys-Dietz subtypes is that dissection can occur at smaller aortic diameters and at younger ages than in Marfan syndrome, and vascular disease is not limited to the aortic root.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"vascular smooth muscle cell\"]}}, {\"id\": \"Aortic Medial Degeneration and Wall Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling together with the underlying connective tissue defect produces medial degeneration of the aortic wall. In the Smad3-null model the dominant findings are medial elastin (elastic fiber) disruption and adventitial inflammation with matrix metalloproteinase activation concentrated in inflammatory areas, progressively weakening the wall; this inflammatory, MMP-driven route is a notable AOS-specific feature.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\", \"macrophage\"], \"biological_processes\": [\"extracellular matrix organization\"], \"experimental_models\": [{\"name\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.\"}]}}, {\"id\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early human aortic pathology in SMAD3 variant carriers consists of smooth muscle cells separated from elastic lamellae by glycosaminoglycans and elastic fibers that are poorly decorated by multiple microfibril proteins, even while lamellar structure and SMC content remain relatively intact.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long, slender digits are part of the overlapping LDS skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001166\"}}, {\"id\": \"Arterial Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of arteries throughout the arterial tree, a characteristic feature of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005116\"}}, {\"id\": \"Atrial Fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial fibrillation is part of the cardiac phenotype of AOS, independent of the aortic disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrophic Scars\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystrophic or atrophic scarring is part of the cutaneous phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001075\"}}, {\"id\": \"Bifid Uvula or Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid uvula or cleft palate, a craniofacial marker of Loeys-Dietz syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000193\"}}, {\"id\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hallmark that distinguishes aneurysm-osteoarthritis syndrome from other aneurysm syndromes is prominent early-onset osteoarthritis, frequently with osteochondritis dissecans. SMAD3 is essential for TGF-beta-mediated regulation of chondrocyte differentiation and cartilage homeostasis, so its disruption promotes cartilage degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"regulation of chondrocyte differentiation\"]}}, {\"id\": \"Cerebral (Intracranial) Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial arterial aneurysms occur as part of the widespread arterial involvement.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0007029\"}}, {\"id\": \"Early-Onset Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature, often generalized osteoarthritis with onset in childhood or early adulthood is the distinctive musculoskeletal hallmark of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002758\"}}, {\"id\": \"Easy Bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising accompanies the cutaneous connective-tissue fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the eyes, a mild craniofacial feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Joint Laxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility/laxity, which coexists with the degenerative joint disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is observed as part of the broader cardiac involvement in AOS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve prolapse and other mitral valve abnormalities are reported, and were noted to be prominent in SMAD3-related (type 3) Loeys-Dietz.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated relative to matched controls\", \"term_id\": \"NCIT:C96610\", \"term_label\": \"N-Terminal ProB-type Natriuretic Peptide Measurement\", \"readouts\": [{\"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\"}]}}, {\"id\": \"Osteochondritis Dissecans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteochondritis dissecans and other joint lesions accompany the early-onset osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010886\"}}, {\"id\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts and vascular smooth muscle cells from individuals with pathogenic/likely pathogenic SMAD3 variants were compared across dominant-negative MH2 and haploinsufficient variant classes. The system resolves variant-class effects on differentiation, smooth-muscle markers, MYH11 isoforms, and extracellular-matrix formation. It is limited by small numbers of patient lines, in-vitro differentiation, and the borderline clinical genotype-event comparisons; it does not reproduce arterial biomechanics, immune recruitment, or longitudinal aneurysm formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\", \"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"dominant-negative SMAD3 MH2-domain variants\", \"haploinsufficient SMAD3 variants\", \"control cell lines\"], \"publication\": \"DOI:10.1093/hmg/ddae044\"}}, {\"id\": \"Pectus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum or carinatum chest wall deformity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flatfoot is a common skeletal manifestation in the SMAD3-related LDS spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001763\"}}, {\"id\": \"Progressive Arterial Aneurysm and Tortuosity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive weakening of the arterial wall produces aneurysms and marked tortuosity that, unlike Marfan syndrome, are distributed widely throughout the arterial tree rather than confined to the aortic root.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mass is increasingly recognized in SMAD3-related disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a multigenerational SMAD3 p.Arg287Gln family, aortic smooth muscle cells showed reduced expression of microfibril genes and downregulation of PRRX2, a promoter-occupying regulator of five microfibril genes. SMAD3 overexpression rescued both PRRX2 and microfibril expression, defining a directly tested SMAD3-PRRX2-microfibril axis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"genes\": [\"SMAD3\", \"PRRX2\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}, {\"label\": \"PRRX2\", \"id\": \"hgnc:21338\"}]}}, {\"id\": \"SMAD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SMAD3 Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic variants in SMAD3 disrupt the receptor-regulated SMAD that transduces TGF-beta signals from activated TGF-beta receptors to the nucleus. SMAD3 forms a complex with the co-SMAD SMAD4 and regulates transcription of TGF-beta target genes. Loss of normal SMAD3 function is the conserved genetic trigger for the syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SMAD protein signal transduction\"], \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"experimental_models\": [{\"name\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine, part of the skeletal manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"TGF-beta Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite SMAD3 being a positive transducer of TGF-beta signaling, SMAD3 mutations lead to paradoxically increased expression of key TGF-beta pathway components in the aortic wall, the same dysregulated-TGF-beta signature seen across the heritable thoracic aortic disease syndromes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Thin or Translucent Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous fragility with velvety, thin/translucent skin, easy bruising, and dystrophic (atrophic) scars is part of the connective-tissue phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Thoracic Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysm of the thoracic aorta, typically involving the aortic root, is a core vascular manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Visceral and Iliac Artery Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysms are widespread beyond the aorta, prominently involving the visceral (splanchnic) and iliac arteries. The common iliac artery is the most frequently affected branch, followed by superior mesenteric, celiac, and splenic arteries; early elective repair is recommended given very high rupture risk.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000067\"}}], \"edges\": [{\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction reduces PRRX2 and the smooth-muscle-cell microfibril transcriptional program.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction paradoxically increases aortic TGF-beta pathway activity.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same SMAD3 loss also disrupts TGF-beta-dependent cartilage homeostasis, driving the early-onset osteoarthritis arm.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertelorism is an observed pleiotropic manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Bifid Uvula or Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal/uvular abnormalities are observed pleiotropic manifestations of SMAD3-related LDS3; the intervening developmental mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Pectus Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pectus deformity is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Joint Laxity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint laxity is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arachnodactyly is an observed skeletal manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pes planus is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Thin or Translucent Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thin/translucent skin is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Easy Bruising\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Easy bruising is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Atrophic Scars\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophic scarring is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced bone mass is observed in SMAD3-related disease, but its causal path from SMAD3 dysfunction is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation is associated with SMAD3-related AOS, but the intervening mechanism independent of aortic disease remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is associated with SMAD3-related AOS, but the intervening mechanism remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral valve disease is strongly associated with SMAD3-related LDS3, but the intervening valve-tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"target\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced microfibril production leaves elastic fibers poorly sheathed and separates smooth muscle cells from the lamellae.\"}, {\"source\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of smooth-muscle-to-elastic-lamella coupling and microfibril support creates an early structural vulnerability that contributes to medial degeneration.\"}, {\"source\": \"TGF-beta Signaling Dysregulation\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling drives maladaptive medial remodeling.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"Progressive Arterial Aneurysm and Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wall weakening permits progressive dilation and tortuosity.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aneurysmal, weakened arteries are prone to dissection and rupture.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Thoracic Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive aortic wall weakening produces thoracic, usually root, aneurysm.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Arterial Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse arteriopathy produces tortuosity throughout the arterial tree.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Cerebral (Intracranial) Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The generalized arteriopathy includes intracranial arteries.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Visceral and Iliac Artery Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The generalized arteriopathy includes visceral and iliac arteries.\"}, {\"source\": \"Aortic Dissection and Rupture\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical phenotype is the direct manifestation of the modeled dissection event.\"}, {\"source\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"target\": \"Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage dysregulation manifests as premature osteoarthritis.\"}, {\"source\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"target\": \"Osteochondritis Dissecans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteochondritis dissecans is part of the characteristic early joint-disease spectrum accompanying cartilage dysregulation.\"}, {\"source\": \"Angiotensin Receptor Blocker Therapy\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"target\": \"SMAD3 Loss-of-Function\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"SMAD3\", \"target\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMAD3\", \"target\": \"SMAD3 Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiotensin Receptor Blocker Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin receptor blockers (e.g., losartan) are used to reduce hemodynamic stress and are hypothesized to attenuate dysregulated TGF-beta signaling in the aortic wall.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection of the aorta, which may occur at smaller diameters and younger ages than in Marfan syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The weakened, aneurysmal arterial wall is prone to dissection and rupture. A clinically critical feature shared with other Loeys-Dietz subtypes is that dissection can occur at smaller aortic diameters and at younger ages than in Marfan syndrome, and vascular disease is not limited to the aortic root.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"vascular smooth muscle cell\"]}}, {\"id\": \"Aortic Medial Degeneration and Wall Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling together with the underlying connective tissue defect produces medial degeneration of the aortic wall. In the Smad3-null model the dominant findings are medial elastin (elastic fiber) disruption and adventitial inflammation with matrix metalloproteinase activation concentrated in inflammatory areas, progressively weakening the wall; this inflammatory, MMP-driven route is a notable AOS-specific feature.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\", \"macrophage\"], \"biological_processes\": [\"extracellular matrix organization\"], \"experimental_models\": [{\"name\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.\"}]}}, {\"id\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early human aortic pathology in SMAD3 variant carriers consists of smooth muscle cells separated from elastic lamellae by glycosaminoglycans and elastic fibers that are poorly decorated by multiple microfibril proteins, even while lamellar structure and SMC content remain relatively intact.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long, slender digits are part of the overlapping LDS skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001166\"}}, {\"id\": \"Arterial Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of arteries throughout the arterial tree, a characteristic feature of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005116\"}}, {\"id\": \"Atrial Fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial fibrillation is part of the cardiac phenotype of AOS, independent of the aortic disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrophic Scars\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystrophic or atrophic scarring is part of the cutaneous phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001075\"}}, {\"id\": \"Bifid Uvula or Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid uvula or cleft palate, a craniofacial marker of Loeys-Dietz syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000193\"}}, {\"id\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hallmark that distinguishes aneurysm-osteoarthritis syndrome from other aneurysm syndromes is prominent early-onset osteoarthritis, frequently with osteochondritis dissecans. SMAD3 is essential for TGF-beta-mediated regulation of chondrocyte differentiation and cartilage homeostasis, so its disruption promotes cartilage degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"regulation of chondrocyte differentiation\"]}}, {\"id\": \"Cerebral (Intracranial) Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial arterial aneurysms occur as part of the widespread arterial involvement.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0007029\"}}, {\"id\": \"Early-Onset Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature, often generalized osteoarthritis with onset in childhood or early adulthood is the distinctive musculoskeletal hallmark of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002758\"}}, {\"id\": \"Easy Bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising accompanies the cutaneous connective-tissue fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the eyes, a mild craniofacial feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Joint Laxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility/laxity, which coexists with the degenerative joint disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is observed as part of the broader cardiac involvement in AOS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve prolapse and other mitral valve abnormalities are reported, and were noted to be prominent in SMAD3-related (type 3) Loeys-Dietz.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated relative to matched controls\", \"term_id\": \"NCIT:C96610\", \"term_label\": \"N-Terminal ProB-type Natriuretic Peptide Measurement\", \"readouts\": [{\"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\"}]}}, {\"id\": \"Osteochondritis Dissecans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteochondritis dissecans and other joint lesions accompany the early-onset osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010886\"}}, {\"id\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts and vascular smooth muscle cells from individuals with pathogenic/likely pathogenic SMAD3 variants were compared across dominant-negative MH2 and haploinsufficient variant classes. The system resolves variant-class effects on differentiation, smooth-muscle markers, MYH11 isoforms, and extracellular-matrix formation. It is limited by small numbers of patient lines, in-vitro differentiation, and the borderline clinical genotype-event comparisons; it does not reproduce arterial biomechanics, immune recruitment, or longitudinal aneurysm formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\", \"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"dominant-negative SMAD3 MH2-domain variants\", \"haploinsufficient SMAD3 variants\", \"control cell lines\"], \"publication\": \"DOI:10.1093/hmg/ddae044\"}}, {\"id\": \"Pectus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum or carinatum chest wall deformity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flatfoot is a common skeletal manifestation in the SMAD3-related LDS spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001763\"}}, {\"id\": \"Progressive Arterial Aneurysm and Tortuosity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive weakening of the arterial wall produces aneurysms and marked tortuosity that, unlike Marfan syndrome, are distributed widely throughout the arterial tree rather than confined to the aortic root.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mass is increasingly recognized in SMAD3-related disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a multigenerational SMAD3 p.Arg287Gln family, aortic smooth muscle cells showed reduced expression of microfibril genes and downregulation of PRRX2, a promoter-occupying regulator of five microfibril genes. SMAD3 overexpression rescued both PRRX2 and microfibril expression, defining a directly tested SMAD3-PRRX2-microfibril axis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"genes\": [\"SMAD3\", \"PRRX2\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}, {\"label\": \"PRRX2\", \"id\": \"hgnc:21338\"}]}}, {\"id\": \"SMAD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SMAD3 Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic variants in SMAD3 disrupt the receptor-regulated SMAD that transduces TGF-beta signals from activated TGF-beta receptors to the nucleus. SMAD3 forms a complex with the co-SMAD SMAD4 and regulates transcription of TGF-beta target genes. Loss of normal SMAD3 function is the conserved genetic trigger for the syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SMAD protein signal transduction\"], \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"experimental_models\": [{\"name\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine, part of the skeletal manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"TGF-beta Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite SMAD3 being a positive transducer of TGF-beta signaling, SMAD3 mutations lead to paradoxically increased expression of key TGF-beta pathway components in the aortic wall, the same dysregulated-TGF-beta signature seen across the heritable thoracic aortic disease syndromes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Thin or Translucent Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous fragility with velvety, thin/translucent skin, easy bruising, and dystrophic (atrophic) scars is part of the connective-tissue phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Thoracic Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysm of the thoracic aorta, typically involving the aortic root, is a core vascular manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Visceral and Iliac Artery Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysms are widespread beyond the aorta, prominently involving the visceral (splanchnic) and iliac arteries. The common iliac artery is the most frequently affected branch, followed by superior mesenteric, celiac, and splenic arteries; early elective repair is recommended given very high rupture risk.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000067\"}}], \"edges\": [{\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction reduces PRRX2 and the smooth-muscle-cell microfibril transcriptional program.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction paradoxically increases aortic TGF-beta pathway activity.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same SMAD3 loss also disrupts TGF-beta-dependent cartilage homeostasis, driving the early-onset osteoarthritis arm.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertelorism is an observed pleiotropic manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Bifid Uvula or Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal/uvular abnormalities are observed pleiotropic manifestations of SMAD3-related LDS3; the intervening developmental mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Pectus Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pectus deformity is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Joint Laxity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint laxity is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arachnodactyly is an observed skeletal manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pes planus is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Thin or Translucent Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thin/translucent skin is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Easy Bruising\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Easy bruising is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Atrophic Scars\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophic scarring is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced bone mass is observed in SMAD3-related disease, but its causal path from SMAD3 dysfunction is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation is associated with SMAD3-related AOS, but the intervening mechanism independent of aortic disease remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is associated with SMAD3-related AOS, but the intervening mechanism remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral valve disease is strongly associated with SMAD3-related LDS3, but the intervening valve-tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"target\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced microfibril production leaves elastic fibers poorly sheathed and separates smooth muscle cells from the lamellae.\"}, {\"source\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of smooth-muscle-to-elastic-lamella coupling and microfibril support creates an early structural vulnerability that contributes to medial degeneration.\"}, {\"source\": \"TGF-beta Signaling Dysregulation\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling drives maladaptive medial remodeling.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"Progressive Arterial Aneurysm and Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wall weakening permits progressive dilation and tortuosity.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aneurysmal, weakened arteries are prone to dissection and rupture.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Thoracic Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive aortic wall weakening produces thoracic, usually root, aneurysm.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Arterial Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse arteriopathy produces tortuosity throughout the arterial tree.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Cerebral (Intracranial) Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The generalized arteriopathy includes intracranial arteries.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Visceral and Iliac Artery Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The generalized arteriopathy includes visceral and iliac arteries.\"}, {\"source\": \"Aortic Dissection and Rupture\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical phenotype is the direct manifestation of the modeled dissection event.\"}, {\"source\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"target\": \"Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage dysregulation manifests as premature osteoarthritis.\"}, {\"source\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"target\": \"Osteochondritis Dissecans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteochondritis dissecans is part of the characteristic early joint-disease spectrum accompanying cartilage dysregulation.\"}, {\"source\": \"Angiotensin Receptor Blocker Therapy\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"target\": \"SMAD3 Loss-of-Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.\"}, {\"source\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"SMAD3\", \"target\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMAD3\", \"target\": \"SMAD3 Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5828,14 +6174,23 @@
                         Easy Bruising
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bruising susceptibility
+
+                        <span class="phenotype-term-label">Bruising susceptibility</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000978">HP:0000978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bruising susceptibility (HP:0000978). HP:0000978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5898,14 +6253,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic root aneurysm
+
+                        <span class="phenotype-term-label">Aortic root aneurysm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002616">HP:0002616</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002616</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic root aneurysm (HP:0002616). HP:0002616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5979,14 +6343,21 @@
                         Aortic Dissection
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic dissection
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002647">HP:0002647</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002647</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic dissection (HP:0002647). HP:0002647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6040,14 +6411,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arterial tortuosity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005116">HP:0005116</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0005116</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arterial tortuosity (HP:0005116). HP:0005116 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6121,14 +6499,23 @@
                         Cerebral (Intracranial) Aneurysm
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral berry aneurysm
+
+                        <span class="phenotype-term-label">Cerebral berry aneurysm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007029" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007029">HP:0007029</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007029</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral berry aneurysm (HP:0007029). HP:0007029 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6226,14 +6613,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6287,14 +6681,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001712">HP:0001712</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6348,14 +6749,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral valve prolapse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001634">HP:0001634</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001634" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001634</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral valve prolapse (HP:0001634). HP:0001634 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6460,14 +6868,21 @@
                         Hypertelorism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000316</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6528,14 +6943,21 @@
                         Bifid Uvula or Cleft Palate
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bifid uvula
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000193" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000193">HP:0000193</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000193</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bifid uvula (HP:0000193). HP:0000193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6596,14 +7018,23 @@
                         Thin or Translucent Skin
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin skin
+
+                        <span class="phenotype-term-label">Thin skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000963" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000963">HP:0000963</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000963" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000963</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin skin (HP:0000963). HP:0000963 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6655,14 +7086,21 @@
                         Atrophic Scars
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrophic scars
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001075">HP:0001075</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001075</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrophic scars (HP:0001075). HP:0001075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6723,14 +7161,21 @@
                         Arachnodactyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arachnodactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001166">HP:0001166</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001166</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arachnodactyly (HP:0001166). HP:0001166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6782,14 +7227,21 @@
                         Pes Planus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pes planus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001763">HP:0001763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6852,14 +7304,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteoarthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002758">HP:0002758</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002758</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoarthritis (HP:0002758), qualified as juvenile onset. HP:0002758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6962,14 +7421,21 @@
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7021,14 +7487,23 @@
                         Pectus Deformity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus excavatum
+
+                        <span class="phenotype-term-label">Pectus excavatum</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000767">HP:0000767</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000767</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7080,14 +7555,23 @@
                         Joint Laxity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint hypermobility
+
+                        <span class="phenotype-term-label">Joint hypermobility</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001382">HP:0001382</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001382</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7139,14 +7623,21 @@
                         Reduced Bone Mineral Density
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced bone mineral density
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0004349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7209,14 +7700,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Iliac artery aneurysm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_4000067" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:4000067">HP:4000067</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:4000067</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iliac artery aneurysm (HP:4000067). HP:4000067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7290,14 +7788,21 @@
                         Osteochondritis Dissecans
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteochondritis dissecans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010886" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010886">HP:0010886</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010886" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0010886</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteochondritis dissecans (HP:0010886). HP:0010886 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7395,13 +7900,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMAD3
 
 
-    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:6769</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7516,7 +8026,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7546,16 +8061,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         losartan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6541">CHEBI:6541</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:6541</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses losartan (CHEBI:6541). CHEBI:6541 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7628,7 +8148,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7658,16 +8183,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         beta-adrenergic antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29576">NCIT:C29576</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C29576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-adrenergic antagonist (NCIT:C29576). NCIT:C29576 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7722,7 +8252,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7822,7 +8357,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7900,7 +8440,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8421,26 +8966,36 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         vascular smooth muscle cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8450,15 +9005,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-49">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-49">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8491,14 +9051,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-smad3-loss-of-function">SMAD3 Loss-of-Function</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-smad3-loss-of-function">SMAD3 Loss-of-Function</a>
+
+
+
+                <span class="crosslink-desc">Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.</span>
+
+
 
 
 
@@ -8535,12 +9100,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-aortic-medial-degeneration-and-wall-weakening">Aortic Medial Degeneration and Wall Weakening</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-aortic-medial-degeneration-and-wall-weakening">Aortic Medial Degeneration and Wall Weakening</a>
 
-                            <span class="crosslink-desc">Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.</span>
+
+
+                <span class="crosslink-desc">Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.</span>
+
+
 
 
 
@@ -8577,10 +9146,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8673,6 +9243,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -11248,5 +11821,73 @@ Always prioritize recent, authoritative sources and provide specific citations f
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

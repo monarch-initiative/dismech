@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thymoma · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Thymoma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Thymoma</h1>
+                
+                <p class="report-subtitle">Thymoma: Comprehensive Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-08</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006456" target="_blank" rel="noopener noreferrer">MONDO:0006456</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">55 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Thymoma: Comprehensive Disease Characteristics Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview:</strong> Thymoma is a thymic epithelial neoplasm (TET) arising from the epithelial cells of the thymus gland, the primary lymphoid organ situated in the anterior superior mediastinum responsible for T-cell development and central immune tolerance. Thymoma is the most common tumor of the anterior mediastinum in adults and the most common form of thymic epithelial neoplasm, distinguished from thymic carcinoma (historically "type C") by retention of organotypical thymic architecture and lower-grade cytologic atypia (<a href="https://www.orpha.net/en/disease/detail/99867">Orphanet: Thymoma</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10527963/">Thymoma: An Overview, PMC10527963</a>).</p>
+<p><strong>Key identifiers:</strong>
+- OMIM: 274230
+- MONDO: <a href="http://purl.obolibrary.org/obo/MONDO_0006451" target="_blank" rel="noopener noreferrer">MONDO:0006451</a>
+- Orphanet: <a href="https://bioregistry.io/ORPHA:99867" target="_blank" rel="noopener noreferrer">ORPHA:99867</a>
+- ICD-10-CM: C37 (Malignant neoplasm of thymus)
+- MeSH: D013945
+- Related entity — Good syndrome (immunodeficiency with thymoma): a distinct paraneoplastic/associated condition</p>
+<p><strong>Synonyms:</strong> Thymic epithelial tumor (encompassing thymoma and thymic carcinoma), thymic neoplasm; historically "benign" vs "malignant" thymoma terminology has been abandoned in favor of WHO histologic typing plus staging, since even encapsulated thymomas can recur or metastasize.</p>
+<p><strong>Data source note:</strong> Information below is derived primarily from aggregated disease-level resources — population cancer registries (SEER, national cancer registries), multi-institutional genomic cohorts (TCGA, AACR GENIE, THYMOGENE trial), and case-series/case-report literature for paraneoplastic phenomenology — rather than individual EHR-level data, consistent with the rarity of the disease.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease Causal Factors:</strong> Thymoma's etiology is predominantly somatic/molecular rather than classically genetic or environmentally driven. Unlike most solid tumors, thymomas have a <strong>remarkably low overall somatic mutation burden</strong> but a striking recurrent driver: a single hotspot missense mutation in <strong>GTF2I</strong> (general transcription factor IIi).</p>
+<ul>
+<li>The mutation is p.(Leu424His) [also reported as L404H/L424H depending on transcript numbering] resulting from a single T&gt;A nucleotide change at the same genomic position on chromosome 7 in essentially all mutated tumors — "so far not detected in other tumor entities" (<a href="https://med.amegroups.org/article/view/3900/4668">GTF2I gene mutation—a driver of thymoma pathogenesis, Mediastinum</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">Primary Driver Mutations in GTF2I Specific to the Development of Thymomas, PMC7466068</a>).</li>
+<li>GTF2I mutation frequency is strongly histotype-dependent: <strong>76–83% of type A and AB thymomas</strong>, progressively less in B1/B2/B3, and only ~8% of thymic carcinomas — a molecular gradient that parallels the WHO histologic spectrum (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">PMC7466068</a>; <a href="https://jtd.amegroups.org/article/view/35080/html">Journal of Thoracic Disease review</a>).</li>
+<li>Functional/mouse-model data (below) confirm GTF2I(L424H) is an <strong>oncogenic driver</strong>, not a passenger.</li>
+</ul>
+<p><strong>Risk Factors:</strong>
+- <em>Genetic</em>: No established Mendelian susceptibility locus for sporadic thymoma; GTF2I mutation is somatic, not germline. No strong GWAS-identified common-variant susceptibility loci are established for thymoma (a genuine knowledge gap — rarity limits GWAS power).
+- <em>Environmental</em>: A European case–control study found an association between <strong>prior chest/medical irradiation</strong> and thymoma risk that persisted even excluding exposures within 5 years of interview, "suggesting a possible real association or a common pathogenesis involving conditions leading to X-rays" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11431288/">Constitutional Factors and Irradiation as Risk Factors for Thymoma: A European Case–Control Study, PMC11431288</a>).
+- <em>Demographic</em>: Age is the dominant risk correlate — incidence rises through middle age and peaks in the 7th decade (70–74 years, ~1.06/100,000) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10805269/">Frontiers Oncology epidemiology study, PMC10805269</a>). Racial/ethnic variation is notable: Asian/Pacific Islanders have the highest incidence, followed by Black then White populations, and thymoma arises in Black patients at a markedly younger median age (48 vs. 58 years in White patients) (<a href="https://www.jto.org/article/S1556-0864(15)32613-7/fulltext">Epidemiology of Thymoma and Associated Malignancies, JTO</a>).
+- <strong>Autoimmune disease</strong> is both a risk correlate and consequence: myasthenia gravis (MG), systemic lupus erythematosus, and rheumatoid arthritis co-occur with thymoma at rates far above the general population, likely reflecting shared/bidirectional pathophysiology (below) rather than classic exogenous risk exposure.</p>
+<p><strong>Protective Factors:</strong> No established genetic or environmental protective factors are documented in the literature for thymoma specifically — this is a notable gap given the rarity of the tumor and paucity of population-scale genetic studies.</p>
+<p><strong>Gene-Environment Interactions:</strong> No specific validated GxE interaction has been characterized for thymoma; the irradiation-association data above is the closest documented environmental modifier, but no interaction with a specific genetic susceptibility background has been demonstrated.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Thymoma phenotypes fall into three broad classes: (a) local mass-effect/compressive symptoms, (b) systemic paraneoplastic autoimmune syndromes (the clinically dominant and best-characterized phenotype category), and (c) incidental radiographic findings.</p>
+<h3>A. Local/compressive phenotypes</h3>
+<ul>
+<li>Chest pain, cough, dyspnea from mediastinal mass effect</li>
+<li>Superior vena cava syndrome (in locally advanced disease)</li>
+<li>Suggested HPO terms: <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a> (Chest pain), <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough)</li>
+<li><strong>~30% of patients are asymptomatic</strong>, with thymoma discovered incidentally on chest imaging (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6755948/">Update in diagnostic imaging of the thymus, PMC6755948</a>)</li>
+</ul>
+<h3>B. Paraneoplastic autoimmune phenotypes (the defining clinical feature class)</h3>
+<ul>
+<li><strong>Myasthenia gravis (MG)</strong> — present in <strong>30–50% of thymoma patients</strong>; conversely, ~10–15% of MG patients have thymoma. Suggested HPO: <a href="http://purl.obolibrary.org/obo/HP_0003473" target="_blank" rel="noopener noreferrer">HP:0003473</a> (Myasthenia); associated signs include ptosis (<a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a>), diplopia (<a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" rel="noopener noreferrer">HP:0000651</a>), dysphagia (<a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a>), fatigable muscle weakness (<a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" rel="noopener noreferrer">HP:0003324</a>) (<a href="https://pubmed.ncbi.nlm.nih.gov/18401674/">Immunological function of thymoma and pathogenesis of paraneoplastic myasthenia gravis, PMID:18401674</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2276007/">Paraneoplastic Autoimmunity in Thymus Tumors, PMC2276007</a>).</li>
+<li><strong>Good syndrome (thymoma with immunodeficiency)</strong> — up to 5% of thymoma patients; hypogammaglobulinemia, B-cell depletion, recurrent sinopulmonary infections, opportunistic infections (CMV, PCP, mucocutaneous candidiasis) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8185358/">When the Good Syndrome Goes Bad, PMC8185358</a>). Suggested HPO: <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" rel="noopener noreferrer">HP:0004313</a> (Decreased circulating antibody level), <a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a> (Decreased circulating total IgG), <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" rel="noopener noreferrer">HP:0002205</a> (Recurrent respiratory infections).</li>
+<li><strong>Peripheral nerve hyperexcitability</strong> (neuromyotonia, Morvan syndrome), <strong>dysautonomia</strong>, <strong>limbic/paraneoplastic encephalitis</strong> (<a href="https://www.sciencedirect.com/science/chapter/handbook/abs/pii/B9780128239124000086">Handbook of Clinical Neurology chapter</a>; case report PMC6334889).</li>
+<li><strong>Pure red cell aplasia</strong>, autoimmune cytopenias, myositis, myocarditis, systemic lupus erythematosus, cutaneous amyloidosis, nephrotic syndrome have all been reported paraneoplastic associations (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9720310/">complex paraneoplastic syndrome case report, PMC9720310</a>).</li>
+</ul>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Onset:</strong> Adult-onset overwhelmingly (median age ~59–60 years); rare in children/young adults.</li>
+<li><strong>Frequency data:</strong> MG 30–50% of thymoma cases; Good syndrome up to 5%; asymptomatic/incidental ~30%.</li>
+<li><strong>Severity/progression:</strong> Highly variable — paraneoplastic MG can range from mild ocular symptoms to myasthenic crisis requiring ventilatory support; symptoms may persist, improve, or (rarely) worsen post-thymectomy.</li>
+<li><strong>Quality of life impact:</strong> MG-related fatigue and weakness substantially affect activities of daily living; Good syndrome's recurrent/opportunistic infections and its "ominous prognosis with high mortality rate secondary to recalcitrant infectious disease" represent a severe QoL and survival burden (per Good syndrome literature above). Dedicated thymoma-specific EQ-5D/SF-36 data are sparse in the literature reviewed.</li>
+</ul>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal/driver gene:</strong>
+- <strong>GTF2I</strong> (7q11.23; <a href="https://bioregistry.io/HGNC:4661" target="_blank" rel="noopener noreferrer">HGNC:4661</a>) — somatic hotspot mutation p.(Leu424His) (also written L404H), a <strong>gain-of-function/oncogenic</strong> driver, present in the majority of type A/AB thymomas and declining in frequency through B1→B2→B3→thymic carcinoma. This is the single most important molecular lesion described for thymoma (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">PMC7466068</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8419886/">GTF2I Mutation in Thymomas: Independence From Racial-Ethnic Backgrounds, PMC8419886</a>).
+- Suggested GO term for GTF2I molecular function: <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" rel="noopener noreferrer">GO:0003713</a> (transcription coactivator activity).</p>
+<p><strong>Variant classification/consequence:</strong>
+- Somatic, not germline; single recurrent missense hotspot (not a spectrum of LOF alleles) — functionally characterized as oncogenic gain-of-function based on mouse knock-in data (Section 6/15).
+- Note for schema mapping: this would be a <code>functional_impact_category: GAIN_OF_FUNCTION</code> (qualitative, non-ontology-bound) event on <code>GeneticContext</code>, distinct from a quantitative <code>modifier</code>.</p>
+<p><strong>Genomic differences by histotype/tumor type (thymic carcinoma diverges sharply):</strong>
+- Thymic carcinomas show a genuinely distinct, higher-mutation-burden genomic profile dominated by <strong>TP53</strong> (~27.7% mutated), <strong>CYLD</strong> (~17.6%), and <strong>CDKN2A</strong> (~12.1%), with recurrent homozygous 9p21.3 deletions encompassing CDKN2A/CDKN2B (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12839660/">Genomic Landscape of Thymic Carcinoma, AACR GENIE cohort, PMC12839660</a>).
+- Targeted NGS of thymic epithelial tumors found pathogenic variants in <strong>KIT, ERBB2, KRAS, and TP53</strong> in ~30% of thymic carcinomas, informing candidate targeted-therapy strategies (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9324890/">PMC9324890</a>).
+- <strong>MTOR mutations</strong> were enriched in local recurrences and lymph node metastases, implicating a progression-associated pathway.
+- The THYMOGENE prospective trial confirms these findings in an independent prospective cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/41405018/">Somatic Mutations of Thymic Epithelial Tumors, THYMOGENE, PMID:41405018</a>).</p>
+<p><strong>Prognostic significance of genotype:</strong> GTF2I-mutant TETs show a markedly better clinical course than GTF2I-wildtype tumors — 10-year survival 96% vs. 70% (<a href="https://med.amegroups.org/article/view/3900/4668">GTF2I gene mutation, Mediastinum</a>) — i.e., the driver mutation correlates inversely with aggressiveness, opposite to the typical oncogene paradigm and consistent with GTF2I-mutant tumors being enriched in the more indolent A/AB histotypes.</p>
+<p><strong>Modifier genes:</strong> No well-validated modifier genes distinct from co-occurring TP53/CDKN2A alterations in progression to carcinoma have been firmly established; genomic clustering analyses have identified molecular subtypes independent of WHO histologic type, suggesting additional unrecognized modifiers (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8202771/">Genomic clustering analysis, PMC8202771</a>).</p>
+<p><strong>Epigenetic information:</strong> Advanced/carcinoma-grade tumors show mutations in epigenetic/chromatin-remodeling regulators, though this is less well-characterized than in thymoma proper — an area flagged as needing further multi-omic study.</p>
+<p><strong>Chromosomal abnormalities:</strong> Recurrent 9p21.3 homozygous deletion (CDKN2A/CDKN2B) in thymic carcinoma; broader cytogenetic literature (6p21/HLA-region associations) was not substantively returned by current searches — worth flagging as <strong>not confirmed by primary sources reviewed here</strong> (a gap rather than a stated negative).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> Prior chest/mediastinal irradiation is the most substantiated environmental risk correlate identified in case–control data (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11431288/">PMC11431288</a>). Suggested ECTO term: exposure to ionizing radiation (therapeutic/diagnostic).</li>
+<li><strong>Lifestyle factors:</strong> No specific validated lifestyle risk factor (smoking, diet, alcohol) is established for thymoma in the literature surveyed — distinguishing it from most epithelial cancers where tobacco/lifestyle exposures dominate.</li>
+<li><strong>Infectious agents:</strong> No infectious etiology is established for thymoma itself. (Contrast: Good syndrome, a thymoma-associated immunodeficiency, predisposes to secondary opportunistic infections — CMV, Pneumocystis jirovecii, mucocutaneous Candida — but these are a <em>consequence</em> of the paraneoplastic immunodeficiency, not a cause of the tumor.)</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Thymoma pathophysiology operates on two largely independent but converging axes: <strong>(A) the oncogenic transformation of thymic epithelial cells</strong>, and <strong>(B) the disruption of central immune tolerance that produces the paraneoplastic autoimmune phenotype.</strong> These are mechanistically distinct — a curator building a causal chain should model them as parallel branches from the same initiating cellular context rather than a single linear pathway.</p>
+<h3>A. Oncogenic transformation pathway</h3>
+<ol>
+<li><strong>Trigger:</strong> Somatic GTF2I p.(L424H) hotspot mutation arising in thymic epithelial progenitor cells (biological_scale: MOLECULAR).</li>
+<li><strong>Molecular consequence:</strong> GTF2I acts as a transcription factor/coactivator (<a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" rel="noopener noreferrer">GO:0003713</a>); the mutant form drives aberrant transcriptional programs in thymic epithelium. Knock-in mouse data show the mutation <strong>impairs differentiation of bipotent thymic epithelial progenitors</strong>, with medullary differentiation particularly affected (<a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">Human thymoma-associated mutation of GTF2I impairs thymic epithelial progenitor differentiation in mice, PMID:36175547</a>; <a href="https://www.nature.com/articles/s42003-022-04002-7">Nature Communications Biology</a>).</li>
+<li><strong>Cellular consequence:</strong> Aberrant thymic epithelial architecture, reduced thymopoietic activity, and — over time in aged mice — frank tumor formation (biological_scale: CELLULAR/TISSUE) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9691559/">A Knock-in Mouse Model of Thymoma with the GTF2I L424H Mutation, PMID:36049655 / PMC9691559</a>).</li>
+<li><strong>Progression branch (thymic carcinoma):</strong> Acquisition of additional drivers — TP53 inactivation, CDKN2A/CDKN2B loss (9p21.3 deletion), CYLD mutation — associated with loss of organotypic architecture, higher-grade cytologic atypia, and worse prognosis (biological_scale: MOLECULAR→TISSUE).</li>
+</ol>
+<p>Suggested GO biological process terms: <a href="http://purl.obolibrary.org/obo/GO_0060218" target="_blank" rel="noopener noreferrer">GO:0060218</a> (hematopoietic stem cell differentiation, analog for epithelial progenitor context), <a href="http://purl.obolibrary.org/obo/GO_0001756" target="_blank" rel="noopener noreferrer">GO:0001756</a> (somitogenesis-unrelated — better: <a href="http://purl.obolibrary.org/obo/GO_0060713" target="_blank" rel="noopener noreferrer">GO:0060713</a>, labyrinthine layer thymic epithelial differentiation-adjacent terms should be verified via OAK); <a href="http://purl.obolibrary.org/obo/GO_0009887" target="_blank" rel="noopener noreferrer">GO:0009887</a> (animal organ morphogenesis) as a general placeholder pending precise term verification.</p>
+<h3>B. Autoimmunity / central-tolerance-failure pathway (drives the paraneoplastic phenotype)</h3>
+<ol>
+<li><strong>Mechanistic hypothesis (well-supported):</strong> Thymomas — particularly cortical-type/epithelial architecture-dominant subtypes — <strong>lack a functional medulla</strong>, the compartment where professional antigen-presenting medullary thymic epithelial cells (mTECs) normally express AIRE (autoimmune regulator) and drive <strong>promiscuous tissue-restricted antigen expression</strong> for negative selection of autoreactive thymocytes (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4654700/">Central tolerance to self revealed by the autoimmune regulator, PMC4654700</a>; <a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/imm.12831">Update on Aire and thymic negative selection</a>).</li>
+<li><strong>Consequence:</strong> Failure of this AIRE-dependent negative-selection checkpoint within the neoplastic thymic microenvironment allows <strong>export of autoreactive T cells</strong> into the periphery — "thymomas may lack the functional medulla where professional antigen-presenting cells engage in negative selection, leading thymomas to generate autoreactive T cells causing autoimmunity" (<a href="https://pubmed.ncbi.nlm.nih.gov/18401674/">Immunological function of thymoma and pathogenesis of paraneoplastic MG, PMID:18401674</a>).</li>
+<li><strong>Downstream autoantibody generation:</strong> Autoreactive T/B cell cooperation produces autoantibodies against neuromuscular junction nicotinic acetylcholine receptor (AChR) components and against striated-muscle antigens (notably <strong>titin</strong>, a giant sarcomeric protein) — titin main immunogenic region antibodies detected in 97% of thymoma-associated MG sera vs. essentially absent in healthy controls (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9952892/">Immunological and Structural Characterization of Titin Main Immunogenic Region, PMC9952892</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11405802/">Anti-titin antibodies in myasthenia gravis: tight association with thymoma, PMID:11405802</a>).</li>
+<li><strong>Clinical manifestation:</strong> Neuromuscular junction blockade (myasthenia gravis), or — in Good syndrome — B-cell/T-cell combined immunodeficiency with hypogammaglobulinemia, presumably reflecting a distinct (less well fully elucidated) disruption of B-cell maturation/tolerance rather than simple autoreactivity.</li>
+</ol>
+<p>Suggested CL terms: <a href="http://purl.obolibrary.org/obo/CL_0002365" target="_blank" rel="noopener noreferrer">CL:0002365</a> (medullary thymic epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0002365" target="_blank" rel="noopener noreferrer">CL:0002365</a>-adjacent cortical thymic epithelial cell term (verify exact CL ID via OAK), <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a> (lymphocyte), <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell).</p>
+<h3>Immune-checkpoint axis (relevant to treatment-toxicity mechanism)</h3>
+<ul>
+<li>Thymomas frequently express high levels of <strong>PD-L1</strong>, making PD-1/PD-L1 blockade mechanistically rational as an anti-tumor strategy, but the same defective central-tolerance environment that causes paraneoplastic autoimmunity <strong>markedly predisposes to severe/fatal immune-related adverse events</strong> upon checkpoint inhibition (myocarditis, myositis, hepatitis) — "the thymus is a lymphatic system organ for the development of the immune system, which might contribute to high rates of immune-therapy related toxicity events (irAEs)" (<a href="https://www.tandfonline.com/doi/full/10.2217/imt-2021-0215">Fatal Toxicity Induced by anti-PD-1 ICI in Thymic Epithelial Tumor</a>; case reports of fatal multi-organ irAEs, <a href="https://www.clinical-lung-cancer.com/article/S1525-7304(19)30282-7/abstract">Clinical Lung Cancer</a>). This is a directly relevant <code>treatment</code>→<code>target_mechanisms</code> and toxicity-mechanism pattern (could map to the <code>drug_hypersensitivity_scar</code>-adjacent immune-toxicity family, though mechanistically distinct — T-cell-mediated organ toxicity via checkpoint blockade rather than HLA-restricted drug hypersensitivity).</li>
+</ul>
+<h3>Molecular profiling / advanced technologies</h3>
+<ul>
+<li><strong>Transcriptomics/genomics:</strong> TCGA and independent genomic clustering studies have defined molecular subtypes of thymic epithelial tumors that cross-cut WHO histologic classification (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8202771/">PMC8202771</a>).</li>
+<li><strong>Single-cell/spatial:</strong> Not substantively returned in this search pass — likely an emerging-data gap for thymoma specifically, relative to more common cancers.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- Primary: Thymus (anterior/superior mediastinum) — suggested <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a> (thymus).
+- Secondary/complication sites: pleura (thymoma-associated pleural effusion/pleural dissemination — a characteristic pattern of thymoma spread is direct pleural seeding rather than distant hematogenous metastasis in early stage disease), pericardium, great vessels, lung (direct invasion in advanced Masaoka-Koga stage III–IV), lymph nodes and distant organs in metastatic disease.
+- Body systems: primarily the <strong>immune/lymphatic system</strong> (as the originating organ of adaptive immunity) and secondarily <strong>neuromuscular system</strong> (via paraneoplastic MG) and <strong>hematologic/hematopoietic system</strong> (via paraneoplastic cytopenias, Good syndrome).</p>
+<p><strong>Tissue/cell level:</strong>
+- Neoplastic epithelial cells: cortical- and medullary-type thymic epithelial cells depending on histologic subtype (<a href="http://purl.obolibrary.org/obo/CL_0002365" target="_blank" rel="noopener noreferrer">CL:0002365</a> medullary TEC and cortical TEC equivalent).
+- Non-neoplastic but pathologically important "background" population: intratumoral immature T-lymphocytes (thymocytes), which are typically abundant, especially in B-type thymomas, and contribute to the paraneoplastic-autoimmunity mechanism.</p>
+<p><strong>Subcellular level:</strong> Not a classical organelle-level disease; the driver lesion (GTF2I) acts at the nuclear transcription-factor level (GO cellular component: <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>, nucleus).</p>
+<p><strong>Localization:</strong> Virtually always anterior mediastinal in location; bilateral/unilateral distinction is not typically applicable (thymus is a midline, though bilobed, organ) — lateralization is not a meaningful phenotype axis here, unlike in paired-organ diseases.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult-onset disease; median age at diagnosis ~59–60 years, rare before age 30, exceedingly rare in children (&lt;1% of cases in the 1–18 age band per SEER-linked cohort data) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7138550/">PMC7138550</a>).</li>
+<li><strong>Onset pattern:</strong> Typically insidious — many patients (~30%) are asymptomatic and diagnosed incidentally on imaging; symptomatic presentation (mass effect or paraneoplastic autoimmune symptoms) develops gradually.</li>
+<li><strong>Staging (disease "progression" framework):</strong> The <strong>Masaoka-Koga</strong> system (stage I–IVb, based on capsular invasion, extension into surrounding fat/pleura/pericardium, and metastatic spread) remains the most widely applied staging system; the newer <strong>TNM/IASLC-ITMIG</strong> system (adopted by AJCC/UICC) is increasingly used in parallel (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8582470/">Masaoka-Koga and TNM Staging System, PMC8582470</a>).</li>
+<li>5-/10-year overall survival by Masaoka-Koga stage: Stage I 96.4%/88.9%; Stage II 95%/89.5%; Stage III 85.4%/72.8% (stage I and II curves overlap, but stage III is clearly worse).</li>
+<li>5-/10-year survival by TNM T-stage: T1 95.5%/88.8%; T2 84.8%/70.7%; T3 88%/76.3%.</li>
+<li><strong>Progression rate:</strong> Generally slow/indolent for type A/AB/B1 thymomas; progressively more aggressive through B2→B3→thymic carcinoma, correlating inversely with GTF2I mutation frequency.</li>
+<li><strong>Disease course pattern:</strong> Can be stable for years post-resection in early stage; capable of late recurrence (pleural recurrence is characteristic) even after apparently complete resection, warranting long-term surveillance.</li>
+<li><strong>Critical periods:</strong> Time-of-surgery is the major modifiable intervention window — complete (R0) resection is the single strongest determinant of outcome; presence of paraneoplastic MG can complicate perioperative anesthetic/respiratory management and requires pre-operative optimization (e.g., plasmapheresis/IVIG or pyridostigmine) in some cases.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- Overall US incidence: variably reported ~0.13–2.2 per million/100,000 person-years depending on cohort and time window studied (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10805269/">Frontiers Oncology, PMC10805269</a>; <a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0227197">Trends in incidence of thymoma/thymic carcinoma/thymic NET, PLOS ONE</a>).
+- Thymomas represented 9,041 cases (66.3% of total thymic cancers) in the US SEER data 2001–2015.
+- Orphanet cites a European annual incidence estimate of ~1/769,000.</p>
+<p><strong>Inheritance pattern:</strong> Thymoma is essentially <strong>sporadic</strong> — driven by a somatic (not germline) GTF2I hotspot mutation. No established Mendelian inheritance pattern, penetrance, expressivity, anticipation, germline mosaicism, or founder-effect data apply to thymoma itself as currently understood. (This contrasts with Good syndrome, which is also an acquired/sporadic adult-onset condition, not inherited.)</p>
+<p><strong>Population demographics:</strong>
+- Age distribution (n=4,431 TET patients): 0.6% aged 1–18; 4.0% aged 19–30; 8.6% aged 31–40; 16.7% aged 41–50; 22.0% aged 51–60; 25.0% aged 61–70; 16.6% aged 71–80; 6.5% aged &gt;80 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7138550/">PMC7138550</a>).
+- Sex ratio: approximately 1:1.09 (male:female), i.e., roughly equal with a very slight female predominance.
+- Race/ethnicity: highest incidence in Asian/Pacific Islanders, followed by Black, then White populations; Black patients present at a significantly younger median age (48 vs. 58 years) (<a href="https://www.jto.org/article/S1556-0864(15)32613-7/fulltext">JTO epidemiology review</a>).
+- Geographic distribution: No strong endemic geographic clustering reported beyond the race/ethnicity associations above; comparative US-Germany epidemiologic data (1999–2019) show broadly similar incidence trends across both countries (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10805269/">PMC10805269</a>).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Imaging:</strong>
+- <strong>CT (contrast-enhanced)</strong> is the imaging modality of choice — evaluates mass size, location, margins (smooth/lobular vs. infiltrative), density, and relationship to adjacent structures (heart, great vessels, lung); helps distinguish thymoma from other anterior mediastinal masses (lymphoma, germ cell tumor, thyroid goiter) (<a href="https://pubs.rsna.org/doi/abs/10.1148/rg.317115505">Role of Imaging in Diagnosis, Staging, Treatment of Thymoma, RadioGraphics</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6755948/">Update in diagnostic imaging of thymus, PMC6755948</a>).
+- MRI is used for further characterization, particularly of cystic vs. solid components.</p>
+<p><strong>Biopsy/histopathology:</strong>
+- CT- or ultrasound-guided percutaneous needle biopsy, or surgical resection with histopathology, provides definitive diagnosis via WHO histologic classification.
+- In classic presentations (imaging + clinical features strongly suggestive), biopsy may be deferred in favor of upfront resection, given seeding risk concerns historically associated with biopsy of encapsulated thymoma (a clinically important nuance for surgical planning).</p>
+<p><strong>Serology/biomarkers (central to thymoma-associated MG workup):</strong>
+- <strong>Anti-acetylcholine receptor (AChR) antibodies</strong> — standard MG diagnostic test.
+- <strong>Anti-titin antibodies</strong> — present in 56/70 (80%) of thymectomized thymoma patients vs. only 17/165 (10%) with thymic atrophy/hyperplasia; titin MIR antibodies detected in 97% of thymoma-associated MG sera. Lower sensitivity than CT/MRI for thymoma detection but higher specificity (<a href="https://pubmed.ncbi.nlm.nih.gov/11405802/">PMID:11405802</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9952892/">PMC9952892</a>).
+- Additional autoantibodies reported: anti-ryanodine receptor, anti-striational antibodies.</p>
+<p><strong>Genetic/molecular testing:</strong> Not yet part of routine standard-of-care diagnostic workup (unlike many other cancers), but GTF2I mutation status (and TP53/CDKN2A in suspected thymic carcinoma) is increasingly assessed in research/clinical-trial contexts (e.g., THYMOGENE) and carries prognostic value.</p>
+<p><strong>Clinical criteria/differential diagnosis:</strong> Anterior mediastinal mass differential includes thymoma, lymphoma, germ cell tumor, thyroid goiter, thymic cyst, thymic hyperplasia, and thymic carcinoma — WHO histologic typing (A/AB/B1/B2/B3/carcinoma) is the core diagnostic classification framework (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4581965/">2015 WHO Classification of Tumors of the Thymus, PMC4581965</a>; <a href="https://www.jto.org/article/S1556-0864(15)33335-9/fulltext">Histologic Classification of Thymoma, JTO</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK546608/">StatPearls Anterior Mediastinal Mass</a>).</p>
+<p><strong>Screening:</strong> No population-level screening program exists for thymoma given its rarity; incidental detection on chest imaging performed for other indications, or workup triggered by new-onset MG symptoms, are the practical "screening" pathways.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Survival:</strong> Strongly stage- and histotype-dependent (see Section 8 for stage-stratified 5-/10-year OS figures). Overall, thymoma carries a substantially better prognosis than thymic carcinoma.</li>
+<li><strong>Molecular prognostic factor:</strong> GTF2I mutation status independently associates with survival — 10-year survival 96% (GTF2I-mutant) vs. 70% (GTF2I-wildtype) (<a href="https://med.amegroups.org/article/view/3900/4668">Mediastinum review</a>).</li>
+<li><strong>Complications:</strong></li>
+<li><strong>Second primary malignancies (SPM)</strong>: markedly elevated risk — a SEER analysis found second-cancer incidence of 8,224 per 100,000 thymoma patients vs. 459 per 100,000 in the general SEER population; significantly elevated risk for lung/bronchus cancer, non-basal/squamous skin cancer, urinary bladder cancer, thyroid cancer, and leukemias (ALL, AML, other acute leukemia); no significant increase for lymphoma or hepatobiliary cancers (<a href="https://www.jto.org/article/S1556-0864(15)32613-7/fulltext">Epidemiology of Thymoma and Associated Malignancies, JTO</a>; <a href="https://ascopubs.org/doi/10.1200/JCO.2019.37.15_suppl.8568">JCO abstract, second primary malignancy</a>). This warrants <strong>long-term multi-organ cancer surveillance</strong> in thymoma survivors.</li>
+<li>Paraneoplastic MG and Good syndrome can persist, and in some cases worsen or newly appear, even after thymectomy — thymectomy is not uniformly curative for the autoimmune phenotype.</li>
+<li>Good syndrome carries a poor prognosis with substantial mortality from recurrent/opportunistic infection.</li>
+<li><strong>Recurrence pattern:</strong> Characteristically pleural/intrathoracic seeding rather than distant hematogenous spread in earlier-stage disease, which shapes surveillance imaging strategy (serial chest CT).</li>
+<li><strong>Prognostic factors:</strong> Masaoka-Koga/TNM stage, WHO histologic subtype, completeness of surgical resection (R0 vs. R1/R2), GTF2I mutation status, and (in thymic carcinoma) TP53/CDKN2A alteration status.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Surgery (primary modality):</strong>
+- Complete surgical resection (thymectomy, often with removal of surrounding mediastinal fat) is the cornerstone of management for resectable disease.
+- Minimally invasive (thoracoscopic/robotic) approaches may be considered for clinical stage I–II disease in specialized centers, though NCCN notes these are not yet routinely recommended given limited long-term recurrence/survival data (<a href="https://www2.tri-kobe.org/nccn/guideline/lung/english/thymic.pdf">NCCN guidelines summary</a>).
+- Suggested NCIT term: NCIT:C15329 (Surgical Procedure) / more specific thymectomy term if available.</p>
+<p><strong>Radiotherapy:</strong>
+- Adjuvant radiotherapy (conventionally fractionated, 1.8–2 Gy/day to 45–60 Gy adjuvant, 60–66 Gy definitive) is standard of care for stage II thymoma with capsular invasion after complete resection; elective nodal irradiation is not recommended (<a href="https://jnccn.org/view/journals/jnccn/23/6/article-p255.xml">NCCN 2.2025 guidelines</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3887269/">Radiotherapy for Thymic Carcinoma, PMC3887269</a>).
+- Neoadjuvant radiotherapy has been explored for higher-risk B3 thymomas combined with minimally invasive surgery (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10076567/">PMC10076567</a>).
+- Suggested NCIT term: NCIT:C15313 (Radiation Therapy).</p>
+<p><strong>Chemotherapy:</strong>
+- Platinum-based combination chemotherapy is standard of care for unresectable/metastatic or recurrent disease (<a href="https://www.cancertherapyadvisor.com/ddi/thymoma-pharmacologic-treatment/">Cancer Therapy Advisor summary</a>).
+- Suggested NCIT term: NCIT:C15632 (Chemotherapy).</p>
+<p><strong>Targeted therapy:</strong>
+- <strong>Sunitinib</strong> — recommended for thymic carcinoma regardless of c-KIT mutation status; phase II data showed partial response in 6/23 (26%) chemo-refractory thymic carcinoma patients; STYLE trial showed 21.4% ORR in advanced/recurrent B3 thymoma and thymic carcinoma.
+- <strong>Everolimus</strong> (mTOR inhibitor) — durable disease control observed in recurrent thymic epithelial tumors, but with notable risk of fatal pneumonitis — an important toxicity caveat for curation.
+- These agents map to <code>therapeutic_agent</code>/CHEBI (sunitinib, everolimus) under a <code>treatment_term</code> of Targeted Therapy (NCIT:C93352) or Pharmacotherapy (NCIT:C15986).</p>
+<p><strong>Immunotherapy (mechanistically important but high-risk):</strong>
+- Pembrolizumab (anti-PD-1) has shown dramatic remission in some metastatic thymoma cases given high PD-L1 expression, but <strong>NCCN does not recommend pembrolizumab for thymoma due to the high rate of immune-related adverse events</strong> — fatal multi-organ toxicity (myocarditis, myositis, hepatitis, endocrinopathies) has been reported, mechanistically linked to the same defective central-tolerance thymic microenvironment described in Section 6 (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0169500219305082">Fatal adverse events in two thymoma patients treated with anti-PD-1</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8082155/">dramatic remission case report, PMC8082155</a>). This is a clinically critical curation point: checkpoint inhibitors are mechanistically rational but carry disproportionate risk in this specific tumor type relative to other PD-L1-high cancers.</p>
+<p><strong>Supportive/paraneoplastic-directed care:</strong>
+- Pyridostigmine (acetylcholinesterase inhibitor), immunosuppression, plasmapheresis, or IVIG for paraneoplastic MG management, particularly perioperatively.
+- Immunoglobulin replacement therapy for Good syndrome-associated hypogammaglobulinemia.</p>
+<p><strong>Experimental:</strong> Multiple ongoing clinical trials (e.g., NCT04577495 examining prognostic factors post-surgery; various targeted/immunotherapy combination trials) are registered on ClinicalTrials.gov for advanced/refractory thymic epithelial tumors.</p>
+<p><strong>Treatment strategy:</strong> Multidisciplinary, stage-adapted algorithm — surgery ± adjuvant radiotherapy for early stage; multimodal (chemotherapy ± radiotherapy ± surgery) for locally advanced disease; chemotherapy/targeted therapy for unresectable/metastatic disease, with immunotherapy reserved cautiously given toxicity profile.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> No established primary prevention strategy exists, given the predominantly somatic/sporadic driver-mutation etiology and lack of strong modifiable environmental risk factors beyond incidental/uncommon radiation-exposure associations.</li>
+<li><strong>Secondary prevention/early detection:</strong> No population screening program exists (rarity precludes cost-effective screening); practical early detection occurs via incidental imaging findings or MG-symptom-triggered workup.</li>
+<li><strong>Tertiary prevention:</strong> Long-term surveillance imaging (serial chest CT) post-resection to detect pleural recurrence; long-term multi-organ cancer surveillance given the markedly elevated second-primary-malignancy risk (Section 11); ongoing monitoring/management of paraneoplastic autoimmune phenomena (MG, Good syndrome) independent of oncologic status.</li>
+<li><strong>Genetic counseling:</strong> Not applicable in the traditional sense given the sporadic somatic etiology — no known heritable risk to counsel relatives about.</li>
+<li><strong>Prophylaxis:</strong> Immunoglobulin replacement in diagnosed Good syndrome to reduce opportunistic infection risk; vigilance for opportunistic pathogens (Pneumocystis, CMV) in immunodeficient thymoma patients may warrant prophylactic antimicrobial strategies analogous to other combined immunodeficiencies (extrapolated management principle; not thymoma-specific primary literature identified in this search pass).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Naturally occurring veterinary disease — dogs and cats:</strong>
+- Thymoma occurs as a <strong>naturally occurring neoplasm in dogs and cats</strong>, with a notably parallel paraneoplastic myasthenia gravis phenotype mediated by anti-AChR antibodies, making it a genuine spontaneous comparative model rather than only an induced/engineered one (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8541714/">Acquired myasthenia gravis with concurrent polymyositis and myocarditis secondary to thymoma in a dog, PMC8541714</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1716736/">Metastatic thymoma and acquired generalized MG in a beagle, PMC1716736</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8698125/">Canine Epithelial Thymic Tumors: Outcome in 28 Dogs Treated by Surgery, PMC8698125</a>).
+- <strong>Notable species difference in penetrance of the paraneoplastic phenotype:</strong> In cats presenting with MG, roughly <strong>1 in 4</strong> has a thymic/mediastinal mass, whereas in dogs only <strong>~3–4%</strong> of MG cases are thymoma-associated — cats show a much tighter thymoma–MG linkage than dogs (<a href="https://www.merckvetmanual.com/generalized-conditions/paraneoplastic-disorders-in-small-animals/neurological-paraneoplastic-syndromes-in-small-animals">Merck Veterinary Manual, Neurological Paraneoplastic Syndromes in Small Animals</a>; <a href="https://veterinarypartner.vin.com/default.aspx?pid=19239&amp;id=4951980">Myasthenia Gravis in Dogs and Cats, VIN</a>).
+- Veterinary treatment parallels human management: surgical thymectomy is the mainstay, with pyridostigmine/anticholinesterase therapy for MG symptom control.
+- No OMIA (Online Mendelian Inheritance in Animals) entry or dog/cat GTF2I ortholog mutation data were identified in this search pass — veterinary thymoma appears to be studied predominantly at the clinical/phenotypic level rather than the somatic-genomic level, representing a translational research gap.</p>
+<p><strong>Comparative biology:</strong> The conserved thymoma→paraneoplastic-MG mechanism (loss of medullary negative-selection capacity → autoreactive T cells → anti-AChR antibody generation) across humans, dogs, and cats supports this as an evolutionarily conserved thymic-tolerance failure mechanism rather than a human-idiosyncratic phenomenon, strengthening confidence in the Section 6 mechanistic model.</p>
+<p><strong>Zoonotic potential:</strong> Not applicable — thymoma is a non-transmissible neoplastic disease.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Genetically engineered mouse model (the primary validated model):</strong>
+- A <strong>conditional Gtf2i(L424H) knock-in mouse</strong> (mutation targeted to Foxn1+ thymic epithelial cells) is the first genuine animal model of thymoma and directly demonstrates causality of the human hotspot mutation (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9691559/">A Knock-in Mouse Model of Thymoma with the GTF2I L424H Mutation, PMID:36049655/PMC9691559</a>; editorial: <a href="https://www.jto.org/article/S1556-0864(22)01593-3/fulltext">Now We Have the First Animal Model for Thymoma, JTO</a>).
+- <strong>Phenotype recapitulation:</strong> In young mice, the mutation impairs thymic medulla development and mTEC maturation (mirroring the human medullary-deficiency mechanism proposed for paraneoplastic autoimmunity); in aged mice, it induces frank thymic tumor formation that <strong>histologically mirrors human type B1 and B2 thymomas</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">PMC7466068</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">Communications Biology, PMID:36175547</a>).
+- <strong>Model limitations:</strong> The mouse model most closely recapitulates B1/B2-type histology rather than the A/AB types where GTF2I mutation frequency is highest in humans (76–83%) — a partial phenotype-genotype mismatch worth flagging as a <code>HUMAN_MODEL_MISMATCH</code>-style consideration if curated into dismech, since the mutation's histologic association differs between the engineered model and the natural human tumor spectrum. This is exactly the kind of translational-validity caveat the project's schema is designed to capture explicitly rather than assume.
+- <strong>Applications:</strong> This model enables study of the temporal sequence from mTEC differentiation defect → reduced thymopoiesis → tumorigenesis, and provides a platform for preclinical testing of GTF2I-pathway-directed therapeutics (none yet clinically available, representing a translational opportunity).</p>
+<p><strong>Cell-line/in vitro models:</strong> Not prominently returned in this search pass; thymic epithelial tumor cell lines are notoriously difficult to establish (a recognized limitation in the field, consistent with the low proliferative/mutational-burden biology of GTF2I-driven tumors), which is part of why the knock-in mouse model represented a significant advance.</p>
+<p><strong>Resources:</strong> No dedicated thymoma-specific model organism database was identified; models are documented in the primary literature (JTO, Communications Biology) rather than centralized repositories like MGI with a disease-specific portal.</p>
+<hr />
+<h2>Summary of Key Ontology Term Suggestions for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0006451" target="_blank" rel="noopener noreferrer">MONDO:0006451</a> (thymoma); <a href="https://bioregistry.io/OMIM:274230" target="_blank" rel="noopener noreferrer">OMIM:274230</a></td>
+</tr>
+<tr>
+<td>Related disease</td>
+<td>Good syndrome / immunodeficiency with thymoma</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><a href="https://bioregistry.io/HGNC:4661" target="_blank" rel="noopener noreferrer">HGNC:4661</a> (GTF2I); <a href="https://bioregistry.io/HGNC:11998" target="_blank" rel="noopener noreferrer">HGNC:11998</a> (TP53); <a href="https://bioregistry.io/HGNC:1787" target="_blank" rel="noopener noreferrer">HGNC:1787</a> (CDKN2A)</td>
+</tr>
+<tr>
+<td>Cell types</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002365" target="_blank" rel="noopener noreferrer">CL:0002365</a> (medullary thymic epithelial cell) and cortical TEC counterpart (verify via OAK); <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell)</td>
+</tr>
+<tr>
+<td>Phenotypes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003473" target="_blank" rel="noopener noreferrer">HP:0003473</a> (Myasthenia); <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" rel="noopener noreferrer">HP:0004313</a> (Decreased circulating antibody level); <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a> (Ptosis); <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> (Dysphagia)</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a> (thymus)</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15329 (Surgical Procedure); NCIT:C15313 (Radiation Therapy); NCIT:C15632 (Chemotherapy); NCIT:C93352 (Targeted Therapy)</td>
+</tr>
+<tr>
+<td>Therapeutic agents</td>
+<td>CHEBI (sunitinib, everolimus); NCIT:C20401-class biologics (pembrolizumab)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>(All ontology IDs above should be run through OAK verification per dismech SOP before use in a curated entry — none have been independently re-verified against <code>runoak info</code> in this research pass and are offered as starting candidates only.)</em></p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.orpha.net/en/disease/detail/99867">Orphanet: Thymoma</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10527963/">Thymoma: An Overview (PMC10527963)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4581965/">The 2015 WHO Classification of Tumors of the Thymus (PMC4581965)</a></li>
+<li><a href="https://www.jto.org/article/S1556-0864(15)33335-9/fulltext">Histologic Classification of Thymoma, JTO</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8202771/">Genomic clustering analysis identifies molecular subtypes of TETs (PMC8202771)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/18401674/">Immunological function of thymoma and pathogenesis of paraneoplastic MG (PMID:18401674)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2276007/">Paraneoplastic Autoimmunity in Thymus Tumors (PMC2276007)</a></li>
+<li><a href="https://med.amegroups.org/article/view/3900/4668">GTF2I gene mutation—a driver of thymoma pathogenesis, Mediastinum</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7466068/">Primary Driver Mutations in GTF2I Specific to the Development of Thymomas (PMC7466068)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9691559/">A Knock-in Mouse Model of Thymoma with the GTF2I L424H Mutation (PMC9691559)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36175547/">Human thymoma-associated mutation of GTF2I impairs TEC progenitor differentiation (PMID:36175547)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8419886/">GTF2I Mutation in Thymomas: Independence From Racial-Ethnic Backgrounds (PMC8419886)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41405018/">Somatic Mutations of TETs, THYMOGENE Trial (PMID:41405018)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10805269/">Epidemiology of thymomas and thymic carcinomas in the US and Germany, 1999-2019 (PMC10805269)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6938371/">Trends in the incidence of thymoma, thymic carcinoma, and thymic NET in the US (PMC6938371)</a></li>
+<li><a href="https://www.jto.org/article/S1556-0864(15)32613-7/fulltext">Epidemiology of thymoma and associated malignancies, JTO</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7138550/">Clinical significance of age at diagnosis among TET patients (PMC7138550)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8582470/">Masaoka-Koga and TNM Staging System in TETs (PMC8582470)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5712125/">Evaluation of new TNM-staging system for thymic malignancies (PMC5712125)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0169500219305082">Fatal adverse events in two thymoma patients treated with anti-PD-1 ICI</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8082155/">Immune-Therapy-Related Toxicity and Dramatic Remission After Pembrolizumab in Metastatic Thymoma (PMC8082155)</a></li>
+<li><a href="https://www.tandfonline.com/doi/full/10.2217/imt-2021-0215">Fatal Toxicity Induced by anti-PD-1 ICI in Thymic Epithelial Tumor</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11431288/">Constitutional Factors and Irradiation as Risk Factors for Thymoma (PMC11431288)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8185358/">When the Good Syndrome Goes Bad: A Systematic Literature Review (PMC8185358)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3797656/">Thymoma associated with hypogammaglobulinaemia and pure red cell aplasia (PMC3797656)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10296089/">Insights from a Case of Good's Syndrome (PMC10296089)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10778094/">Molecular and Functional Key Features and Oncogenic Drivers in Thymic Carcinomas</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12839660/">Genomic Landscape of Thymic Carcinoma, AACR GENIE Cohort (PMC12839660)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9324890/">Targeted NGS of TETs: KIT, ERBB2, KRAS, TP53 in Thymic Carcinomas (PMC9324890)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4654700/">Central tolerance to self revealed by the autoimmune regulator (PMC4654700)</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/imm.12831">Update on Aire and thymic negative selection</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8541714/">Acquired myasthenia gravis with polymyositis/myocarditis secondary to thymoma in a dog (PMC8541714)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1716736/">Metastatic thymoma and acquired generalized MG in a beagle (PMC1716736)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8698125/">Canine Epithelial Thymic Tumors: Outcome in 28 Dogs Treated by Surgery (PMC8698125)</a></li>
+<li><a href="https://www.merckvetmanual.com/generalized-conditions/paraneoplastic-disorders-in-small-animals/neurological-paraneoplastic-syndromes-in-small-animals">Merck Veterinary Manual: Neurological Paraneoplastic Syndromes in Small Animals</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6755948/">Update in diagnostic imaging of the thymus and anterior mediastinal masses (PMC6755948)</a></li>
+<li><a href="https://pubs.rsna.org/doi/abs/10.1148/rg.317115505">Role of Imaging in Diagnosis, Staging, Treatment of Thymoma, RadioGraphics</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11405802/">Anti-titin antibodies in myasthenia gravis: tight association with thymoma (PMID:11405802)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9952892/">Immunological and Structural Characterization of Titin Main Immunogenic Region (PMC9952892)</a></li>
+<li><a href="https://jnccn.org/view/journals/jnccn/23/6/article-p255.xml">NCCN Thymomas and Thymic Carcinomas Guidelines v2.2025</a></li>
+<li><a href="https://www.cancer.gov/types/thymus-cancer/hp/thymoma-treatment-pdq">Thymoma and Thymic Carcinoma Treatment (PDQ), NCI</a></li>
+<li><a href="https://jtd.amegroups.org/article/view/113290/html">Second primary malignancy risk after thymic epithelial tumors, SEER analysis</a></li>
+<li><a href="https://ascopubs.org/doi/10.1200/JCO.2019.37.15_suppl.8568">The risk of second primary malignancy in patients with localized thymoma, JCO abstract</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Thymic_Neuroendocrine_Carcinoma-falcon.html">← Thymic Neuroendocrine Carcinoma (Falcon)</a>
+                
+                
+                <a href="Thymoma-manual.html">Thymoma (Manual) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Thymoma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Thymoma-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Thymoma-manual.html"><span class="provider-pill provider-other">Manual</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

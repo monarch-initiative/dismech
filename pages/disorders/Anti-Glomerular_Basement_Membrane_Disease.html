@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Anti-Glomerular%20Basement%20Membrane%20Disease"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3748,7 +3916,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3791,6 +3959,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3800,6 +3976,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4311,15 +4495,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         COL4A3
 
 
-    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2204">hgnc:2204</a>
+    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2204</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL4A3 (hgnc:2204). hgnc:2204 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4347,16 +4538,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4377,6 +4573,7 @@
 
 
                 </div>
+
 
 
 
@@ -4478,17 +4675,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         alpha3(IV)NC1-reactive CD4+ T-helper cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alpha3(IV)NC1-reactive CD4+ T-helper cell, annotated with T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4509,10 +4713,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves autoantibody-producing B cell, annotated with B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4539,15 +4746,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:4948</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4575,17 +4789,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         antigen processing and presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019882">GO:0019882</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019882" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0019882</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves antigen processing and presentation (GO:0019882). GO:0019882 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4606,10 +4827,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002455">GO:0002455</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0002455</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased humoral immune response mediated by circulating immunoglobulin (GO:0002455). GO:0002455 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4630,6 +4854,7 @@
 
 
                 </div>
+
 
 
 
@@ -4730,17 +4955,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         renal glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         alveolus of lung
@@ -4748,13 +4980,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4820,17 +5056,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4851,10 +5094,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4881,16 +5127,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         complement activation, classical pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006958">GO:0006958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4899,6 +5150,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4916,10 +5169,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4939,16 +5195,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4975,17 +5236,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         renal glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         alveolus of lung
@@ -4993,13 +5261,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5073,16 +5345,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         glomerular parietal/visceral epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000746">CL:1000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:1000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glomerular parietal/visceral epithelial cell, annotated with glomerular cell (CL:1000746). CL:1000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5112,19 +5389,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         renal glomerulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000074">UBERON:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in renal glomerulus (UBERON:0000074). UBERON:0000074 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5216,19 +5499,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5374,7 +5663,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute decline in glomerular filtration, often with oliguria, a key prognostic feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001919\"}}, {\"id\": \"Alveolar capillary-wall disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to the alveolar capillary basement membrane permits blood to enter alveolar spaces, producing diffuse alveolar hemorrhage and consequent blood loss.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia from pulmonary blood loss and/or kidney disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"COL4A3 (alpha-3 type IV collagen) autoantigen target gene\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL4A3\"], \"gene_terms\": [{\"label\": \"COL4A3\", \"id\": \"hgnc:2204\"}], \"association\": \"Autoantigen target (not a causal germline mutation)\"}}, {\"id\": \"Circulating anti-GBM antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"readouts\": [{\"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detectable circulating anti-GBM antibody reports the autoantibody-production mechanism.\"}]}}, {\"id\": \"Complement-dependent capillaritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tissue-bound anti-GBM IgG activates complement and recruits inflammatory leukocytes, producing local capillaritis and capillary-wall injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"macrophage\"], \"biological_processes\": [\"complement activation, classical pathway\", \"leukocyte migration\", \"inflammatory response\"], \"locations\": [\"renal glomerulus\", \"alveolus of lung\"]}}, {\"id\": \"Conformational exposure of cryptic alpha3/alpha5(IV)NC1 epitopes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immunodominant E_A and E_B epitopes are sequestered within the native, cross-linked alpha345NC1 hexamer. Dissociation or conformational alteration exposes epitopes on alpha3 and alpha5 NC1 monomers that patient antibodies can bind. This molecular architecture supports a cryptic-epitope model, but does not by itself establish which exposure initiates disease in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"genes\": [\"COL4A3\"], \"gene_terms\": [{\"label\": \"COL4A3\", \"id\": \"hgnc:2204\"}], \"role\": \"trigger\"}}, {\"id\": \"Cyclophosphamide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cytotoxic agent cyclophosphamide suppresses new autoantibody production and, with plasma exchange and steroids, completes standard induction therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cyclophosphamide\"]}}, {\"id\": \"Diffuse alveolar hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bleeding into the alveolar spaces from alveolar capillary basement-membrane injury; hemoptysis may occur but is not required for recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040223\"}}, {\"id\": \"HLA-DRB1 (DR15 / DRB1*15:01) susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"Susceptibility\", \"relationship_type\": \"RISK_FACTOR\"}}, {\"id\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In susceptible hosts, alpha3(IV)NC1-reactive CD4+ T cells and B cells form an autoimmune response that produces directly pathogenic anti-GBM IgG. The strong HLA-DR15 association supports HLA-restricted antigen presentation; HLA susceptibility is not a causal germline mutation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alpha3(IV)NC1-reactive CD4+ T-helper cell\", \"autoantibody-producing B cell\"], \"biological_processes\": [\"antigen processing and presentation\", \"humoral immune response mediated by circulating immunoglobulin\"], \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blood in the urine accompanying glomerular injury.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Hemoptysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coughing up blood arising from pulmonary hemorrhage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002105\"}}, {\"id\": \"Linear anti-GBM IgG deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating anti-GBM IgG deposits linearly along glomerular and alveolar basement membranes, positioning pathogenic antibody at both capillary beds.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"renal glomerulus\", \"alveolus of lung\"]}}, {\"id\": \"Necrotizing crescentic glomerular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular basement membrane rupture permits fibrin and inflammatory cells into Bowman\u0027s space, triggering parietal epithelial and podocyte proliferation, cellular crescents, and rapidly progressive glomerulonephritis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glomerular parietal/visceral epithelial cell\"], \"role\": \"outcome\", \"locations\": [\"renal glomerulus\"]}}, {\"id\": \"Plasma exchange (plasmapheresis)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange rapidly removes circulating pathogenic anti-GBM IgG and is a cornerstone of induction therapy with glucocorticoids and cyclophosphamide.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glomerular protein loss accompanying kidney involvement; severity varies by presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Rapidly progressive glomerulonephritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Crescentic glomerulonephritis with rapid (days-to-weeks) loss of kidney function, often progressing to dialysis dependence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000099\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 B-cell depletion may be considered as second-line treatment when cyclophosphamide is contraindicated. Available outcome estimates are derived mainly from selected case reports and series, not randomized comparison. A 2026 retrospective cohort found faster dialysis independence but no statistically significant difference in absolute dialysis independence or three-year kidney failure.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}], \"edges\": [{\"source\": \"Conformational exposure of cryptic alpha3/alpha5(IV)NC1 epitopes\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exposure of normally cryptic NC1 epitopes provides antigenic substrate for the autoreactive response in the conformeropathy model.\", \"hypothesis_groups\": [\"conformeropathy\"]}, {\"source\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"target\": \"Linear anti-GBM IgG deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating autoantibody binds its basement-membrane target.\"}, {\"source\": \"Linear anti-GBM IgG deposition\", \"target\": \"Complement-dependent capillaritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue-bound antibody initiates complement-dependent inflammation.\"}, {\"source\": \"Complement-dependent capillaritis\", \"target\": \"Necrotizing crescentic glomerular injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glomerular capillary-wall injury drives necrosis and crescent formation.\"}, {\"source\": \"Complement-dependent capillaritis\", \"target\": \"Alveolar capillary-wall disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar capillary-wall disruption permits blood to enter alveolar spaces.\"}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Rapidly progressive glomerulonephritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar capillary-wall disruption\", \"target\": \"Diffuse alveolar hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar capillary-wall disruption\", \"target\": \"Hemoptysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar capillary-wall disruption\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Plasma exchange (plasmapheresis)\", \"target\": \"Linear anti-GBM IgG deposition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma exchange (plasmapheresis)\", \"target\": \"Rapidly progressive glomerulonephritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclophosphamide\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"target\": \"Circulating anti-GBM antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detectable circulating anti-GBM antibody reports the autoantibody-production mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HLA-DRB1 (DR15 / DRB1*15:01) susceptibility\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL4A3 (alpha-3 type IV collagen) autoantigen target gene\", \"target\": \"Conformational exposure of cryptic alpha3/alpha5(IV)NC1 epitopes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute decline in glomerular filtration, often with oliguria, a key prognostic feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001919\"}}, {\"id\": \"Alveolar capillary-wall disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to the alveolar capillary basement membrane permits blood to enter alveolar spaces, producing diffuse alveolar hemorrhage and consequent blood loss.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia from pulmonary blood loss and/or kidney disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"COL4A3 (alpha-3 type IV collagen) autoantigen target gene\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL4A3\"], \"gene_terms\": [{\"label\": \"COL4A3\", \"id\": \"hgnc:2204\"}], \"association\": \"Autoantigen target (not a causal germline mutation)\"}}, {\"id\": \"Cigarette smoking as a pulmonary-disease modifier\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Current smoking is associated with pulmonary involvement in anti-GBM disease. This observational association supports smoking as a harmful modifier of the pulmonary phenotype, not as a necessary cause of autoimmunity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Circulating anti-GBM antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\", \"readouts\": [{\"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Detectable circulating anti-GBM antibody reports the autoantibody-production mechanism.\"}]}}, {\"id\": \"Complement-dependent capillaritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tissue-bound anti-GBM IgG activates complement and recruits inflammatory leukocytes, producing local capillaritis and capillary-wall injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"macrophage\"], \"biological_processes\": [\"complement activation, classical pathway\", \"leukocyte migration\", \"inflammatory response\"], \"locations\": [\"renal glomerulus\", \"alveolus of lung\"]}}, {\"id\": \"Conformational exposure of cryptic alpha3/alpha5(IV)NC1 epitopes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immunodominant E_A and E_B epitopes are sequestered within the native, cross-linked alpha345NC1 hexamer. Dissociation or conformational alteration exposes epitopes on alpha3 and alpha5 NC1 monomers that patient antibodies can bind. This molecular architecture supports a cryptic-epitope model, but does not by itself establish which exposure initiates disease in humans.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"genes\": [\"COL4A3\"], \"gene_terms\": [{\"label\": \"COL4A3\", \"id\": \"hgnc:2204\"}], \"role\": \"trigger\"}}, {\"id\": \"Cyclophosphamide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cytotoxic agent cyclophosphamide suppresses new autoantibody production and, with plasma exchange and steroids, completes standard induction therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cyclophosphamide\"]}}, {\"id\": \"Diffuse alveolar hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bleeding into the alveolar spaces from alveolar capillary basement-membrane injury; hemoptysis may occur but is not required for recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040223\"}}, {\"id\": \"HLA-DRB1 (DR15 / DRB1*15:01) susceptibility\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"association\": \"Susceptibility\", \"relationship_type\": \"RISK_FACTOR\"}}, {\"id\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In susceptible hosts, alpha3(IV)NC1-reactive CD4+ T cells and B cells form an autoimmune response that produces directly pathogenic anti-GBM IgG. The strong HLA-DR15 association supports HLA-restricted antigen presentation; HLA susceptibility is not a causal germline mutation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alpha3(IV)NC1-reactive CD4+ T-helper cell\", \"autoantibody-producing B cell\"], \"biological_processes\": [\"antigen processing and presentation\", \"humoral immune response mediated by circulating immunoglobulin\"], \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blood in the urine accompanying glomerular injury.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Hemoptysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coughing up blood arising from pulmonary hemorrhage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002105\"}}, {\"id\": \"Infection as a possible environmental trigger\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Spatial and temporal clustering supports an environmental contribution, and infection is one proposed trigger in genetically susceptible people. The evidence does not identify a necessary or sufficient exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Linear anti-GBM IgG deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating anti-GBM IgG deposits linearly along glomerular and alveolar basement membranes, positioning pathogenic antibody at both capillary beds.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"renal glomerulus\", \"alveolus of lung\"]}}, {\"id\": \"Necrotizing crescentic glomerular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular basement membrane rupture permits fibrin and inflammatory cells into Bowman\u0027s space, triggering parietal epithelial and podocyte proliferation, cellular crescents, and rapidly progressive glomerulonephritis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"glomerular parietal/visceral epithelial cell\"], \"role\": \"outcome\", \"locations\": [\"renal glomerulus\"]}}, {\"id\": \"Plasma exchange (plasmapheresis)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange rapidly removes circulating pathogenic anti-GBM IgG and is a cornerstone of induction therapy with glucocorticoids and cyclophosphamide.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Glomerular protein loss accompanying kidney involvement; severity varies by presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"Rapidly progressive glomerulonephritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Crescentic glomerulonephritis with rapid (days-to-weeks) loss of kidney function, often progressing to dialysis dependence.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000099\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 B-cell depletion may be considered as second-line treatment when cyclophosphamide is contraindicated. Available outcome estimates are derived mainly from selected case reports and series, not randomized comparison. A 2026 retrospective cohort found faster dialysis independence but no statistically significant difference in absolute dialysis independence or three-year kidney failure.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}], \"edges\": [{\"source\": \"Conformational exposure of cryptic alpha3/alpha5(IV)NC1 epitopes\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exposure of normally cryptic NC1 epitopes provides antigenic substrate for the autoreactive response in the conformeropathy model.\", \"hypothesis_groups\": [\"conformeropathy\"]}, {\"source\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"target\": \"Linear anti-GBM IgG deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating autoantibody binds its basement-membrane target.\"}, {\"source\": \"Linear anti-GBM IgG deposition\", \"target\": \"Complement-dependent capillaritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tissue-bound antibody initiates complement-dependent inflammation.\"}, {\"source\": \"Complement-dependent capillaritis\", \"target\": \"Necrotizing crescentic glomerular injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Glomerular capillary-wall injury drives necrosis and crescent formation.\"}, {\"source\": \"Complement-dependent capillaritis\", \"target\": \"Alveolar capillary-wall disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar capillary-wall disruption permits blood to enter alveolar spaces.\"}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Rapidly progressive glomerulonephritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Necrotizing crescentic glomerular injury\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar capillary-wall disruption\", \"target\": \"Diffuse alveolar hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar capillary-wall disruption\", \"target\": \"Hemoptysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar capillary-wall disruption\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cigarette smoking as a pulmonary-disease modifier\", \"target\": \"Alveolar capillary-wall disruption\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Exacerbating rather than triggering, because this exposure does not cause the disease: the antibody is already made, and smoking decides whether the lung is involved. The classic 1983 series settles both halves of that sentence. All 37 cigarette smokers in it had lung haemorrhage against 2 of 10 non-smokers, and crucially the anti-GBM antibody titres did not differ between the two groups, so smoking is not acting by making more antibody. That null result is what places this edge on the alveolar capillary wall rather than on the loss-of-tolerance node, and it is a stronger argument for the target than the association alone would be. One patient in that series resumed smoking and the lung haemorrhage returned, which is a within-patient rechallenge and the strongest causal design available anywhere in this entry.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Infection as a possible environmental trigger\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at the loss-of-tolerance node because the cited sentence conditions its claim on genetic susceptibility and that node is the one carrying the HLA restriction. Graded predisposing rather than triggering despite the sentence using the word trigger, because the sentence hedges it twice, saying clustering suggests environmental factors may trigger disease, and the exposure\u0027s own name calls infection possible. The intermediates are unknown in the strict sense: no organism is named and no route from infection to autoantibody production is given.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Plasma exchange (plasmapheresis)\", \"target\": \"Linear anti-GBM IgG deposition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasma exchange (plasmapheresis)\", \"target\": \"Rapidly progressive glomerulonephritis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cyclophosphamide\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"target\": \"Circulating anti-GBM antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Detectable circulating anti-GBM antibody reports the autoantibody-production mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HLA-DRB1 (DR15 / DRB1*15:01) susceptibility\", \"target\": \"HLA-restricted loss of tolerance and anti-GBM IgG production\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL4A3 (alpha-3 type IV collagen) autoantigen target gene\", \"target\": \"Conformational exposure of cryptic alpha3/alpha5(IV)NC1 epitopes\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5419,14 +5708,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary hemorrhage
+
+                        <span class="phenotype-term-label">Pulmonary hemorrhage</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040223">HP:0040223</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0040223</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5500,14 +5798,21 @@
                         Anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5568,14 +5873,21 @@
                         Hematuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hematuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000790">HP:0000790</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5627,14 +5939,21 @@
                         Proteinuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000093">HP:0000093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5686,14 +6005,21 @@
                         Acute kidney injury
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute kidney injury (HP:0001919), qualified as temporality acute. HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5772,14 +6098,21 @@
                         Hemoptysis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemoptysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002105">HP:0002105</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002105</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5840,14 +6173,21 @@
                         Rapidly progressive glomerulonephritis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glomerulonephritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000099">HP:0000099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glomerulonephritis (HP:0000099), qualified as temporality acute; course progressive. HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5965,13 +6305,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:4948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6031,13 +6376,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL4A3
 
 
-    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2204">hgnc:2204</a>
+    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:2204</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL4A3 (hgnc:2204). hgnc:2204 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6104,7 +6454,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Plasmapheresis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6190,16 +6545,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Glomerulonephritis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000099">HP:0000099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6292,7 +6652,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6322,16 +6687,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         glucocorticoid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:24261">CHEBI:24261</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:24261</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses glucocorticoid (CHEBI:24261). CHEBI:24261 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6386,7 +6756,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6416,16 +6791,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6530,7 +6910,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6560,16 +6945,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6696,7 +7086,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6826,6 +7221,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking-as-a-pulmonary-disease-modifier" data-dismech-node="Cigarette smoking as a pulmonary-disease modifier" data-dismech-type="environmental">
                 <div class="item-name">Cigarette smoking as a pulmonary-disease modifier</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cigarette smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-38">ECTO:0100003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Current smoking is associated with pulmonary involvement in anti-GBM disease. This observational association supports smoking as a harmful modifier of the pulmonary phenotype, not as a necessary cause of autoimmunity.</div>
@@ -6866,10 +7288,112 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Alveolar capillary-wall disruption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Exacerbating rather than triggering, because this exposure does not cause the disease: the antibody is already made, and smoking decides whether the lung is involved. The classic 1983 series settles both halves of that sentence. All 37 cigarette smokers in it had lung haemorrhage against 2 of 10 non-smokers, and crucially the anti-GBM antibody titres did not differ between the two groups, so smoking is not acting by making more antibody. That null result is what places this edge on the alveolar capillary wall rather than on the loss-of-tolerance node, and it is a stronger argument for the target than the association alone would be. One patient in that series resumed smoking and the lung haemorrhage returned, which is a within-patient rechallenge and the strongest causal design available anywhere in this entry.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6140495" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6140495" target="_blank">PMID:6140495</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of these, all 37 cigarette smokers suffered lung haemorrhage, compared with only 2 of 10 non-smokers"</div>
+
+
+                <div class="evidence-explanation">A near-complete separation between smokers and non-smokers for lung involvement in a series of patients who all had the same autoantibody disease. It is the size of this contrast, not a mechanism, that carries the edge.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6140495" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6140495" target="_blank">PMID:6140495</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was no significant difference between the titres of circulating anti-GBM antibodies in smokers and non-smokers"</div>
+
+
+                <div class="evidence-explanation">The item that decides the target. Smokers and non-smokers had the same antibody titres, so smoking is not acting on the autoantibody arm at all, which is why this link points at the alveolar capillary wall and not at the loss-of-tolerance node upstream.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6140495" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6140495" target="_blank">PMID:6140495</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 1 patient resumption of smoking was closely followed by recrudescence of lung haemorrhage"</div>
+
+
+                <div class="evidence-explanation">A within-patient rechallenge: the exposure stopped, resumed, and the bleeding returned with it. One patient only, but it is the strongest causal design in this entry and it is carried for that reason.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-infection-as-a-possible-environmental-trigger" data-dismech-node="Infection as a possible environmental trigger" data-dismech-type="environmental">
                 <div class="item-name">Infection as a possible environmental trigger</div>
+
+
+
+
 
 
 
@@ -6910,6 +7434,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">HLA-restricted loss of tolerance and anti-GBM IgG production</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at the loss-of-tolerance node because the cited sentence conditions its claim on genetic susceptibility and that node is the one carrying the HLA restriction. Graded predisposing rather than triggering despite the sentence using the word trigger, because the sentence hedges it twice, saying clustering suggests environmental factors may trigger disease, and the exposure&#39;s own name calls infection possible. The intermediates are unknown in the strict sense: no organism is named and no route from infection to autoantibody production is given.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28515156" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28515156" target="_blank">PMID:28515156</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The recent confirmation of spatial and temporal clustering of cases suggests that environmental factors, including infection, may trigger disease in genetically susceptible individuals."</div>
+
+
+                <div class="evidence-explanation">States that confirmed spatial and temporal clustering of cases suggests environmental factors including infection may trigger disease in genetically susceptible individuals. Clustering is an argument that something environmental is at work rather than evidence that infection is the thing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7180,6 +7756,142 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Spatio-temporal interaction of immune and renal cells determines glomerular crescent formation in autoimmune kidney disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE303481" target="_blank">geo:GSE303481</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Rapidly progressive glomerulonephritis (RPGN) is the most aggressive group of autoimmune kidney disease with the worst prognosis. Anti-neutrophil cytoplasmic antibody (ANCA) associated vasculitis, anti-glomerular basement membrane (anti-GBM) and lupus nephritis are the most common causes of RPGN and are characterized by the formation of glomerular crescents and infiltration of leukocytes that eventually lead to glomerulosclerosis and kidney failure.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=15</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41028563" target="_blank" style="color: var(--secondary);">PMID:41028563</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Anti-Glomerular Basement Membrane Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Spatio-temporal interaction of immune and renal cells determines glomerular crescent formation in autoimmune kidney disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE294965" target="_blank">geo:GSE294965</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Rapidly progressive glomerulonephritis (RPGN) is the most aggressive group of autoimmune kidney disease with the worst prognosis. Anti-neutrophil cytoplasmic antibody (ANCA) associated vasculitis, anti-glomerular basement membrane (anti-GBM) and lupus nephritis are the most common causes of RPGN and are characterized by the formation of glomerular crescents and infiltration of leukocytes that eventually lead to glomerulosclerosis and kidney failure.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+                    <span class="tag tag-dataset">n=9</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40393992" target="_blank" style="color: var(--secondary);">PMID:40393992</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Anti-Glomerular Basement Membrane Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Effects of a Tricaprylin Emulsion on Anti-glomerular Basement Membrane Glomerulonephritis in Rats
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE46295" target="_blank">geo:GSE46295</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Expression data from rat with anti-glomerular basement membrane nephritis (anti-GBM). We used microarrays to analyze the transcriptome of kidney from anti-GBM model rat with or without drug treatment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">rat</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/26235580" target="_blank" style="color: var(--secondary);">PMID:26235580</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Anti-Glomerular Basement Membrane Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7207,16 +7919,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Glomerulonephritis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000099">HP:0000099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000099</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7262,6 +7979,177 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-complement-c3-deficient-c4-deficient-and-wild-type-mice-in-a-heterologous-anti-gbm-nephritis-model-mus-musculus" data-dismech-node="Complement C3-deficient, C4-deficient, and wild-type mice in a heterologous anti-GBM nephritis model Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Complement C3-deficient, C4-deficient, and wild-type mice in a heterologous anti-GBM nephritis model Mus musculus
+
+                </div>
+
+                <div class="item-desc">C3 or C4 deficiency reduced neutrophil infiltration, proteinuria, and capillary thrombosis after nephritogenic antibody exposure, supporting a causal complement role. The heterologous antibody-transfer model bypasses human loss of tolerance, and protection was overcome at higher antibody dose.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Proteinuria</span>
+
+                    <span class="tag tag-phenotype">Glomerular capillary thrombosis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Complement C3-deficient, C4-deficient, and wild-type mice in a heterologous anti-GBM nephritis model</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9409643" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9409643" target="_blank">PMID:9409643</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These studies support a critical role for complement in the development of anti-GBM disease. However, the protective effect of complement deficiency can be broken if the dose of nephritogenic antibody is increased."</div>
+
+
+                <div class="evidence-explanation">Supports complement dependence and states the antibody-dose limitation of the model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-alpha3-iv-nc1-127-148-immunized-wistar-kyoto-rats-rattus-norvegicus" data-dismech-node="alpha3(IV)NC1 127-148-immunized Wistar Kyoto rats Rattus norvegicus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    alpha3(IV)NC1 127-148-immunized Wistar Kyoto rats Rattus norvegicus
+
+                </div>
+
+                <div class="item-desc">Antigen-immunized rats model autoreactive anti-GBM nephritis. In this 2026 study, butyrate-modified m-P14 peptide reduced renal injury and inflammatory readouts. This induced rodent model is preclinical and does not establish efficacy or safety in people.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Proteinuria</span>
+
+                    <span class="tag tag-phenotype">Glomerular crescent formation</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Rattus norvegicus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">alpha3(IV)NC1 127-148-immunized Wistar Kyoto rats</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42278340" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42278340" target="_blank">PMID:42278340</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"M-P14-BA reduced proteinuria, crescent formation, glomerular IgG deposition, complement activation, and inflammatory cell infiltration, with overall efficacy comparable to m-P14 in early treatment settings."</div>
+
+
+                <div class="evidence-explanation">Directly reports the treatment effects in antigen-immunized rats.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -8006,6 +8894,70 @@ biochemical:
       that predicts relapse, unlike monophasic single-positive disease.
 environmental:
 - name: Cigarette smoking as a pulmonary-disease modifier
+  exposure_term:
+    preferred_term: exposure to cigarette smoking
+    term:
+      id: ECTO:0100003
+      label: exposure to cigarette smoking
+  influences_mechanisms:
+  - target: Alveolar capillary-wall disruption
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Exacerbating rather than triggering, because this exposure does not
+      cause the disease: the antibody is already made, and smoking decides
+      whether the lung is involved. The classic 1983 series settles both
+      halves of that sentence. All 37 cigarette smokers in it had lung
+      haemorrhage against 2 of 10 non-smokers, and crucially the anti-GBM
+      antibody titres did not differ between the two groups, so smoking is
+      not acting by making more antibody. That null result is what places
+      this edge on the alveolar capillary wall rather than on the
+      loss-of-tolerance node, and it is a stronger argument for the target
+      than the association alone would be. One patient in that series
+      resumed smoking and the lung haemorrhage returned, which is a
+      within-patient rechallenge and the strongest causal design available
+      anywhere in this entry.
+    evidence:
+    - reference: PMID:6140495
+      reference_title: &#34;Cigarette smoking and lung haemorrhage in glomerulonephritis caused by autoantibodies to glomerular basement membrane.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Of these, all 37 cigarette smokers suffered lung haemorrhage, compared with only 2 of 10 non-smokers&#34;
+      explanation: &gt;-
+        A near-complete separation between smokers and non-smokers for lung
+        involvement in a series of patients who all had the same
+        autoantibody disease. It is the size of this contrast, not a
+        mechanism, that carries the edge.
+    - reference: PMID:6140495
+      reference_title: &#34;Cigarette smoking and lung haemorrhage in glomerulonephritis caused by autoantibodies to glomerular basement membrane.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;There was no significant difference between the titres of circulating anti-GBM antibodies in smokers and non-smokers&#34;
+      explanation: &gt;-
+        The item that decides the target. Smokers and non-smokers had the
+        same antibody titres, so smoking is not acting on the autoantibody
+        arm at all, which is why this link points at the alveolar capillary
+        wall and not at the loss-of-tolerance node upstream.
+    - reference: PMID:6140495
+      reference_title: &#34;Cigarette smoking and lung haemorrhage in glomerulonephritis caused by autoantibodies to glomerular basement membrane.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In 1 patient resumption of smoking was closely followed by recrudescence of lung haemorrhage&#34;
+      explanation: &gt;-
+        A within-patient rechallenge: the exposure stopped, resumed, and the
+        bleeding returned with it. One patient only, but it is the strongest
+        causal design in this entry and it is carried for that reason.
+    - reference: PMID:8281713
+      reference_title: &#34;Anti-GBM disease: predictive value of clinical, histological and serological data.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Pulmonary disease was significantly associated with current smoking (p &lt; 0.01).&#34;
+      explanation: &gt;-
+        Reports pulmonary disease significantly associated with current
+        smoking. It reaches the clinical expression of this node rather than
+        the wall disruption itself, and as an association within a case series
+        it cannot separate smoking as cause of lung involvement from smoking
+        as a marker of who gets it.
   description: &gt;-
     Current smoking is associated with pulmonary involvement in anti-GBM disease.
     This observational association supports smoking as a harmful modifier of the
@@ -8019,6 +8971,31 @@ environmental:
     snippet: Pulmonary disease was significantly associated with current smoking (p &lt; 0.01).
     explanation: Directly reports the association in a 29-patient retrospective cohort.
 - name: Infection as a possible environmental trigger
+  influences_mechanisms:
+  - target: HLA-restricted loss of tolerance and anti-GBM IgG production
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at the loss-of-tolerance node because the cited sentence
+      conditions its claim on genetic susceptibility and that node is the one
+      carrying the HLA restriction. Graded predisposing rather than triggering
+      despite the sentence using the word trigger, because the sentence hedges
+      it twice, saying clustering suggests environmental factors may trigger
+      disease, and the exposure&#39;s own name calls infection possible. The
+      intermediates are unknown in the strict sense: no organism is named and
+      no route from infection to autoantibody production is given.
+    evidence:
+    - reference: PMID:28515156
+      reference_title: &#34;Anti-Glomerular Basement Membrane Disease.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;The recent confirmation of spatial and temporal clustering of cases suggests that environmental factors, including infection, may trigger disease in genetically susceptible individuals.&#34;
+      explanation: &gt;-
+        States that confirmed spatial and temporal clustering of cases
+        suggests environmental factors including infection may trigger disease
+        in genetically susceptible individuals. Clustering is an argument that
+        something environmental is at work rather than evidence that infection
+        is the thing.
   description: &gt;-
     Spatial and temporal clustering supports an environmental contribution, and
     infection is one proposed trigger in genetically susceptible people. The
@@ -8540,6 +9517,42 @@ notes: &gt;-
   conformance target: anti-GBM disease is best modeled as a conformeropathy
   (cryptic-neoepitope unmasking) rather than classic post-infectious molecular
   mimicry, so no false conformance was asserted.
+datasets:
+- accession: geo:GSE303481
+  title: Spatio-temporal interaction of immune and renal cells determines glomerular crescent formation in autoimmune kidney disease
+  description: Rapidly progressive glomerulonephritis (RPGN) is the most aggressive group of autoimmune kidney disease with the worst prognosis. Anti-neutrophil cytoplasmic antibody (ANCA) associated vasculitis, anti-glomerular basement membrane (anti-GBM) and lupus nephritis are the most common causes of RPGN and are characterized by the formation of glomerular crescents and infiltration of leukocytes that eventually lead to glomerulosclerosis and kidney failure.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 15
+  publication: PMID:41028563
+  notes: Identified by GEO DataSets index search for Anti-Glomerular Basement Membrane Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE294965
+  title: Spatio-temporal interaction of immune and renal cells determines glomerular crescent formation in autoimmune kidney disease
+  description: Rapidly progressive glomerulonephritis (RPGN) is the most aggressive group of autoimmune kidney disease with the worst prognosis. Anti-neutrophil cytoplasmic antibody (ANCA) associated vasculitis, anti-glomerular basement membrane (anti-GBM) and lupus nephritis are the most common causes of RPGN and are characterized by the formation of glomerular crescents and infiltration of leukocytes that eventually lead to glomerulosclerosis and kidney failure.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 9
+  publication: PMID:40393992
+  notes: Identified by GEO DataSets index search for Anti-Glomerular Basement Membrane Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE46295
+  title: Effects of a Tricaprylin Emulsion on Anti-glomerular Basement Membrane Glomerulonephritis in Rats
+  description: Expression data from rat with anti-glomerular basement membrane nephritis (anti-GBM). We used microarrays to analyze the transcriptome of kidney from anti-GBM model rat with or without drug treatment
+  organism:
+    preferred_term: rat
+    term:
+      id: NCBITaxon:10116
+      label: Rattus norvegicus
+  data_type: MICROARRAY
+  sample_count: 12
+  publication: PMID:26235580
+  notes: Identified by GEO DataSets index search for Anti-Glomerular Basement Membrane Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -9044,7 +10057,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Anti-Glomerular Basement Membrane Disease", "mondoId": "MONDO:0009303", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anti-Glomerular_Basement_Membrane_Disease", "yamlRevision": "f432407ce334"};
+        const OS_CONFIG = {"diseaseName": "Anti-Glomerular Basement Membrane Disease", "mondoId": "MONDO:0009303", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anti-Glomerular_Basement_Membrane_Disease", "yamlRevision": "f3d3496262da"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9463,5 +10476,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

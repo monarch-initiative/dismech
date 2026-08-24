@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Holoprosencephaly%209"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3750,7 +3918,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3803,6 +3971,14 @@
 
 
 
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#references">
@@ -3827,31 +4003,110 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+                    <span class="tag tag-classification" title="The dominant clinical presentation is congenital hypopituitarism / combined pituitary hormone deficiency, and most reported carriers are ascertained through endocrine rather than neurology clinics.">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification" title="A minority of carriers have frank holoprosencephaly-spectrum forebrain malformation, and neurocognitive impairment is reported in a substantial subset.">NEUROLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="Autosomal dominant Mendelian disorder with markedly incomplete penetrance; the mouse Gli2 haploinsufficiency-plus-teratogen model makes this an explicit gene-environment interaction disorder.">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4894,16 +5149,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4924,6 +5184,7 @@
 
 
                 </div>
+
 
 
 
@@ -5019,16 +5280,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5049,6 +5315,7 @@
 
 
                 </div>
+
 
 
 
@@ -5158,16 +5425,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5194,16 +5466,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         smoothened signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5229,19 +5506,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5352,16 +5635,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neurecto-epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000710">CL:0000710</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000710" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000710</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neurecto-epithelial cell (CL:0000710). CL:0000710 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5388,16 +5676,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         telencephalon regionalization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021978" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021978">GO:0021978</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021978" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0021978</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal telencephalon regionalization (GO:0021978). GO:0021978 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5417,16 +5710,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         floor plate formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021508">GO:0021508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0021508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased floor plate formation (GO:0021508). GO:0021508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5447,6 +5745,7 @@
 
 
                 </div>
+
 
 
 
@@ -5557,16 +5856,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         somatotroph
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002312">CL:0002312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves somatotroph (CL:0002312). CL:0002312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5593,16 +5897,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         pituitary gland development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021983" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021983">GO:0021983</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021983" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0021983</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal pituitary gland development (GO:0021983). GO:0021983 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5623,6 +5932,7 @@
 
 
                 </div>
+
 
 
 
@@ -5742,16 +6052,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         limb morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035108">GO:0035108</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035108" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0035108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal limb morphogenesis (GO:0035108). GO:0035108 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5771,16 +6086,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         smoothened signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5801,6 +6121,7 @@
 
 
                 </div>
+
 
 
 
@@ -5896,16 +6217,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         roof of mouth development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0060021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5926,6 +6252,7 @@
 
 
                 </div>
+
 
 
 
@@ -6009,6 +6336,7 @@
                 <div class="item-name">Reduced Developmental Buffering of the Hedgehog Pathway</div>
 
                 <div class="item-desc">A single functional GLI2 allele is usually sufficient for normal development, which is why so many carriers are unaffected. What haploinsufficiency removes is reserve: the pathway becomes dose-limited and therefore vulnerable to a second genetic or environmental hit during the first-trimester patterning window. Mice heterozygous for a Gli2 null allele are indistinguishable from wild-type littermates at baseline but show markedly increased penetrance and severity of holoprosencephaly after low-dose teratogen or ethanol exposure. This provides the mechanistic account of the incomplete penetrance that defines the human disorder, but the specific human second hits remain unidentified.</div>
+
 
 
 
@@ -6135,16 +6463,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         growth hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030252">GO:0030252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased growth hormone secretion (GO:0030252). GO:0030252 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6165,6 +6498,7 @@
 
 
                 </div>
+
 
 
 
@@ -6235,6 +6569,7 @@
                 <div class="item-name">Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation</div>
 
                 <div class="item-desc">The structural end-point of impaired midline patterning: most commonly subtle midface hypoplasia, hypotelorism, orofacial clefting and a solitary median maxillary central incisor, and less commonly overt lobar or semilobar holoprosencephaly. The severity of the brain malformation is the dominant determinant of neurodevelopmental outcome.</div>
+
 
 
 
@@ -6332,6 +6667,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6392,7 +6728,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2q14.2 deletions encompassing GLI2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Submicroscopic and larger interstitial deletions of 2q14.2 that remove GLI2 produce a phenotype continuous with that of intragenic truncating variants, with incomplete penetrance within the same family.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Attenuated Hedgehog Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GLI2 activator dose lowers transcriptional output of the Hedgehog pathway in responding cells. Mouse work shows this is not an all-or-nothing switch: Gli2 heterozygosity produces a dosage-dependent attenuation of Hedgehog ligand responsiveness at the cellular level, which is compatible with normal development at baseline but leaves the pathway with less reserve.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"smoothened signaling pathway\"], \"role\": \"central_effector\"}}, {\"id\": \"Cleft lip and palate repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Staged surgical repair of cleft lip and palate along standard craniofacial protocols, with speech and feeding support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined Pituitary Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural anterior pituitary failure translates into deficiency of one or more anterior pituitary hormones - most often growth hormone, frequently combined with TSH, ACTH, prolactin and gonadotropin deficiency, and occasionally with antidiuretic hormone deficiency (diabetes insipidus) when the posterior lobe axis is involved. Clinically this presents as neonatal hypoglycaemia and cholestasis, micropenis and cryptorchidism in male infants, and growth failure in childhood.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"growth hormone secretion\"], \"role\": \"outcome\"}}, {\"id\": \"Defective Rathke Pouch and Anterior Pituitary Organogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signalling is required at an early step of pituitary formation, when Rathke pouch is induced from the oral ectoderm beneath the ventral diencephalon. Reduced GLI2 activator output impairs anterior pituitary specification and growth and disturbs the descent/positioning of the posterior lobe, producing anterior pituitary hypoplasia with an ectopic posterior pituitary and interrupted stalk. Gli2 mutant mice have hypoplastic anterior and absent posterior pituitary glands, and in zebrafish loss of Gli-mediated signalling causes the adenohypophyseal anlage to transdifferentiate into lens.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"pituitary gland development\"], \"role\": \"consequence\"}}, {\"id\": \"Disrupted Anteroposterior Limb Bud Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signalling from the zone of polarizing activity, read out through the GLI transcription factors, specifies digit number and identity along the anteroposterior axis of the limb bud. Reduced GLI2 activator dose perturbs this readout and produces an extra postaxial digit. This is the most prevalent manifestation of a pathogenic GLI2 variant and the mildest expression of the condition - frequently the only finding in a transmitting parent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"limb morphogenesis\", \"smoothened signaling pathway\"], \"role\": \"consequence\"}}, {\"id\": \"Disrupted First Branchial Arch and Craniofacial Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the midline, reduced Hedgehog output perturbs patterning of the first branchial arch and its derivatives and of the developing palate and orbit, producing midface hypoplasia, orofacial clefting, temporomandibular joint anomalies, and - at the severe end - orbital anomalies with anophthalmia or microphthalmia and heminasal aplasia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\"], \"role\": \"consequence\"}}, {\"id\": \"GLI2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GLI2\"], \"gene_terms\": [{\"label\": \"GLI2\", \"id\": \"hgnc:4318\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"GLI2 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous truncating variant, pathogenic zinc-finger missense variant, or whole-gene 2q14.2 deletion removes or inactivates one GLI2 allele. Truncating alleles delete the C-terminal transcriptional activation domain, so the residual protein cannot drive Hedgehog target-gene transcription.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"role\": \"trigger\"}}, {\"id\": \"Growth hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (somatropin) for the growth hormone deficiency that is the most consistent hormonal deficit, restoring growth velocity and final height.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural end-point of impaired midline patterning: most commonly subtle midface hypoplasia, hypotelorism, orofacial clefting and a solitary median maxillary central incisor, and less commonly overt lobar or semilobar holoprosencephaly. The severity of the brain malformation is the dominant determinant of neurodevelopmental outcome.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Hypopituitarism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deficiency of one or more anterior pituitary hormones, ranging from isolated growth hormone deficiency to panhypopituitarism. This is the leading reason individuals with pathogenic GLI2 variants come to medical attention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040075\"}}, {\"id\": \"Impaired Ventral Forebrain Midline Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signalling from the prechordal plate ventralizes the rostral neuroepithelium and drives the midline separation of the eye field and prosencephalon. Reduced GLI2-dependent output impairs this midline induction. In the mouse, complete Gli2 loss abolishes the floor plate and, on a permissive genetic background, reproduces the medial forebrain deficiency and midfacial hypoplasia of severe human holoprosencephaly; in humans the heterozygous state usually leaves cleavage intact and manifests only as midfacial hypoplasia and hypotelorism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neurecto-epithelial cell\"], \"biological_processes\": [\"telencephalon regionalization\", \"floor plate formation\"], \"role\": \"consequence\"}}, {\"id\": \"Multi-axis pituitary hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement of the remaining deficient axes as identified - hydrocortisone for ACTH deficiency (with stress dosing and adrenal crisis education, the most safety-critical element), levothyroxine for central hypothyroidism, desmopressin for central diabetes insipidus, and sex steroids at the age of puberty for hypogonadotropic hypogonadism.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"hydrocortisone\", \"levothyroxine\", \"desmopressin\"]}}, {\"id\": \"Orofacial clefting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft lip and/or cleft palate, sometimes bilateral, occasionally as the presenting anomaly together with polydactyly.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000202\"}}, {\"id\": \"Postaxial Polydactyly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An extra digit on the ulnar or fibular side of the hand or foot, unilateral or bilateral. It is the single most frequent finding in GLI2 variant carriers and is often the only clue that an apparently unaffected parent is a carrier.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Postaxial polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An extra digit on the ulnar or fibular side of the hand or foot, unilateral or bilateral. It is the most prevalent single feature of GLI2-related disease and is often the only manifestation in a transmitting parent.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100259\"}}, {\"id\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single functional GLI2 allele is usually sufficient for normal development, which is why so many carriers are unaffected. What haploinsufficiency removes is reserve: the pathway becomes dose-limited and therefore vulnerable to a second genetic or environmental hit during the first-trimester patterning window. Mice heterozygous for a Gli2 null allele are indistinguishable from wild-type littermates at baseline but show markedly increased penetrance and severity of holoprosencephaly after low-dose teratogen or ethanol exposure. This provides the mechanistic account of the incomplete penetrance that defines the human disorder, but the specific human second hits remain unidentified.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\"}}, {\"id\": \"Reduced GLI2 Transcriptional Activator Dose\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLI2 is the principal activator among the three vertebrate GLI transcription factors that transduce the Hedgehog signal. With one allele inactivated, the dose of full-length GLI2 activator available for nuclear translocation and target-gene activation falls. The mutant alleles show no dominant-negative activity in the original functional assays, so the mechanism is haploinsufficiency rather than poisoning of the wild-type product - although a later C-terminal frameshift allele did display a dominant-negative effect, leaving room for allele-specific mechanisms.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"role\": \"central_effector\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth failure secondary to growth hormone deficiency, the usual route to endocrine referral in childhood; responsive to growth hormone replacement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Surgical correction of postaxial polydactyly\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Excision or reconstruction of the supernumerary postaxial digit, usually in infancy or early childhood, for function and appearance. This is standard orthopaedic practice rather than a GLI2-specific intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Truncating GLI2 variants removing the C-terminal activator domain\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, frameshift and canonical splice-site variants that truncate GLI2 before or within the C-terminal transcriptional activator domain are the best-established pathogenic class and carry the highest risk of hypopituitarism and polydactyly.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Zinc-finger domain missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A minority of missense variants located in the C2H2 zinc-finger DNA-binding domain are pathogenic, including p.(Arg479Gly), p.(Arg516Pro), p.(Gly518Lys) and p.(Tyr575His); functional assays show reduced transcriptional activity.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"GLI2 Loss-of-Function Variant\", \"target\": \"Reduced GLI2 Transcriptional Activator Dose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced GLI2 Transcriptional Activator Dose\", \"target\": \"Attenuated Hedgehog Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Impaired Ventral Forebrain Midline Patterning\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Defective Rathke Pouch and Anterior Pituitary Organogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Disrupted Anteroposterior Limb Bud Patterning\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Disrupted First Branchial Arch and Craniofacial Patterning\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Ventral Forebrain Midline Patterning\", \"target\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Rathke Pouch and Anterior Pituitary Organogenesis\", \"target\": \"Combined Pituitary Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted Anteroposterior Limb Bud Patterning\", \"target\": \"Postaxial Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted First Branchial Arch and Craniofacial Patterning\", \"target\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"target\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Growth hormone replacement\", \"target\": \"Short stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multi-axis pituitary hormone replacement\", \"target\": \"Hypopituitarism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical correction of postaxial polydactyly\", \"target\": \"Postaxial polydactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft lip and palate repair\", \"target\": \"Orofacial clefting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Truncating GLI2 variants removing the C-terminal activator domain\", \"target\": \"GLI2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Zinc-finger domain missense variants\", \"target\": \"GLI2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"2q14.2 deletions encompassing GLI2\", \"target\": \"GLI2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2q14.2 deletions encompassing GLI2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Submicroscopic and larger interstitial deletions of 2q14.2 that remove GLI2 produce a phenotype continuous with that of intragenic truncating variants, with incomplete penetrance within the same family.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Attenuated Hedgehog Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced GLI2 activator dose lowers transcriptional output of the Hedgehog pathway in responding cells. Mouse work shows this is not an all-or-nothing switch: Gli2 heterozygosity produces a dosage-dependent attenuation of Hedgehog ligand responsiveness at the cellular level, which is compatible with normal development at baseline but leaves the pathway with less reserve.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"smoothened signaling pathway\"], \"role\": \"central_effector\"}}, {\"id\": \"Cleft lip and palate repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Staged surgical repair of cleft lip and palate along standard craniofacial protocols, with speech and feeding support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Combined Pituitary Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural anterior pituitary failure translates into deficiency of one or more anterior pituitary hormones - most often growth hormone, frequently combined with TSH, ACTH, prolactin and gonadotropin deficiency, and occasionally with antidiuretic hormone deficiency (diabetes insipidus) when the posterior lobe axis is involved. Clinically this presents as neonatal hypoglycaemia and cholestasis, micropenis and cryptorchidism in male infants, and growth failure in childhood.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"growth hormone secretion\"], \"role\": \"outcome\"}}, {\"id\": \"Defective Rathke Pouch and Anterior Pituitary Organogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signalling is required at an early step of pituitary formation, when Rathke pouch is induced from the oral ectoderm beneath the ventral diencephalon. Reduced GLI2 activator output impairs anterior pituitary specification and growth and disturbs the descent/positioning of the posterior lobe, producing anterior pituitary hypoplasia with an ectopic posterior pituitary and interrupted stalk. Gli2 mutant mice have hypoplastic anterior and absent posterior pituitary glands, and in zebrafish loss of Gli-mediated signalling causes the adenohypophyseal anlage to transdifferentiate into lens.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"pituitary gland development\"], \"role\": \"consequence\"}}, {\"id\": \"Disrupted Anteroposterior Limb Bud Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signalling from the zone of polarizing activity, read out through the GLI transcription factors, specifies digit number and identity along the anteroposterior axis of the limb bud. Reduced GLI2 activator dose perturbs this readout and produces an extra postaxial digit. This is the most prevalent manifestation of a pathogenic GLI2 variant and the mildest expression of the condition - frequently the only finding in a transmitting parent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"limb morphogenesis\", \"smoothened signaling pathway\"], \"role\": \"consequence\"}}, {\"id\": \"Disrupted First Branchial Arch and Craniofacial Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond the midline, reduced Hedgehog output perturbs patterning of the first branchial arch and its derivatives and of the developing palate and orbit, producing midface hypoplasia, orofacial clefting, temporomandibular joint anomalies, and - at the severe end - orbital anomalies with anophthalmia or microphthalmia and heminasal aplasia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"roof of mouth development\"], \"role\": \"consequence\"}}, {\"id\": \"GLI2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GLI2\"], \"gene_terms\": [{\"label\": \"GLI2\", \"id\": \"hgnc:4318\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"GLI2 Loss-of-Function Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous truncating variant, pathogenic zinc-finger missense variant, or whole-gene 2q14.2 deletion removes or inactivates one GLI2 allele. Truncating alleles delete the C-terminal transcriptional activation domain, so the residual protein cannot drive Hedgehog target-gene transcription.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"role\": \"trigger\"}}, {\"id\": \"Growth hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human growth hormone (somatropin) for the growth hormone deficiency that is the most consistent hormonal deficit, restoring growth velocity and final height.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"somatropin\"]}}, {\"id\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The structural end-point of impaired midline patterning: most commonly subtle midface hypoplasia, hypotelorism, orofacial clefting and a solitary median maxillary central incisor, and less commonly overt lobar or semilobar holoprosencephaly. The severity of the brain malformation is the dominant determinant of neurodevelopmental outcome.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Hypopituitarism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deficiency of one or more anterior pituitary hormones, ranging from isolated growth hormone deficiency to panhypopituitarism. This is the leading reason individuals with pathogenic GLI2 variants come to medical attention.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0040075\"}}, {\"id\": \"Impaired Ventral Forebrain Midline Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signalling from the prechordal plate ventralizes the rostral neuroepithelium and drives the midline separation of the eye field and prosencephalon. Reduced GLI2-dependent output impairs this midline induction. In the mouse, complete Gli2 loss abolishes the floor plate and, on a permissive genetic background, reproduces the medial forebrain deficiency and midfacial hypoplasia of severe human holoprosencephaly; in humans the heterozygous state usually leaves cleavage intact and manifests only as midfacial hypoplasia and hypotelorism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neurecto-epithelial cell\"], \"biological_processes\": [\"telencephalon regionalization\", \"floor plate formation\"], \"role\": \"consequence\"}}, {\"id\": \"Maternal pregestational diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The most consistently replicated non-genetic risk factor for holoprosencephaly in human epidemiology, and therefore the leading candidate second hit for a dose-limited GLI2 carrier. The evidence is for holoprosencephaly broadly rather than for GLI2 carriers specifically - no study has yet stratified maternal diabetes risk by GLI2 genotype, which is precisely what the exp_gli2_prospective_periconceptional_exposure_cohort experiment proposes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multi-axis pituitary hormone replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement of the remaining deficient axes as identified - hydrocortisone for ACTH deficiency (with stress dosing and adrenal crisis education, the most safety-critical element), levothyroxine for central hypothyroidism, desmopressin for central diabetes insipidus, and sex steroids at the age of puberty for hypogonadotropic hypogonadism.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"hydrocortisone\", \"levothyroxine\", \"desmopressin\"]}}, {\"id\": \"Orofacial clefting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft lip and/or cleft palate, sometimes bilateral, occasionally as the presenting anomaly together with polydactyly.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000202\"}}, {\"id\": \"Postaxial Polydactyly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An extra digit on the ulnar or fibular side of the hand or foot, unilateral or bilateral. It is the single most frequent finding in GLI2 variant carriers and is often the only clue that an apparently unaffected parent is a carrier.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Postaxial polydactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An extra digit on the ulnar or fibular side of the hand or foot, unilateral or bilateral. It is the most prevalent single feature of GLI2-related disease and is often the only manifestation in a transmitting parent.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100259\"}}, {\"id\": \"Prenatal ethanol exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal alcohol exposure interacts with reduced Gli2 dose in the mouse, substantially amplifying craniofacial dysmorphology and producing holoprosencephaly-spectrum defects that the exposure alone does not cause. It is a candidate second hit for the incomplete penetrance seen in human GLI2 carriers, though the interaction has not been demonstrated directly in humans.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A single functional GLI2 allele is usually sufficient for normal development, which is why so many carriers are unaffected. What haploinsufficiency removes is reserve: the pathway becomes dose-limited and therefore vulnerable to a second genetic or environmental hit during the first-trimester patterning window. Mice heterozygous for a Gli2 null allele are indistinguishable from wild-type littermates at baseline but show markedly increased penetrance and severity of holoprosencephaly after low-dose teratogen or ethanol exposure. This provides the mechanistic account of the incomplete penetrance that defines the human disorder, but the specific human second hits remain unidentified.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\"}}, {\"id\": \"Reduced GLI2 Transcriptional Activator Dose\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GLI2 is the principal activator among the three vertebrate GLI transcription factors that transduce the Hedgehog signal. With one allele inactivated, the dose of full-length GLI2 activator available for nuclear translocation and target-gene activation falls. The mutant alleles show no dominant-negative activity in the original functional assays, so the mechanism is haploinsufficiency rather than poisoning of the wild-type product - although a later C-terminal frameshift allele did display a dominant-negative effect, leaving room for allele-specific mechanisms.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"role\": \"central_effector\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth failure secondary to growth hormone deficiency, the usual route to endocrine referral in childhood; responsive to growth hormone replacement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Surgical correction of postaxial polydactyly\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Excision or reconstruction of the supernumerary postaxial digit, usually in infancy or early childhood, for function and appearance. This is standard orthopaedic practice rather than a GLI2-specific intervention.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Teratogen exposure during first-trimester patterning\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Low-dose exposure to a Hedgehog-pathway-antagonising teratogen converts silent Gli2 heterozygosity into overt holoprosencephaly in the mouse, the general form of the second-hit model for this disorder.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Truncating GLI2 variants removing the C-terminal activator domain\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, frameshift and canonical splice-site variants that truncate GLI2 before or within the C-terminal transcriptional activator domain are the best-established pathogenic class and carry the highest risk of hypopituitarism and polydactyly.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Zinc-finger domain missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A minority of missense variants located in the C2H2 zinc-finger DNA-binding domain are pathogenic, including p.(Arg479Gly), p.(Arg516Pro), p.(Gly518Lys) and p.(Tyr575His); functional assays show reduced transcriptional activity.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"GLI2 Loss-of-Function Variant\", \"target\": \"Reduced GLI2 Transcriptional Activator Dose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced GLI2 Transcriptional Activator Dose\", \"target\": \"Attenuated Hedgehog Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Impaired Ventral Forebrain Midline Patterning\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Defective Rathke Pouch and Anterior Pituitary Organogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Disrupted Anteroposterior Limb Bud Patterning\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Disrupted First Branchial Arch and Craniofacial Patterning\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Attenuated Hedgehog Transcriptional Output\", \"target\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Ventral Forebrain Midline Patterning\", \"target\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Defective Rathke Pouch and Anterior Pituitary Organogenesis\", \"target\": \"Combined Pituitary Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted Anteroposterior Limb Bud Patterning\", \"target\": \"Postaxial Polydactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Disrupted First Branchial Arch and Craniofacial Patterning\", \"target\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"target\": \"Holoprosencephaly-Spectrum Forebrain and Midfacial Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Maternal pregestational diabetes\", \"target\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"This entry models a dose-limited pathway with no reserve, which is the substrate on which environmental insults act. Maternal diabetes is the best-replicated such insult and raises the chance that a carrier crosses into the affected range.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal ethanol exposure\", \"target\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Ethanol worsens the phenotype specifically on a Hedgehog-sensitised background, which is what this node describes: the same dose produces far more dysmorphology when one Shh or Gli2 allele is already lost.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Teratogen exposure during first-trimester patterning\", \"target\": \"Reduced Developmental Buffering of the Hedgehog Pathway\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Low-dose teratogen exposure that a normal embryo tolerates becomes damaging once buffering is lost, increasing both penetrance and severity. This is the mechanism by which an unaffected carrier parent can have a severely affected child.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Growth hormone replacement\", \"target\": \"Short stature\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multi-axis pituitary hormone replacement\", \"target\": \"Hypopituitarism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical correction of postaxial polydactyly\", \"target\": \"Postaxial polydactyly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft lip and palate repair\", \"target\": \"Orofacial clefting\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Truncating GLI2 variants removing the C-terminal activator domain\", \"target\": \"GLI2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Zinc-finger domain missense variants\", \"target\": \"GLI2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"2q14.2 deletions encompassing GLI2\", \"target\": \"GLI2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6445,14 +6781,21 @@
                         Neonatal cholestasis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cholestasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001396">HP:0001396</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6515,14 +6858,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Secondary growth hormone deficiency
+
+                        <span class="phenotype-term-label">Secondary growth hormone deficiency</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008240">HP:0008240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Secondary growth hormone deficiency (HP:0008240). HP:0008240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6576,14 +6928,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diabetes insipidus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000873">HP:0000873</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetes insipidus (HP:0000873). HP:0000873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6657,14 +7016,21 @@
                         Hypogonadotropic hypogonadism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypogonadotropic hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000044">HP:0000044</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000044</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6725,14 +7091,21 @@
                         Hypotelorism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000601">HP:0000601</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000601</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotelorism (HP:0000601). HP:0000601 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6793,14 +7166,21 @@
                         Micropenis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micropenis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000054">HP:0000054</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000054</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6852,14 +7232,21 @@
                         Cryptorchidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cryptorchidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000028">HP:0000028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6922,14 +7309,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Midface retrusion
+
+                        <span class="phenotype-term-label">Midface retrusion</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7005,14 +7401,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Orofacial cleft
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000202">HP:0000202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7086,14 +7489,21 @@
                         Solitary median maxillary central incisor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Solitary median maxillary central incisor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006315">HP:0006315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0006315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Solitary median maxillary central incisor (HP:0006315). HP:0006315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7156,14 +7566,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Postaxial polydactyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100259">HP:0100259</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100259</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postaxial polydactyly (HP:0100259). HP:0100259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7248,14 +7665,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001360">HP:0001360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7329,14 +7753,21 @@
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7399,14 +7830,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7491,14 +7929,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypopituitarism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040075">HP:0040075</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0040075</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7572,14 +8017,21 @@
                         Panhypopituitarism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Panhypopituitarism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000871" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000871">HP:0000871</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000871</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Panhypopituitarism (HP:0000871). HP:0000871 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7631,14 +8083,21 @@
                         Central hypothyroidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011787">HP:0011787</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central hypothyroidism (HP:0011787). HP:0011787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7690,14 +8149,21 @@
                         Central adrenal insufficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central adrenal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011734" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011734">HP:0011734</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011734</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central adrenal insufficiency (HP:0011734). HP:0011734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7749,14 +8215,23 @@
                         Branchial arch anomaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Branchial anomaly
+
+                        <span class="phenotype-term-label">Branchial anomaly</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009794" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009794">HP:0009794</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0009794</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Branchial anomaly (HP:0009794). HP:0009794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7808,14 +8283,23 @@
                         Temporomandibular joint anomaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the temporomandibular joint
+
+                        <span class="phenotype-term-label">Abnormality of the temporomandibular joint</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010754" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010754">HP:0010754</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0010754</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the temporomandibular joint (HP:0010754). HP:0010754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7867,14 +8351,21 @@
                         Semilobar holoprosencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Semilobar holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002507" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002507">HP:0002507</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002507" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002507</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Semilobar holoprosencephaly (HP:0002507). HP:0002507 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7928,14 +8419,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neurodevelopmental abnormality
+
+                        <span class="phenotype-term-label">Neurodevelopmental abnormality</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012759">HP:0012759</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012759</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurocognitive disorder, annotated with Neurodevelopmental abnormality (HP:0012759). HP:0012759 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8009,14 +8509,21 @@
                         Neonatal hypoglycemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal hypoglycemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001998">HP:0001998</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001998" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal hypoglycemia (HP:0001998). HP:0001998 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8068,14 +8575,21 @@
                         Anophthalmia or microphthalmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anophthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000528">HP:0000528</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000528</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8127,14 +8641,23 @@
                         Cardiac septal defect
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal cardiac septum morphology
+
+                        <span class="phenotype-term-label">Abnormal cardiac septum morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001671" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001671">HP:0001671</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001671" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001671</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cardiac septum morphology (HP:0001671). HP:0001671 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8230,13 +8753,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GLI2
 
 
-    <a href="https://bioregistry.io/hgnc:4318" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4318">hgnc:4318</a>
+    <a href="https://bioregistry.io/hgnc:4318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:4318</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLI2 (hgnc:4318). hgnc:4318 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8562,7 +9090,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8592,16 +9125,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         somatropin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C837">NCIT:C837</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C837" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8615,16 +9153,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short stature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8673,7 +9216,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8703,17 +9251,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         hydrocortisone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17650">CHEBI:17650</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17650" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:17650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydrocortisone, annotated with cortisol (CHEBI:17650). CHEBI:17650 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         levothyroxine
@@ -8721,11 +9276,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:18332">CHEBI:18332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:18332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHEBI:18332 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         desmopressin
@@ -8733,10 +9293,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4450" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4450">CHEBI:4450</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4450" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:4450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8750,16 +9313,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypopituitarism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040075">HP:0040075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0040075</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8808,7 +9376,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Orthopedic surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
@@ -8845,16 +9418,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Postaxial polydactyly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100259">HP:0100259</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0100259</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Postaxial polydactyly (HP:0100259). HP:0100259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8903,7 +9481,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8940,16 +9523,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Orofacial cleft
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000202">HP:0000202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Orofacial cleft (HP:0000202). HP:0000202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8998,7 +9586,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -9109,6 +9702,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">The most consistently replicated non-genetic risk factor for holoprosencephaly in human epidemiology, and therefore the leading candidate second hit for a dose-limited GLI2 carrier. The evidence is for holoprosencephaly broadly rather than for GLI2 carriers specifically - no study has yet stratified maternal diabetes risk by GLI2 genotype, which is precisely what the exp_gli2_prospective_periconceptional_exposure_cohort experiment proposes.</div>
 
 
@@ -9169,10 +9766,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Reduced Developmental Buffering of the Hedgehog Pathway</strong>
+
+                        <span style="color: #0d9488;"> &mdash; This entry models a dose-limited pathway with no reserve, which is the substrate on which environmental insults act. Maternal diabetes is the best-replicated such insult and raises the chance that a carrier crosses into the affected range.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33111505" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33111505" target="_blank">PMID:33111505</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pregnancy associated risk associated with holoprosencephaly included maternal pregestational diabetes (9.2% of cases and 0 controls, p = .02)"</div>
+
+
+                <div class="evidence-explanation">Reports maternal pregestational diabetes in 9.2% of holoprosencephaly cases versus none of the controls, a human association with the malformation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-prenatal-ethanol-exposure" data-dismech-node="Prenatal ethanol exposure" data-dismech-type="environmental">
                 <div class="item-name">Prenatal ethanol exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        maternal exposure to drinking alcohol
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0300001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-54">ECTO:0300001</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is maternal exposure to drinking alcohol, annotated with exposure to drinking alcohol via maternal (ECTO:0300001). ECTO:0300001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9214,10 +9890,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Reduced Developmental Buffering of the Hedgehog Pathway</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Ethanol worsens the phenotype specifically on a Hedgehog-sensitised background, which is what this node describes: the same dose produces far more dysmorphology when one Shh or Gli2 allele is already lost.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24586787" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24586787" target="_blank">PMID:24586787</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Following ethanol exposure, mean dysmorphology scores were increased by 3.2- and 6.6-fold in Shh(+/-) and Gli2(+/-) groups, respectively, relative to their wildtype littermates."</div>
+
+
+                <div class="evidence-explanation">Ethanol raised dysmorphology scores several-fold in Shh and Gli2 heterozygotes relative to wild type, demonstrating the gene-environment interaction. Support is PARTIAL because the demonstration is in mice and has not been shown in human carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-teratogen-exposure-during-first-trimester-patterning" data-dismech-node="Teratogen exposure during first-trimester patterning" data-dismech-type="environmental">
                 <div class="item-name">Teratogen exposure during first-trimester patterning</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        teratogen exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0000512" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-55">XCO:0000512</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is teratogen exposure, annotated with teratogen (XCO:0000512). XCO:0000512 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9258,6 +10013,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Reduced Developmental Buffering of the Hedgehog Pathway</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Low-dose teratogen exposure that a normal embryo tolerates becomes damaging once buffering is lost, increasing both penetrance and severity. This is the mechanism by which an unaffected carrier parent can have a severely affected child.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27585885" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585885" target="_blank">PMID:27585885</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"mice with single-allele Gli2 mutations exhibit increased penetrance and severity of HPE in response to low-dose teratogen exposure"</div>
+
+
+                <div class="evidence-explanation">Single-allele Gli2 mutant mice showed increased penetrance and severity of holoprosencephaly after low-dose teratogen exposure. Support is PARTIAL because this is a mouse demonstration rather than human data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9554,6 +10361,308 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-gli2-homozygous-null-mus-musculus" data-dismech-node="Gli2 homozygous null Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Gli2 homozygous null Mus musculus
+
+                </div>
+
+                <div class="item-desc">Homozygous Gli2 loss of function on the C57BL/6J background reproduces the brain and facial features of severe human holoprosencephaly, including midfacial hypoplasia, hypotelorism and medial forebrain deficiency. The same genotype on other backgrounds does not, making this the clearest demonstration that genetic background modifies holoprosencephaly penetrance.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Gli2 homozygous null</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">C57BL/6J</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27585885" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585885" target="_blank">PMID:27585885</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On the C57BL/6J background, homozygous GLI2 loss of function results in the characteristic brain and facial features seen in severe human HPE, including midfacial hypoplasia, hypotelorism and medial forebrain deficiency with loss of ventral neurospecification."</div>
+
+
+                <div class="evidence-explanation">Background-dependent recapitulation of the severe human phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-gli2-heterozygous-null-mus-musculus" data-dismech-node="Gli2 heterozygous null Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Gli2 heterozygous null Mus musculus
+
+                </div>
+
+                <div class="item-desc">The model closest to the human carrier state: phenotypically normal at baseline, but with a dosage-dependent attenuation of Hedgehog ligand responsiveness that predisposes to holoprosencephaly on teratogen or ethanol challenge.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Gli2 heterozygous null</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27585885" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27585885" target="_blank">PMID:27585885</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although normally indistinguishable from wild-type littermates, we demonstrate that mice with single-allele Gli2 mutations exhibit increased penetrance and severity of HPE in response to low-dose teratogen exposure."</div>
+
+
+                <div class="evidence-explanation">Directly models the human situation of a silent heterozygous carrier who can nevertheless transmit or manifest disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-gli2-homozygous-null-cns-floor-plate-mus-musculus" data-dismech-node="Gli2 homozygous null (CNS floor plate) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Gli2 homozygous null (CNS floor plate) Mus musculus
+
+                </div>
+
+                <div class="item-desc">Gli2 null embryos fail to form a floor plate throughout the midbrain, hindbrain and spinal cord, and lose the cell populations flanking the floor plate, while most ventral neuron classes still form - establishing Gli2 as required specifically for ventral midline induction.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Gli2 homozygous null (CNS floor plate)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9655799" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9655799" target="_blank">PMID:9655799</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have found that the floor plate throughout the midbrain, hindbrain and spinal cord does not form in Gli2 homozygotes."</div>
+
+
+                <div class="evidence-explanation">Defines the specific ventral-midline requirement for Gli2 in the CNS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-you-too-yot-gli2-mutant-danio-rerio" data-dismech-node="you-too (yot) gli2 mutant Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    you-too (yot) gli2 mutant Danio rerio
+
+                </div>
+
+                <div class="item-desc">Zebrafish yot mutants, which carry dominant-negative forms of Gli2, develop a lens from the adenohypophyseal anlage, showing that Shh-Gli signalling is required to maintain pituitary rather than lens identity in the anterior midline.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">you-too (yot) gli2 mutant</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10960781" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10960781" target="_blank">PMID:10960781</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show here that the zebrafish midline mutants you-too (yot) and iguana (igu) develop lenses from the adenohypophysis anlage."</div>
+
+
+                <div class="evidence-explanation">Model-organism evidence for a Gli2-dependent step in adenohypophyseal fate specification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -11401,6 +12510,25 @@ progression:
 
 environmental:
 - name: Maternal pregestational diabetes
+  influences_mechanisms:
+  - target: Reduced Developmental Buffering of the Hedgehog Pathway
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      This entry models a dose-limited pathway with no reserve, which is the
+      substrate on which environmental insults act. Maternal diabetes is the
+      best-replicated such insult and raises the chance that a carrier crosses
+      into the affected range.
+    evidence:
+    - reference: PMID:33111505
+      reference_title: &#34;Identifying environmental risk factors and gene-environment interactions in holoprosencephaly.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Pregnancy associated risk associated with holoprosencephaly included maternal pregestational diabetes (9.2% of cases and 0 controls, p = .02)&#34;
+      explanation: &gt;-
+        Reports maternal pregestational diabetes in 9.2% of holoprosencephaly
+        cases versus none of the controls, a human association with the
+        malformation.
   description: &gt;-
     The most consistently replicated non-genetic risk factor for holoprosencephaly
     in human epidemiology, and therefore the leading candidate second hit for a
@@ -11433,6 +12561,30 @@ environmental:
       A case-control study quantifies the association: pregestational diabetes in
       9.2% of holoprosencephaly cases versus none of the controls.
 - name: Prenatal ethanol exposure
+  exposure_term:
+    preferred_term: maternal exposure to drinking alcohol
+    term:
+      id: ECTO:0300001
+      label: exposure to drinking alcohol via maternal
+  influences_mechanisms:
+  - target: Reduced Developmental Buffering of the Hedgehog Pathway
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Ethanol worsens the phenotype specifically on a Hedgehog-sensitised
+      background, which is what this node describes: the same dose produces
+      far more dysmorphology when one Shh or Gli2 allele is already lost.
+    evidence:
+    - reference: PMID:24586787
+      reference_title: &#34;The teratogenic effects of prenatal ethanol exposure are exacerbated by Sonic Hedgehog or GLI2 haploinsufficiency in the mouse.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Following ethanol exposure, mean dysmorphology scores were increased by 3.2- and 6.6-fold in Shh(+/-) and Gli2(+/-) groups, respectively, relative to their wildtype littermates.&#34;
+      explanation: &gt;-
+        Ethanol raised dysmorphology scores several-fold in Shh and Gli2
+        heterozygotes relative to wild type, demonstrating the
+        gene-environment interaction. Support is PARTIAL because the
+        demonstration is in mice and has not been shown in human carriers.
   description: &gt;-
     Prenatal alcohol exposure interacts with reduced Gli2 dose in the mouse,
     substantially amplifying craniofacial dysmorphology and producing
@@ -11453,6 +12605,31 @@ environmental:
       Quantifies the gene-environment amplification of ethanol teratogenicity by Gli2
       haploinsufficiency in mice.
 - name: Teratogen exposure during first-trimester patterning
+  exposure_term:
+    preferred_term: teratogen exposure
+    term:
+      id: XCO:0000512
+      label: teratogen
+  influences_mechanisms:
+  - target: Reduced Developmental Buffering of the Hedgehog Pathway
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Low-dose teratogen exposure that a normal embryo tolerates becomes
+      damaging once buffering is lost, increasing both penetrance and
+      severity. This is the mechanism by which an unaffected carrier parent
+      can have a severely affected child.
+    evidence:
+    - reference: PMID:27585885
+      reference_title: &#34;Gli2 gene-environment interactions contribute to the etiological complexity of holoprosencephaly: evidence from a mouse model.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;mice with single-allele Gli2 mutations exhibit increased penetrance and severity of HPE in response to low-dose teratogen exposure&#34;
+      explanation: &gt;-
+        Single-allele Gli2 mutant mice showed increased penetrance and
+        severity of holoprosencephaly after low-dose teratogen exposure.
+        Support is PARTIAL because this is a mouse demonstration rather than
+        human data.
   description: &gt;-
     Low-dose exposure to a Hedgehog-pathway-antagonising teratogen converts silent
     Gli2 heterozygosity into overt holoprosencephaly in the mouse, the general form
@@ -12439,7 +13616,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Holoprosencephaly 9", "mondoId": "MONDO:0012563", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Holoprosencephaly_9", "yamlRevision": "32d38a9ca654"};
+        const OS_CONFIG = {"diseaseName": "Holoprosencephaly 9", "mondoId": "MONDO:0012563", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Holoprosencephaly_9", "yamlRevision": "91ae3bfd90e6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12858,5 +14035,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

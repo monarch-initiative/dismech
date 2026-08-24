@@ -11,7 +11,13 @@ MONDO resolution order for a disease or subtype:
 1. The primary term (``disease_term`` / ``subtype_term``) when its id is a
    ``MONDO:`` CURIE.
 2. An ``skos:exactMatch`` entry in ``mappings.mondo_mappings``.
-3. Any other ``mappings.mondo_mappings`` entry.
+
+Weaker cross-reference predicates (``skos:narrowMatch``, ``broadMatch``,
+``closeMatch``, ``relatedMatch``) are deliberately NOT used as a fallback
+anchor here: an entry can carry several of them at once (e.g. a locus-level
+entry ``narrowMatch``-ing each of its mutually exclusive named subtypes), and
+picking one by list order would silently re-ground the entry on an arbitrary
+member rather than reporting the true gap. See PR #8709.
 
 When none of these yield a MONDO id, ``mondo_id`` is left blank and
 ``has_mondo`` is ``false``.
@@ -63,21 +69,17 @@ def _resolve_mondo(
         return term_id, term_label or "", "primary_term"
 
     mondo_mappings = (mappings or {}).get("mondo_mappings") or []
-    fallback: tuple[str, str] | None = None
     for mapping in mondo_mappings:
         if not isinstance(mapping, dict):
+            continue
+        if mapping.get("mapping_predicate") != "skos:exactMatch":
             continue
         term = _term_of(mapping)
         mondo_id = term.get("id")
         if not mondo_id:
             continue
-        if mapping.get("mapping_predicate") == "skos:exactMatch":
-            return mondo_id, term.get("label") or "", "mondo_mappings"
-        if fallback is None:
-            fallback = (mondo_id, term.get("label") or "")
+        return mondo_id, term.get("label") or "", "mondo_mappings"
 
-    if fallback is not None:
-        return fallback[0], fallback[1], "mondo_mappings"
     return "", "", ""
 
 

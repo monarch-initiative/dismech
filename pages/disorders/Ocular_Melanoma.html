@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 42</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 45</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Ocular%20Melanoma"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3742,7 +3910,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">42</div>
+                <div class="stat-value">45</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3819,34 +3987,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
+
                     <span class="tag tag-classification">Melanoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">ONCOLOGY HEMATOLOGY</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4044,17 +4299,24 @@ are yet to be fully determined."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 GNAQ
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4390">hgnc:4390</a>
+    <a href="https://bioregistry.io/hgnc:4390" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4390</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GNAQ (hgnc:4390). hgnc:4390 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 GNA11
@@ -4062,11 +4324,16 @@ are yet to be fully determined."</div>
 
 
 
-    <a href="https://bioregistry.io/hgnc:4379" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4379">hgnc:4379</a>
+    <a href="https://bioregistry.io/hgnc:4379" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4379</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GNA11 (hgnc:4379). hgnc:4379 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 BAP1
@@ -4074,10 +4341,13 @@ are yet to be fully determined."</div>
 
 
 
-    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:950">hgnc:950</a>
+    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:950</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4347,17 +4617,24 @@ respectively."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 BRAF
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:1097</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 NRAS
@@ -4365,11 +4642,16 @@ respectively."</div>
 
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7989</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
+
+
 
                             <span class="subtype-gene-tag">
                                 NF1
@@ -4377,10 +4659,13 @@ respectively."</div>
 
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7765">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7765</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4488,16 +4773,21 @@ GNA11, and BAP1."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroidal melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030000">CL:4030000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:4030000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal melanocyte (CL:4030000). CL:4030000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4524,16 +4814,27 @@ GNA11, and BAP1."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GNAQ
 
 
-    <a href="https://bioregistry.io/hgnc:4390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4390">hgnc:4390</a>
+    <a href="https://bioregistry.io/hgnc:4390" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:4390</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAQ (hgnc:4390). hgnc:4390 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4561,11 +4862,18 @@ GNA11, and BAP1."</div>
         GNA11
 
 
-    <a href="https://bioregistry.io/hgnc:4379" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4379">hgnc:4379</a>
+    <a href="https://bioregistry.io/hgnc:4379" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:4379</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNA11 (hgnc:4379). hgnc:4379 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4593,11 +4901,18 @@ GNA11, and BAP1."</div>
         CYSLTR2
 
 
-    <a href="https://bioregistry.io/hgnc:18274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18274">hgnc:18274</a>
+    <a href="https://bioregistry.io/hgnc:18274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:18274</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYSLTR2 (hgnc:18274). hgnc:18274 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4625,10 +4940,13 @@ GNA11, and BAP1."</div>
         PLCB4
 
 
-    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9059">hgnc:9059</a>
+    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9059</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PLCB4 (hgnc:9059). hgnc:9059 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4656,16 +4974,21 @@ GNA11, and BAP1."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phospholipase C-activating G protein-coupled receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007200" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007200">GO:0007200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007200" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007200</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phospholipase C-activating G protein-coupled receptor signaling pathway (GO:0007200). GO:0007200 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4690,16 +5013,21 @@ GNA11, and BAP1."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         GTPase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003924">GO:0003924</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003924" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0003924</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased GTPase activity (GO:0003924). GO:0003924 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4725,19 +5053,25 @@ GNA11, and BAP1."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         uvea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001768" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001768">UBERON:0001768</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001768" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001768</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uvea (UBERON:0001768). UBERON:0001768 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4836,16 +5170,21 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroidal melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030000">CL:4030000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:4030000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal melanocyte (CL:4030000). CL:4030000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4872,16 +5211,21 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein kinase C signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070528" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070528">GO:0070528</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070528" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0070528</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein kinase C signaling (GO:0070528). GO:0070528 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4901,16 +5245,21 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4931,6 +5280,7 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
 
                 </div>
+
 
 
 
@@ -4999,16 +5349,21 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroidal melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030000">CL:4030000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:4030000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal melanocyte (CL:4030000). CL:4030000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5035,16 +5390,21 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Rho protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007266">GO:0007266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Rho protein signal transduction (GO:0007266). GO:0007266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5064,16 +5424,21 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         actin cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030036">GO:0030036</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased actin cytoskeleton organization (GO:0030036). GO:0030036 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5094,6 +5459,7 @@ appears to be a major contributor to the development of uveal melanoma."</div>
 
 
                 </div>
+
 
 
 
@@ -5164,16 +5530,21 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroidal melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030000">CL:4030000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:4030000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal melanocyte (CL:4030000). CL:4030000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5200,16 +5571,21 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5236,19 +5612,25 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         uvea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001768" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001768">UBERON:0001768</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001768" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0001768</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uvea (UBERON:0001768). UBERON:0001768 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5386,16 +5768,21 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroidal melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030000">CL:4030000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:4030000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal melanocyte (CL:4030000). CL:4030000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5422,15 +5809,22 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BAP1
 
 
-    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:950">hgnc:950</a>
+    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:950</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5458,16 +5852,21 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein deubiquitination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016579" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016579">GO:0016579</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016579" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0016579</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein deubiquitination (GO:0016579). GO:0016579 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5487,16 +5886,21 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006325">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5517,6 +5921,7 @@ melanoma, a GNAQ/GNA11-initiated human malignancy."</div>
 
 
                 </div>
+
 
 
 
@@ -5611,16 +6016,21 @@ methylation state that is distinct from D3-UM."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         choroidal melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030000">CL:4030000</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030000" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:4030000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves choroidal melanocyte (CL:4030000). CL:4030000 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5647,16 +6057,27 @@ methylation state that is distinct from D3-UM."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SF3B1
 
 
-    <a href="https://bioregistry.io/hgnc:10768" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10768">hgnc:10768</a>
+    <a href="https://bioregistry.io/hgnc:10768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:10768</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SF3B1 (hgnc:10768). hgnc:10768 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5684,10 +6105,13 @@ methylation state that is distinct from D3-UM."</div>
         EIF1AX
 
 
-    <a href="https://bioregistry.io/hgnc:3250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3250">hgnc:3250</a>
+    <a href="https://bioregistry.io/hgnc:3250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:3250</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EIF1AX (hgnc:3250). hgnc:3250 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5715,16 +6139,21 @@ methylation state that is distinct from D3-UM."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000398">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0000398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5745,6 +6174,7 @@ methylation state that is distinct from D3-UM."</div>
 
 
                 </div>
+
 
 
 
@@ -5845,16 +6275,21 @@ occurring in uveal melanomas with disomy 3, which rarely metastasize."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5881,19 +6316,25 @@ occurring in uveal melanomas with disomy 3, which rarely metastasize."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         uvea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001768" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001768">UBERON:0001768</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001768" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0001768</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uvea (UBERON:0001768). UBERON:0001768 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5989,16 +6430,21 @@ spread, in the absence of lymphatic drainage of the eye."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045766" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045766">GO:0045766</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045766" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0045766</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of angiogenesis (GO:0045766). GO:0045766 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6025,19 +6471,25 @@ spread, in the absence of lymphatic drainage of the eye."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6115,16 +6567,21 @@ elucidated."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6151,16 +6608,21 @@ elucidated."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         immune response to tumor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002418" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002418">GO:0002418</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002418" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0002418</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased immune response to tumor cell (GO:0002418). GO:0002418 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6181,6 +6643,7 @@ elucidated."</div>
 
 
                 </div>
+
 
 
 
@@ -6275,16 +6738,21 @@ variant arising from the immune privileged eye."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6311,15 +6779,22 @@ variant arising from the immune privileged eye."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PMEL
 
 
-    <a href="https://bioregistry.io/hgnc:10880" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10880">hgnc:10880</a>
+    <a href="https://bioregistry.io/hgnc:10880" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:10880</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PMEL (hgnc:10880). hgnc:10880 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6347,16 +6822,21 @@ variant arising from the immune privileged eye."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell mediated cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6377,6 +6857,7 @@ variant arising from the immune privileged eye."</div>
 
 
                 </div>
+
 
 
 
@@ -6454,16 +6935,21 @@ ratio for death, 0.68; 95% confidence interval, 0.54 to 0.87)."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6493,19 +6979,25 @@ ratio for death, 0.68; 95% confidence interval, 0.54 to 0.87)."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6575,16 +7067,21 @@ novel biological therapies for..."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         melanocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000148">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6611,16 +7108,27 @@ novel biological therapies for..."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:1097</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6648,11 +7156,18 @@ novel biological therapies for..."</div>
         NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:7989</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6680,11 +7195,18 @@ novel biological therapies for..."</div>
         NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7765">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:7765</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6712,10 +7234,13 @@ novel biological therapies for..."</div>
         TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:11730</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6743,16 +7268,21 @@ novel biological therapies for..."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6779,19 +7309,25 @@ novel biological therapies for..."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6897,16 +7433,21 @@ commonly involving BRAF, NRAS, NF1, and TERT promoter mutations."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6933,19 +7474,25 @@ commonly involving BRAF, NRAS, NF1, and TERT promoter mutations."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001811">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-51">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7192,7 +7739,7 @@ only in patients who have small, spindle-cell tumors."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Tumour suppressor loss (biallelic, usually with monosomy 3)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"BAP1 Loss with Monosomy 3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single strongest determinant of metastatic risk in uveal melanoma is biallelic inactivation of BAP1, a nuclear deubiquitinase acting in chromatin regulation and the DNA-damage response, on chromosome 3p21.1. Inactivation typically combines a somatic truncating or ubiquitin-hydrolase-domain mutation on one allele with loss of the other chromosome 3 (monosomy 3). Integrative TCGA analysis showed that BAP1 loss follows monosomy 3 in the evolutionary sequence and imposes a globally distinct DNA methylation state, defining the class-2 / poor-prognosis phenotype with epithelioid morphology and early metastasis. A minority of patients carry a germline BAP1 variant (BAP1 tumour-predisposition syndrome), which also raises risk of mesothelioma, cutaneous melanoma and clear-cell renal carcinoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"protein deubiquitination\", \"chromatin organization\"], \"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}], \"role\": \"driver\"}}, {\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Activating somatic driver mutation (V600E) in conjunctival melanoma\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CYSLTR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CYSLTR2\"], \"gene_terms\": [{\"label\": \"CYSLTR2\", \"id\": \"hgnc:18274\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating receptor mutation (p.Leu129Gln) in GNAQ/GNA11-wild-type tumours\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Conjunctival Lymphatic and Regional Nodal Spread\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unlike the uvea, the conjunctiva has a rich lymphatic network. Conjunctival melanoma therefore metastasises first and predominantly to the regional (preauricular, submandibular, cervical) lymph nodes, with distant spread to lung, liver and brain occurring later. Regional nodal metastasis is a substantial contributor to conjunctival melanoma mortality; specific nodal and disease-specific-mortality rates are not asserted here because no quotable figure could be verified against a cached source (see notes). This lymphatic-first route is the direct mechanistic opposite of uveal melanoma\u0027s lymphatic-free, liver-dominant haematogenous route, and it is why sentinel-node assessment is relevant in conjunctival but not uveal disease.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cell migration\"], \"role\": \"consequence\", \"locations\": [\"conjunctiva\"]}}, {\"id\": \"Conjunctival Melanocytic Intraepithelial Neoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The conjunctival arm of ocular melanoma begins in a fundamentally different compartment - the stratified squamous/mucosal epithelium of the conjunctival surface, which is UV-exposed and lymphatic-bearing. Most conjunctival melanomas arise from a precursor field of atypical intraepithelial melanocytic proliferation (conjunctival melanocytic intraepithelial lesion, formerly primary acquired melanosis with atypia); a minority arise in a pre-existing naevus or de novo. Because the precursor is a diffuse field rather than a discrete mass, incomplete excision leaves residual atypical epithelium and drives the high (roughly a third to a half) local recurrence rate that dominates conjunctival melanoma morbidity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"role\": \"trigger\", \"locations\": [\"conjunctiva\"]}}, {\"id\": \"Conjunctival Melanocytic Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A growing pigmented (brown or black) or amelanotic conjunctival lesion, most often on the bulbar conjunctiva near the limbus, sometimes with feeder vessels. This is the presenting sign of conjunctival melanoma. Coded to the generic conjunctival-morphology HPO term because HPO has no dedicated conjunctival melanoma class; the specific diagnosis is carried by the Conjunctival Melanoma subtype and its MONDO binding.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Conjunctival Melanoma\"], \"term_id\": \"HP:0000502\"}}, {\"id\": \"Darovasertib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral selective protein kinase C inhibitor targeting the PKC node immediately downstream of mutant Gq/G11 - the most direct available pharmacological attack on the initiating lesion of uveal melanoma. In phase 2 neoadjuvant/adjuvant evaluation for localised disease (NCT05907954), with endpoints including tumour shrinkage, conversion from enucleation to radiation, and metastasis-free survival. Investigational; not standard of care.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"darovasertib\"]}}, {\"id\": \"EIF1AX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EIF1AX\"], \"gene_terms\": [{\"label\": \"EIF1AX\", \"id\": \"hgnc:3250\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"N-terminal in-frame translation-initiation-factor mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Enucleation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the globe. Reserved for very large tumours, extensive ciliary-body or optic-nerve involvement, extrascleral extension, or a blind painful eye. Excellent local control at the cost of the eye, and - as the SEER-era data show - without a corresponding survival advantage over globe-preserving radiotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exudative Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serous separation of the neurosensory retina caused by exudation from the surface of a choroidal melanoma. It is a classic accompanying sign of choroidal melanoma and a common route to vision loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000541\"}}, {\"id\": \"GNA11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNA11\"], \"gene_terms\": [{\"label\": \"GNA11\", \"id\": \"hgnc:4379\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating somatic driver mutation (Q209, less often R183)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"GNAQ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNAQ\"], \"gene_terms\": [{\"label\": \"GNAQ\", \"id\": \"hgnc:4390\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating somatic driver mutation (Q209, less often R183)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion of uveal melanoma is a somatic activating mutation in the heterotrimeric G-protein alpha subunits GNAQ or GNA11, occurring almost always at Q209 (in the Ras-like domain, the residue essential for GTP hydrolysis) and less often at R183. Loss of intrinsic GTPase activity locks the alpha subunit in its GTP-bound, constitutively active state, turning it into a dominant-acting oncogene. GNAQ and GNA11 mutations are mutually exclusive and together account for roughly 83% of primary uveal melanomas; the rare GNAQ/GNA11-wild-type tumours instead carry activating CYSLTR2 p.Leu129 or PLCB4 p.Asp630 mutations, which enter the same pathway one step above or below. These are early events, present already in benign uveal naevi, and are not themselves prognostic.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"phospholipase C-activating G protein-coupled receptor signaling pathway\"], \"molecular_functions\": [\"GTPase activity\"], \"genes\": [\"GNAQ\", \"GNA11\", \"CYSLTR2\", \"PLCB4\"], \"gene_terms\": [{\"label\": \"GNAQ\", \"id\": \"hgnc:4390\"}, {\"label\": \"GNA11\", \"id\": \"hgnc:4379\"}, {\"label\": \"CYSLTR2\", \"id\": \"hgnc:18274\"}, {\"label\": \"PLCB4\", \"id\": \"hgnc:9059\"}], \"role\": \"trigger\", \"locations\": [\"uvea\"]}}, {\"id\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uveal tract has no lymphatic drainage, so uveal melanoma disseminates exclusively by the blood. Tumour cells intravasate directly into the dense choroidal vasculature and enter the systemic circulation, often long before the primary tumour is treated - which is why excellent local control does not prevent metastatic death. Dissemination is believed to be an early event, with occult micrometastases persisting in a dormant state for years to decades; fewer than 2% of patients have radiologically detectable metastases at diagnosis, yet a third to a half develop them over the following 15 years. This is the mechanistic point at which uveal and conjunctival melanoma diverge most sharply.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell migration\"], \"role\": \"effector\", \"locations\": [\"uvea\"]}}, {\"id\": \"Hepatic Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metastatic melanoma deposits in the liver. Roughly half of uveal melanoma patients develop metastases and the liver is the dominant site in around 90%, typically detected on surveillance imaging rather than by symptoms or by abnormal liver function tests, which cannot exclude hepatic metastasis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002896\"}}, {\"id\": \"Hepatic Metastatic Colonisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Approximately half of uveal melanoma patients ultimately develop metastatic disease, and it is overwhelmingly hepatotropic - the liver is the first and dominant site in around 90% of cases, with lung and bone distant seconds. Colonisation of the liver, not intravasation, is the rate-limiting step; dormant micrometastases must acquire an angiogenic and immune-evasive programme in the hepatic niche before becoming clinically detectable. Once liver metastasis is established, historical median survival is on the order of 6-12 months and hepatic tumour burden is the leading cause of death, which is why liver-directed therapy remains central to management.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of angiogenesis\"], \"role\": \"outcome\", \"locations\": [\"liver\"]}}, {\"id\": \"Hippo-Independent YAP Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parallel with the PKC/MAPK arm, oncogenic Gq alpha activates the Hippo-pathway transcriptional coactivator YAP through a Trio-Rho/Rac GTPase circuit that promotes actin polymerisation. This activation is independent of both phospholipase C-beta and the canonical Hippo kinase cascade, and Gq-driven uveal melanoma cell growth is YAP-dependent - making YAP/TAZ a distinct therapeutic node from the MAPK arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"Rho protein signal transduction\", \"actin cytoskeleton organization\"], \"role\": \"amplifier\"}}, {\"id\": \"Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PD-1 (pembrolizumab, nivolumab) and anti-CTLA-4 (ipilimumab) antibodies, alone or combined. Included here specifically to record a negative result: despite transforming cutaneous melanoma, checkpoint blockade has only marginal activity in metastatic uveal melanoma, because the tumour\u0027s low mutational burden yields few neoantigens and the ocular microenvironment is immune-privileged. It remains a fallback when tebentafusp is unavailable or the patient is not HLA-A*02:01-positive, and is a more rational option in conjunctival melanoma, whose immunobiology resembles cutaneous melanoma.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pembrolizumab\", \"ipilimumab\", \"nivolumab\"]}}, {\"id\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unlike UV-driven cutaneous melanoma, uveal melanoma carries a very low tumour mutational burden (of the order of 0.5 mutations per megabase) and therefore presents few neoantigens. Combined with the immune-privileged ocular environment, this yields an immunologically cold tumour in which PD-1 and CTLA-4 blockade - transformative in cutaneous melanoma - achieves only marginal response rates. This is an important negative mechanistic claim for this entry: the presence of a checkpoint axis is NOT the operative mechanism here, and the entry deliberately does not declare conformance to the immune_checkpoint_blockade module. The therapeutic solution instead bypasses neoantigen dependence altogether by redirecting T cells against a lineage antigen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"immune response to tumor cell\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"NF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NF1\"], \"gene_terms\": [{\"label\": \"NF1\", \"id\": \"hgnc:7765\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Loss-of-function mutation in conjunctival melanoma (cutaneous-like triple-wild-type arm)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAS\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Activating somatic driver mutation (Q61) in conjunctival melanoma\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Ocular Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain from a large intraocular tumour, secondary glaucoma, or extrascleral extension; a common indication for enucleation in a blind painful eye.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200026\"}}, {\"id\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively GTP-bound Gq/G11 activates phospholipase C-beta, generating diacylglycerol that activates protein kinase C, which in turn engages the RAF-MEK-ERK cascade (with RASGRP3 as an important uveal-melanoma-specific link) and the PI3K-AKT-mTOR axis. This is the growth-factor-independent mitogenic output of the initiating lesion. Critically, uveal melanomas achieve MAPK activation without BRAF or NRAS mutation, which is the mechanistic reason cutaneous-melanoma BRAF-directed therapy is inapplicable to uveal disease and the rationale for PKC inhibitors such as darovasertib.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"protein kinase C signaling\", \"MAPK cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"PLCB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PLCB4\"], \"gene_terms\": [{\"label\": \"PLCB4\", \"id\": \"hgnc:9059\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating mutation (p.Asp630Tyr) in GNAQ/GNA11-wild-type tumours\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Percutaneous Hepatic Perfusion with Melphalan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed regional chemotherapy: melphalan is infused into the hepatic artery while hepatic venous effluent is captured and filtered extracorporeally, delivering a hepatic dose far above what systemic administration would tolerate. This is the therapeutic answer to the hepatotropism modelled in this entry - the liver is the dominant and often only metastatic site, so treating it regionally is disease-appropriate rather than palliative. In a randomised study against best alternative care, all efficacy endpoints favoured melphalan/hepatic delivery system, though the trial converted to a single-arm design because of slow accrual and its comparative analyses are therefore exploratory. Other liver-directed options used in practice include resection or ablation of oligometastatic disease, and chemo-, radio- or immunoembolization.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"melphalan\"]}}, {\"id\": \"Photopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perceived flashes of light arising from vitreoretinal traction and detachment at the tumour-retina interface. Photopsia and floaters together accounted for the presenting symptom in about 10% of one enucleation cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030786\"}}, {\"id\": \"Plaque Brachytherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Episcleral radioactive plaque (typically iodine-125 or ruthenium-106) sutured over the tumour base. The globe-preserving first-line local therapy for most small and medium uveal melanomas, achieving high local control. Radiation retinopathy, maculopathy, optic neuropathy, cataract and neovascular glaucoma are the principal late toxicities. Local control does not reduce metastatic risk, because dissemination generally predates treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Proton Beam Radiotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Charged-particle external-beam radiotherapy delivering a sharply conformal dose via the Bragg peak. Used for tumours unsuitable for plaque brachytherapy - large tumours, juxtapapillary or macular locations - with comparable local control.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blurred or reduced vision occurs when the tumour involves the macula, causes exudation or retinal detachment, or obstructs the visual axis. Up to about 30% of uveal melanomas are asymptomatic at diagnosis and are found on routine examination, so acuity loss is common but not universal.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"SF3B1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SF3B1\"], \"gene_terms\": [{\"label\": \"SF3B1\", \"id\": \"hgnc:10768\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Hotspot splicing-factor mutation (predominantly Arg625)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Secondary Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised intraocular pressure from anterior-segment tumour involvement, angle infiltration, or neovascularisation. Most relevant to iris and ciliary-body melanoma.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In disomy-3 tumours, which rarely metastasise, the secondary driver is instead a hotspot mutation in the splicing factor SF3B1 (predominantly Arg625, altering RNA splicing genome-wide) or an N-terminal in-frame mutation in the translation-initiation factor EIF1AX. Both are essentially mutually exclusive with BAP1 loss. SF3B1 mutation marks intermediate risk with characteristically late relapse; EIF1AX mutation marks the lowest-risk class. Together with BAP1 these three genes define the prognostic stratification that governs surveillance intensity after successful local treatment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\"], \"genes\": [\"SF3B1\", \"EIF1AX\"], \"gene_terms\": [{\"label\": \"SF3B1\", \"id\": \"hgnc:10768\"}, {\"label\": \"EIF1AX\", \"id\": \"hgnc:3250\"}], \"role\": \"modifier\"}}, {\"id\": \"TERT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Promoter mutation (UV-signature) in conjunctival melanoma\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Tebentafusp\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A gp100 x CD3 bispecific ImmTAC (immune-mobilising monoclonal T-cell receptor against cancer): an affinity-enhanced soluble T-cell receptor that binds the gp100 peptide-HLA-A*02:01 complex on melanoma cells, fused to an anti-CD3 arm that recruits polyclonal T cells to kill them. The first and only systemic agent with a randomised overall-survival benefit in metastatic uveal melanoma, sustained at three years. Restricted to HLA-A*02:01-positive patients (roughly half). Toxicity is dominated by early, self-limiting cytokine-mediated events and by on-target attack on normal melanocytes - rash in 83%, pyrexia in 76%, pruritus in 70% - but discontinuation for toxicity is rare (2%).\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tebentafusp\"]}}, {\"id\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Conjunctival melanoma is driven by the mutation spectrum of cutaneous, not uveal, melanoma: activating BRAF (commonly V600E) and NRAS (commonly Q61) mutations, NF1 loss, and TERT promoter mutations, on a UV-signature mutational background. GNAQ, GNA11 and BAP1 - the defining uveal genes - are not the drivers here. The practical corollary is that BRAF/MEK-targeted therapy and PD-1 blockade, which fail in uveal melanoma, are the rational (if still evidence-thin) systemic options in conjunctival melanoma. This node is the reason the two arms must be curated separately.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"MAPK cascade\"], \"genes\": [\"BRAF\", \"NRAS\", \"NF1\", \"TERT\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}, {\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}, {\"label\": \"NF1\", \"id\": \"hgnc:7765\"}, {\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"role\": \"driver\", \"locations\": [\"conjunctiva\"]}}, {\"id\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent PKC/MAPK and YAP signalling transforms a uveal melanocyte into a growth-factor-independent clone that expands as an intraocular mass, most often in the choroid (about 90%), less often the ciliary body (about 6-7%) or iris (about 3%). Expansion under the retina produces exudation and secondary retinal detachment; anterior tumours can distort the iris and obstruct aqueous outflow. Because the globe is a closed, non-distensible compartment, growth is symptomatic disproportionately early relative to tumour bulk - yet up to about 30% of tumours are still asymptomatic at diagnosis and are found on routine fundoscopy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"central_effector\", \"locations\": [\"uvea\"]}}, {\"id\": \"Uveal Melanoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An intraocular melanocytic malignancy of the uveal tract. This is the dominant presentation of ocular melanoma and the commonest primary intraocular malignancy of adults; approximately 90% arise in the choroid.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Uveal Melanoma\"], \"term_id\": \"HP:0007716\"}}, {\"id\": \"Visual Field Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A field defect - classically described by patients as a \\\"shadow\\\" in the field of vision - corresponding to the tumour location and the extent of any associated exudative retinal detachment. Reported as the presenting symptom in about a quarter of patients, and notable because an isolated field shadow correlates with vasculogenic mimicry and worse prognosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001123\"}}, {\"id\": \"Vitreous Floaters\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Floaters from tumour-associated vitreous cells, dispersed pigment, or vitreous haemorrhage. Reported jointly with photopsia in about 10% of patients at presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100832\"}}, {\"id\": \"Wide Local Excision with Adjuvant Cryotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard local treatment for conjunctival melanoma: a \\\"no-touch\\\" complete excision with wide margins and careful specimen orientation, combined with cryotherapy to the conjunctival margins to eradicate residual atypical intraepithelial melanocytes. Adjuvant topical mitomycin C or interferon, plaque or proton radiotherapy, and - for orbital invasion - exenteration are added according to margin status, multifocality and depth of invasion. Recurrence remains common because the precursor lesion is a field rather than a discrete mass.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"gp100-Directed T-Cell Redirection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Uveal melanoma cells retain melanocytic lineage antigen expression, including glycoprotein 100 (gp100/PMEL). Tebentafusp is an immune-mobilising monoclonal T-cell receptor against cancer (ImmTAC): an affinity-enhanced soluble TCR that binds a gp100 peptide presented by HLA-A*02:01, fused to an anti-CD3 effector arm that recruits and activates any polyclonal T cell irrespective of its own specificity. This side-steps the low-neoantigen problem entirely, and it is the first mechanism to deliver a randomised overall-survival benefit in metastatic uveal melanoma. The obligatory dependence on HLA-A*02:01 presentation restricts eligibility to roughly half of patients, and the on-target/off-tumour attack on normal gp100-positive melanocytes produces the characteristic early rash and cytokine-mediated pyrexia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"], \"genes\": [\"PMEL\"], \"gene_terms\": [{\"label\": \"PMEL\", \"id\": \"hgnc:10880\"}], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"target\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active Gq/G11 stimulates phospholipase C-beta, releasing diacylglycerol that activates protein kinase C and thence the RAF-MEK-ERK cascade.\"}, {\"source\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"target\": \"Hippo-Independent YAP Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gq alpha additionally signals through a Trio-Rho/Rac circuit to activate the transcriptional coactivator YAP, in parallel with and independently of the PLC-beta arm.\"}, {\"source\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ERK signalling drives cell-cycle entry and anchorage-independent growth of uveal melanocytes.\"}, {\"source\": \"Hippo-Independent YAP Activation\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"YAP-dependent transcriptional programmes contribute to the growth of Gq-driven uveal melanoma cells alongside the MAPK arm.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Uveal Melanoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding transformed uveal melanocyte clone is the intraocular melanoma itself.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Reduced Visual Acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumour involvement of the macula, exudation, or obstruction of the visual axis reduces acuity.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Visual Field Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A tumour mass and its associated serous retinal detachment produce a field defect corresponding to the involved retinal sector.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Exudative Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subretinal exudation from the tumour surface separates the neurosensory retina from the retinal pigment epithelium.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Photopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mechanical traction and detachment at the tumour-retina interface produce perceived flashes of light.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Vitreous Floaters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumour-associated vitreous cells, pigment dispersion, or haemorrhage are perceived as floaters.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Secondary Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior (iris/ciliary body) tumours and neovascularisation obstruct aqueous outflow and raise intraocular pressure.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Ocular Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large tumours, secondary glaucoma and anterior-segment involvement cause ocular pain.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"BAP1 Loss with Monosomy 3\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The established tumour clone is the substrate on which the later, prognosis-determining secondary driver event is acquired.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disomy-3 tumour clones instead acquire SF3B1 or EIF1AX mutations, defining the intermediate- and low-risk molecular classes.\"}, {\"source\": \"BAP1 Loss with Monosomy 3\", \"target\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BAP1-null, monosomy-3 tumours are the clones that seed distant metastasis; BAP1 loss was found in 84% of metastasising tumours.\"}, {\"source\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"target\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disomy-3 SF3B1/EIF1AX tumours retain a real but much lower and often later metastatic hazard than BAP1-null disease; SF3B1-mutant tumours in particular can relapse many years after treatment.\"}, {\"source\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"target\": \"Hepatic Metastatic Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating uveal melanoma cells preferentially arrest, survive and colonise the hepatic sinusoidal niche.\"}, {\"source\": \"Hepatic Metastatic Colonisation\", \"target\": \"Hepatic Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonisation of the hepatic parenchyma manifests clinically as liver metastases on surveillance imaging.\"}, {\"source\": \"Hepatic Metastatic Colonisation\", \"target\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established metastatic disease is the clinical setting in which the low-neoantigen, immunologically cold phenotype becomes therapeutically decisive.\"}, {\"source\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"target\": \"gp100-Directed T-Cell Redirection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because neoantigen-dependent checkpoint blockade fails, therapy instead redirects T cells against the melanocyte lineage antigen gp100 presented on HLA-A*02:01.\"}, {\"source\": \"Conjunctival Melanocytic Intraepithelial Neoplasia\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the atypical intraepithelial field, acquisition of a cutaneous-melanoma-type MAPK driver converts the precursor to invasive melanoma.\"}, {\"source\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"target\": \"Conjunctival Lymphatic and Regional Nodal Spread\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive conjunctival melanoma gains access to conjunctival lymphatics and disseminates first to regional lymph nodes.\"}, {\"source\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"target\": \"Conjunctival Melanocytic Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Driver acquisition within the intraepithelial field produces the visible pigmented or amelanotic invasive conjunctival mass.\"}, {\"source\": \"Plaque Brachytherapy\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Proton Beam Radiotherapy\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enucleation\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tebentafusp\", \"target\": \"gp100-Directed T-Cell Redirection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tebentafusp\", \"target\": \"Hepatic Metastatic Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune Checkpoint Blockade\", \"target\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wide Local Excision with Adjuvant Cryotherapy\", \"target\": \"Conjunctival Melanocytic Intraepithelial Neoplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wide Local Excision with Adjuvant Cryotherapy\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Percutaneous Hepatic Perfusion with Melphalan\", \"target\": \"Hepatic Metastatic Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Darovasertib\", \"target\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GNAQ\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GNA11\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BAP1\", \"target\": \"BAP1 Loss with Monosomy 3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SF3B1\", \"target\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF1AX\", \"target\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYSLTR2\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLCB4\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAS\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF1\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arc Welding Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Occupational arc-welding exposure is a reported but not firmly established risk association for uveal melanoma. It is included here because GeneReviews lists avoidance of arc welding as an explicit primary-prevention measure for germline BAP1 carriers, making it actionable in that population even though causality in the general population remains uncertain.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Tumour suppressor loss (biallelic, usually with monosomy 3)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"BAP1 Loss with Monosomy 3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single strongest determinant of metastatic risk in uveal melanoma is biallelic inactivation of BAP1, a nuclear deubiquitinase acting in chromatin regulation and the DNA-damage response, on chromosome 3p21.1. Inactivation typically combines a somatic truncating or ubiquitin-hydrolase-domain mutation on one allele with loss of the other chromosome 3 (monosomy 3). Integrative TCGA analysis showed that BAP1 loss follows monosomy 3 in the evolutionary sequence and imposes a globally distinct DNA methylation state, defining the class-2 / poor-prognosis phenotype with epithelioid morphology and early metastasis. A minority of patients carry a germline BAP1 variant (BAP1 tumour-predisposition syndrome), which also raises risk of mesothelioma, cutaneous melanoma and clear-cell renal carcinoma.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"protein deubiquitination\", \"chromatin organization\"], \"genes\": [\"BAP1\"], \"gene_terms\": [{\"label\": \"BAP1\", \"id\": \"hgnc:950\"}], \"role\": \"driver\"}}, {\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Activating somatic driver mutation (V600E) in conjunctival melanoma\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CYSLTR2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CYSLTR2\"], \"gene_terms\": [{\"label\": \"CYSLTR2\", \"id\": \"hgnc:18274\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating receptor mutation (p.Leu129Gln) in GNAQ/GNA11-wild-type tumours\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Conjunctival Lymphatic and Regional Nodal Spread\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unlike the uvea, the conjunctiva has a rich lymphatic network. Conjunctival melanoma therefore metastasises first and predominantly to the regional (preauricular, submandibular, cervical) lymph nodes, with distant spread to lung, liver and brain occurring later. Regional nodal metastasis is a substantial contributor to conjunctival melanoma mortality; specific nodal and disease-specific-mortality rates are not asserted here because no quotable figure could be verified against a cached source (see notes). This lymphatic-first route is the direct mechanistic opposite of uveal melanoma\u0027s lymphatic-free, liver-dominant haematogenous route, and it is why sentinel-node assessment is relevant in conjunctival but not uveal disease.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cell migration\"], \"role\": \"consequence\", \"locations\": [\"conjunctiva\"]}}, {\"id\": \"Conjunctival Melanocytic Intraepithelial Neoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The conjunctival arm of ocular melanoma begins in a fundamentally different compartment - the stratified squamous/mucosal epithelium of the conjunctival surface, which is UV-exposed and lymphatic-bearing. Most conjunctival melanomas arise from a precursor field of atypical intraepithelial melanocytic proliferation (conjunctival melanocytic intraepithelial lesion, formerly primary acquired melanosis with atypia); a minority arise in a pre-existing naevus or de novo. Because the precursor is a diffuse field rather than a discrete mass, incomplete excision leaves residual atypical epithelium and drives the high (roughly a third to a half) local recurrence rate that dominates conjunctival melanoma morbidity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"role\": \"trigger\", \"locations\": [\"conjunctiva\"]}}, {\"id\": \"Conjunctival Melanocytic Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A growing pigmented (brown or black) or amelanotic conjunctival lesion, most often on the bulbar conjunctiva near the limbus, sometimes with feeder vessels. This is the presenting sign of conjunctival melanoma. Coded to the generic conjunctival-morphology HPO term because HPO has no dedicated conjunctival melanoma class; the specific diagnosis is carried by the Conjunctival Melanoma subtype and its MONDO binding.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Conjunctival Melanoma\"], \"term_id\": \"HP:0000502\"}}, {\"id\": \"Darovasertib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral selective protein kinase C inhibitor targeting the PKC node immediately downstream of mutant Gq/G11 - the most direct available pharmacological attack on the initiating lesion of uveal melanoma. In phase 2 neoadjuvant/adjuvant evaluation for localised disease (NCT05907954), with endpoints including tumour shrinkage, conversion from enucleation to radiation, and metastasis-free survival. Investigational; not standard of care.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"darovasertib\"]}}, {\"id\": \"EIF1AX\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"EIF1AX\"], \"gene_terms\": [{\"label\": \"EIF1AX\", \"id\": \"hgnc:3250\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"N-terminal in-frame translation-initiation-factor mutation\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Enucleation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the globe. Reserved for very large tumours, extensive ciliary-body or optic-nerve involvement, extrascleral extension, or a blind painful eye. Excellent local control at the cost of the eye, and - as the SEER-era data show - without a corresponding survival advantage over globe-preserving radiotherapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exudative Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serous separation of the neurosensory retina caused by exudation from the surface of a choroidal melanoma. It is a classic accompanying sign of choroidal melanoma and a common route to vision loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000541\"}}, {\"id\": \"GNA11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNA11\"], \"gene_terms\": [{\"label\": \"GNA11\", \"id\": \"hgnc:4379\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating somatic driver mutation (Q209, less often R183)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"GNAQ\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GNAQ\"], \"gene_terms\": [{\"label\": \"GNAQ\", \"id\": \"hgnc:4390\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating somatic driver mutation (Q209, less often R183)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion of uveal melanoma is a somatic activating mutation in the heterotrimeric G-protein alpha subunits GNAQ or GNA11, occurring almost always at Q209 (in the Ras-like domain, the residue essential for GTP hydrolysis) and less often at R183. Loss of intrinsic GTPase activity locks the alpha subunit in its GTP-bound, constitutively active state, turning it into a dominant-acting oncogene. GNAQ and GNA11 mutations are mutually exclusive and together account for roughly 83% of primary uveal melanomas; the rare GNAQ/GNA11-wild-type tumours instead carry activating CYSLTR2 p.Leu129 or PLCB4 p.Asp630 mutations, which enter the same pathway one step above or below. These are early events, present already in benign uveal naevi, and are not themselves prognostic.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"phospholipase C-activating G protein-coupled receptor signaling pathway\"], \"molecular_functions\": [\"GTPase activity\"], \"genes\": [\"GNAQ\", \"GNA11\", \"CYSLTR2\", \"PLCB4\"], \"gene_terms\": [{\"label\": \"GNAQ\", \"id\": \"hgnc:4390\"}, {\"label\": \"GNA11\", \"id\": \"hgnc:4379\"}, {\"label\": \"CYSLTR2\", \"id\": \"hgnc:18274\"}, {\"label\": \"PLCB4\", \"id\": \"hgnc:9059\"}], \"role\": \"trigger\", \"locations\": [\"uvea\"]}}, {\"id\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The uveal tract has no lymphatic drainage, so uveal melanoma disseminates exclusively by the blood. Tumour cells intravasate directly into the dense choroidal vasculature and enter the systemic circulation, often long before the primary tumour is treated - which is why excellent local control does not prevent metastatic death. Dissemination is believed to be an early event, with occult micrometastases persisting in a dormant state for years to decades; fewer than 2% of patients have radiologically detectable metastases at diagnosis, yet a third to a half develop them over the following 15 years. This is the mechanistic point at which uveal and conjunctival melanoma diverge most sharply.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell migration\"], \"role\": \"effector\", \"locations\": [\"uvea\"]}}, {\"id\": \"Hepatic Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Metastatic melanoma deposits in the liver. Roughly half of uveal melanoma patients develop metastases and the liver is the dominant site in around 90%, typically detected on surveillance imaging rather than by symptoms or by abnormal liver function tests, which cannot exclude hepatic metastasis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002896\"}}, {\"id\": \"Hepatic Metastatic Colonisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Approximately half of uveal melanoma patients ultimately develop metastatic disease, and it is overwhelmingly hepatotropic - the liver is the first and dominant site in around 90% of cases, with lung and bone distant seconds. Colonisation of the liver, not intravasation, is the rate-limiting step; dormant micrometastases must acquire an angiogenic and immune-evasive programme in the hepatic niche before becoming clinically detectable. Once liver metastasis is established, historical median survival is on the order of 6-12 months and hepatic tumour burden is the leading cause of death, which is why liver-directed therapy remains central to management.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"positive regulation of angiogenesis\"], \"role\": \"outcome\", \"locations\": [\"liver\"]}}, {\"id\": \"Hippo-Independent YAP Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In parallel with the PKC/MAPK arm, oncogenic Gq alpha activates the Hippo-pathway transcriptional coactivator YAP through a Trio-Rho/Rac GTPase circuit that promotes actin polymerisation. This activation is independent of both phospholipase C-beta and the canonical Hippo kinase cascade, and Gq-driven uveal melanoma cell growth is YAP-dependent - making YAP/TAZ a distinct therapeutic node from the MAPK arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"Rho protein signal transduction\", \"actin cytoskeleton organization\"], \"role\": \"amplifier\"}}, {\"id\": \"Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PD-1 (pembrolizumab, nivolumab) and anti-CTLA-4 (ipilimumab) antibodies, alone or combined. Included here specifically to record a negative result: despite transforming cutaneous melanoma, checkpoint blockade has only marginal activity in metastatic uveal melanoma, because the tumour\u0027s low mutational burden yields few neoantigens and the ocular microenvironment is immune-privileged. It remains a fallback when tebentafusp is unavailable or the patient is not HLA-A*02:01-positive, and is a more rational option in conjunctival melanoma, whose immunobiology resembles cutaneous melanoma.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pembrolizumab\", \"ipilimumab\", \"nivolumab\"]}}, {\"id\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unlike UV-driven cutaneous melanoma, uveal melanoma carries a very low tumour mutational burden (of the order of 0.5 mutations per megabase) and therefore presents few neoantigens. Combined with the immune-privileged ocular environment, this yields an immunologically cold tumour in which PD-1 and CTLA-4 blockade - transformative in cutaneous melanoma - achieves only marginal response rates. This is an important negative mechanistic claim for this entry: the presence of a checkpoint axis is NOT the operative mechanism here, and the entry deliberately does not declare conformance to the immune_checkpoint_blockade module. The therapeutic solution instead bypasses neoantigen dependence altogether by redirecting T cells against a lineage antigen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"immune response to tumor cell\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"NF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NF1\"], \"gene_terms\": [{\"label\": \"NF1\", \"id\": \"hgnc:7765\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Loss-of-function mutation in conjunctival melanoma (cutaneous-like triple-wild-type arm)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAS\"], \"gene_terms\": [{\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Activating somatic driver mutation (Q61) in conjunctival melanoma\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Ocular Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain from a large intraocular tumour, secondary glaucoma, or extrascleral extension; a common indication for enucleation in a blind painful eye.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200026\"}}, {\"id\": \"Oculodermal Melanocytosis (Nevus of Ota)\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Congenital oculodermal melanocytosis is an established host risk factor for uveal melanoma. It shares the same initiating lesion - nevus of Ota carries somatic GNAQ mutations - providing a genetic link between the benign melanocytic proliferation and the malignancy that occasionally arises in it. Absolute risk remains low (of the order of 1 in 400).\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutively GTP-bound Gq/G11 activates phospholipase C-beta, generating diacylglycerol that activates protein kinase C, which in turn engages the RAF-MEK-ERK cascade (with RASGRP3 as an important uveal-melanoma-specific link) and the PI3K-AKT-mTOR axis. This is the growth-factor-independent mitogenic output of the initiating lesion. Critically, uveal melanomas achieve MAPK activation without BRAF or NRAS mutation, which is the mechanistic reason cutaneous-melanoma BRAF-directed therapy is inapplicable to uveal disease and the rationale for PKC inhibitors such as darovasertib.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"protein kinase C signaling\", \"MAPK cascade\"], \"role\": \"central_effector\"}}, {\"id\": \"PLCB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PLCB4\"], \"gene_terms\": [{\"label\": \"PLCB4\", \"id\": \"hgnc:9059\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Activating mutation (p.Asp630Tyr) in GNAQ/GNA11-wild-type tumours\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Percutaneous Hepatic Perfusion with Melphalan\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed regional chemotherapy: melphalan is infused into the hepatic artery while hepatic venous effluent is captured and filtered extracorporeally, delivering a hepatic dose far above what systemic administration would tolerate. This is the therapeutic answer to the hepatotropism modelled in this entry - the liver is the dominant and often only metastatic site, so treating it regionally is disease-appropriate rather than palliative. In a randomised study against best alternative care, all efficacy endpoints favoured melphalan/hepatic delivery system, though the trial converted to a single-arm design because of slow accrual and its comparative analyses are therefore exploratory. Other liver-directed options used in practice include resection or ablation of oligometastatic disease, and chemo-, radio- or immunoembolization.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"melphalan\"]}}, {\"id\": \"Photopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Perceived flashes of light arising from vitreoretinal traction and detachment at the tumour-retina interface. Photopsia and floaters together accounted for the presenting symptom in about 10% of one enucleation cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030786\"}}, {\"id\": \"Plaque Brachytherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Episcleral radioactive plaque (typically iodine-125 or ruthenium-106) sutured over the tumour base. The globe-preserving first-line local therapy for most small and medium uveal melanomas, achieving high local control. Radiation retinopathy, maculopathy, optic neuropathy, cataract and neovascular glaucoma are the principal late toxicities. Local control does not reduce metastatic risk, because dissemination generally predates treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Proton Beam Radiotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Charged-particle external-beam radiotherapy delivering a sharply conformal dose via the Bragg peak. Used for tumours unsuitable for plaque brachytherapy - large tumours, juxtapapillary or macular locations - with comparable local control.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blurred or reduced vision occurs when the tumour involves the macula, causes exudation or retinal detachment, or obstructs the visual axis. Up to about 30% of uveal melanomas are asymptomatic at diagnosis and are found on routine examination, so acuity loss is common but not universal.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007663\"}}, {\"id\": \"SF3B1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SF3B1\"], \"gene_terms\": [{\"label\": \"SF3B1\", \"id\": \"hgnc:10768\"}], \"subtypes\": [\"Uveal Melanoma\"], \"association\": \"Hotspot splicing-factor mutation (predominantly Arg625)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Secondary Glaucoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Raised intraocular pressure from anterior-segment tumour involvement, angle infiltration, or neovascularisation. Most relevant to iris and ciliary-body melanoma.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000501\"}}, {\"id\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In disomy-3 tumours, which rarely metastasise, the secondary driver is instead a hotspot mutation in the splicing factor SF3B1 (predominantly Arg625, altering RNA splicing genome-wide) or an N-terminal in-frame mutation in the translation-initiation factor EIF1AX. Both are essentially mutually exclusive with BAP1 loss. SF3B1 mutation marks intermediate risk with characteristically late relapse; EIF1AX mutation marks the lowest-risk class. Together with BAP1 these three genes define the prognostic stratification that governs surveillance intensity after successful local treatment.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\"], \"genes\": [\"SF3B1\", \"EIF1AX\"], \"gene_terms\": [{\"label\": \"SF3B1\", \"id\": \"hgnc:10768\"}, {\"label\": \"EIF1AX\", \"id\": \"hgnc:3250\"}], \"role\": \"modifier\"}}, {\"id\": \"TERT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"subtypes\": [\"Conjunctival Melanoma\"], \"association\": \"Promoter mutation (UV-signature) in conjunctival melanoma\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Tebentafusp\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A gp100 x CD3 bispecific ImmTAC (immune-mobilising monoclonal T-cell receptor against cancer): an affinity-enhanced soluble T-cell receptor that binds the gp100 peptide-HLA-A*02:01 complex on melanoma cells, fused to an anti-CD3 arm that recruits polyclonal T cells to kill them. The first and only systemic agent with a randomised overall-survival benefit in metastatic uveal melanoma, sustained at three years. Restricted to HLA-A*02:01-positive patients (roughly half). Toxicity is dominated by early, self-limiting cytokine-mediated events and by on-target attack on normal melanocytes - rash in 83%, pyrexia in 76%, pruritus in 70% - but discontinuation for toxicity is rare (2%).\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tebentafusp\"]}}, {\"id\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Conjunctival melanoma is driven by the mutation spectrum of cutaneous, not uveal, melanoma: activating BRAF (commonly V600E) and NRAS (commonly Q61) mutations, NF1 loss, and TERT promoter mutations, on a UV-signature mutational background. GNAQ, GNA11 and BAP1 - the defining uveal genes - are not the drivers here. The practical corollary is that BRAF/MEK-targeted therapy and PD-1 blockade, which fail in uveal melanoma, are the rational (if still evidence-thin) systemic options in conjunctival melanoma. This node is the reason the two arms must be curated separately.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"MAPK cascade\"], \"genes\": [\"BRAF\", \"NRAS\", \"NF1\", \"TERT\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}, {\"label\": \"NRAS\", \"id\": \"hgnc:7989\"}, {\"label\": \"NF1\", \"id\": \"hgnc:7765\"}, {\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"role\": \"driver\", \"locations\": [\"conjunctiva\"]}}, {\"id\": \"Ultraviolet Radiation Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ultraviolet exposure is a credible aetiological factor for conjunctival melanoma, which is an ocular-surface tumour carrying a UV mutational signature and cutaneous-type drivers. Its role in posterior uveal melanoma is far weaker and contested: the choroid is sun-shielded, uveal melanoma has a low mutational burden without a dominant UV signature, and the R183 mutations that do show C-to-T transitions are a small minority of drivers. This asymmetry should not be flattened into a single \\\"UV causes ocular melanoma\\\" claim.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent PKC/MAPK and YAP signalling transforms a uveal melanocyte into a growth-factor-independent clone that expands as an intraocular mass, most often in the choroid (about 90%), less often the ciliary body (about 6-7%) or iris (about 3%). Expansion under the retina produces exudation and secondary retinal detachment; anterior tumours can distort the iris and obstruct aqueous outflow. Because the globe is a closed, non-distensible compartment, growth is symptomatic disproportionately early relative to tumour bulk - yet up to about 30% of tumours are still asymptomatic at diagnosis and are found on routine fundoscopy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"choroidal melanocyte\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"central_effector\", \"locations\": [\"uvea\"]}}, {\"id\": \"Uveal Melanoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An intraocular melanocytic malignancy of the uveal tract. This is the dominant presentation of ocular melanoma and the commonest primary intraocular malignancy of adults; approximately 90% arise in the choroid.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Uveal Melanoma\"], \"term_id\": \"HP:0007716\"}}, {\"id\": \"Visual Field Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A field defect - classically described by patients as a \\\"shadow\\\" in the field of vision - corresponding to the tumour location and the extent of any associated exudative retinal detachment. Reported as the presenting symptom in about a quarter of patients, and notable because an isolated field shadow correlates with vasculogenic mimicry and worse prognosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001123\"}}, {\"id\": \"Vitreous Floaters\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Floaters from tumour-associated vitreous cells, dispersed pigment, or vitreous haemorrhage. Reported jointly with photopsia in about 10% of patients at presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100832\"}}, {\"id\": \"Wide Local Excision with Adjuvant Cryotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard local treatment for conjunctival melanoma: a \\\"no-touch\\\" complete excision with wide margins and careful specimen orientation, combined with cryotherapy to the conjunctival margins to eradicate residual atypical intraepithelial melanocytes. Adjuvant topical mitomycin C or interferon, plaque or proton radiotherapy, and - for orbital invasion - exenteration are added according to margin status, multifocality and depth of invasion. Recurrence remains common because the precursor lesion is a field rather than a discrete mass.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"gp100-Directed T-Cell Redirection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Uveal melanoma cells retain melanocytic lineage antigen expression, including glycoprotein 100 (gp100/PMEL). Tebentafusp is an immune-mobilising monoclonal T-cell receptor against cancer (ImmTAC): an affinity-enhanced soluble TCR that binds a gp100 peptide presented by HLA-A*02:01, fused to an anti-CD3 effector arm that recruits and activates any polyclonal T cell irrespective of its own specificity. This side-steps the low-neoantigen problem entirely, and it is the first mechanism to deliver a randomised overall-survival benefit in metastatic uveal melanoma. The obligatory dependence on HLA-A*02:01 presentation restricts eligibility to roughly half of patients, and the on-target/off-tumour attack on normal gp100-positive melanocytes produces the characteristic early rash and cytokine-mediated pyrexia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"], \"genes\": [\"PMEL\"], \"gene_terms\": [{\"label\": \"PMEL\", \"id\": \"hgnc:10880\"}], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"target\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active Gq/G11 stimulates phospholipase C-beta, releasing diacylglycerol that activates protein kinase C and thence the RAF-MEK-ERK cascade.\"}, {\"source\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"target\": \"Hippo-Independent YAP Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gq alpha additionally signals through a Trio-Rho/Rac circuit to activate the transcriptional coactivator YAP, in parallel with and independently of the PLC-beta arm.\"}, {\"source\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained ERK signalling drives cell-cycle entry and anchorage-independent growth of uveal melanocytes.\"}, {\"source\": \"Hippo-Independent YAP Activation\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"YAP-dependent transcriptional programmes contribute to the growth of Gq-driven uveal melanoma cells alongside the MAPK arm.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Uveal Melanoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding transformed uveal melanocyte clone is the intraocular melanoma itself.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Reduced Visual Acuity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumour involvement of the macula, exudation, or obstruction of the visual axis reduces acuity.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Visual Field Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A tumour mass and its associated serous retinal detachment produce a field defect corresponding to the involved retinal sector.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Exudative Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subretinal exudation from the tumour surface separates the neurosensory retina from the retinal pigment epithelium.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Photopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mechanical traction and detachment at the tumour-retina interface produce perceived flashes of light.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Vitreous Floaters\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumour-associated vitreous cells, pigment dispersion, or haemorrhage are perceived as floaters.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Secondary Glaucoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anterior (iris/ciliary body) tumours and neovascularisation obstruct aqueous outflow and raise intraocular pressure.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Ocular Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Large tumours, secondary glaucoma and anterior-segment involvement cause ocular pain.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"BAP1 Loss with Monosomy 3\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The established tumour clone is the substrate on which the later, prognosis-determining secondary driver event is acquired.\"}, {\"source\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"target\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disomy-3 tumour clones instead acquire SF3B1 or EIF1AX mutations, defining the intermediate- and low-risk molecular classes.\"}, {\"source\": \"BAP1 Loss with Monosomy 3\", \"target\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BAP1-null, monosomy-3 tumours are the clones that seed distant metastasis; BAP1 loss was found in 84% of metastasising tumours.\"}, {\"source\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"target\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disomy-3 SF3B1/EIF1AX tumours retain a real but much lower and often later metastatic hazard than BAP1-null disease; SF3B1-mutant tumours in particular can relapse many years after treatment.\"}, {\"source\": \"Haematogenous Dissemination Without Lymphatic Drainage\", \"target\": \"Hepatic Metastatic Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating uveal melanoma cells preferentially arrest, survive and colonise the hepatic sinusoidal niche.\"}, {\"source\": \"Hepatic Metastatic Colonisation\", \"target\": \"Hepatic Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonisation of the hepatic parenchyma manifests clinically as liver metastases on surveillance imaging.\"}, {\"source\": \"Hepatic Metastatic Colonisation\", \"target\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established metastatic disease is the clinical setting in which the low-neoantigen, immunologically cold phenotype becomes therapeutically decisive.\"}, {\"source\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"target\": \"gp100-Directed T-Cell Redirection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because neoantigen-dependent checkpoint blockade fails, therapy instead redirects T cells against the melanocyte lineage antigen gp100 presented on HLA-A*02:01.\"}, {\"source\": \"Conjunctival Melanocytic Intraepithelial Neoplasia\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the atypical intraepithelial field, acquisition of a cutaneous-melanoma-type MAPK driver converts the precursor to invasive melanoma.\"}, {\"source\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"target\": \"Conjunctival Lymphatic and Regional Nodal Spread\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive conjunctival melanoma gains access to conjunctival lymphatics and disseminates first to regional lymph nodes.\"}, {\"source\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"target\": \"Conjunctival Melanocytic Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Driver acquisition within the intraepithelial field produces the visible pigmented or amelanotic invasive conjunctival mass.\"}, {\"source\": \"Ultraviolet Radiation Exposure\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Pointed only at the conjunctival arm, and this restraint is the whole point of the link. This entry warns explicitly that the ultraviolet role differs between the two ocular compartments and should not be flattened into a single claim: the conjunctiva is a sun-exposed surface carrying cutaneous-type drivers, while the choroid is sun-shielded and its dominant driver site shows no ultraviolet signature. No edge is drawn into the uveal arm for that reason, even though one of the cited items reports an ultraviolet-type signature at a minority uveal site. Every item here is partial, which is worth stating rather than leaving to the grades: no source available to this entry attributes conjunctival melanoma to ultraviolet light in unhedged terms. The directness of the link rests on the node naming ultraviolet exposure in its own title, not on the strength of any single sentence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arc Welding Exposure\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The weakest of the three links in this entry, and graded to say so. The only available evidence is a GeneReviews prevention line addressed to carriers of a germline predisposition, not a general-population effect estimate, and this entry\u0027s own description records the association as reported rather than established. The link is drawn because avoidance advice is actionable in that population, not because a route to the node is known.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oculodermal Melanocytosis (Nevus of Ota)\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Recorded as direct because the lesion already carries the node\u0027s own mutation: the cited study identifies the same G-protein alpha subunit gene in nevus of Ota and in uveal melanoma and calls it the genetic link between them. Recorded as predisposing rather than triggering because the same sentence puts progression at about one in four hundred, so sharing the initiating lesion is a long way from developing the tumour.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Plaque Brachytherapy\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Proton Beam Radiotherapy\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Enucleation\", \"target\": \"Uveal Melanocyte Transformation and Intraocular Tumour Growth\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tebentafusp\", \"target\": \"gp100-Directed T-Cell Redirection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Tebentafusp\", \"target\": \"Hepatic Metastatic Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immune Checkpoint Blockade\", \"target\": \"Low Tumour Mutational Burden and Checkpoint Refractoriness\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wide Local Excision with Adjuvant Cryotherapy\", \"target\": \"Conjunctival Melanocytic Intraepithelial Neoplasia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wide Local Excision with Adjuvant Cryotherapy\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Percutaneous Hepatic Perfusion with Melphalan\", \"target\": \"Hepatic Metastatic Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Darovasertib\", \"target\": \"PLC-beta/PKC/MAPK Cascade Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"GNAQ\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GNA11\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BAP1\", \"target\": \"BAP1 Loss with Monosomy 3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SF3B1\", \"target\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"EIF1AX\", \"target\": \"Secondary Splicing/Translation-Factor Driver Stratification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYSLTR2\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLCB4\", \"target\": \"Gq/G11 Alpha Subunit Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAS\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NF1\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT\", \"target\": \"UV-Associated BRAF/NRAS/NF1 Driver Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7237,14 +7784,23 @@ only in patients who have small, spindle-cell tumors."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the liver
+
+                        <span class="phenotype-term-label">Neoplasm of the liver</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002896">HP:0002896</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002896</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7308,14 +7864,21 @@ metastasis"</div>
                         Uveal Melanoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Uveal melanoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007716">HP:0007716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0007716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Uveal melanoma (HP:0007716). HP:0007716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7369,14 +7932,21 @@ metastasis"</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced visual acuity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0007663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7430,14 +8000,21 @@ metastasis"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual field defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001123">HP:0001123</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001123</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7490,14 +8067,21 @@ a shadow in the visual field"</div>
                         Exudative Retinal Detachment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000541</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7554,14 +8138,21 @@ extraocular extension."</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photopsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030786" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030786">HP:0030786</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0030786</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photopsia (HP:0030786). HP:0030786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7616,14 +8207,21 @@ photopsia and/or floaters"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vitreous floaters
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100832" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100832">HP:0100832</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100832" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0100832</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vitreous floaters (HP:0100832). HP:0100832 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7678,14 +8276,21 @@ photopsia and/or floaters"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glaucoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000501">HP:0000501</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000501</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glaucoma (HP:0000501). HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7716,14 +8321,21 @@ photopsia and/or floaters"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ocular pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200026">HP:0200026</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0200026</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7752,14 +8364,23 @@ photopsia and/or floaters"</div>
                         Conjunctival Melanocytic Lesion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal conjunctiva morphology
+
+                        <span class="phenotype-term-label">Abnormal conjunctiva morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000502" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000502">HP:0000502</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000502</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjunctival melanocytic lesion, annotated with Abnormal conjunctiva morphology (HP:0000502). HP:0000502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7857,13 +8478,18 @@ photopsia and/or floaters"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAQ
 
 
-    <a href="https://bioregistry.io/hgnc:4390" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4390">hgnc:4390</a>
+    <a href="https://bioregistry.io/hgnc:4390" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:4390</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAQ (hgnc:4390). hgnc:4390 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7927,13 +8553,18 @@ protein alpha-subunit, GNAQ, in blue naevi (83%) and ocular melanoma of the uvea
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNA11
 
 
-    <a href="https://bioregistry.io/hgnc:4379" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4379">hgnc:4379</a>
+    <a href="https://bioregistry.io/hgnc:4379" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:4379</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNA11 (hgnc:4379). hgnc:4379 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7996,13 +8627,18 @@ primary uveal melanomas, and 57% of uveal melanoma metastases."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BAP1
 
 
-    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:950">hgnc:950</a>
+    <a href="https://bioregistry.io/hgnc:950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:950</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAP1 (hgnc:950). hgnc:950 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8065,13 +8701,18 @@ representing a susceptibility allele."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SF3B1
 
 
-    <a href="https://bioregistry.io/hgnc:10768" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10768">hgnc:10768</a>
+    <a href="https://bioregistry.io/hgnc:10768" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:10768</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SF3B1 (hgnc:10768). hgnc:10768 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8135,13 +8776,18 @@ molecular subset of uveal melanomas."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EIF1AX
 
 
-    <a href="https://bioregistry.io/hgnc:3250" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3250">hgnc:3250</a>
+    <a href="https://bioregistry.io/hgnc:3250" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-66">hgnc:3250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EIF1AX (hgnc:3250). hgnc:3250 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8204,13 +8850,18 @@ either EIF1AX (15; 48%) or SF3B1 (9; 29%)."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYSLTR2
 
 
-    <a href="https://bioregistry.io/hgnc:18274" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18274">hgnc:18274</a>
+    <a href="https://bioregistry.io/hgnc:18274" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-67">hgnc:18274</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYSLTR2 (hgnc:18274). hgnc:18274 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8300,13 +8951,18 @@ leukotriene."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PLCB4
 
 
-    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9059">hgnc:9059</a>
+    <a href="https://bioregistry.io/hgnc:9059" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-68">hgnc:9059</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLCB4 (hgnc:9059). hgnc:9059 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8393,13 +9049,18 @@ downstream target of the former gene products."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1097">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:1097</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8463,13 +9124,18 @@ Recurrences occurred in all patients with positive BRAF or NRAS mutation"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NRAS
 
 
-    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7989">hgnc:7989</a>
+    <a href="https://bioregistry.io/hgnc:7989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:7989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8533,13 +9199,18 @@ candidates for targeted therapies"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NF1
 
 
-    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7765">hgnc:7765</a>
+    <a href="https://bioregistry.io/hgnc:7765" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:7765</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF1 (hgnc:7765). hgnc:7765 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8601,13 +9272,18 @@ candidates for targeted therapies"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:11730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8703,7 +9379,12 @@ mutations in GNAQ, GNA11, and EIF1AX were found."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">episcleral plaque brachytherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-73">episcleral plaque brachytherapy<span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is episcleral plaque brachytherapy, annotated with Brachytherapy (NCIT:C15195). NCIT:C15195 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Brachytherapy</span>
 
 
@@ -8801,7 +9482,12 @@ vs. 68.3% from 2012 to 2013)."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">proton beam radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">proton beam radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is proton beam radiation therapy (NCIT:C66897). NCIT:C66897 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Proton Beam Radiation Therapy</span>
 
 
@@ -8900,7 +9586,12 @@ like the retina and optic nerve."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">eye enucleation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-75">eye enucleation<span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is eye enucleation (NCIT:C198837). NCIT:C198837 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Eye Enucleation</span>
 
 
@@ -8997,7 +9688,12 @@ like the retina and optic nerve."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9027,16 +9723,21 @@ like the retina and optic nerve."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tebentafusp
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C94208" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C94208">NCIT:C94208</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C94208" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-77">NCIT:C94208</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tebentafusp (NCIT:C94208). NCIT:C94208 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9147,7 +9848,12 @@ melanoma."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -9178,17 +9884,24 @@ melanoma."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         pembrolizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-79">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ipilimumab
@@ -9196,11 +9909,16 @@ melanoma."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C2654" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C2654">NCIT:C2654</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C2654" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-80">NCIT:C2654</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ipilimumab (NCIT:C2654). NCIT:C2654 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         nivolumab
@@ -9208,10 +9926,13 @@ melanoma."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C68814">NCIT:C68814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-81">NCIT:C68814</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9311,7 +10032,12 @@ hope for the application of immunotherapy in CoM"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">excision with adjuvant margin cryosurgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">excision with adjuvant margin cryosurgery<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is excision with adjuvant margin cryosurgery, annotated with Cryosurgery (NCIT:C15215). NCIT:C15215 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cryosurgery</span>
 
 
@@ -9422,7 +10148,12 @@ and not all cases are referred to a specialised ocular oncology centre."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">percutaneous hepatic perfusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-83">percutaneous hepatic perfusion<span class="pill-tip" role="tooltip" id="pill-tip-83">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is percutaneous hepatic perfusion (NCIT:C148433). NCIT:C148433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Percutaneous Hepatic Perfusion</span>
 
 
@@ -9453,16 +10184,21 @@ and not all cases are referred to a specialised ocular oncology centre."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         melphalan
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28876" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28876">CHEBI:28876</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28876" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-84">CHEBI:28876</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses melphalan (CHEBI:28876). CHEBI:28876 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9562,7 +10298,12 @@ median progression-free survival: 9.1 vs. 3.3 months; objective response rate:
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-85">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9689,7 +10430,12 @@ prenatal and preimplantation genetic testing are possible."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-86">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-86">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -9719,16 +10465,21 @@ prenatal and preimplantation genetic testing are possible."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         darovasertib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124796" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C124796">NCIT:C124796</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124796" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-87">NCIT:C124796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses darovasertib (NCIT:C124796). NCIT:C124796 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9810,6 +10561,33 @@ prenatal and preimplantation genetic testing are possible."</div>
             <div class="item-box environmental-box anchor-target" id="environmental-ultraviolet-radiation-exposure" data-dismech-node="Ultraviolet Radiation Exposure" data-dismech-type="environmental">
                 <div class="item-name">Ultraviolet Radiation Exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ultraviolet radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-88">ECTO:0000006</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Ultraviolet exposure is a credible aetiological factor for conjunctival melanoma, which is an ocular-surface tumour carrying a UV mutational signature and cutaneous-type drivers. Its role in posterior uveal melanoma is far weaker and contested: the choroid is sun-shielded, uveal melanoma has a low mutational burden without a dominant UV signature, and the R183 mutations that do show C-to-T transitions are a small minority of drivers. This asymmetry should not be flattened into a single &#34;UV causes ocular melanoma&#34; claim.</div>
@@ -9876,10 +10654,133 @@ commonly involving BRAF, NRAS, NF1, and TERT promoter mutations."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">UV-Associated BRAF/NRAS/NF1 Driver Activation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed only at the conjunctival arm, and this restraint is the whole point of the link. This entry warns explicitly that the ultraviolet role differs between the two ocular compartments and should not be flattened into a single claim: the conjunctiva is a sun-exposed surface carrying cutaneous-type drivers, while the choroid is sun-shielded and its dominant driver site shows no ultraviolet signature. No edge is drawn into the uveal arm for that reason, even though one of the cited items reports an ultraviolet-type signature at a minority uveal site. Every item here is partial, which is worth stating rather than leaving to the grades: no source available to this entry attributes conjunctival melanoma to ultraviolet light in unhedged terms. The directness of the link rests on the node naming ultraviolet exposure in its own title, not on the strength of any single sentence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41097064" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41097064" target="_blank">PMID:41097064</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Conversely, conjunctival and eyelid melanoma exhibits greater molecular similarity to cutaneous melanoma, commonly involving BRAF, NRAS, NF1, and TERT promoter mutations."</div>
+
+
+                <div class="evidence-explanation">Reports that conjunctival melanoma resembles cutaneous melanoma molecularly, commonly involving BRAF, NRAS, NF1 and TERT promoter mutations. That driver set is this node, but the sentence never mentions ultraviolet light, so it establishes what the node contains and not that this exposure produces it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29802540" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29802540" target="_blank">PMID:29802540</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In recent decades the incidence of uveal melanoma has been relatively stable whilst conjunctival and cutaneous melanoma have shown increasing incidence which may be connected to the result of environmental exposure to ultraviolet light."</div>
+
+
+                <div class="evidence-explanation">The one sentence available that attributes conjunctival melanoma to ultraviolet exposure rather than describing its drivers. It carries the asymmetry this entry insists on as well, holding uveal incidence stable while conjunctival incidence rises. Partial because the attribution is hedged as may be connected, which is the strongest wording any source here offers.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21083380" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21083380" target="_blank">PMID:21083380</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These alterations are characteristic mutational patterns induced by ultraviolet light23,24 and are found with markedly increased frequency in cutaneous melanomas arising on sun-exposed skin."</div>
+
+
+                <div class="evidence-explanation">Identifies the alterations as mutational patterns induced by ultraviolet light and enriched in sun-exposed cutaneous melanoma. It supplies the ultraviolet attribution, but at a minority uveal site rather than in the conjunctival tumours this link concerns.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-arc-welding-exposure" data-dismech-node="Arc Welding Exposure" data-dismech-type="environmental">
                 <div class="item-name">Arc Welding Exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to welding fume
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000129" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-89">ECTO:7000129</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to welding fume (ECTO:7000129). ECTO:7000129 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9921,10 +10822,66 @@ commonly involving BRAF, NRAS, NF1, and TERT promoter mutations."</div>
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Uveal Melanocyte Transformation and Intraocular Tumour Growth</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The weakest of the three links in this entry, and graded to say so. The only available evidence is a GeneReviews prevention line addressed to carriers of a germline predisposition, not a general-population effect estimate, and this entry&#39;s own description records the association as reported rather than established. The link is drawn because avoidance advice is actionable in that population, not because a route to the node is known.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27748099" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27748099" target="_blank">PMID:27748099</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prevention of primary manifestations: UM: avoid arc-welding."</div>
+
+
+                <div class="evidence-explanation">GeneReviews names arc welding as an exposure to avoid for primary prevention in carriers of the predisposition syndrome. A recommendation for a defined group, with no effect estimate and no mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-oculodermal-melanocytosis-nevus-of-ota" data-dismech-node="Oculodermal Melanocytosis (Nevus of Ota)" data-dismech-type="environmental">
                 <div class="item-name">Oculodermal Melanocytosis (Nevus of Ota)</div>
+
+
+
+
 
 
 
@@ -9965,6 +10922,58 @@ commonly involving BRAF, NRAS, NF1, and TERT promoter mutations."</div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Gq/G11 Alpha Subunit Activating Mutation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Recorded as direct because the lesion already carries the node&#39;s own mutation: the cited study identifies the same G-protein alpha subunit gene in nevus of Ota and in uveal melanoma and calls it the genetic link between them. Recorded as predisposing rather than triggering because the same sentence puts progression at about one in four hundred, so sharing the initiating lesion is a long way from developing the tumour.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19078957" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19078957" target="_blank">PMID:19078957</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings identify GNAQ as a genetic link between nevus of Ota and uveal melanoma and help explain why nevi of Ota are a risk factor for uveal melanoma7. The risk is small, as only about 1 in 400 nevi of Ota progress to uveal melanoma"</div>
+
+
+                <div class="evidence-explanation">Names the shared gene as the genetic link between the naevus and the melanoma, which is this node, and quantifies the small absolute progression risk in the same breath.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10382,17 +11391,24 @@ effects of the tumour or side effects of therapy"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Uveal melanoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007716">HP:0007716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-90">HP:0007716</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Uveal melanoma (HP:0007716). HP:0007716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neoplasm of the liver
@@ -10400,10 +11416,13 @@ effects of the tumour or side effects of therapy"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002896">HP:0002896</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-91">HP:0002896</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10485,16 +11504,21 @@ number, 2015-003153-18.)."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Uveal melanoma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007716">HP:0007716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0007716</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Uveal melanoma (HP:0007716). HP:0007716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10540,6 +11564,9 @@ number, 2015-003153-18.)."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12397,6 +13424,63 @@ inheritance:
 
 environmental:
 - name: Ultraviolet Radiation Exposure
+  exposure_term:
+    preferred_term: exposure to ultraviolet radiation
+    term:
+      id: ECTO:0000006
+      label: exposure to ultraviolet radiation
+  influences_mechanisms:
+  - target: UV-Associated BRAF/NRAS/NF1 Driver Activation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Pointed only at the conjunctival arm, and this restraint is the whole
+      point of the link. This entry warns explicitly that the ultraviolet role
+      differs between the two ocular compartments and should not be flattened
+      into a single claim: the conjunctiva is a sun-exposed surface carrying
+      cutaneous-type drivers, while the choroid is sun-shielded and its
+      dominant driver site shows no ultraviolet signature. No edge is drawn
+      into the uveal arm for that reason, even though one of the cited items
+      reports an ultraviolet-type signature at a minority uveal site. Every
+      item here is partial, which is worth stating rather than leaving to the
+      grades: no source available to this entry attributes conjunctival
+      melanoma to ultraviolet light in unhedged terms. The directness of the
+      link rests on the node naming ultraviolet exposure in its own title, not
+      on the strength of any single sentence.
+    evidence:
+    - reference: PMID:41097064
+      reference_title: &#34;Ocular Melanoma: A Comprehensive Review with a Focus on Molecular Biology.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Conversely, conjunctival and eyelid melanoma exhibits greater molecular similarity to cutaneous melanoma, commonly involving BRAF, NRAS, NF1, and TERT promoter mutations.&#34;
+      explanation: &gt;-
+        Reports that conjunctival melanoma resembles cutaneous melanoma
+        molecularly, commonly involving BRAF, NRAS, NF1 and TERT promoter
+        mutations. That driver set is this node, but the sentence never
+        mentions ultraviolet light, so it establishes what the node contains
+        and not that this exposure produces it.
+    - reference: PMID:29802540
+      reference_title: &#34;Conjunctival Melanoma - Epidemiological Trends and Features.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In recent decades the incidence of uveal melanoma has been relatively stable whilst conjunctival and cutaneous melanoma have shown increasing incidence which may be connected to the result of environmental exposure to ultraviolet light.&#34;
+      explanation: &gt;-
+        The one sentence available that attributes conjunctival melanoma to
+        ultraviolet exposure rather than describing its drivers. It carries
+        the asymmetry this entry insists on as well, holding uveal incidence
+        stable while conjunctival incidence rises. Partial because the
+        attribution is hedged as may be connected, which is the strongest
+        wording any source here offers.
+    - reference: PMID:21083380
+      reference_title: &#34;Mutations in GNA11 in uveal melanoma.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These alterations are characteristic mutational patterns induced by ultraviolet light23,24 and are found with markedly increased frequency in cutaneous melanomas arising on sun-exposed skin.&#34;
+      explanation: &gt;-
+        Identifies the alterations as mutational patterns induced by
+        ultraviolet light and enriched in sun-exposed cutaneous melanoma. It
+        supplies the ultraviolet attribution, but at a minority uveal site
+        rather than in the conjunctival tumours this link concerns.
   presence: PRESENT
   description: &gt;-
     Ultraviolet exposure is a credible aetiological factor for conjunctival
@@ -12430,6 +13514,34 @@ environmental:
     explanation: The cutaneous-like driver landscape of conjunctival melanoma is the
       molecular correlate of its UV aetiology.
 - name: Arc Welding Exposure
+  exposure_term:
+    preferred_term: exposure to welding fume
+    term:
+      id: ECTO:7000129
+      label: exposure to welding fume
+  influences_mechanisms:
+  - target: Uveal Melanocyte Transformation and Intraocular Tumour Growth
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The weakest of the three links in this entry, and graded to say so. The
+      only available evidence is a GeneReviews prevention line addressed to
+      carriers of a germline predisposition, not a general-population effect
+      estimate, and this entry&#39;s own description records the association as
+      reported rather than established. The link is drawn because avoidance
+      advice is actionable in that population, not because a route to the node
+      is known.
+    evidence:
+    - reference: PMID:27748099
+      reference_title: &#34;BAP1 Tumor Predisposition Syndrome.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Prevention of primary manifestations: UM: avoid arc-welding.&#34;
+      explanation: &gt;-
+        GeneReviews names arc welding as an exposure to avoid for primary
+        prevention in carriers of the predisposition syndrome. A
+        recommendation for a defined group, with no effect estimate and no
+        mechanism.
   presence: PRESENT
   description: &gt;-
     Occupational arc-welding exposure is a reported but not firmly established
@@ -12447,6 +13559,27 @@ environmental:
     explanation: GeneReviews Agents/Circumstances to Avoid guidance naming arc welding
       as a uveal melanoma exposure to avoid in BAP1-TPDS.
 - name: Oculodermal Melanocytosis (Nevus of Ota)
+  influences_mechanisms:
+  - target: Gq/G11 Alpha Subunit Activating Mutation
+    environmental_effect: PREDISPOSES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Recorded as direct because the lesion already carries the node&#39;s own
+      mutation: the cited study identifies the same G-protein alpha subunit
+      gene in nevus of Ota and in uveal melanoma and calls it the genetic link
+      between them. Recorded as predisposing rather than triggering because
+      the same sentence puts progression at about one in four hundred, so
+      sharing the initiating lesion is a long way from developing the tumour.
+    evidence:
+    - reference: PMID:19078957
+      reference_title: &#34;Frequent somatic mutations of GNAQ in uveal melanoma and blue naevi.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Our findings identify GNAQ as a genetic link between nevus of Ota and uveal melanoma and help explain why nevi of Ota are a risk factor for uveal melanoma7. The risk is small, as only about 1 in 400 nevi of Ota progress to uveal melanoma&#34;
+      explanation: &gt;-
+        Names the shared gene as the genetic link between the naevus and the
+        melanoma, which is this node, and quantifies the small absolute
+        progression risk in the same breath.
   presence: PRESENT
   description: &gt;-
     Congenital oculodermal melanocytosis is an established host risk factor for
@@ -13982,7 +15115,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ocular Melanoma", "mondoId": "MONDO:0006325", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ocular_Melanoma", "yamlRevision": "4241d8fe46a4"};
+        const OS_CONFIG = {"diseaseName": "Ocular Melanoma", "mondoId": "MONDO:0006325", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ocular_Melanoma", "yamlRevision": "4177bbbb3a1e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14401,5 +15534,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

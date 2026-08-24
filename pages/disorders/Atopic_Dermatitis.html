@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3865,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3771,6 +3939,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3796,6 +3972,108 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Atopic dermatitis (eczema) is the prototypical chronic inflammatory skin disease and is Harrison&#39;s primary home for this entity.">DERMATOLOGY</span>
+
+
+                    <span class="tag tag-classification" title="Type 2-skewed immune dysregulation (IL-4, IL-13, IL-31, and the keratinocyte alarmins TSLP/IL-25/IL-33) is the immunologic axis of the disease, and AD is the usual first step of the atopic march toward food allergy, allergic rhinitis, and asthma.">IMMUNE RHEUMATOLOGIC</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -3920,6 +4198,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36983191" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36983191" target="_blank">PMID:36983191</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Atopic dermatitis (AD) can be subclassified into the more frequent extrinsic type (EAD), with elevated serum IgE levels and frequent association with other atopic conditions, and the less frequent intrinsic type (IAD), with normal IgE levels and no history of atopy."</div>
+
+
+                <div class="evidence-explanation">Defines the extrinsic subtype as the more frequent form, with elevated serum IgE and frequent association with other atopic conditions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
@@ -3947,6 +4257,38 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36983191" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36983191" target="_blank">PMID:36983191</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Atopic dermatitis (AD) can be subclassified into the more frequent extrinsic type (EAD), with elevated serum IgE levels and frequent association with other atopic conditions, and the less frequent intrinsic type (IAD), with normal IgE levels and no history of atopy."</div>
+
+
+                <div class="evidence-explanation">Defines the intrinsic subtype as the less frequent form, with normal IgE levels and no history of atopy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4075,10 +4417,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         cell-type-conditional perturbation and epistasis study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type cell-type-conditional perturbation and epistasis study.</span>
     </span>
 
 
@@ -4140,10 +4488,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         phospho-specific immunostaining
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by phospho-specific immunostaining.</span>
     </span>
 
 
@@ -4167,10 +4521,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         phosphoproteomic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by phosphoproteomic profiling.</span>
     </span>
 
 
@@ -4230,10 +4590,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         cytokine quantification
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by cytokine quantification.</span>
     </span>
 
 
@@ -4293,10 +4659,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         transepidermal water loss measurement
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by transepidermal water loss measurement.</span>
     </span>
 
 
@@ -4545,16 +4917,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4581,15 +4958,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         FLG
 
 
-    <a href="https://bioregistry.io/hgnc:3748" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3748">hgnc:3748</a>
+    <a href="https://bioregistry.io/hgnc:3748" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:3748</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FLG (hgnc:3748). hgnc:3748 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4617,16 +5001,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Keratinization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031424">GO:0031424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031424" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0031424</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Keratinization (GO:0031424). GO:0031424 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4643,6 +5032,7 @@
 
 
                 </div>
+
 
 
 
@@ -4749,17 +5139,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T-helper 2 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000546">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4780,11 +5177,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0001069" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0001069">CL:0001069</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0001069" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0001069</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Group 2 innate lymphoid cell (CL:0001069). CL:0001069 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4805,11 +5207,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000771">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4830,10 +5237,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4860,16 +5270,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL4
 
 
-    <a href="https://bioregistry.io/hgnc:6014" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6014">hgnc:6014</a>
+    <a href="https://bioregistry.io/hgnc:6014" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:6014</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL4 (hgnc:6014). hgnc:6014 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4897,11 +5318,18 @@
         IL13
 
 
-    <a href="https://bioregistry.io/hgnc:5973" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5973">hgnc:5973</a>
+    <a href="https://bioregistry.io/hgnc:5973" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:5973</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL13 (hgnc:5973). hgnc:5973 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4929,11 +5357,18 @@
         IL31
 
 
-    <a href="https://bioregistry.io/hgnc:19372" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19372">hgnc:19372</a>
+    <a href="https://bioregistry.io/hgnc:19372" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:19372</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL31 (hgnc:19372). hgnc:19372 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4961,10 +5396,13 @@
         STAT6
 
 
-    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11368">hgnc:11368</a>
+    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:11368</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4992,17 +5430,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Type 2 immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042092">GO:0042092</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0042092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Type 2 immune response (GO:0042092). GO:0042092 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5023,11 +5468,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045064">GO:0045064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0045064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T-helper 2 cell differentiation (GO:0045064). GO:0045064 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5048,11 +5498,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035771">GO:0035771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0035771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Interleukin-4-mediated signaling pathway (GO:0035771). GO:0035771 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5073,10 +5528,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035708">GO:0035708</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0035708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves IgE isotype switching, annotated with interleukin-4-dependent isotype switching to IgE isotypes (GO:0035708). GO:0035708 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5093,6 +5551,7 @@
 
 
                 </div>
+
 
 
 
@@ -5223,17 +5682,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5254,10 +5720,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000097">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5284,16 +5753,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PBK
 
 
-    <a href="https://bioregistry.io/hgnc:18282" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18282">hgnc:18282</a>
+    <a href="https://bioregistry.io/hgnc:18282" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:18282</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PBK (hgnc:18282). hgnc:18282 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5321,10 +5801,13 @@
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5352,17 +5835,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Protein phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006468">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5383,11 +5873,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032635" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032635">GO:0032635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0032635</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Interleukin-6 production (GO:0032635). GO:0032635 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5408,11 +5903,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032637" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032637">GO:0032637</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032637" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0032637</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Interleukin-8 production (GO:0032637). GO:0032637 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5433,10 +5933,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007165">GO:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0007165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Signal transduction (GO:0007165). GO:0007165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5453,6 +5956,7 @@
 
 
                 </div>
+
 
 
 
@@ -5573,16 +6077,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T-helper 17 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5609,16 +6118,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T-helper 17 type immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072538">GO:0072538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0072538</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T-helper 17 type immune response (GO:0072538). GO:0072538 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5635,6 +6149,7 @@
 
 
                 </div>
+
 
 
 
@@ -5656,16 +6171,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5692,15 +6212,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IL31
 
 
-    <a href="https://bioregistry.io/hgnc:19372" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19372">hgnc:19372</a>
+    <a href="https://bioregistry.io/hgnc:19372" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:19372</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL31 (hgnc:19372). hgnc:19372 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5720,6 +6247,7 @@
 
 
                 </div>
+
 
 
 
@@ -5809,16 +6337,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5835,6 +6368,7 @@
 
 
                 </div>
+
 
 
 
@@ -5886,16 +6420,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5922,16 +6461,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5948,6 +6492,7 @@
 
 
                 </div>
+
 
 
 
@@ -6049,14 +6594,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased circulating IgE concentration
+
+                        <span class="phenotype-term-label">Increased circulating IgE concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003212">HP:0003212</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003212</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated serum IgE, annotated with Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6119,14 +6673,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Erythema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010783">HP:0010783</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0010783</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6191,14 +6752,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Eczematoid dermatitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000964">HP:0000964</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000964</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6252,14 +6820,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Food allergy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500093">HP:0500093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0500093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6346,14 +6921,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6407,14 +6989,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dry skin
+
+                        <span class="phenotype-term-label">Dry skin</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000958">HP:0000958</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000958</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Xerosis, annotated with Dry skin (HP:0000958). HP:0000958 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6468,14 +7059,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratosis pilaris
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032152" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032152">HP:0032152</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032152" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0032152</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratosis pilaris (HP:0032152). HP:0032152 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6540,14 +7138,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sleep disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6612,14 +7217,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flexural lichenification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007453" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007453">HP:0007453</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0007453</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flexural lichenification (HP:0007453). HP:0007453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6697,14 +7309,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent skin infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001581" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001581">HP:0001581</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001581" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001581</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent skin infections (HP:0001581). HP:0001581 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6782,14 +7401,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Periorbital wrinkles
+
+                        <span class="phenotype-term-label">Periorbital wrinkles</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000607" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000607">HP:0000607</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000607</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dennie-Morgan infraorbital folds, annotated with Periorbital wrinkles (HP:0000607). HP:0000607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6867,14 +7495,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Allergic rhinitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003193">HP:0003193</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003193</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6952,14 +7587,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Asthma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002099">HP:0002099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7232,6 +7874,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26482879" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26482879" target="_blank">PMID:26482879</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 11q24.3 the most plausible candidate gene is ETS1, which encodes a transcription factor with a range of immune functions including Th17 and B-cell differentiation and function"</div>
+
+
+                <div class="evidence-explanation">The EAGLE multi-ancestry GWAS of 21,399 cases and 95,464 controls names ETS1 as the most plausible candidate gene at the 11q24.3 risk locus, and attributes to it the T- and B-cell functions recorded in this entry&#39;s notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
             </div>
@@ -7327,6 +8001,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36641009" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36641009" target="_blank">PMID:36641009</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strong recommendations are made for the use of moisturizers, TCIs, TCS, and topical PDE-4 and JAK inhibitors."</div>
+
+
+                <div class="evidence-explanation">The 2023 AAD guideline, developed by systematic review under GRADE, makes a strong recommendation for moisturizers in adult atopic dermatitis. Note the guideline recommends their use; it does not itself demonstrate the barrier-restoration mechanism asserted in this treatment&#39;s description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -7334,6 +8040,38 @@
                 <div class="item-name">
                     Topical Corticosteroids
                 </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C122078" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C122078">NCIT:C122078</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
 
 
 
@@ -7346,6 +8084,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36641009" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36641009" target="_blank">PMID:36641009</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strong recommendations are made for the use of moisturizers, TCIs, TCS, and topical PDE-4 and JAK inhibitors."</div>
+
+
+                <div class="evidence-explanation">Topical corticosteroids (TCS) carry a strong GRADE recommendation in the 2023 AAD adult atopic dermatitis guideline.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -7355,7 +8125,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">biologic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -7386,16 +8161,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dupilumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C162455">NCIT:C162455</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C162455</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7450,7 +8230,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">JAK inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">JAK inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is JAK inhibitor therapy, annotated with Immunosuppressive Therapy (NCIT:C15261). NCIT:C15261 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunosuppressive Therapy</span>
 
 
@@ -7487,6 +8272,60 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37943240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37943240" target="_blank">PMID:37943240</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We make strong recommendations for the use of dupilumab, tralokinumab, abrocitinib, baricitinib, and upadacitinib."</div>
+
+
+                <div class="evidence-explanation">The 2024 AAD guideline makes strong GRADE recommendations for all three oral JAK inhibitors named in this treatment&#39;s description (abrocitinib, baricitinib, upadacitinib).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36641009" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36641009" target="_blank">PMID:36641009</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strong recommendations are made for the use of moisturizers, TCIs, TCS, and topical PDE-4 and JAK inhibitors."</div>
+
+
+                <div class="evidence-explanation">Covers the topical arm of this treatment entry. The guideline recommends topical JAK inhibitors as a class and does not name ruxolitinib in this sentence, so it supports the class claim only.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -7494,6 +8333,38 @@
                 <div class="item-name">
                     Phototherapy
                 </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">phototherapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Phototherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15301" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15301">NCIT:C15301</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
 
 
 
@@ -7505,6 +8376,38 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37943240" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37943240" target="_blank">PMID:37943240</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We make conditional recommendations in favor of using phototherapy, azathioprine, cyclosporine, methotrexate, and mycophenolate, and against the use of systemic corticosteroids."</div>
+
+
+                <div class="evidence-explanation">Phototherapy carries a conditional (not strong) GRADE recommendation in the 2024 AAD adult guideline. The guideline does not single out narrowband UVB in this sentence, so the recommendation is for phototherapy as a modality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -7561,11 +8464,92 @@
             <div class="item-box environmental-box anchor-target" id="environmental-allergen-exposure" data-dismech-node="Allergen Exposure" data-dismech-type="environmental">
                 <div class="item-name">Allergen Exposure</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                <div class="item-desc">House dust mites, pet dander, and pollens can trigger or exacerbate disease.</div>
+
+                    <span class="tag tag-env">
+                        allergen exposure
 
 
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000726" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-54">ECTO:0000726</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is allergen exposure, annotated with exposure to allergen (ECTO:0000726). ECTO:0000726 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-desc">In sensitized individuals, house dust mites, pet dander, and pollens can trigger or exacerbate disease. Note the therapeutic corollary does not follow - trials of house dust mite avoidance are of very low quality and do not establish a clinical benefit.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14609097" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14609097" target="_blank">PMID:14609097</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most impressive barrier disruption was seen after application of house dust mite, followed by cat dander and grass pollen"</div>
+
+
+                <div class="evidence-explanation">Atopy patch testing in 30 sensitized patients with atopic eczema versus healthy controls, measuring transepidermal water loss. Covers all three allergen classes named in the description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25598014" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25598014" target="_blank">PMID:25598014</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"As many as a third of people with eczema who have a positive test for allergy to house dust mite have reported worsening of eczema or respiratory symptoms when exposed to dust"</div>
+
+
+                <div class="evidence-explanation">Cochrane review. Supports exposure as a trigger in a sensitized subset rather than in all patients, and its conclusion of very low-quality evidence for avoidance measures is the caveat recorded in the description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7576,9 +8560,45 @@
 
 
 
-                <div class="item-desc">Soaps, detergents, and harsh fabrics disrupt the already compromised barrier.</div>
 
 
+
+
+                <div class="item-desc">Soaps, detergents, and harsh fabrics disrupt the already compromised barrier, and atopic skin is measurably more susceptible to that damage than healthy skin under identical exposure.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26426984" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26426984" target="_blank">PMID:26426984</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Repeated exposure to SLS and the irritant tandems enhanced the reactions and resulted in a significantly higher increase in TEWL in the AD compared to the control group"</div>
+
+
+                <div class="evidence-explanation">Controlled tandem repeated irritation test in atopic dermatitis volunteers versus healthy controls, using the detergent sodium lauryl sulfate. Evidences both the barrier disruption and the greater susceptibility of atopic skin.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7589,9 +8609,67 @@
 
 
 
-                <div class="item-desc">Staphylococcus aureus colonization is found in &gt;90% of lesional skin and amplifies inflammation through superantigens and biofilm formation.</div>
 
 
+
+
+                <div class="item-desc">Staphylococcus aureus colonizes lesional skin in roughly 70 percent of patients - far more often than healthy controls - and its abundance tracks disease activity, rising during flares and with severity.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26994362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26994362" target="_blank">PMID:26994362</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pooled prevalence of S. aureus colonization among patients was 70% for lesional skin, 39% for nonlesional skin and 62% for the nose"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 95 observational studies. Establishes the lesional colonization prevalence. The same abstract reports the odds of colonization versus healthy controls and that prevalence in lesional skin increased with disease severity; those figures are given in brackets in the source and so are described here rather than quoted.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22310478" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22310478" target="_blank">PMID:22310478</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the proportion of Staphylococcus sequences, particularly S. aureus, was greater during disease flares than at baseline or post-treatment, and correlated with worsened disease severity"</div>
+
+
+                <div class="evidence-explanation">Longitudinal 16S rRNA gene sequencing of the skin microbiome across the flare cycle in children, evidencing that abundance tracks disease activity rather than merely co-occurring with it. Note the assay is 16S amplicon rather than shotgun metagenomics, so the species-level attribution to S. aureus in the quoted sentence carries the resolution limits of amplicon sequencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7608,11 +8686,327 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">8</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Gene Expression in Whole Blood of Atopic Eczema and Healthy Children at 4 years
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE48310" target="_blank">geo:GSE48310</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We studied genes that are related to atopic diseases [i.e., atopic eczema (AE)]. Immunological factors and principal genes involved in the biosynthesis of polyunsaturated fatty acids were included. We analyzed whether expression of genes encoding key enzymes of LC-PUFA synthesis (FADS1, FADS2 and ELOVL5) is associated with circulating LC-PUFA levels and risk of AE in 4-year-old children. AE (n=20) and non-AE (n=104) children participating in the Sabadell cohort within the INfancia y Medio Ambiente (INMA) Project were included in the present study. RT-PCR with TaqMan Low-Density Array cards was used to measure the expression of these genes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+                    <span class="tag tag-dataset">n=124</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/24167612" target="_blank" style="color: var(--secondary);">PMID:24167612</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Atopic Dermatitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    CHN1 as a Predictive Biomarker for Atopic Dermatitis-related Depression
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE307177" target="_blank">geo:GSE307177</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The comorbidity of Atopic Dermatitis (AD) and depression has garnered increasing attention in recent years. Yet, the immunopathological mechanisms underlying this connection remain unclear. To bridge this gap, we collected peripheral blood mononuclear cell samples from 20 AD patients with and without depression, and performed RNA sequencing analysis. By integrating bioinformatics and machine learning techniques, we aimed to uncover the immune regulatory networks and identify key genetic markers for the depression comorbidity in AD patients. Our analysis revealed 394 differentially expressed genes in AD patients with depression as compared to those non-depression counterparts.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41333466" target="_blank" style="color: var(--secondary);">PMID:41333466</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Atopic Dermatitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genomic profiling of the overlap phenotype between psoriasis and atopic dermatitis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE182740" target="_blank">geo:GSE182740</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Clinical overlaps between psoriasis and atopic dermatitis are sometimes undiscernible, and there is no consensus whether to treat the overlap phenotype as psoriasis or atopic dermatitis. We enrolled patients diagnosed with either psoriasis or atopic dermatitis, and clinically re-stratified them into classic psoriasis, classic atopic dermatitis, and the overlap phenotype between psoriasis and atopic dermatitis. We compared gene expression profiles of lesional and nonlesional skin biopsy tissues between the three comparison groups.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=75</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37419444" target="_blank" style="color: var(--secondary);">PMID:37419444</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Atopic Dermatitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Optimizing single-cell transcriptomic discrimination of atopic dermatitis versus psoriasis vulgaris
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001007487" target="_blank">ega:EGAS00001007487</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Optimizing single-cell transcriptomic discrimination of atopic dermatitis versus psoriasis vulgaris</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Atopic Dermatitis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Nanopore sequencing enables allelic phasing of FLG loss-of-function variants, intragenic copy number variation and methylation status in atopic dermatitis and ichthyosis vulgaris
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000000166" target="_blank">ega:EGAS50000000166</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Loss-of-function (LoF) variants in the FLG gene are associated with ichthyosis vulgaris (IV) and atopic dermatitis (AD). IV and AD patients with two FLG LoF variants are reported to have a more severe disease course. However, subsets of compound heterozygous patients display phenotypic heterogeneity despite a prediction of a severe phenotype from their genotype. The underlying genetic mechanism of this phenotypic variability is unknown. One possibility is that two LoF FLG variants could be located in cis (on the same allele), thus altering the predicted gene dosage.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">WGS</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Atopic Dermatitis&#34;); description-level mentions were not accepted. EGA study_type: Whole Genome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Integrated metabolomics and lipidomics study of patients with atopic dermatitis in response to dupilumab
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST002302" target="_blank">metabolomics_workbench:ST002302</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atopic Dermatitis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Local and systemic changes in lipid profile as potential biomarkers for canine atopic dermatitis.
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000087837" target="_blank">massive:MSV000087837</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Lipids play a critical role in the skin as components of the epidermal barrier and as sig-naling molecules. Atopic dermatitis in dogs is associated with changes in the lipid composition of the skin, but whether these precede the onset of dermatitis or occur secondary to the dermatitis is unclear. We applied rapid lipid profiling mass spectrometry methods to skin and blood samples of dogs and determined changes following systemic treatment. Thirty control dogs and 30 atopic dogs with mild to moderate dermatitis were enrolled.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">dog</span>
+
+
+                    <span class="tag tag-datatype">METABOLOMICS</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atopic Dermatitis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Dietary Grape Against Atopic Dermatitis in NC/NgaTndCrlj Mice: Proteomics Analysis
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000090686" target="_blank">massive:MSV000090686</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The study demonstrates the effects of dietary grape powder against atopic dermatitis in 2,4-dinitrofluorobenzene-induced atopic dermatitis in NC/NgaTndCrlj mice. To uncover molecular mechanism(s) of biological responses of grape powder, dorsal skin samples from normal control (noAD), atopic dermatitis control (ctlAD) and 5% grape powder (5GP) prevention groups were analyzed using gel-free quantitative global proteomics analysis at the School of Pharmacy Analytical Instrumentation Facility, University of Wisconsin–Madison.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">PROTEOMICS</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atopic Dermatitis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7631,7 +9025,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Atopic Dermatitis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-04-30T20:45:00Z&#39;
 description: &gt;-
   Atopic dermatitis is a chronic, relapsing inflammatory skin disease arising
   from the combination of epidermal barrier dysfunction and type 2-skewed immune
@@ -7648,6 +9041,28 @@ parents:
 - Dermatological Disease
 - Chronic Inflammatory Disease
 - Allergic Disease
+classifications:
+  harrisons_chapter:
+  - classification_value: DERMATOLOGY
+    notes: &gt;-
+      Atopic dermatitis (eczema) is the prototypical chronic inflammatory skin
+      disease and is Harrison&#39;s primary home for this entity.
+    evidence:
+    - reference: PMID:32738956
+      reference_title: Atopic dermatitis.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Atopic dermatitis is a common inflammatory skin disorder characterised by recurrent eczematous lesions and intense itch.&#34;
+      explanation: &gt;-
+        The Lancet seminar defines atopic dermatitis as an inflammatory skin
+        disorder, which places its primary clinical home in Harrison&#39;s
+        Dermatology Part.
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      Type 2-skewed immune dysregulation (IL-4, IL-13, IL-31, and the
+      keratinocyte alarmins TSLP/IL-25/IL-33) is the immunologic axis of the
+      disease, and AD is the usual first step of the atopic march toward food
+      allergy, allergic rhinitis, and asthma.
 has_subtypes:
 - name: Early-Onset Atopic Dermatitis
   description: Onset in infancy or early childhood, often associated with the atopic march progressing to asthma and allergic rhinitis.
@@ -7655,8 +9070,29 @@ has_subtypes:
   description: First presentation in adulthood, often with different clinical distribution and associations compared to childhood-onset disease.
 - name: Extrinsic Atopic Dermatitis
   description: Associated with IgE-mediated sensitization to environmental allergens. Elevated serum IgE and positive skin prick tests.
+  evidence:
+  - reference: PMID:36983191
+    reference_title: &#34;Is Dupilumab as Effective in Intrinsic Atopic Dermatitis as It Is in Extrinsic Atopic Dermatitis?&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Atopic dermatitis (AD) can be subclassified into the more frequent extrinsic type (EAD), with elevated serum IgE levels and frequent association with other atopic conditions, and the less frequent intrinsic type (IAD), with normal IgE levels and no history of atopy.
+    explanation: &gt;-
+      Defines the extrinsic subtype as the more frequent form, with
+      elevated serum IgE and frequent association with other atopic
+      conditions.
 - name: Intrinsic Atopic Dermatitis
   description: Without IgE-mediated sensitization. Normal serum IgE levels. Represents approximately 20% of cases.
+  evidence:
+  - reference: PMID:36983191
+    reference_title: &#34;Is Dupilumab as Effective in Intrinsic Atopic Dermatitis as It Is in Extrinsic Atopic Dermatitis?&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Atopic dermatitis (AD) can be subclassified into the more frequent extrinsic type (EAD), with elevated serum IgE levels and frequent association with other atopic conditions, and the less frequent intrinsic type (IAD), with normal IgE levels and no history of atopy.
+    explanation: &gt;-
+      Defines the intrinsic subtype as the less frequent form, with normal
+      IgE levels and no history of atopy.
 prevalence:
 - population: Global
   notes: &gt;-
@@ -8336,6 +9772,18 @@ genetic:
 - name: ETS1
   association: GWAS
   notes: Transcription factor regulating T and B cell development and immune cell differentiation
+  evidence:
+  - reference: PMID:26482879
+    reference_title: &#34;Multi-ancestry genome-wide association study of 21,000 cases and 95,000 controls identifies new risk loci for atopic dermatitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      At 11q24.3 the most plausible candidate gene is ETS1, which encodes a transcription factor with a range of immune functions including Th17 and B-cell differentiation and function
+    explanation: &gt;-
+      The EAGLE multi-ancestry GWAS of 21,399 cases and 95,464 controls names
+      ETS1 as the most plausible candidate gene at the 11q24.3 risk locus, and
+      attributes to it the T- and B-cell functions recorded in this entry&#39;s
+      notes.
 - name: IRF4
   association: GWAS
   notes: Transcription factor essential for Th17 and Th2 cell differentiation and plasma cell development
@@ -8350,19 +9798,95 @@ genetic:
   notes: NF-kB subunit c-Rel controlling lymphocyte activation and survival
 environmental:
 - name: Allergen Exposure
-  description: House dust mites, pet dander, and pollens can trigger or exacerbate disease.
+  exposure_term:
+    preferred_term: allergen exposure
+    term:
+      id: ECTO:0000726
+      label: exposure to allergen
+  description: In sensitized individuals, house dust mites, pet dander, and pollens
+    can trigger or exacerbate disease. Note the therapeutic corollary does not
+    follow - trials of house dust mite avoidance are of very low quality and do not
+    establish a clinical benefit.
   effect: TRIGGERS
+  evidence:
+  - reference: PMID:14609097
+    reference_title: &#34;Allergy and irritation: an adverse association in patients with atopic eczema.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most impressive barrier disruption was seen after application of house dust mite, followed by cat dander and grass pollen&#34;
+    explanation: &#34;Atopy patch testing in 30 sensitized patients with atopic eczema versus healthy controls, measuring transepidermal water loss. Covers all three allergen classes named in the description.&#34;
+  - reference: PMID:25598014
+    reference_title: &#34;House dust mite reduction and avoidance measures for treating eczema.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;As many as a third of people with eczema who have a positive test for allergy to house dust mite have reported worsening of eczema or respiratory symptoms when exposed to dust&#34;
+    explanation: &#34;Cochrane review. Supports exposure as a trigger in a sensitized subset rather than in all patients, and its conclusion of very low-quality evidence for avoidance measures is the caveat recorded in the description.&#34;
 - name: Skin Irritants
-  description: Soaps, detergents, and harsh fabrics disrupt the already compromised barrier.
+  description: Soaps, detergents, and harsh fabrics disrupt the already compromised
+    barrier, and atopic skin is measurably more susceptible to that damage than
+    healthy skin under identical exposure.
   effect: TRIGGERS
+  evidence:
+  - reference: PMID:26426984
+    reference_title: &#34;Barrier function and natural moisturizing factor levels after cumulative exposure to a fruit-derived organic acid and a detergent: different outcomes in atopic and healthy skin and relevance for occupational contact dermatitis in the food industry.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Repeated exposure to SLS and the irritant tandems enhanced the reactions and resulted in a significantly higher increase in TEWL in the AD compared to the control group&#34;
+    explanation: &#34;Controlled tandem repeated irritation test in atopic dermatitis volunteers versus healthy controls, using the detergent sodium lauryl sulfate. Evidences both the barrier disruption and the greater susceptibility of atopic skin.&#34;
 - name: Microbial Dysbiosis
-  description: Staphylococcus aureus colonization is found in &gt;90% of lesional skin and amplifies inflammation through superantigens and biofilm formation.
+  description: Staphylococcus aureus colonizes lesional skin in roughly 70 percent of
+    patients - far more often than healthy controls - and its abundance tracks
+    disease activity, rising during flares and with severity.
+  review_notes: The prevalence figure was corrected from a previously curated value
+    of over 90 percent. The pooled estimate from a 95-study meta-analysis is 70
+    percent for lesional skin. The earlier claims of superantigen- and
+    biofilm-mediated amplification were also removed rather than cited, since no
+    source was found whose abstract states them; they belong in the pathophysiology
+    section with their own evidence if reinstated.
   effect: WORSENS
+  evidence:
+  - reference: PMID:26994362
+    reference_title: &#34;Prevalence and odds of Staphylococcus aureus carriage in atopic dermatitis: a systematic review and meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The pooled prevalence of S. aureus colonization among patients was 70% for lesional skin, 39% for nonlesional skin and 62% for the nose&#34;
+    explanation: &#34;Meta-analysis of 95 observational studies. Establishes the lesional colonization prevalence. The same abstract reports the odds of colonization versus healthy controls and that prevalence in lesional skin increased with disease severity; those figures are given in brackets in the source and so are described here rather than quoted.&#34;
+  - reference: PMID:22310478
+    reference_title: &#34;Temporal shifts in the skin microbiome associated with disease flares and treatment in children with atopic dermatitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the proportion of Staphylococcus sequences, particularly S. aureus, was greater during disease flares than at baseline or post-treatment, and correlated with worsened disease severity&#34;
+    explanation: &#34;Longitudinal 16S rRNA gene sequencing of the skin microbiome across the flare cycle in children, evidencing that abundance tracks disease activity rather than merely co-occurring with it. Note the assay is 16S amplicon rather than shotgun metagenomics, so the species-level attribution to S. aureus in the quoted sentence carries the resolution limits of amplicon sequencing.&#34;
 treatments:
 - name: Emollients and Moisturizers
   description: First-line treatment to restore skin barrier function and reduce transepidermal water loss.
+  evidence:
+  - reference: PMID:36641009
+    reference_title: &#34;Guidelines of care for the management of atopic dermatitis in adults with topical therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Strong recommendations are made for the use of moisturizers, TCIs, TCS, and topical PDE-4 and JAK inhibitors.&#34;
+    explanation: &gt;-
+      The 2023 AAD guideline, developed by systematic review under GRADE, makes a
+      strong recommendation for moisturizers in adult atopic dermatitis. Note the
+      guideline recommends their use; it does not itself demonstrate the
+      barrier-restoration mechanism asserted in this treatment&#39;s description.
 - name: Topical Corticosteroids
   description: First-line anti-inflammatory treatment for flares, applied to affected areas.
+  treatment_term:
+    preferred_term: topical corticosteroid therapy
+    term:
+      id: NCIT:C122078
+      label: Topical Corticosteroid Therapy
+  evidence:
+  - reference: PMID:36641009
+    reference_title: &#34;Guidelines of care for the management of atopic dermatitis in adults with topical therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Strong recommendations are made for the use of moisturizers, TCIs, TCS, and topical PDE-4 and JAK inhibitors.&#34;
+    explanation: &gt;-
+      Topical corticosteroids (TCS) carry a strong GRADE recommendation in the 2023
+      AAD adult atopic dermatitis guideline.
 - name: Dupilumab
   description: Monoclonal antibody targeting IL-4 receptor alpha, blocking both IL-4 and IL-13 signaling. FDA-approved for moderate-to-severe atopic dermatitis.
   treatment_term:
@@ -8389,8 +9913,42 @@ treatments:
     term:
       id: NCIT:C15261
       label: Immunosuppressive Therapy
+  evidence:
+  - reference: PMID:37943240
+    reference_title: &#34;Guidelines of care for the management of atopic dermatitis in adults with phototherapy and systemic therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We make strong recommendations for the use of dupilumab, tralokinumab, abrocitinib, baricitinib, and upadacitinib.&#34;
+    explanation: &gt;-
+      The 2024 AAD guideline makes strong GRADE recommendations for all three oral
+      JAK inhibitors named in this treatment&#39;s description (abrocitinib, baricitinib,
+      upadacitinib).
+  - reference: PMID:36641009
+    reference_title: &#34;Guidelines of care for the management of atopic dermatitis in adults with topical therapies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Strong recommendations are made for the use of moisturizers, TCIs, TCS, and topical PDE-4 and JAK inhibitors.&#34;
+    explanation: &gt;-
+      Covers the topical arm of this treatment entry. The guideline recommends
+      topical JAK inhibitors as a class and does not name ruxolitinib in this
+      sentence, so it supports the class claim only.
 - name: Phototherapy
   description: Narrowband UVB phototherapy for moderate-to-severe disease.
+  treatment_term:
+    preferred_term: phototherapy
+    term:
+      id: NCIT:C15301
+      label: Phototherapy
+  evidence:
+  - reference: PMID:37943240
+    reference_title: &#34;Guidelines of care for the management of atopic dermatitis in adults with phototherapy and systemic therapies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We make conditional recommendations in favor of using phototherapy, azathioprine, cyclosporine, methotrexate, and mycophenolate, and against the use of systemic corticosteroids.&#34;
+    explanation: &gt;-
+      Phototherapy carries a conditional (not strong) GRADE recommendation in the
+      2024 AAD adult guideline. The guideline does not single out narrowband UVB in
+      this sentence, so the recommendation is for phototherapy as a modality.
 - name: TOPK Inhibitors
   description: Small-molecule inhibitors of TOPK (PBK) that target the TOPK-STAT3 signaling axis in keratinocytes and mast cells. Pharmacological or genetic TOPK inhibition attenuates AD-like pathological features and reduces inflammatory cytokine levels (IL-6, IL-8, IL-33, IgE).
   therapeutic_modality: SMALL_MOLECULE
@@ -8589,6 +10147,84 @@ references:
 - reference: DOI:10.7759/cureus.86937
   title: &#39;Skin Barrier Dysfunction in Chronic Dermatoses: From Pathophysiology to Emerging Therapeutic Strategies&#39;
   findings: []
+datasets:
+- accession: geo:GSE48310
+  title: Gene Expression in Whole Blood of Atopic Eczema and Healthy Children at 4 years
+  description: We studied genes that are related to atopic diseases [i.e., atopic eczema (AE)]. Immunological factors and principal genes involved in the biosynthesis of polyunsaturated fatty acids were included. We analyzed whether expression of genes encoding key enzymes of LC-PUFA synthesis (FADS1, FADS2 and ELOVL5) is associated with circulating LC-PUFA levels and risk of AE in 4-year-old children. AE (n=20) and non-AE (n=104) children participating in the Sabadell cohort within the INfancia y Medio Ambiente (INMA) Project were included in the present study. RT-PCR with TaqMan Low-Density Array cards was used to measure the expression of these genes.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 124
+  publication: PMID:24167612
+  notes: Identified by GEO DataSets index search for Atopic Dermatitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE307177
+  title: CHN1 as a Predictive Biomarker for Atopic Dermatitis-related Depression
+  description: The comorbidity of Atopic Dermatitis (AD) and depression has garnered increasing attention in recent years. Yet, the immunopathological mechanisms underlying this connection remain unclear. To bridge this gap, we collected peripheral blood mononuclear cell samples from 20 AD patients with and without depression, and performed RNA sequencing analysis. By integrating bioinformatics and machine learning techniques, we aimed to uncover the immune regulatory networks and identify key genetic markers for the depression comorbidity in AD patients. Our analysis revealed 394 differentially expressed genes in AD patients with depression as compared to those non-depression counterparts.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 20
+  publication: PMID:41333466
+  notes: Identified by GEO DataSets index search for Atopic Dermatitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE182740
+  title: Genomic profiling of the overlap phenotype between psoriasis and atopic dermatitis
+  description: Clinical overlaps between psoriasis and atopic dermatitis are sometimes undiscernible, and there is no consensus whether to treat the overlap phenotype as psoriasis or atopic dermatitis. We enrolled patients diagnosed with either psoriasis or atopic dermatitis, and clinically re-stratified them into classic psoriasis, classic atopic dermatitis, and the overlap phenotype between psoriasis and atopic dermatitis. We compared gene expression profiles of lesional and nonlesional skin biopsy tissues between the three comparison groups.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 75
+  publication: PMID:37419444
+  notes: Identified by GEO DataSets index search for Atopic Dermatitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001007487
+  title: Optimizing single-cell transcriptomic discrimination of atopic dermatitis versus psoriasis vulgaris
+  description: Optimizing single-cell transcriptomic discrimination of atopic dermatitis versus psoriasis vulgaris
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Atopic Dermatitis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS50000000166
+  title: Nanopore sequencing enables allelic phasing of FLG loss-of-function variants, intragenic copy number variation and methylation status in atopic dermatitis and ichthyosis vulgaris
+  description: Loss-of-function (LoF) variants in the FLG gene are associated with ichthyosis vulgaris (IV) and atopic dermatitis (AD). IV and AD patients with two FLG LoF variants are reported to have a more severe disease course. However, subsets of compound heterozygous patients display phenotypic heterogeneity despite a prediction of a severe phenotype from their genotype. The underlying genetic mechanism of this phenotypic variability is unknown. One possibility is that two LoF FLG variants could be located in cis (on the same allele), thus altering the predicted gene dosage.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: WGS
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Atopic Dermatitis&#34;); description-level mentions were not accepted. EGA study_type: Whole Genome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST002302
+  title: Integrated metabolomics and lipidomics study of patients with atopic dermatitis in response to dupilumab
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atopic Dermatitis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000087837
+  title: Local and systemic changes in lipid profile as potential biomarkers for canine atopic dermatitis.
+  description: Lipids play a critical role in the skin as components of the epidermal barrier and as sig-naling molecules. Atopic dermatitis in dogs is associated with changes in the lipid composition of the skin, but whether these precede the onset of dermatitis or occur secondary to the dermatitis is unclear. We applied rapid lipid profiling mass spectrometry methods to skin and blood samples of dogs and determined changes following systemic treatment. Thirty control dogs and 30 atopic dogs with mild to moderate dermatitis were enrolled.
+  organism:
+    preferred_term: dog
+    term:
+      id: NCBITaxon:9615
+      label: Canis lupus familiaris
+  data_type: METABOLOMICS
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atopic Dermatitis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000090686
+  title: &#39;Dietary Grape Against Atopic Dermatitis in NC/NgaTndCrlj Mice: Proteomics Analysis&#39;
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: PROTEOMICS
+  description: &#39;The study demonstrates the effects of dietary grape powder against atopic dermatitis in 2,4-dinitrofluorobenzene-induced atopic dermatitis in NC/NgaTndCrlj mice. To uncover molecular mechanism(s) of biological responses of grape powder, dorsal skin samples from normal control (noAD), atopic dermatitis control (ctlAD) and 5% grape powder (5GP) prevention groups were analyzed using gel-free quantitative global proteomics analysis at the School of Pharmacy Analytical Instrumentation Facility, University of Wisconsin–Madison.&#39;
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Atopic Dermatitis&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9104,7 +10740,7 @@ Atopic dermatitis is a chronic, relapsing inflammatory dermatosis driven by the 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Atopic Dermatitis", "mondoId": "MONDO:0004980", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atopic_Dermatitis", "yamlRevision": "e93a4f08d42b"};
+        const OS_CONFIG = {"diseaseName": "Atopic Dermatitis", "mondoId": "MONDO:0004980", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atopic_Dermatitis", "yamlRevision": "81fa05c1084d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9523,5 +11159,73 @@ Atopic dermatitis is a chronic, relapsing inflammatory dermatosis driven by the 
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

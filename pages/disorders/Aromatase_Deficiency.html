@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3837,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -3918,17 +4086,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         granulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulosa cell (CL:0000501). CL:0000501 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3949,11 +4124,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000351">CL:0000351</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves trophoblast cell (CL:0000351). CL:0000351 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3974,11 +4154,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000178">CL:0000178</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000178" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000178</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Leydig cell (CL:0000178). CL:0000178 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3999,10 +4184,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4023,6 +4211,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4034,10 +4226,13 @@
         CYP19A1
 
 
-    <a href="https://bioregistry.io/hgnc:2594" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2594">hgnc:2594</a>
+    <a href="https://bioregistry.io/hgnc:2594" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2594</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4065,16 +4260,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         steroid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006694">GO:0006694</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006694</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal steroid biosynthetic process (GO:0006694). GO:0006694 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4083,6 +4283,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4100,10 +4302,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006703">GO:0006703</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006703" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006703</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased estrogen biosynthetic process (GO:0006703). GO:0006703 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4123,16 +4328,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         androgen metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008209" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008209">GO:0008209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0008209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal androgen metabolic process (GO:0008209). GO:0008209 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4157,16 +4367,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         aromatase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070330" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070330">GO:0070330</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070330" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0070330</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased aromatase activity (GO:0070330). GO:0070330 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4192,17 +4407,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ovary
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000992" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000992">UBERON:0000992</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000992" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000992</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ovary (UBERON:0000992). UBERON:0000992 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         placenta
@@ -4210,11 +4432,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001987">UBERON:0001987</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001987</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:0001987 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         testis
@@ -4222,11 +4449,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000473">UBERON:0000473</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in testis (UBERON:0000473). UBERON:0000473 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         adipose tissue
@@ -4234,13 +4466,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001013">UBERON:0001013</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:0001013 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4357,16 +4593,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         estrogen receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030520">GO:0030520</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030520</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased estrogen receptor signaling pathway (GO:0030520). GO:0030520 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4386,16 +4627,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032274">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4422,17 +4668,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         uterus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000995">UBERON:0000995</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000995</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uterus (UBERON:0000995). UBERON:0000995 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brain
@@ -4440,13 +4693,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4558,16 +4815,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         granulosa cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000501">CL:0000501</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000501" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000501</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves granulosa cell (CL:0000501). CL:0000501 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4594,16 +4856,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032274">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4623,16 +4890,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         sex differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007548" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007548">GO:0007548</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007548" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0007548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal sex differentiation (GO:0007548). GO:0007548 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4653,6 +4925,7 @@
 
 
                 </div>
+
 
 
 
@@ -4823,17 +5096,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4854,10 +5134,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4884,16 +5167,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4902,6 +5190,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4919,10 +5209,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal endochondral ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4949,19 +5242,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bone tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002481">UBERON:0002481</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002481</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:0002481 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5105,16 +5404,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         adipocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000136">CL:0000136</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000136</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves adipocyte (CL:0000136). CL:0000136 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5141,16 +5445,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glucose homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042593">GO:0042593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0042593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glucose homeostasis (GO:0042593). GO:0042593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5159,6 +5468,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -5176,10 +5487,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008286">GO:0008286</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0008286</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal insulin receptor signaling pathway (GO:0008286). GO:0008286 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5206,19 +5520,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         adipose tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001013">UBERON:0001013</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:0001013 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5419,14 +5739,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic steatosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001397">HP:0001397</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001397</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5509,14 +5836,21 @@
                         Delayed Puberty
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000823</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5570,14 +5904,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypergonadotropic hypogonadism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000815">HP:0000815</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000815" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000815</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5653,14 +5994,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type II diabetes mellitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005978">HP:0005978</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0005978</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5721,14 +6069,23 @@
                         Clitoromegaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Clitoral hypertrophy
+
+                        <span class="phenotype-term-label">Clitoral hypertrophy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008665" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008665">HP:0008665</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008665</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clitoral hypertrophy (HP:0008665). HP:0008665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5784,14 +6141,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Primary amenorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000786">HP:0000786</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000786</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5869,14 +6233,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Female infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008222">HP:0008222</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0008222</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5932,14 +6303,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Male infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003251">HP:0003251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5995,14 +6373,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cryptorchidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000028">HP:0000028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6089,14 +6474,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acanthosis nigricans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000956">HP:0000956</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000956</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6181,14 +6573,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Genu valgum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002857">HP:0002857</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002857</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6273,14 +6672,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Insulin resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000855">HP:0000855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6356,14 +6762,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperlipidemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003077">HP:0003077</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6448,14 +6861,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed skeletal maturation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002750">HP:0002750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6509,14 +6929,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed epiphyseal ossification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002663">HP:0002663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:0002663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6570,14 +6997,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteoporosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000939</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6675,14 +7109,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000938">HP:0000938</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000938</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6745,14 +7186,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bone pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002653">HP:0002653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6837,14 +7285,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tall stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000098">HP:0000098</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000098</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6922,14 +7377,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7014,14 +7476,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ambiguous genitalia, female
+
+                        <span class="phenotype-term-label">Ambiguous genitalia, female</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000061" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000061">HP:0000061</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000061</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7152,14 +7623,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ovarian cyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000138">HP:0000138</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000138</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7215,14 +7693,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized hirsutism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002230" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002230">HP:0002230</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002230" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002230</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hirsutism (HP:0002230). HP:0002230 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7278,14 +7763,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macroorchidism, postpubertal
+
+                        <span class="phenotype-term-label">Macroorchidism, postpubertal</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002050" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002050">HP:0002050</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002050</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroorchidism, postpubertal (HP:0002050). HP:0002050 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7363,14 +7857,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Eunuchoid habitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003782" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003782">HP:0003782</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003782" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0003782</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eunuchoid habitus (HP:0003782). HP:0003782 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7490,13 +7991,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CYP19A1
 
 
-    <a href="https://bioregistry.io/hgnc:2594" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2594">hgnc:2594</a>
+    <a href="https://bioregistry.io/hgnc:2594" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:2594</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7591,7 +8097,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Estrogen Replacement Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Estrogen Replacement Therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Estrogen Replacement Therapy (NCIT:C15231). NCIT:C15231 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7621,16 +8132,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         estradiol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:23965">CHEBI:23965</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_23965" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:23965</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7739,17 +8255,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed skeletal maturation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002750">HP:0002750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002750</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Osteopenia
@@ -7757,11 +8280,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000938">HP:0000938</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000938</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Osteoporosis
@@ -7769,10 +8297,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000939">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000939</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8388,6 +8919,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10819,5 +11353,73 @@ The rarity of confirmed CYP19A1 biallelic cases limits robust natural history an
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

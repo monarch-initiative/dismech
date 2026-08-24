@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Polymyositis"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3722,11 +3890,19 @@
 
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3752,6 +3928,22 @@
 
 
 
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3760,7 +3952,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3779,27 +3971,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3822,6 +4091,327 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="pm_nosological_status">
+                <div class="item-name">Is polymyositis a distinct disease entity, or a residual label for idiopathic inflammatory myopathy that has not yet been resolved into antisynthetase syndrome, immune-mediated necrotizing myopathy, or inclusion body myositis?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">CONTROVERSY</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">pm_nosological_status</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-cd8-t-cell-mediated-cytotoxicity">pathophysiology#CD8+ T Cell-Mediated Cytotoxicity</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-myositis-specific-autoantibodies">pathophysiology#Myositis-Specific Autoantibodies</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">This entry models polymyositis as a standalone entity with a CD8+/MHC-I mechanism. That mechanism is real and is what defines PM histologically, but the *scope* of the label is contested: a follow-up study of 165 myositis patients could reclassify most PM diagnoses, and contemporary classifications carve antisynthetase syndrome, immune-mediated necrotizing myopathy and overlap myositis out of the same population. The unresolved question determines what belongs in this entry — in particular whether the antisynthetase content (pulmonary fibrosis, arthritis, anti-Jo-1, and the `Myositis-Specific Autoantibodies` node) should move to Antisynthetase_Syndrome, and whether an Immune-Mediated Necrotizing Myopathy entry is needed to receive the anti-SRP content.</div>
+
+
+
+
+
+                <div class="mapping-notes">Raised as item 3 of dismech#6968, which asks explicitly whether this entry should stay as-is with a scoping note, gain a discussion, or be repositioned relative to its sibling IIM entries. This discussion records the uncertainty; the repositioning decision is left to a maintainer. Related to dismech#306 (lumping/splitting).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12913190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12913190" target="_blank">PMID:12913190</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Polymyositis is an overdiagnosed entity."</div>
+
+
+                <div class="evidence-explanation">The primary source for the claim that the label is applied far more often than it applies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41068877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41068877" target="_blank">PMID:41068877</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"recent classifications based on autoantibodies and gene expression have proposed new categories, such as antisynthetase syndrome, clinical amyopathic dermatomyositis, immune-mediated necrotizing myopathy, and inclusion body myositis, resulting in the concept of IIM as a spectrum of diseases..."</div>
+
+
+                <div class="evidence-explanation">Documents the reclassification of the IIM space into which polymyositis is being subdivided.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39132766" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132766" target="_blank">PMID:39132766</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there is a need to revise the criteria with regard to the addition of new myositis-specific autoantibodies, newly defined subgroups (especially antisynthetase syndrome, immune medicated necrotizing myopathy and overlap myositis)"</div>
+
+
+                <div class="evidence-explanation">Shows the question is live rather than settled — the 2017 EULAR/ACR criteria are themselves under revision on exactly this point.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="pm_treatment_evidence_base">
+                <div class="item-name">Does any immunosuppressive or immunomodulatory therapy have reliable randomized evidence of benefit in polymyositis specifically, as opposed to in dermatomyositis or in idiopathic inflammatory myopathy pooled?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">pm_treatment_evidence_base</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">treatments#Corticosteroids</span>
+
+
+
+
+
+
+    <span class="entity-ref-chip">treatments#Methotrexate</span>
+
+
+
+
+
+
+    <span class="entity-ref-chip">treatments#Azathioprine</span>
+
+
+
+
+
+
+    <span class="entity-ref-chip">treatments#IVIG</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">All four treatments curated here are standard of care, and none rests on polymyositis-specific randomized evidence. Glucocorticoids are used empirically; the Cochrane review finds the azathioprine and methotrexate trials very-low-certainty; and while IVIg has moderate-certainty benefit in refractory IIM pooled and in refractory dermatomyositis, the review states that the polymyositis data are not reliable. This is not merely a citation gap — it is plausibly downstream of `pm_nosological_status`, since trials enrolling &#34;PM&#34; have been enrolling a mixed population.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40787733" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For the other agents, the small number of trials of immunosuppressive and immunomodulatory therapies is inadequate to decide whether these agents are beneficial in IIM (excluding IBM)."</div>
+
+
+                <div class="evidence-explanation">The review&#39;s own summary of the size of this gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40787733" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The risk of bias in all but one study was high or unclear."</div>
+
+
+                <div class="evidence-explanation">Characterizes the quality of the 16 trials that do exist.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="pm_msa_pathogenic_role">
+                <div class="item-name">Are myositis-specific autoantibodies pathogenic drivers of muscle injury, or diagnostic markers of an immune response to regenerating muscle?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">pm_msa_pathogenic_role</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-myositis-specific-autoantibodies">pathophysiology#Myositis-Specific Autoantibodies</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">This is why the `Myositis-Specific Autoantibodies` node carries no `downstream` edges. The antibodies are well established as classifiers, but no route from antibody to fiber injury has been demonstrated, and the leading alternative — that the autoantigens are simply overexpressed in regenerating fibers — would make the antibodies a consequence of muscle damage rather than a cause. Drawing a causal edge either way would assert more than the literature supports.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23568993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23568993" target="_blank">PMID:23568993</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although the pathogenic role of MSAs remains unknown, recent studies have shown that myositis autoantigens are expressed at high levels in regenerating muscle fibers, which may initiate or amplify autoimmune responses in idiopathic inflammatory myopathies."</div>
+
+
+                <div class="evidence-explanation">States both the gap and the leading alternative interpretation in one sentence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -3841,17 +4431,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8+ T Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8+ T Cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3872,10 +4469,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000188">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal Muscle Cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3902,16 +4502,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T Cell Cytotoxicity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T Cell Cytotoxicity, annotated with T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3934,6 +4539,30 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Apoptosis of Muscle Fibers</span>
+
+	                            <span class="crosslink-desc">Cytotoxic T cells kill neighbouring fibers by an apoptotic route running in parallel with the partial-invasion route.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Necroptosis and DAMP Release</span>
+
+	                            <span class="crosslink-desc">Fiber death in myositis includes a necroptotic component, but what couples the cytotoxic infiltrate to necroptosis induction has not been identified.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4006,16 +4635,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MHC Class I Antigen Presentation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002474" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002474">GO:0002474</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002474" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0002474</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves MHC Class I Antigen Presentation, annotated with antigen processing and presentation of peptide antigen via MHC class I (GO:0002474). GO:0002474 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4038,6 +4672,30 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">CD8+ T Cell-Mediated Cytotoxicity</span>
+
+	                            <span class="crosslink-desc">Sarcolemmal class I MHC is the ligand that turns an otherwise immunologically inconspicuous fiber into a target for antigen-specific CD8+ T cells.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">ER Stress and Unfolded Protein Response</span>
+
+	                            <span class="crosslink-desc">Class I MHC overexpression is itself sufficient to trigger the UPR in muscle, giving the entry its non-immune arm of fiber damage.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4110,16 +4768,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Immunoglobulin Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Immunoglobulin Production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4144,6 +4807,61 @@
 
 
 
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23568993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23568993" target="_blank">PMID:23568993</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anti-Jo-1, anti-PL-7, anti-PL-12, anti-EJ, anti-KS, anti-OJ, anti-Ha, and anti-Zo antibodies target aminoacyl tRNA synthetases, and represent anti-synthetase syndrome."</div>
+
+
+                <div class="evidence-explanation">Sources the antisynthetase-antibody group named in this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23568993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23568993" target="_blank">PMID:23568993</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"anti-SRP and anti-3-hydroxy-3-methylglutaryl-coenzyme A (anti-HMG-CoA) antibodies have been found in patients with necrotizing myopathy"</div>
+
+
+                <div class="evidence-explanation">Sources the anti-SRP / necrotizing-myopathy association named in this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -4164,16 +4882,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4198,6 +4921,54 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aberrant MHC Class I Expression</span>
+
+	                            <span class="crosslink-desc">Feed-forward amplification: cytokines released by the infiltrate drive the class I MHC upregulation that recruits further cytotoxic attack, closing a loop with the CD8+ arm.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9655472" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9655472" target="_blank">PMID:9655472</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment of myoblasts with TNFalpha or IFNgamma led to the expression of a range of immunostimulatory molecules including MHC class I and II, and CD95 (Fas), but not B7 family molecules."</div>
+
+
+                <div class="evidence-explanation">Human muscle cells respond to TNF-alpha and IFN-gamma by becoming immunostimulatory, which is the mechanism this node asserts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -4218,16 +4989,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Endoplasmic Reticulum Stress Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0034976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Endoplasmic Reticulum Stress Response, annotated with response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4250,6 +5026,22 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proximal muscle weakness</span>
+
+	                            <span class="crosslink-desc">The non-immune route from class I MHC overexpression to weakness, invoked to explain why the degree of inflammation does not track disease severity.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4322,16 +5114,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Necroptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070266">GO:0070266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0070266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Necroptotic Process (GO:0070266). GO:0070266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4354,6 +5151,30 @@
 
 
 
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pro-inflammatory Cytokine Production</span>
+
+	                            <span class="crosslink-desc">DAMPs released from necroptotic fibers — HMGB1 chief among them — drive the inflammatory mediator output that sustains the lesion.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proximal muscle weakness</span>
+
+	                            <span class="crosslink-desc">The arm that accounts for weakness persisting after inflammation has been suppressed; blocking necroptosis or HMGB1 restores strength in the murine polymyositis model.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4426,16 +5247,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Apoptotic Process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Apoptotic Process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4452,6 +5278,7 @@
 
 
                 </div>
+
 
 
 
@@ -4539,7 +5366,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clonally expanded CD8+ cytotoxic T cells infiltrate muscle fibers and directly attack myocytes expressing MHC class I. Perforin and granzyme release leads to muscle fiber necrosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8+ T Cell\", \"Skeletal Muscle Cell\"], \"biological_processes\": [\"T Cell Cytotoxicity\"]}}, {\"id\": \"Elevated circulating aldolase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating aldolase concentration is reported as a very frequent (80-99%) manifestation of polymyositis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum aldolase released from damaged muscle fibers.\"}], \"term_id\": \"HP:0012544\"}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating creatine kinase concentration is reported as a very frequent (80-99%) manifestation of polymyositis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum creatine kinase released from necrotic muscle fibers.\"}], \"term_id\": \"HP:0003236\"}}], \"edges\": [{\"source\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum creatine kinase released from necrotic muscle fibers.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"target\": \"Elevated circulating aldolase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum aldolase released from damaged muscle fibers.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant MHC Class I Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle fibers, which normally do not express MHC class I, show aberrant upregulation making them targets for CD8+ T cell recognition and attack.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MHC Class I Antigen Presentation\"]}}, {\"id\": \"Apoptosis of Muscle Fibers\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apoptotic cell death occurs in muscle fibers surrounding those undergoing partial invasion by CD8+ T cells. Fibers with apoptotic nuclei are surrounded by CD8+ T cells, granzyme B-positive cells, and macrophages, suggesting cytotoxic T cell-mediated apoptosis occurs in parallel to direct invasion.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Apoptotic Process\"]}}, {\"id\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Clonally expanded CD8+ cytotoxic T cells infiltrate muscle fibers and directly attack myocytes expressing MHC class I. Perforin and granzyme release leads to muscle fiber necrosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8+ T Cell\", \"Skeletal Muscle Cell\"], \"biological_processes\": [\"T Cell Cytotoxicity\"]}}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overexpression of MHC class I in muscle fibers triggers endoplasmic reticulum stress and activation of the unfolded protein response (UPR). This includes upregulation of GRP78/BiP and NF-kappaB pathway activation, contributing to muscle fiber dysfunction independent of immune-mediated damage.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Endoplasmic Reticulum Stress Response\"]}}, {\"id\": \"Elevated circulating aldolase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating aldolase concentration is reported as a very frequent (80-99%) manifestation of polymyositis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum aldolase released from damaged muscle fibers.\"}], \"term_id\": \"HP:0012544\"}}, {\"id\": \"Elevated circulating creatine kinase concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated circulating creatine kinase concentration is reported as a very frequent (80-99%) manifestation of polymyositis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum creatine kinase released from necrotic muscle fibers.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Necroptosis and DAMP Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle fibers undergo necroptosis, a form of regulated cell death, releasing damage-associated molecular patterns (DAMPs) including HMGB1. This amplifies inflammation and contributes to persistent muscle weakness even after initial immune attack.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Necroptotic Process\"]}}, {\"id\": \"Pro-inflammatory Cytokine Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-1, TNF-alpha, and IFN-gamma produced by infiltrating immune cells perpetuate muscle inflammation and contribute to muscle weakness independent of direct fiber destruction.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal muscle weakness is reported as a very frequent (80-99%) manifestation of polymyositis in the Orphanet clinical phenotype dataset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003701\"}}], \"edges\": [{\"source\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"target\": \"Apoptosis of Muscle Fibers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytotoxic T cells kill neighbouring fibers by an apoptotic route running in parallel with the partial-invasion route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"target\": \"Necroptosis and DAMP Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fiber death in myositis includes a necroptotic component, but what couples the cytotoxic infiltrate to necroptosis induction has not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Aberrant MHC Class I Expression\", \"target\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sarcolemmal class I MHC is the ligand that turns an otherwise immunologically inconspicuous fiber into a target for antigen-specific CD8+ T cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Aberrant MHC Class I Expression\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Class I MHC overexpression is itself sufficient to trigger the UPR in muscle, giving the entry its non-immune arm of fiber damage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pro-inflammatory Cytokine Production\", \"target\": \"Aberrant MHC Class I Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feed-forward amplification: cytokines released by the infiltrate drive the class I MHC upregulation that recruits further cytotoxic attack, closing a loop with the CD8+ arm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The non-immune route from class I MHC overexpression to weakness, invoked to explain why the degree of inflammation does not track disease severity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Necroptosis and DAMP Release\", \"target\": \"Pro-inflammatory Cytokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"DAMPs released from necroptotic fibers \\u2014 HMGB1 chief among them \\u2014 drive the inflammatory mediator output that sustains the lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necroptosis and DAMP Release\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The arm that accounts for weakness persisting after inflammation has been suppressed; blocking necroptosis or HMGB1 restores strength in the murine polymyositis model.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"target\": \"Elevated circulating creatine kinase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum creatine kinase released from necrotic muscle fibers.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CD8+ T Cell-Mediated Cytotoxicity\", \"target\": \"Elevated circulating aldolase concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum aldolase released from damaged muscle fibers.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4592,14 +5419,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4623,14 +5457,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Constipation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002019">HP:0002019</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002019</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4684,14 +5525,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anorexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002039">HP:0002039</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002039</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4754,14 +5602,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autoimmunity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002960">HP:0002960</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002960</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4824,14 +5679,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating creatine kinase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003236">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003236</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4907,14 +5769,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4977,14 +5846,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5008,18 +5884,27 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
+
+                    <div class="item-desc">Frequency band inherited from the ORPHA:732 bulk phenotype import and not corroborated by any clinical source. Hypotonia at VERY_FREQUENT is clinically surprising for an adult-onset inflammatory myopathy, where the cardinal finding is proximal weakness rather than reduced muscle tone; read this as Orphanet&#39;s coding choice rather than as an independently evidenced band, and re-check it against a clinical cohort before relying on it (dismech#6968, item 4).</div>
 
 
 
@@ -5069,14 +5954,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proximal muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003701">HP:0003701</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003701</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5139,14 +6031,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002206">HP:0002206</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002206</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary Fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5170,14 +6069,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012735">HP:0012735</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012735</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5231,14 +6137,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002093">HP:0002093</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002093</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5301,14 +6214,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5362,14 +6282,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5432,14 +6359,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5502,14 +6436,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EMG abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003457" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003457">HP:0003457</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003457" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003457</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EMG abnormality (HP:0003457). HP:0003457 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5563,14 +6504,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating aldolase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012544" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012544">HP:0012544</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012544" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012544</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating aldolase concentration (HP:0012544). HP:0012544 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5624,14 +6572,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exertional dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002875">HP:0002875</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002875</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5685,14 +6640,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Antinuclear antibody positivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003493">HP:0003493</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003493</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:0003493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5812,17 +6774,119 @@
                 <div class="item-name">
                     Corticosteroids
                 </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-                <div class="item-desc">First-line therapy; high-dose initially with gradual taper.</div>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        prednisone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:8382</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        prednisolone
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8378" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:8378</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">First-line therapy; high-dose initially with gradual taper. Used empirically rather than on the strength of randomized evidence, and the adverse-effect burden is itself the reason a steroid-sparing agent is usually added early.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29669460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29669460" target="_blank">PMID:29669460</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"glucocorticoids are used empirically as the first-line treatment despite their various adverse effects"</div>
+
+
+                <div class="evidence-explanation">Supports first-line status while being explicit that the basis is empirical practice rather than trial evidence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5831,17 +6895,124 @@
                 <div class="item-name">
                     Methotrexate
                 </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-                <div class="item-desc">Most commonly used steroid-sparing agent.</div>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        methotrexate
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:44185</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Most commonly used steroid-sparing agent. Added to reduce cumulative glucocorticoid exposure rather than on demonstrated independent efficacy in adult polymyositis.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29669460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29669460" target="_blank">PMID:29669460</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Concomitant treatment with steroid-sparing immunosuppressive agents, including methotrexate, azathioprine, calcineurin inhibitors, mycophenolate mofetil, and cyclophosphamide, reduces successfully initial glucocorticoid doses for the remission induction, the relapse risk during glucocorticoid..."</div>
+
+
+                <div class="evidence-explanation">Supports the steroid-sparing rationale for methotrexate in PM/DM.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40787733" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For methotrexate, there may be little or no improvement in adults with DM or PM in function"</div>
+
+
+                <div class="evidence-explanation">Cochrane&#39;s very-low-certainty finding qualifies the steroid-sparing rationale: the single 27-participant adult RCT showed no functional benefit.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5850,17 +7021,124 @@
                 <div class="item-name">
                     Azathioprine
                 </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-                <div class="item-desc">Alternative immunosuppressant for maintenance.</div>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        azathioprine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:2948</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Alternative steroid-sparing immunosuppressant for maintenance. The only randomized placebo comparison is a 16-participant study from which no reliable conclusion can be drawn.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29669460" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29669460" target="_blank">PMID:29669460</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Concomitant treatment with steroid-sparing immunosuppressive agents, including methotrexate, azathioprine, calcineurin inhibitors, mycophenolate mofetil, and cyclophosphamide, reduces successfully initial glucocorticoid doses"</div>
+
+
+                <div class="evidence-explanation">Supports azathioprine&#39;s steroid-sparing role in PM/DM management.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40787733" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For azathioprine versus placebo, one study showed little or no effect of azathioprine on improvement in muscle strength, but the evidence was very uncertain"</div>
+
+
+                <div class="evidence-explanation">Records that the randomized evidence base for azathioprine in IIM is a single very-low-certainty trial, so the steroid-sparing rationale is not trial-confirmed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5869,17 +7147,103 @@
                 <div class="item-name">
                     IVIG
                 </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">intravenous immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is intravenous immunoglobulin therapy (NCIT:C121331). NCIT:C121331 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Intravenous Immunoglobulin Therapy</span>
 
 
 
 
 
-                <div class="item-desc">For refractory cases or when immunosuppression contraindicated.</div>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121331" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121331">NCIT:C121331</a>
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Intravenous immunoglobulin for refractory disease or when immunosuppression is contraindicated. Randomized evidence supports it in refractory dermatomyositis; the polymyositis-specific data are explicitly judged unreliable.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40787733" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intravenous immunoglobulin (IVIg), compared to placebo, probably improves disability and muscle strength in participants with refractory IIM"</div>
+
+
+                <div class="evidence-explanation">Moderate-certainty meta-analytic support across refractory idiopathic inflammatory myopathy pooled (3 RCTs, 136 participants).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40787733" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our review shows improvement in disability, muscle strength and skin symptoms following IVIg in people with refractory DM (for PM, these data are not reliable; other subtypes have not been investigated in RCTs)."</div>
+
+
+                <div class="evidence-explanation">The benefit is established for refractory dermatomyositis. The review states outright that the polymyositis data are not reliable, so this must not be read as trial-proven for the disease curated here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5972,14 +7336,458 @@
 
         <!-- Differential Diagnoses -->
 
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">4</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Polymyositis:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Inclusion_Body_Myositis.html">Sporadic Inclusion Body Myositis</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007827" target="_blank">
+                            MONDO:0007827
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    The most consequential misdiagnosis. In the follow-up study that established polymyositis as overdiagnosed, most patients still carrying a PM label at re-evaluation had turned out to have sporadic inclusion body myositis.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Asymmetric weakness with early, disproportionate involvement of finger flexors and quadriceps, rather than symmetric proximal weakness.</li>
+
+                        <li>Slowly progressive over years, and characteristically refractory to corticosteroids and immunosuppression.</li>
+
+                        <li>Muscle biopsy shows rimmed vacuoles and protein aggregates in addition to the endomysial CD8+ infiltrate that polymyositis shares.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12913190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12913190" target="_blank">PMID:12913190</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At follow-up evaluation, five of the nine patients with PM had typical s-IBM features."</div>
+
+
+                <div class="evidence-explanation">Five of the nine patients diagnosed with polymyositis were reclassified as s-IBM on follow-up, which is why IBM heads this list.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Dermatomyositis.html">Dermatomyositis</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0016367" target="_blank">
+                            MONDO:0016367
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    The sibling inflammatory myopathy from which polymyositis was historically separated by skin findings alone under the 1975 Bohan and Peter criteria; the two are now distinguished on immunopathology as well.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Characteristic cutaneous disease (heliotrope rash, Gottron papules), which polymyositis lacks by definition.</li>
+
+                        <li>Perivascular CD4+ T-cell and complement-associated infiltrate with perifascicular atrophy, versus the endomysial CD8+ infiltrate surrounding and invading non-necrotic fibers in polymyositis.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41068877" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41068877" target="_blank">PMID:41068877</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"polymyositis, which is characterized by CD8 T-cell infiltration around muscle fibers, and dermatomyositis, which is characterized by CD4 T-cell infiltration with complement infiltration around blood vessels, along with distinctive skin symptoms, have been traditionally distinguished"</div>
+
+
+                <div class="evidence-explanation">Sources the immunopathological contrast used to separate the two entries.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Immune-Mediated Necrotizing Myopathy</span>
+                    <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0016098" target="_blank" class="missing-ontology-link">
+                            MONDO:0016098
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    A seropositive necrotizing myopathy that accounts for a substantial share of cases historically labelled polymyositis. No dismech entry exists for it yet.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Anti-SRP or anti-HMG-CoA reductase antibodies, the latter often statin-associated.</li>
+
+                        <li>Biopsy shows myocyte necrosis and regeneration with sparse inflammatory infiltrate, rather than the endomysial CD8+ invasion of non-necrotic fibers.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23568993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23568993" target="_blank">PMID:23568993</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"anti-SRP and anti-3-hydroxy-3-methylglutaryl-coenzyme A (anti-HMG-CoA) antibodies have been found in patients with necrotizing myopathy"</div>
+
+
+                <div class="evidence-explanation">Sources the serological signature that separates IMNM from polymyositis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Antisynthetase_Syndrome.html">Antisynthetase Syndrome</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0019344" target="_blank">
+                            MONDO:0019344
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    The clinicoserological entity defined by anti-aminoacyl-tRNA-synthetase antibodies. Several features curated on this entry — pulmonary fibrosis, arthritis, the anti-Jo-1 biochemical marker — are attributed in their own notes to antisynthetase syndrome rather than to polymyositis proper.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Anti-Jo-1 or another anti-synthetase antibody, with interstitial lung disease, arthritis, fever, Raynaud phenomenon and mechanic&#39;s hands accompanying the myositis.</li>
+
+                        <li>Interstitial lung disease is more prevalent and more severe than in polymyositis or dermatomyositis, and often dominates the course.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23568993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23568993" target="_blank">PMID:23568993</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anti-synthetase syndrome is characterized by myositis, interstitial lung disease, arthritis, fever, Raynaud&#39;s phenomenon, and mechanic&#39;s hands."</div>
+
+
+                <div class="evidence-explanation">Sources the syndrome definition used to separate these features from polymyositis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Plasma Cells in Muscle in Inclusion Body Myositis and Polymyositis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE3112" target="_blank">geo:GSE3112</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Microarray data from muscle biopsy specimens from subjects with inclusion body myositis, polymyositis, and normals Keywords: Research study</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=40</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/16344523" target="_blank" style="color: var(--secondary);">PMID:16344523</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Polymyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Circulating plasma microRNA profiling in patients with polymyositis/dermatomyositis before and after treatment
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE94535" target="_blank">geo:GSE94535</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study aimed to investigate the expression of microRNAs (miRNAs) in the plasma from polymyositis (PM) and dermatomyositis (DM) patients, which fluctuated by treatment. More differentially expressed miRNAs were found in plasma of DM patients compared to PM patients before and after treatment, and their profiles were different.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=16</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/29321815" target="_blank" style="color: var(--secondary);">PMID:29321815</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Polymyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    MicroRNA and mRNA profiling in the idiopathic inflammatory myopathies
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125977" target="_blank">geo:GSE125977</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Objectives: The idiopathic inflammatory myopathies (IIMs) are heterogeneous autoimmune conditions of skeletal muscle inflammation and weakness. MicroRNAs (miRNAs) are short, non-coding RNA which regulate gene expression of target mRNAs. The aim of this study was to profile miRNA and mRNA in IIM and identify miRNA-mRNA relationships which may be relevant to disease. Materials and methods: mRNA and miRNA in whole blood samples from 7 polymyositis (PM), 7 dermatomyositis (DM), 5 inclusion body myositis (IBM) and 5 non-myositis controls was profiled using next generation RNA sequencing. Gene ontology and pathway analyses were performed using GOseq and Ingenuity Pathway Analysis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=48</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32529172" target="_blank" style="color: var(--secondary);">PMID:32529172</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Polymyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5998,7 +7806,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Polymyositis
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Autoimmune
 parents:
 - Autoimmune Disease
@@ -6043,6 +7850,34 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;CD8+ T cells invade into muscle cells and contribute to muscle injury in PM.&#34;
     explanation: Confirms the direct cytotoxic role of CD8+ T cells in causing muscle fiber damage through invasion and attack.
+  downstream:
+  - target: Apoptosis of Muscle Fibers
+    causal_link_type: DIRECT
+    description: &gt;-
+      Cytotoxic T cells kill neighbouring fibers by an apoptotic route running in
+      parallel with the partial-invasion route.
+    evidence:
+    - reference: PMID:32936839
+      reference_title: &#34;Apoptosis in idiopathic inflammatory myopathies with partial invasion; a role for CD8+ cytotoxic T cells?&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The findings confirm that apoptosis occurs in idiopathic inflammatory myopathies and support that it is mediated by CD8+ cytotoxic T- cells, acting in parallel to the process of partial invasion.&#34;
+      explanation: Attributes the apoptotic fiber death directly to CD8+ cytotoxic T cells.
+  - target: Necroptosis and DAMP Release
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Fiber death in myositis includes a necroptotic component, but what couples the
+      cytotoxic infiltrate to necroptosis induction has not been identified.
+    evidence:
+    - reference: PMID:37483632
+      reference_title: &#34;Muscle fiber necroptosis in pathophysiology of idiopathic inflammatory myopathies and its potential as target of novel treatment strategy.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#39;Muscle fiber death, which has been formerly postulated as &#34;necrosis&#34;, is a key histological feature of all subtypes of IIMs, however, its detailed mechanisms and contribution to the pathophysiology remained to be elucidated.&#39;
+      explanation: &gt;-
+        Supports fiber death as a core feature while stating explicitly that its
+        mechanism is unresolved, which is why this edge is typed indirect with unknown
+        intermediates rather than direct.
 - name: Aberrant MHC Class I Expression
   description: &gt;-
     Muscle fibers, which normally do not express MHC class I, show aberrant
@@ -6063,6 +7898,39 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;Class I MHC staining in muscle fibers of myositis patients showed both cell surface and a reticular pattern of internal reactivity.&#34;
     explanation: Shows that aberrant MHC I expression occurs both on the sarcolemma and within the endoplasmic reticulum of muscle fibers.
+  downstream:
+  - target: CD8+ T Cell-Mediated Cytotoxicity
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sarcolemmal class I MHC is the ligand that turns an otherwise
+      immunologically inconspicuous fiber into a target for antigen-specific CD8+
+      T cells.
+    evidence:
+    - reference: PMID:31257434
+      reference_title: &#34;A new in vitro model of polymyositis reveals CD8+ T cell invasion into muscle cells and its cytotoxic role.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &#34;Analysis of the in vitro model of PM with confocal microscopy demonstrated the invasion of OT-I CD8+ T cells into H2KbOVA-myotubes.&#34;
+      explanation: &gt;-
+        Myotubes engineered to present a model antigen on class I MHC are invaded by
+        antigen-specific CD8+ T cells, supporting the MHC-I-to-cytotoxicity step in a
+        reconstituted system. The antigen driving the human response is unknown, so
+        this is PARTIAL rather than full support.
+  - target: ER Stress and Unfolded Protein Response
+    causal_link_type: DIRECT
+    description: &gt;-
+      Class I MHC overexpression is itself sufficient to trigger the UPR in muscle,
+      giving the entry its non-immune arm of fiber damage.
+    evidence:
+    - reference: PMID:15934115
+      reference_title: &#34;Activation of the endoplasmic reticulum stress response in autoimmune myositis: potential role in muscle fiber damage and dysfunction.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Ectopic expression of wild-type mouse class I MHC (H-2K(b)) but not degradable glycosylation mutants of H-2K(b) induced ER stress response in C(2)C(12) skeletal muscle cells.&#34;
+      explanation: &gt;-
+        Forced class I MHC expression induces the ER stress response in muscle cells,
+        which establishes the direction of this edge rather than mere co-occurrence in
+        biopsies.
 - name: Myositis-Specific Autoantibodies
   description: &gt;-
     Anti-synthetase antibodies (anti-Jo-1, anti-PL-7, anti-PL-12) define
@@ -6073,6 +7941,26 @@ pathophysiology:
     term:
       id: GO:0002377
       label: immunoglobulin production
+  evidence:
+  - reference: PMID:23568993
+    reference_title: &#34;[Myositis-specific autoantibodies].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Anti-Jo-1, anti-PL-7, anti-PL-12, anti-EJ, anti-KS, anti-OJ, anti-Ha, and anti-Zo antibodies target aminoacyl tRNA synthetases, and represent anti-synthetase syndrome.&#34;
+    explanation: Sources the antisynthetase-antibody group named in this node.
+  - reference: PMID:23568993
+    reference_title: &#34;[Myositis-specific autoantibodies].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;anti-SRP and anti-3-hydroxy-3-methylglutaryl-coenzyme A (anti-HMG-CoA) antibodies have been found in patients with necrotizing myopathy&#34;
+    explanation: Sources the anti-SRP / necrotizing-myopathy association named in this node.
+  notes: &gt;-
+    Deliberately carries no `downstream` edges. Both antibody groups named here now
+    define separate disease entities — antisynthetase syndrome and immune-mediated
+    necrotizing myopathy, each curated in its own entry and listed under
+    `differential_diagnoses` — rather than serologic subsets of polymyositis, and the
+    pathogenic role of the antibodies themselves is unresolved. See the
+    `pm_msa_pathogenic_role` and `pm_nosological_status` discussions.
 - name: Pro-inflammatory Cytokine Production
   description: &gt;-
     IL-1, TNF-alpha, and IFN-gamma produced by infiltrating immune cells
@@ -6083,6 +7971,32 @@ pathophysiology:
     term:
       id: GO:0006954
       label: inflammatory response
+  evidence:
+  - reference: PMID:9655472
+    reference_title: &#34;Induction of primary immune responses by allogeneic human myoblasts: dissection of the cell types required for proliferation, IFNgamma secretion and cytotoxicity.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Treatment of myoblasts with TNFalpha or IFNgamma led to the expression of a range of immunostimulatory molecules including MHC class I and II, and CD95 (Fas), but not B7 family molecules.&#34;
+    explanation: &gt;-
+      Human muscle cells respond to TNF-alpha and IFN-gamma by becoming
+      immunostimulatory, which is the mechanism this node asserts.
+  downstream:
+  - target: Aberrant MHC Class I Expression
+    causal_link_type: DIRECT
+    description: &gt;-
+      Feed-forward amplification: cytokines released by the infiltrate drive the class
+      I MHC upregulation that recruits further cytotoxic attack, closing a loop with
+      the CD8+ arm.
+    evidence:
+    - reference: PMID:9655472
+      reference_title: &#34;Induction of primary immune responses by allogeneic human myoblasts: dissection of the cell types required for proliferation, IFNgamma secretion and cytotoxicity.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &#34;Treatment of myoblasts with TNFalpha or IFNgamma led to the expression of a range of immunostimulatory molecules including MHC class I and II&#34;
+      explanation: &gt;-
+        TNF-alpha or IFN-gamma alone is sufficient to induce class I MHC on human
+        myoblasts. The experiment used allogeneic myoblast cultures rather than
+        myositis muscle, so the loop is inferred, not observed in patients.
 - name: ER Stress and Unfolded Protein Response
   description: &gt;-
     Overexpression of MHC class I in muscle fibers triggers endoplasmic reticulum
@@ -6105,6 +8019,22 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;These results indicate that the ER stress response may be a major nonimmune mechanism responsible for skeletal muscle damage and dysfunction in autoimmune myositis.&#34;
     explanation: Identifies ER stress as a non-immune mechanism contributing to muscle pathology, explaining why inflammation doesn&#39;t always correlate with disease severity.
+  downstream:
+  - target: Proximal muscle weakness
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The non-immune route from class I MHC overexpression to weakness, invoked to
+      explain why the degree of inflammation does not track disease severity.
+    evidence:
+    - reference: PMID:15934115
+      reference_title: &#34;Activation of the endoplasmic reticulum stress response in autoimmune myositis: potential role in muscle fiber damage and dysfunction.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;These results indicate that the ER stress response may be a major nonimmune mechanism responsible for skeletal muscle damage and dysfunction in autoimmune myositis.&#34;
+      explanation: &gt;-
+        The authors&#39; interpretive conclusion, drawn from combined human-biopsy and
+        transgenic-mouse data; the steps between UPR activation and clinical weakness
+        are not identified, hence the indirect typing and PARTIAL support.
 - name: Necroptosis and DAMP Release
   description: &gt;-
     Muscle fibers undergo necroptosis, a form of regulated cell death, releasing
@@ -6127,6 +8057,34 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;The research on murine model of polymyositis, a subtype of IIM, revealed that the inhibition of necroptosis or HMGB1, one of major DAMPs released from muscle fibers undergoing necroptosis, ameliorated muscle inflammation and recovered muscle weakness.&#34;
     explanation: Demonstrates that blocking necroptosis or DAMP signaling improves both inflammation and muscle function, highlighting therapeutic potential.
+  downstream:
+  - target: Pro-inflammatory Cytokine Production
+    causal_link_type: DIRECT
+    description: &gt;-
+      DAMPs released from necroptotic fibers — HMGB1 chief among them — drive the
+      inflammatory mediator output that sustains the lesion.
+    evidence:
+    - reference: PMID:37483632
+      reference_title: &#34;Muscle fiber necroptosis in pathophysiology of idiopathic inflammatory myopathies and its potential as target of novel treatment strategy.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;muscle fibers of IIMs undergo necroptosis, a newly recognized form of regulated cell death, and promote muscle inflammation and dysfunction through releasing inflammatory mediators such as damage-associated molecular patterns (DAMPs)&#34;
+      explanation: States the necroptosis-to-inflammation step that this edge encodes.
+  - target: Proximal muscle weakness
+    causal_link_type: DIRECT
+    description: &gt;-
+      The arm that accounts for weakness persisting after inflammation has been
+      suppressed; blocking necroptosis or HMGB1 restores strength in the murine
+      polymyositis model.
+    evidence:
+    - reference: PMID:37483632
+      reference_title: &#34;Muscle fiber necroptosis in pathophysiology of idiopathic inflammatory myopathies and its potential as target of novel treatment strategy.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;The research on murine model of polymyositis, a subtype of IIM, revealed that the inhibition of necroptosis or HMGB1, one of major DAMPs released from muscle fibers undergoing necroptosis, ameliorated muscle inflammation and recovered muscle weakness.&#34;
+      explanation: &gt;-
+        Loss-of-function rescue in a mouse polymyositis model gives this edge its
+        causal direction. It has not been demonstrated in human muscle.
 - name: Apoptosis of Muscle Fibers
   description: &gt;-
     Apoptotic cell death occurs in muscle fibers surrounding those undergoing
@@ -6193,6 +8151,13 @@ phenotypes:
     evidence_source: OTHER
     snippet: &#34;HP:0001252 | Hypotonia | Very frequent (99-80%)&#34;
     explanation: &#34;Orphanet records hypotonia as a very frequent (80-99%) phenotype of polymyositis.&#34;
+  notes: &gt;-
+    Frequency band inherited from the ORPHA:732 bulk phenotype import and not
+    corroborated by any clinical source. Hypotonia at VERY_FREQUENT is clinically
+    surprising for an adult-onset inflammatory myopathy, where the cardinal finding is
+    proximal weakness rather than reduced muscle tone; read this as Orphanet&#39;s coding
+    choice rather than as an independently evidenced band, and re-check it against a
+    clinical cohort before relying on it (dismech#6968, item 4).
 - name: &#34;Arthralgia&#34;
   category: Musculoskeletal
   frequency: VERY_FREQUENT
@@ -6469,19 +8434,359 @@ genetic:
   association: Risk Factor
 treatments:
 - name: Corticosteroids
-  description: First-line therapy; high-dose initially with gradual taper.
+  description: &gt;-
+    First-line therapy; high-dose initially with gradual taper. Used empirically
+    rather than on the strength of randomized evidence, and the adverse-effect burden
+    is itself the reason a steroid-sparing agent is usually added early.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: prednisone
+      term:
+        id: CHEBI:8382
+        label: prednisone
+    - preferred_term: prednisolone
+      term:
+        id: CHEBI:8378
+        label: prednisolone
+  evidence:
+  - reference: PMID:29669460
+    reference_title: &#34;Current diagnosis and treatment of polymyositis and dermatomyositis.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;glucocorticoids are used empirically as the first-line treatment despite their various adverse effects&#34;
+    explanation: &gt;-
+      Supports first-line status while being explicit that the basis is empirical
+      practice rather than trial evidence.
 - name: Methotrexate
-  description: Most commonly used steroid-sparing agent.
+  description: &gt;-
+    Most commonly used steroid-sparing agent. Added to reduce cumulative
+    glucocorticoid exposure rather than on demonstrated independent efficacy in adult
+    polymyositis.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: methotrexate
+      term:
+        id: CHEBI:44185
+        label: methotrexate
+  evidence:
+  - reference: PMID:29669460
+    reference_title: &#34;Current diagnosis and treatment of polymyositis and dermatomyositis.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Concomitant treatment with steroid-sparing immunosuppressive agents, including methotrexate, azathioprine, calcineurin inhibitors, mycophenolate mofetil, and cyclophosphamide, reduces successfully initial glucocorticoid doses for the remission induction, the relapse risk during glucocorticoid tapering, and adverse effects of glucocorticoids.&#34;
+    explanation: Supports the steroid-sparing rationale for methotrexate in PM/DM.
+  - reference: PMID:40787733
+    reference_title: &#34;Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;For methotrexate, there may be little or no improvement in adults with DM or PM in function&#34;
+    explanation: &gt;-
+      Cochrane&#39;s very-low-certainty finding qualifies the steroid-sparing rationale:
+      the single 27-participant adult RCT showed no functional benefit.
 - name: Azathioprine
-  description: Alternative immunosuppressant for maintenance.
+  description: &gt;-
+    Alternative steroid-sparing immunosuppressant for maintenance. The only randomized
+    placebo comparison is a 16-participant study from which no reliable conclusion can
+    be drawn.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: azathioprine
+      term:
+        id: CHEBI:2948
+        label: azathioprine
+  evidence:
+  - reference: PMID:29669460
+    reference_title: &#34;Current diagnosis and treatment of polymyositis and dermatomyositis.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Concomitant treatment with steroid-sparing immunosuppressive agents, including methotrexate, azathioprine, calcineurin inhibitors, mycophenolate mofetil, and cyclophosphamide, reduces successfully initial glucocorticoid doses&#34;
+    explanation: Supports azathioprine&#39;s steroid-sparing role in PM/DM management.
+  - reference: PMID:40787733
+    reference_title: &#34;Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;For azathioprine versus placebo, one study showed little or no effect of azathioprine on improvement in muscle strength, but the evidence was very uncertain&#34;
+    explanation: &gt;-
+      Records that the randomized evidence base for azathioprine in IIM is a single
+      very-low-certainty trial, so the steroid-sparing rationale is not trial-confirmed.
 - name: IVIG
-  description: For refractory cases or when immunosuppression contraindicated.
+  description: &gt;-
+    Intravenous immunoglobulin for refractory disease or when immunosuppression is
+    contraindicated. Randomized evidence supports it in refractory dermatomyositis;
+    the polymyositis-specific data are explicitly judged unreliable.
+  therapeutic_modality: OTHER
+  treatment_term:
+    preferred_term: intravenous immunoglobulin therapy
+    term:
+      id: NCIT:C121331
+      label: Intravenous Immunoglobulin Therapy
+  evidence:
+  - reference: PMID:40787733
+    reference_title: &#34;Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Intravenous immunoglobulin (IVIg), compared to placebo, probably improves disability and muscle strength in participants with refractory IIM&#34;
+    explanation: &gt;-
+      Moderate-certainty meta-analytic support across refractory idiopathic
+      inflammatory myopathy pooled (3 RCTs, 136 participants).
+  - reference: PMID:40787733
+    reference_title: &#34;Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our review shows improvement in disability, muscle strength and skin symptoms following IVIg in people with refractory DM (for PM, these data are not reliable; other subtypes have not been investigated in RCTs).&#34;
+    explanation: &gt;-
+      The benefit is established for refractory dermatomyositis. The review states
+      outright that the polymyositis data are not reliable, so this must not be read as
+      trial-proven for the disease curated here.
+differential_diagnoses:
+- name: Sporadic Inclusion Body Myositis
+  disease_term:
+    preferred_term: Sporadic Inclusion Body Myositis
+    term:
+      id: MONDO:0007827
+      label: inclusion body myositis
+  description: &gt;-
+    The most consequential misdiagnosis. In the follow-up study that established
+    polymyositis as overdiagnosed, most patients still carrying a PM label at
+    re-evaluation had turned out to have sporadic inclusion body myositis.
+  distinguishing_features:
+  - &gt;-
+    Asymmetric weakness with early, disproportionate involvement of finger flexors and
+    quadriceps, rather than symmetric proximal weakness.
+  - &gt;-
+    Slowly progressive over years, and characteristically refractory to
+    corticosteroids and immunosuppression.
+  - &gt;-
+    Muscle biopsy shows rimmed vacuoles and protein aggregates in addition to the
+    endomysial CD8+ infiltrate that polymyositis shares.
+  evidence:
+  - reference: PMID:12913190
+    reference_title: &#34;Polymyositis: an overdiagnosed entity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;At follow-up evaluation, five of the nine patients with PM had typical s-IBM features.&#34;
+    explanation: &gt;-
+      Five of the nine patients diagnosed with polymyositis were reclassified as s-IBM
+      on follow-up, which is why IBM heads this list.
+- name: Dermatomyositis
+  disease_term:
+    preferred_term: Dermatomyositis
+    term:
+      id: MONDO:0016367
+      label: dermatomyositis
+  description: &gt;-
+    The sibling inflammatory myopathy from which polymyositis was historically
+    separated by skin findings alone under the 1975 Bohan and Peter criteria; the two
+    are now distinguished on immunopathology as well.
+  distinguishing_features:
+  - &gt;-
+    Characteristic cutaneous disease (heliotrope rash, Gottron papules), which
+    polymyositis lacks by definition.
+  - &gt;-
+    Perivascular CD4+ T-cell and complement-associated infiltrate with perifascicular
+    atrophy, versus the endomysial CD8+ infiltrate surrounding and invading
+    non-necrotic fibers in polymyositis.
+  evidence:
+  - reference: PMID:41068877
+    reference_title: &#34;Recent advances in immunological mechanisms and murine disease models of idiopathic inflammatory myopathies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;polymyositis, which is characterized by CD8 T-cell infiltration around muscle fibers, and dermatomyositis, which is characterized by CD4 T-cell infiltration with complement infiltration around blood vessels, along with distinctive skin symptoms, have been traditionally distinguished&#34;
+    explanation: Sources the immunopathological contrast used to separate the two entries.
+- name: Immune-Mediated Necrotizing Myopathy
+  disease_term:
+    preferred_term: Immune-Mediated Necrotizing Myopathy
+    term:
+      id: MONDO:0016098
+      label: immune-mediated necrotizing myopathy
+  description: &gt;-
+    A seropositive necrotizing myopathy that accounts for a substantial share of cases
+    historically labelled polymyositis. No dismech entry exists for it yet.
+  distinguishing_features:
+  - &gt;-
+    Anti-SRP or anti-HMG-CoA reductase antibodies, the latter often statin-associated.
+  - &gt;-
+    Biopsy shows myocyte necrosis and regeneration with sparse inflammatory infiltrate,
+    rather than the endomysial CD8+ invasion of non-necrotic fibers.
+  evidence:
+  - reference: PMID:23568993
+    reference_title: &#34;[Myositis-specific autoantibodies].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;anti-SRP and anti-3-hydroxy-3-methylglutaryl-coenzyme A (anti-HMG-CoA) antibodies have been found in patients with necrotizing myopathy&#34;
+    explanation: Sources the serological signature that separates IMNM from polymyositis.
+  notes: &gt;-
+    Curating an Immune-Mediated Necrotizing Myopathy entry would let the anti-SRP
+    content in this entry&#39;s `Myositis-Specific Autoantibodies` node be moved to where
+    it belongs.
+- name: Antisynthetase Syndrome
+  disease_term:
+    preferred_term: Antisynthetase Syndrome
+    term:
+      id: MONDO:0019344
+      label: antisynthetase syndrome
+  description: &gt;-
+    The clinicoserological entity defined by anti-aminoacyl-tRNA-synthetase
+    antibodies. Several features curated on this entry — pulmonary fibrosis, arthritis,
+    the anti-Jo-1 biochemical marker — are attributed in their own notes to
+    antisynthetase syndrome rather than to polymyositis proper.
+  distinguishing_features:
+  - &gt;-
+    Anti-Jo-1 or another anti-synthetase antibody, with interstitial lung disease,
+    arthritis, fever, Raynaud phenomenon and mechanic&#39;s hands accompanying the myositis.
+  - &gt;-
+    Interstitial lung disease is more prevalent and more severe than in polymyositis or
+    dermatomyositis, and often dominates the course.
+  evidence:
+  - reference: PMID:23568993
+    reference_title: &#34;[Myositis-specific autoantibodies].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Anti-synthetase syndrome is characterized by myositis, interstitial lung disease, arthritis, fever, Raynaud&#39;s phenomenon, and mechanic&#39;s hands.&#34;
+    explanation: Sources the syndrome definition used to separate these features from polymyositis.
+discussions:
+- discussion_id: pm_nosological_status
+  prompt: &gt;-
+    Is polymyositis a distinct disease entity, or a residual label for idiopathic
+    inflammatory myopathy that has not yet been resolved into antisynthetase syndrome,
+    immune-mediated necrotizing myopathy, or inclusion body myositis?
+  kind: CONTROVERSY
+  status: OPEN
+  attaches_to:
+  - pathophysiology#CD8+ T Cell-Mediated Cytotoxicity
+  - pathophysiology#Myositis-Specific Autoantibodies
+  rationale: &gt;-
+    This entry models polymyositis as a standalone entity with a CD8+/MHC-I mechanism.
+    That mechanism is real and is what defines PM histologically, but the *scope* of
+    the label is contested: a follow-up study of 165 myositis patients could reclassify
+    most PM diagnoses, and contemporary classifications carve antisynthetase syndrome,
+    immune-mediated necrotizing myopathy and overlap myositis out of the same
+    population. The unresolved question determines what belongs in this entry — in
+    particular whether the antisynthetase content (pulmonary fibrosis, arthritis,
+    anti-Jo-1, and the `Myositis-Specific Autoantibodies` node) should move to
+    Antisynthetase_Syndrome, and whether an Immune-Mediated Necrotizing Myopathy entry
+    is needed to receive the anti-SRP content.
+  evidence:
+  - reference: PMID:12913190
+    reference_title: &#34;Polymyositis: an overdiagnosed entity.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Polymyositis is an overdiagnosed entity.&#34;
+    explanation: The primary source for the claim that the label is applied far more often than it applies.
+  - reference: PMID:41068877
+    reference_title: &#34;Recent advances in immunological mechanisms and murine disease models of idiopathic inflammatory myopathies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;recent classifications based on autoantibodies and gene expression have proposed new categories, such as antisynthetase syndrome, clinical amyopathic dermatomyositis, immune-mediated necrotizing myopathy, and inclusion body myositis, resulting in the concept of IIM as a spectrum of diseases including these subtypes&#34;
+    explanation: Documents the reclassification of the IIM space into which polymyositis is being subdivided.
+  - reference: PMID:39132766
+    reference_title: &#34;Current efforts and historical perspectives on classification of idiopathic inflammatory myopathies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;there is a need to revise the criteria with regard to the addition of new myositis-specific autoantibodies, newly defined subgroups (especially antisynthetase syndrome, immune medicated necrotizing myopathy and overlap myositis)&#34;
+    explanation: &gt;-
+      Shows the question is live rather than settled — the 2017 EULAR/ACR criteria are
+      themselves under revision on exactly this point.
+  notes: &gt;-
+    Raised as item 3 of dismech#6968, which asks explicitly whether this entry should
+    stay as-is with a scoping note, gain a discussion, or be repositioned relative to
+    its sibling IIM entries. This discussion records the uncertainty; the repositioning
+    decision is left to a maintainer. Related to dismech#306 (lumping/splitting).
+- discussion_id: pm_treatment_evidence_base
+  prompt: &gt;-
+    Does any immunosuppressive or immunomodulatory therapy have reliable randomized
+    evidence of benefit in polymyositis specifically, as opposed to in dermatomyositis
+    or in idiopathic inflammatory myopathy pooled?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - treatments#Corticosteroids
+  - treatments#Methotrexate
+  - treatments#Azathioprine
+  - treatments#IVIG
+  rationale: &gt;-
+    All four treatments curated here are standard of care, and none rests on
+    polymyositis-specific randomized evidence. Glucocorticoids are used empirically;
+    the Cochrane review finds the azathioprine and methotrexate trials
+    very-low-certainty; and while IVIg has moderate-certainty benefit in refractory
+    IIM pooled and in refractory dermatomyositis, the review states that the
+    polymyositis data are not reliable. This is not merely a citation gap — it is
+    plausibly downstream of `pm_nosological_status`, since trials enrolling &#34;PM&#34; have
+    been enrolling a mixed population.
+  evidence:
+  - reference: PMID:40787733
+    reference_title: &#34;Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;For the other agents, the small number of trials of immunosuppressive and immunomodulatory therapies is inadequate to decide whether these agents are beneficial in IIM (excluding IBM).&#34;
+    explanation: The review&#39;s own summary of the size of this gap.
+  - reference: PMID:40787733
+    reference_title: &#34;Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The risk of bias in all but one study was high or unclear.&#34;
+    explanation: Characterizes the quality of the 16 trials that do exist.
+- discussion_id: pm_msa_pathogenic_role
+  prompt: &gt;-
+    Are myositis-specific autoantibodies pathogenic drivers of muscle injury, or
+    diagnostic markers of an immune response to regenerating muscle?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Myositis-Specific Autoantibodies
+  rationale: &gt;-
+    This is why the `Myositis-Specific Autoantibodies` node carries no `downstream`
+    edges. The antibodies are well established as classifiers, but no route from
+    antibody to fiber injury has been demonstrated, and the leading alternative — that
+    the autoantigens are simply overexpressed in regenerating fibers — would make the
+    antibodies a consequence of muscle damage rather than a cause. Drawing a causal
+    edge either way would assert more than the literature supports.
+  evidence:
+  - reference: PMID:23568993
+    reference_title: &#34;[Myositis-specific autoantibodies].&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Although the pathogenic role of MSAs remains unknown, recent studies have shown that myositis autoantigens are expressed at high levels in regenerating muscle fibers, which may initiate or amplify autoimmune responses in idiopathic inflammatory myopathies.&#34;
+    explanation: States both the gap and the leading alternative interpretation in one sentence.
 classifications:
   harrisons_chapter:
   - classification_value: IMMUNE_RHEUMATOLOGIC
 references:
+- reference: PMID:12913190
+  title: &#39;Polymyositis: an overdiagnosed entity&#39;
+  findings: []
 - reference: PMID:15934115
   title: &#39;Activation of the endoplasmic reticulum stress response in autoimmune myositis: Potential role in muscle fiber damage and dysfunction&#39;
+  findings: []
+- reference: PMID:23568993
+  title: Myositis-specific autoantibodies
+  findings: []
+- reference: PMID:29669460
+  title: Current diagnosis and treatment of polymyositis and dermatomyositis
+  findings: []
+- reference: PMID:39132766
+  title: Current efforts and historical perspectives on classification of idiopathic inflammatory myopathies
+  findings: []
+- reference: PMID:40787733
+  title: Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies
+  findings: []
+- reference: PMID:9655472
+  title: &#39;Induction of primary immune responses by allogeneic human myoblasts: dissection of the cell types required for proliferation, IFNgamma secretion and cytotoxicity&#39;
   findings: []
 - reference: DOI:10.1093/rheumatology/kez248
   title: A new in vitro model of polymyositis reveals CD8+ T cell invasion into muscle cells and its cytotoxic role
@@ -6507,6 +8812,43 @@ references:
 - reference: DOI:10.3389/fneur.2023.1328547
   title: Transcriptome analysis of skeletal muscle in dermatomyositis, polymyositis, and dysferlinopathy, using a bioinformatics approach
   findings: []
+datasets:
+- accession: geo:GSE3112
+  title: Plasma Cells in Muscle in Inclusion Body Myositis and Polymyositis
+  description: &#39;Microarray data from muscle biopsy specimens from subjects with inclusion body myositis, polymyositis, and normals Keywords: Research study&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 40
+  publication: PMID:16344523
+  notes: Identified by GEO DataSets index search for Polymyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE94535
+  title: Circulating plasma microRNA profiling in patients with polymyositis/dermatomyositis before and after treatment
+  description: This study aimed to investigate the expression of microRNAs (miRNAs) in the plasma from polymyositis (PM) and dermatomyositis (DM) patients, which fluctuated by treatment. More differentially expressed miRNAs were found in plasma of DM patients compared to PM patients before and after treatment, and their profiles were different.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 16
+  publication: PMID:29321815
+  notes: Identified by GEO DataSets index search for Polymyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE125977
+  title: MicroRNA and mRNA profiling in the idiopathic inflammatory myopathies
+  description: &#39;Objectives: The idiopathic inflammatory myopathies (IIMs) are heterogeneous autoimmune conditions of skeletal muscle inflammation and weakness. MicroRNAs (miRNAs) are short, non-coding RNA which regulate gene expression of target mRNAs. The aim of this study was to profile miRNA and mRNA in IIM and identify miRNA-mRNA relationships which may be relevant to disease. Materials and methods: mRNA and miRNA in whole blood samples from 7 polymyositis (PM), 7 dermatomyositis (DM), 5 inclusion body myositis (IBM) and 5 non-myositis controls was profiled using next generation RNA sequencing. Gene ontology and pathway analyses were performed using GOseq and Ingenuity Pathway Analysis.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 48
+  publication: PMID:32529172
+  notes: Identified by GEO DataSets index search for Polymyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -6522,7 +8864,24 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">9</span>
+                    <span class="card-count">15</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/12913190" target="_blank">PMID:12913190</a>
+                            </div>
+
+                            <div class="reference-title">Polymyositis: an overdiagnosed entity</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -6533,6 +8892,91 @@ references:
                             </div>
 
                             <div class="reference-title">Activation of the endoplasmic reticulum stress response in autoimmune myositis: Potential role in muscle fiber damage and dysfunction</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23568993" target="_blank">PMID:23568993</a>
+                            </div>
+
+                            <div class="reference-title">Myositis-specific autoantibodies</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29669460" target="_blank">PMID:29669460</a>
+                            </div>
+
+                            <div class="reference-title">Current diagnosis and treatment of polymyositis and dermatomyositis</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132766" target="_blank">PMID:39132766</a>
+                            </div>
+
+                            <div class="reference-title">Current efforts and historical perspectives on classification of idiopathic inflammatory myopathies</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40787733" target="_blank">PMID:40787733</a>
+                            </div>
+
+                            <div class="reference-title">Non-targeted immunosuppressive and immunomodulatory therapies for idiopathic inflammatory myopathies</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/9655472" target="_blank">PMID:9655472</a>
+                            </div>
+
+                            <div class="reference-title">Induction of primary immune responses by allogeneic human myoblasts: dissection of the cell types required for proliferation, IFNgamma secretion and cytotoxicity</div>
 
                         </div>
 
@@ -6959,7 +9403,7 @@ Polymyositis pathogenesis is centered on MHC class I–restricted CD8+ T cell–
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Polymyositis", "mondoId": "MONDO:0019127", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polymyositis", "yamlRevision": "14d5fab29c4a"};
+        const OS_CONFIG = {"diseaseName": "Polymyositis", "mondoId": "MONDO:0019127", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Polymyositis", "yamlRevision": "92f9ec489944"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7378,5 +9822,73 @@ Polymyositis pathogenesis is centered on MHC class I–restricted CD8+ T cell–
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

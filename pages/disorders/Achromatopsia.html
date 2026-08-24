@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3778,6 +3946,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3787,6 +3963,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -3952,16 +4136,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 CNGA3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2150">hgnc:2150</a>
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2150</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CNGA3 (hgnc:2150). hgnc:2150 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4026,16 +4215,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 CNGB3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2153">hgnc:2153</a>
+    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2153</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CNGB3 (hgnc:2153). hgnc:2153 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4100,16 +4294,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 GNAT2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4394">hgnc:4394</a>
+    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4394</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GNAT2 (hgnc:4394). hgnc:4394 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4174,16 +4373,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 PDE6C
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8787">hgnc:8787</a>
+    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8787</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PDE6C (hgnc:8787). hgnc:8787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4248,16 +4452,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 PDE6H
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8790">hgnc:8790</a>
+    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8790</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PDE6H (hgnc:8790). hgnc:8790 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4322,16 +4531,21 @@
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ATF6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:791">hgnc:791</a>
+    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:791</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATF6 (hgnc:791). hgnc:791 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4413,16 +4627,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4449,16 +4668,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CNGA3
 
 
-    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2150">hgnc:2150</a>
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2150</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CNGA3 (hgnc:2150). hgnc:2150 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4486,10 +4716,13 @@
         CNGB3
 
 
-    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2153">hgnc:2153</a>
+    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:2153</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CNGB3 (hgnc:2153). hgnc:2153 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4517,16 +4750,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phototransduction, visible light (GO:0007603). GO:0007603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4553,17 +4791,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000966">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         fovea centralis
@@ -4571,13 +4816,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001786">UBERON:0001786</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4688,16 +4937,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4724,15 +4978,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GNAT2
 
 
-    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4394">hgnc:4394</a>
+    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:4394</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAT2 (hgnc:4394). hgnc:4394 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4760,16 +5021,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phototransduction, visible light (GO:0007603). GO:0007603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4790,6 +5056,7 @@
 
 
                 </div>
+
 
 
 
@@ -4859,16 +5126,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4895,15 +5167,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PDE6C
 
 
-    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8787">hgnc:8787</a>
+    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:8787</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDE6C (hgnc:8787). hgnc:8787 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4931,16 +5210,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0007603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phototransduction, visible light (GO:0007603). GO:0007603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4961,6 +5245,7 @@
 
 
                 </div>
+
 
 
 
@@ -5030,16 +5315,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5066,15 +5356,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PDE6H
 
 
-    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8790">hgnc:8790</a>
+    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:8790</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDE6H (hgnc:8790). hgnc:8790 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5102,16 +5399,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0007603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phototransduction, visible light (GO:0007603). GO:0007603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5132,6 +5434,7 @@
 
 
                 </div>
+
 
 
 
@@ -5201,16 +5504,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5237,16 +5545,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phototransduction, visible light
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007603">GO:0007603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0007603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phototransduction, visible light (GO:0007603). GO:0007603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5273,19 +5586,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         fovea centralis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001786">UBERON:0001786</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0001786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5400,16 +5719,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5439,19 +5763,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         fovea centralis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001786">UBERON:0001786</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0001786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON:0001786 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5540,16 +5870,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal cone cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000573">CL:0000573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal cone cell (CL:0000573). CL:0000573 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5576,15 +5911,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ATF6
 
 
-    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:791">hgnc:791</a>
+    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:791</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATF6 (hgnc:791). hgnc:791 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5604,6 +5946,7 @@
 
 
                 </div>
+
 
 
 
@@ -5778,14 +6121,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Color vision defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000551">HP:0000551</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5837,14 +6187,21 @@
                         Reduced Visual Acuity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced visual acuity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5920,14 +6277,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypermetropia
+
+                        <span class="phenotype-term-label">Hypermetropia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000540">HP:0000540</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000540</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypermetropia (HP:0000540). HP:0000540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5979,14 +6345,21 @@
                         Photophobia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6040,14 +6413,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6101,14 +6481,23 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal electroretinogram
+
+                        <span class="phenotype-term-label">Abnormal electroretinogram</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000512">HP:0000512</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000512</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6160,14 +6549,21 @@
                         Central Scotoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central scotoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000603">HP:0000603</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6230,14 +6626,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal foveal morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000493" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000493">HP:0000493</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000493</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal foveal morphology (HP:0000493). HP:0000493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6379,13 +6782,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CNGA3
 
 
-    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2150">hgnc:2150</a>
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:2150</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CNGA3 (hgnc:2150). hgnc:2150 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6469,13 +6877,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CNGB3
 
 
-    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2153">hgnc:2153</a>
+    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:2153</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CNGB3 (hgnc:2153). hgnc:2153 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6559,13 +6972,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAT2
 
 
-    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4394">hgnc:4394</a>
+    <a href="https://bioregistry.io/hgnc:4394" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:4394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAT2 (hgnc:4394). hgnc:4394 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6627,13 +7045,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDE6C
 
 
-    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8787">hgnc:8787</a>
+    <a href="https://bioregistry.io/hgnc:8787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:8787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDE6C (hgnc:8787). hgnc:8787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6695,13 +7118,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDE6H
 
 
-    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8790">hgnc:8790</a>
+    <a href="https://bioregistry.io/hgnc:8790" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:8790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDE6H (hgnc:8790). hgnc:8790 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6763,13 +7191,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATF6
 
 
-    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:791">hgnc:791</a>
+    <a href="https://bioregistry.io/hgnc:791" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:791</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATF6 (hgnc:791). hgnc:791 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6842,7 +7275,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -7019,7 +7457,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -7196,7 +7639,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7234,16 +7682,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Photophobia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000613">HP:0000613</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000613</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7294,7 +7747,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7332,16 +7790,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Reduced visual acuity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0007663</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7392,7 +7855,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">eye examination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">eye examination<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Eye Examination</span>
 
 
@@ -7473,7 +7941,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7771,6 +8244,95 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Multiexon deletion alleles of ATF6 linked to achromatopsia
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153978" target="_blank">geo:GSE153978</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Achromatopsia (ACHM) is an autosomal recessive disease that results in severe visual loss. Symptoms of ACHM include impaired visual acuity, nystagmus, and photoaversion starting from infancy; furthermore, ACHM is associated with bilateral foveal hypoplasia and absent or severely reduced cone photoreceptor function on electroretinography. Here, we performed genetic sequencing in 3 patients from 2 families with ACHM, identifying and functionally characterizing 2 mutations in the activating transcription factor 6 (ATF6) gene. We identified a homozygous deletion covering exons 8–14 of the ATF6 gene from 2 siblings from the same family.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32271167" target="_blank" style="color: var(--secondary);">PMID:32271167</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Achromatopsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Retinal Gene and Protein Expression Associated with CNTF-Induced Deconstruction of Photoreceptor Outer Segments in normal and CNGB3-achromatopsia dogs
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49659" target="_blank">geo:GSE49659</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background: Intravitreal injection of CNTF leads to deconstruction and regeneration of photoreceptor outer segments in normal dogs, and improves the success rate of viral CNGB3 gene replacement therapy in dogs (&gt; 1 year) with CNGB3-achromatopsia. Objectives: The goal of this study was to examine the changes caused by intravitreal CNTF injection to the retinal gene expression profiles and the retinal function of normal and CNGB3-achromatopsia affected dogs. Retinal gene expression profiles were evaluated with canine specific Agilent Oligo Microarray containing 42,034 60-mer oligonucleotide probes.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Achromatopsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7798,16 +8360,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Achromatopsia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0011516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Achromatopsia (HP:0011516). HP:0011516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7866,16 +8433,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Achromatopsia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0011516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Achromatopsia (HP:0011516). HP:0011516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7934,16 +8506,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Achromatopsia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0011516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Achromatopsia (HP:0011516). HP:0011516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8002,16 +8579,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Achromatopsia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0011516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Achromatopsia (HP:0011516). HP:0011516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8114,16 +8696,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Achromatopsia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011516">HP:0011516</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0011516</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Achromatopsia (HP:0011516). HP:0011516 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8171,6 +8758,551 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cnga3-knockout-cnga3-mouse" data-dismech-node="Cnga3 knockout (Cnga3-/-) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cnga3 knockout (Cnga3-/-) Mouse
+
+                </div>
+
+                <div class="item-desc">The Cnga3 knockout mouse recapitulates cone dysfunction with absent cone ERG responses. Used extensively for preclinical gene therapy studies. AAV-mediated CNGA3 gene delivery restores cone function in these mice.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cnga3 knockout (Cnga3-/-)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CNGA3
+
+
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:2150</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CNGA3 (hgnc:2150). hgnc:2150 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34860352" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34860352" target="_blank">PMID:34860352</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"research activities have intensified over the past decade and have led to several preclinical gene therapy studies that have shown functional and morphological improvements in animal models of ACHM."</div>
+
+
+                <div class="evidence-explanation">Summarizes preclinical gene therapy success in animal models including Cnga3-deficient mice.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cpfl5-cnga3-mutant-mouse" data-dismech-node="Cpfl5 (Cnga3 mutant) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Cpfl5 (Cnga3 mutant) Mouse
+
+                </div>
+
+                <div class="item-desc">The cpfl5 mouse carries a spontaneous missense variant in Cnga3 and develops selective loss of cone responses and cone degeneration. AAV5-mediated Cnga3 replacement restored cone ERG responses and visual behavior for at least five months in this model.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Cpfl5 (Cnga3 mutant)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CNGA3
+
+
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:2150</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CNGA3 (hgnc:2150). hgnc:2150 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22509403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22509403" target="_blank">PMID:22509403</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the cpfl5 mouse, a naturally occurring mouse model of achromatopsia with a CNGA3 mutation."</div>
+
+
+                <div class="evidence-explanation">Correctly identifies cpfl5 as a Cnga3, not Cngb3, mutant model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22509403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22509403" target="_blank">PMID:22509403</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We show that gene therapy leads to significant rescue of cone-mediated ERGs, normal visual acuities and contrast sensitivities."</div>
+
+
+                <div class="evidence-explanation">Demonstrates functional rescue after Cnga3 gene replacement in cpfl5 mice.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cngb3-mutant-alaskan-malamute-dog" data-dismech-node="CNGB3 mutant (Alaskan Malamute) Dog" data-dismech-type="animal_model">
+                <div class="item-name">
+                    CNGB3 mutant (Alaskan Malamute) Dog
+
+                </div>
+
+                <div class="item-desc">Naturally occurring CNGB3 mutation in Alaskan Malamute dogs causes day blindness (hemeralopia). This large animal model has been critical for preclinical gene therapy development, demonstrating long-term restoration of cone function after AAV-CNGB3 gene therapy.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Dog</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">CNGB3 mutant (Alaskan Malamute)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CNGB3
+
+
+    <a href="https://bioregistry.io/hgnc:2153" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:2153</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CNGB3 (hgnc:2153). hgnc:2153 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20378608" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20378608" target="_blank">PMID:20378608</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the primary cone photoreceptor disorder achromatopsia served as the ideal translational model to develop gene therapy directed to cone photoreceptors."</div>
+
+
+                <div class="evidence-explanation">CNGB3-mutant dogs are the key translational model for achromatopsia gene therapy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29020838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29020838" target="_blank">PMID:29020838</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Studies in CNGB3-mutant dogs showed that subretinal injection of an AAV vector expressing human CNGB3, which has 76% amino acid identity with canine CNGB3, driven by a 2.1 kb human red cone opsin promoter (PR2.1) and packaged in AAV5 capsids (AAV5-PR2.1-hCNGB3) rescued cone photoreceptor function"</div>
+
+
+                <div class="evidence-explanation">Demonstrates successful cone function rescue with AAV5-CNGB3 in the dog model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-cnga3-mutant-german-shepherd-dog" data-dismech-node="CNGA3 mutant (German Shepherd) Dog" data-dismech-type="animal_model">
+                <div class="item-name">
+                    CNGA3 mutant (German Shepherd) Dog
+
+                </div>
+
+                <div class="item-desc">A naturally occurring homozygous CNGA3 p.Arg424Trp variant in a German Shepherd causes complete loss of cone function and models the corresponding human channelopathy. The model is a candidate for, rather than evidence of, CNGA3 gene-replacement efficacy studies.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Dog</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">CNGA3 mutant (German Shepherd)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CNGA3
+
+
+    <a href="https://bioregistry.io/hgnc:2150" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:2150</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CNGA3 (hgnc:2150). hgnc:2150 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26407004" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26407004" target="_blank">PMID:26407004</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The CNGA3-R424W identified in German shepherd breed is analogous to the human CNGA3-R410W mutation"</div>
+
+
+                <div class="evidence-explanation">Identifies the German Shepherd CNGA3 model and its correspondence to a human achromatopsia-associated channel variant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8187,7 +9319,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Achromatopsia
 creation_date: &#39;2026-04-22T00:00:00Z&#39;
-updated_date: &#39;2026-07-17T00:00:00Z&#39;
 category: Mendelian
 synonyms:
 - Rod monochromatism (complete achromatopsia)
@@ -9916,7 +11047,25 @@ animal_models:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The CNGA3-R424W identified in German shepherd breed is analogous to the human CNGA3-R410W mutation&#34;
     explanation: Identifies the German Shepherd CNGA3 model and its correspondence to a human achromatopsia-associated channel variant.
-datasets: []
+datasets:
+- accession: geo:GSE153978
+  title: Multiexon deletion alleles of ATF6 linked to achromatopsia
+  description: Achromatopsia (ACHM) is an autosomal recessive disease that results in severe visual loss. Symptoms of ACHM include impaired visual acuity, nystagmus, and photoaversion starting from infancy; furthermore, ACHM is associated with bilateral foveal hypoplasia and absent or severely reduced cone photoreceptor function on electroretinography. Here, we performed genetic sequencing in 3 patients from 2 families with ACHM, identifying and functionally characterizing 2 mutations in the activating transcription factor 6 (ATF6) gene. We identified a homozygous deletion covering exons 8–14 of the ATF6 gene from 2 siblings from the same family.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:32271167
+  notes: Identified by GEO DataSets index search for Achromatopsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE49659
+  title: Retinal Gene and Protein Expression Associated with CNTF-Induced Deconstruction of Photoreceptor Outer Segments in normal and CNGB3-achromatopsia dogs
+  description: &#39;Background: Intravitreal injection of CNTF leads to deconstruction and regeneration of photoreceptor outer segments in normal dogs, and improves the success rate of viral CNGB3 gene replacement therapy in dogs (&gt; 1 year) with CNGB3-achromatopsia. Objectives: The goal of this study was to examine the changes caused by intravitreal CNTF injection to the retinal gene expression profiles and the retinal function of normal and CNGB3-achromatopsia affected dogs. Retinal gene expression profiles were evaluated with canine specific Agilent Oligo Microarray containing 42,034 60-mer oligonucleotide probes.&#39;
+  data_type: MICROARRAY
+  sample_count: 20
+  notes: Identified by GEO DataSets index search for Achromatopsia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 references:
 - reference: PMID:19615668
   title: Homozygosity mapping reveals PDE6C mutations in patients with early-onset cone photoreceptor disorders.
@@ -11942,7 +13091,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Achromatopsia", "mondoId": "MONDO:0018852", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achromatopsia", "yamlRevision": "f9cbf50d9ef6"};
+        const OS_CONFIG = {"diseaseName": "Achromatopsia", "mondoId": "MONDO:0018852", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Achromatopsia", "yamlRevision": "fa95d32ddcb3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12361,5 +13510,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

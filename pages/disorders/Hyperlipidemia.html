@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hyperlipidemia"
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3727,7 +3895,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4014,16 +4182,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4050,16 +4223,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         LDLR
 
 
-    <a href="https://bioregistry.io/hgnc:6547" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6547">hgnc:6547</a>
+    <a href="https://bioregistry.io/hgnc:6547" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6547</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LDLR (hgnc:6547). hgnc:6547 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4087,11 +4271,18 @@
         APOB
 
 
-    <a href="https://bioregistry.io/hgnc:603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:603">hgnc:603</a>
+    <a href="https://bioregistry.io/hgnc:603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:603</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves APOB (hgnc:603). hgnc:603 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4119,10 +4310,13 @@
         PCSK9
 
 
-    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20001">hgnc:20001</a>
+    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:20001</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4150,17 +4344,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Receptor-mediated endocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006898">GO:0006898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Receptor-mediated endocytosis (GO:0006898). GO:0006898 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4181,10 +4382,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008203" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008203">GO:0008203</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008203" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008203</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cholesterol metabolic process (GO:0008203). GO:0008203 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4201,6 +4405,7 @@
 
 
                 </div>
+
 
 
 
@@ -4292,17 +4497,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4323,11 +4535,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4348,10 +4565,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4378,15 +4598,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PCSK9
 
 
-    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20001">hgnc:20001</a>
+    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:20001</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4414,17 +4641,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Receptor-mediated endocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006898">GO:0006898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Receptor-mediated endocytosis (GO:0006898). GO:0006898 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4445,10 +4679,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4465,6 +4702,7 @@
 
 
                 </div>
+
 
 
 
@@ -4556,16 +4794,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4592,17 +4835,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Lipid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008610" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008610">GO:0008610</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008610" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008610</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Lipid biosynthetic process (GO:0008610). GO:0008610 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4623,10 +4873,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006629">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4643,6 +4896,7 @@
 
 
                 </div>
+
 
 
 
@@ -4719,16 +4973,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         LPL
 
 
-    <a href="https://bioregistry.io/hgnc:6677" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6677">hgnc:6677</a>
+    <a href="https://bioregistry.io/hgnc:6677" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6677</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LPL (hgnc:6677). hgnc:6677 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4756,10 +5021,13 @@
         APOC3
 
 
-    <a href="https://bioregistry.io/hgnc:610" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:610">hgnc:610</a>
+    <a href="https://bioregistry.io/hgnc:610" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:610</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves APOC3 (hgnc:610). hgnc:610 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4787,16 +5055,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Lipid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006629">GO:0006629</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006629</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Lipid metabolic process (GO:0006629). GO:0006629 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4813,6 +5086,7 @@
 
 
                 </div>
+
 
 
 
@@ -4904,16 +5178,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4940,16 +5219,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4966,6 +5250,7 @@
 
 
                 </div>
+
 
 
 
@@ -5035,17 +5320,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5066,10 +5358,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5096,16 +5391,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5122,6 +5422,7 @@
 
 
                 </div>
+
 
 
 
@@ -5191,17 +5492,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage-derived foam cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000517" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000517">CL:0000517</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000517" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000517</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage-derived foam cell, annotated with macrophage derived foam cell (CL:0000517). CL:0000517 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5222,10 +5530,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5252,16 +5563,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Macrophage-derived foam cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010742" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010742">GO:0010742</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010742" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0010742</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Macrophage-derived foam cell differentiation, annotated with macrophage derived foam cell differentiation (GO:0010742). GO:0010742 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5278,6 +5594,7 @@
 
 
                 </div>
+
 
 
 
@@ -5347,17 +5664,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5378,10 +5702,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000359</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5408,16 +5735,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5434,6 +5766,7 @@
 
 
                 </div>
+
 
 
 
@@ -5525,7 +5858,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"association\": \"Monogenic Cause and ApoB-Trafficking Determinant\"}}, {\"id\": \"Atherosclerotic Plaque Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intimal lipid retention and inflammation result in atherosclerotic plaque formation as a major end-organ consequence of sustained hyperlipidemia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial cell\", \"Vascular smooth muscle cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Dysregulated Hepatic Lipogenesis and VLDL Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased de novo lipogenesis in the liver driven by insulin resistance and transcription factor SREBP-1c activation leads to overproduction of VLDL particles, contributing to elevated triglycerides and small dense LDL. VLDL assembly depends on apoB lipidation by microsomal triglyceride transfer protein (MTP) in the rough endoplasmic reticulum.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Lipid biosynthetic process\", \"Lipid metabolic process\"]}}, {\"id\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced hepatic clearance of LDL and related apoB-containing lipoproteins due to partial LDLR-pathway insufficiency, increased PCSK9 activity, and other polygenic or metabolic perturbations. In this complex-trait context, the pathway is usually impaired by combined common-variant and environmental effects rather than a single receptor gene defect.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Receptor-mediated endocytosis\", \"Cholesterol metabolic process\"], \"genes\": [\"LDLR\", \"APOB\", \"PCSK9\"], \"gene_terms\": [{\"label\": \"LDLR\", \"id\": \"hgnc:6547\"}, {\"label\": \"APOB\", \"id\": \"hgnc:603\"}, {\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}]}}, {\"id\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency or dysfunction of lipoprotein lipase (LPL) impairs hydrolysis of triglyceride-rich lipoproteins (chylomicrons and VLDL) in capillary endothelium, resulting in severe hypertriglyceridemia. Apolipoprotein C-III (ApoC-III) is a key inhibitor of LPL and also reduces hepatic uptake of triglyceride-rich lipoprotein remnants, contributing to hypertriglyceridemia and cardiovascular risk.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Lipid metabolic process\"], \"genes\": [\"LPL\", \"APOC3\"], \"gene_terms\": [{\"label\": \"LPL\", \"id\": \"hgnc:6677\"}, {\"label\": \"APOC3\", \"id\": \"hgnc:610\"}]}}, {\"id\": \"LDLR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LDLR\"], \"gene_terms\": [{\"label\": \"LDLR\", \"id\": \"hgnc:6547\"}], \"association\": \"Monogenic Cause in Familial Hypercholesterolemia; Core LDL-C Clearance Pathway\"}}, {\"id\": \"LPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"LPL\"], \"gene_terms\": [{\"label\": \"LPL\", \"id\": \"hgnc:6677\"}], \"association\": \"Monogenic Cause in Severe Hypertriglyceridemia\"}}, {\"id\": \"Macrophage Recruitment to Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory signaling within lipid-rich intima recruits macrophages to arterial lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\", \"Endothelial cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Macrophage-Derived Foam Cell Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages in lipid-rich intima accumulate oxidized lipoproteins and differentiate into foam cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage-derived foam cell\", \"Macrophage\"], \"biological_processes\": [\"Macrophage-derived foam cell differentiation\"]}}, {\"id\": \"Oxidized LDL Infiltration of Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized LDL infiltrates and accumulates in the arterial intima, establishing the initiating lipid milieu for atherogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"PCSK9-Mediated LDL Receptor Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PCSK9 binds to LDL receptors on the hepatocyte surface and promotes their lysosomal degradation, reducing receptor recycling and the number of receptors available for LDL clearance. Increased PCSK9 activity, whether genetically determined or acquired, can raise LDL-C. PCSK9 also directly induces inflammation independently of the LDL receptor via CAP1-mediated NF-kB signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\", \"Macrophage\", \"Endothelial cell\"], \"biological_processes\": [\"Receptor-mediated endocytosis\", \"Inflammatory response\"], \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}]}}], \"edges\": [{\"source\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"target\": \"Oxidized LDL Infiltration of Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistently elevated circulating LDL increases arterial wall exposure to atherogenic lipoproteins.\"}, {\"source\": \"PCSK9-Mediated LDL Receptor Degradation\", \"target\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PCSK9-driven LDLR degradation lowers receptor availability and impairs LDL clearance.\"}, {\"source\": \"Dysregulated Hepatic Lipogenesis and VLDL Overproduction\", \"target\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased VLDL output increases dependence on LPL-mediated triglyceride-rich lipoprotein processing.\"}, {\"source\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"target\": \"Oxidized LDL Infiltration of Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent accumulation of triglyceride-rich remnants contributes to atherogenic lipoprotein burden in arterial walls.\"}, {\"source\": \"Oxidized LDL Infiltration of Arterial Intima\", \"target\": \"Macrophage Recruitment to Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intimal oxidized LDL promotes leukocyte attraction and macrophage influx.\"}, {\"source\": \"Macrophage Recruitment to Arterial Intima\", \"target\": \"Macrophage-Derived Foam Cell Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited macrophages internalize oxidized lipoproteins and transition toward foam cells.\"}, {\"source\": \"Macrophage-Derived Foam Cell Formation\", \"target\": \"Atherosclerotic Plaque Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foam-cell accumulation drives fatty-streak maturation and plaque development.\"}, {\"source\": \"LDLR\", \"target\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB\", \"target\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LPL\", \"target\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"association\": \"Monogenic Cause and ApoB-Trafficking Determinant\"}}, {\"id\": \"Atherosclerotic Plaque Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intimal lipid retention and inflammation result in atherosclerotic plaque formation as a major end-organ consequence of sustained hyperlipidemia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Endothelial cell\", \"Vascular smooth muscle cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Dysregulated Hepatic Lipogenesis and VLDL Overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased de novo lipogenesis in the liver driven by insulin resistance and transcription factor SREBP-1c activation leads to overproduction of VLDL particles, contributing to elevated triglycerides and small dense LDL. VLDL assembly depends on apoB lipidation by microsomal triglyceride transfer protein (MTP) in the rough endoplasmic reticulum.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Lipid biosynthetic process\", \"Lipid metabolic process\"]}}, {\"id\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced hepatic clearance of LDL and related apoB-containing lipoproteins due to partial LDLR-pathway insufficiency, increased PCSK9 activity, and other polygenic or metabolic perturbations. In this complex-trait context, the pathway is usually impaired by combined common-variant and environmental effects rather than a single receptor gene defect.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Receptor-mediated endocytosis\", \"Cholesterol metabolic process\"], \"genes\": [\"LDLR\", \"APOB\", \"PCSK9\"], \"gene_terms\": [{\"label\": \"LDLR\", \"id\": \"hgnc:6547\"}, {\"label\": \"APOB\", \"id\": \"hgnc:603\"}, {\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}]}}, {\"id\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency or dysfunction of lipoprotein lipase (LPL) impairs hydrolysis of triglyceride-rich lipoproteins (chylomicrons and VLDL) in capillary endothelium, resulting in severe hypertriglyceridemia. Apolipoprotein C-III (ApoC-III) is a key inhibitor of LPL and also reduces hepatic uptake of triglyceride-rich lipoprotein remnants, contributing to hypertriglyceridemia and cardiovascular risk.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Lipid metabolic process\"], \"genes\": [\"LPL\", \"APOC3\"], \"gene_terms\": [{\"label\": \"LPL\", \"id\": \"hgnc:6677\"}, {\"label\": \"APOC3\", \"id\": \"hgnc:610\"}]}}, {\"id\": \"LDLR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LDLR\"], \"gene_terms\": [{\"label\": \"LDLR\", \"id\": \"hgnc:6547\"}], \"association\": \"Monogenic Cause in Familial Hypercholesterolemia; Core LDL-C Clearance Pathway\"}}, {\"id\": \"LPL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"LPL\"], \"gene_terms\": [{\"label\": \"LPL\", \"id\": \"hgnc:6677\"}], \"association\": \"Monogenic Cause in Severe Hypertriglyceridemia\"}}, {\"id\": \"Macrophage Recruitment to Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory signaling within lipid-rich intima recruits macrophages to arterial lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\", \"Endothelial cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"Macrophage-Derived Foam Cell Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages in lipid-rich intima accumulate oxidized lipoproteins and differentiate into foam cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage-derived foam cell\", \"Macrophage\"], \"biological_processes\": [\"Macrophage-derived foam cell differentiation\"]}}, {\"id\": \"Obesity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Excess adiposity promotes insulin resistance, hepatic VLDL overproduction, and dyslipidemia characterized by elevated triglycerides and low HDL.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Oxidized LDL Infiltration of Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized LDL infiltrates and accumulates in the arterial intima, establishing the initiating lipid milieu for atherogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Inflammatory response\"]}}, {\"id\": \"PCSK9-Mediated LDL Receptor Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PCSK9 binds to LDL receptors on the hepatocyte surface and promotes their lysosomal degradation, reducing receptor recycling and the number of receptors available for LDL clearance. Increased PCSK9 activity, whether genetically determined or acquired, can raise LDL-C. PCSK9 also directly induces inflammation independently of the LDL receptor via CAP1-mediated NF-kB signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\", \"Macrophage\", \"Endothelial cell\"], \"biological_processes\": [\"Receptor-mediated endocytosis\", \"Inflammatory response\"], \"genes\": [\"PCSK9\"], \"gene_terms\": [{\"label\": \"PCSK9\", \"id\": \"hgnc:20001\"}]}}, {\"id\": \"Sedentary Lifestyle\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Physical inactivity is associated with reduced HDL cholesterol, elevated triglycerides, and impaired lipid metabolism.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"target\": \"Oxidized LDL Infiltration of Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistently elevated circulating LDL increases arterial wall exposure to atherogenic lipoproteins.\"}, {\"source\": \"PCSK9-Mediated LDL Receptor Degradation\", \"target\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PCSK9-driven LDLR degradation lowers receptor availability and impairs LDL clearance.\"}, {\"source\": \"Dysregulated Hepatic Lipogenesis and VLDL Overproduction\", \"target\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased VLDL output increases dependence on LPL-mediated triglyceride-rich lipoprotein processing.\"}, {\"source\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"target\": \"Oxidized LDL Infiltration of Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent accumulation of triglyceride-rich remnants contributes to atherogenic lipoprotein burden in arterial walls.\"}, {\"source\": \"Oxidized LDL Infiltration of Arterial Intima\", \"target\": \"Macrophage Recruitment to Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intimal oxidized LDL promotes leukocyte attraction and macrophage influx.\"}, {\"source\": \"Macrophage Recruitment to Arterial Intima\", \"target\": \"Macrophage-Derived Foam Cell Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited macrophages internalize oxidized lipoproteins and transition toward foam cells.\"}, {\"source\": \"Macrophage-Derived Foam Cell Formation\", \"target\": \"Atherosclerotic Plaque Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Foam-cell accumulation drives fatty-streak maturation and plaque development.\"}, {\"source\": \"Sedentary Lifestyle\", \"target\": \"Dysregulated Hepatic Lipogenesis and VLDL Overproduction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sitting time worsens insulin sensitivity, and insulin resistance is the driver this node already names for SREBP-1c lipogenesis, which is why the intermediate is recorded as known rather than unknown. Both items stay partial because the cohort measures the step before this node, in insulin and HOMA-IR, and the step after it, in triglycerides, without measuring hepatic lipogenesis or VLDL production itself.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Obesity\", \"target\": \"Dysregulated Hepatic Lipogenesis and VLDL Overproduction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Excess adiposity reaches hepatic VLDL overproduction by the same insulin-resistance route as the sedentary link into this node, and is graded identically to it. Both items stay partial because they measure the circulating lipid pattern this node produces rather than the node, though the weight-loss reversal carries more causal weight than an association on its own.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"LDLR\", \"target\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB\", \"target\": \"Impaired Hepatic ApoB-Containing Lipoprotein Clearance\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LPL\", \"target\": \"Impaired Lipoprotein Lipase Activity and ApoC-III Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5570,14 +5903,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Precocious atherosclerosis
+
+                        <span class="phenotype-term-label">Precocious atherosclerosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004416" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004416">HP:0004416</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004416</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature atherosclerosis, annotated with Precocious atherosclerosis (HP:0004416). HP:0004416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5631,14 +5973,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coronary artery atherosclerosis
+
+                        <span class="phenotype-term-label">Coronary artery atherosclerosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5701,14 +6052,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Corneal arcus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001084" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001084">HP:0001084</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001084" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001084</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal arcus (HP:0001084). HP:0001084 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5739,14 +6097,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Xanthomatosis
+
+                        <span class="phenotype-term-label">Xanthomatosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000991" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000991">HP:0000991</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000991" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000991</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Xanthomatosis (HP:0000991). HP:0000991 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5777,14 +6144,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertriglyceridemia
+
+                        <span class="phenotype-term-label">Hypertriglyceridemia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002155">HP:0002155</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002155</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5838,14 +6214,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased HDL cholesterol concentration
+
+                        <span class="phenotype-term-label">Decreased HDL cholesterol concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003233" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003233">HP:0003233</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003233" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003233</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased HDL cholesterol concentration (HP:0003233). HP:0003233 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5867,14 +6252,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased LDL cholesterol concentration
+
+                        <span class="phenotype-term-label">Increased LDL cholesterol concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003141">HP:0003141</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003141</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased LDL cholesterol concentration (HP:0003141). HP:0003141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5994,13 +6388,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LDLR
 
 
-    <a href="https://bioregistry.io/hgnc:6547" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6547">hgnc:6547</a>
+    <a href="https://bioregistry.io/hgnc:6547" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:6547</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6064,13 +6463,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PCSK9
 
 
-    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20001">hgnc:20001</a>
+    <a href="https://bioregistry.io/hgnc:20001" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:20001</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6134,13 +6538,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: APOB
 
 
-    <a href="https://bioregistry.io/hgnc:603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:603">hgnc:603</a>
+    <a href="https://bioregistry.io/hgnc:603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6204,13 +6613,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LPL
 
 
-    <a href="https://bioregistry.io/hgnc:6677" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6677">hgnc:6677</a>
+    <a href="https://bioregistry.io/hgnc:6677" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:6677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LPL (hgnc:6677). hgnc:6677 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6242,13 +6656,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: APOE
 
 
-    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:613">hgnc:613</a>
+    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6274,13 +6693,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: APOC3
 
 
-    <a href="https://bioregistry.io/hgnc:610" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:610">hgnc:610</a>
+    <a href="https://bioregistry.io/hgnc:610" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:610</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOC3 (hgnc:610). hgnc:610 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6347,7 +6771,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -6378,16 +6807,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         statin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_87631" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:87631">CHEBI:87631</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_87631" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:87631</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses statin (CHEBI:87631). CHEBI:87631 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6464,7 +6898,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6494,17 +6933,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         PCSK9 inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C190797" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C190797">NCIT:C190797</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190797" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C190797</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses PCSK9 inhibitor (NCIT:C190797). NCIT:C190797 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         alirocumab
@@ -6512,11 +6958,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C174849" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C174849">NCIT:C174849</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C174849" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C174849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses alirocumab (NCIT:C174849). NCIT:C174849 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         evolocumab
@@ -6524,10 +6975,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C174672" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C174672">NCIT:C174672</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C174672" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C174672</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses evolocumab (NCIT:C174672). NCIT:C174672 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6550,7 +7004,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -6581,16 +7040,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ezetimibe
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47529" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C47529">NCIT:C47529</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47529" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C47529</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ezetimibe (NCIT:C47529). NCIT:C47529 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6613,7 +7077,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6643,17 +7112,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         fenofibrate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29047" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29047">NCIT:C29047</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29047" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C29047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fenofibrate (NCIT:C29047). NCIT:C29047 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         gemfibrozil
@@ -6661,10 +7137,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29071" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29071">NCIT:C29071</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29071" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C29071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gemfibrozil (NCIT:C29071). NCIT:C29071 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6687,7 +7166,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Lifestyle Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Lifestyle Therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6732,7 +7216,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6762,17 +7251,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         omega-3 fatty acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_25681" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:25681">CHEBI:25681</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_25681" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:25681</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses omega-3 fatty acid (CHEBI:25681). CHEBI:25681 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         icosapentaenoic acid
@@ -6780,10 +7276,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_36006" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:36006">CHEBI:36006</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_36006" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:36006</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses icosapentaenoic acid (CHEBI:36006). CHEBI:36006 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6838,7 +7337,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -6869,16 +7373,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bempedoic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_149601" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:149601">CHEBI:149601</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_149601" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:149601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bempedoic acid (CHEBI:149601). CHEBI:149601 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6901,7 +7410,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6931,17 +7445,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         antisense oligonucleotides
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1291" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1291">NCIT:C1291</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1291" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-61">NCIT:C1291</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses antisense oligonucleotides (NCIT:C1291). NCIT:C1291 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         olezarsen
@@ -6949,10 +7470,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C180652" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C180652">NCIT:C180652</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C180652" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C180652</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses olezarsen (NCIT:C180652). NCIT:C180652 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7038,6 +7562,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-high-saturated-fat-diet" data-dismech-node="High Saturated Fat Diet" data-dismech-type="environmental">
                 <div class="item-name">High Saturated Fat Diet</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        high dietary saturated fat exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0090010" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-63">ECTO:0090010</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased high dietary saturated fat exposure, annotated with exposure to lipid in food (ECTO:0090010). ECTO:0090010 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Dietary intake of saturated and trans fats increases hepatic cholesterol synthesis and reduces LDL receptor expression, raising serum LDL cholesterol.</div>
@@ -7105,6 +7656,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
                 <div class="item-name">Sedentary Lifestyle</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        sedentary lifestyle
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-64">ECTO:6000004</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Physical inactivity is associated with reduced HDL cholesterol, elevated triglycerides, and impaired lipid metabolism.</div>
@@ -7167,10 +7745,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Dysregulated Hepatic Lipogenesis and VLDL Overproduction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Sitting time worsens insulin sensitivity, and insulin resistance is the driver this node already names for SREBP-1c lipogenesis, which is why the intermediate is recorded as known rather than unknown. Both items stay partial because the cohort measures the step before this node, in insulin and HOMA-IR, and the step after it, in triglycerides, without measuring hepatic lipogenesis or VLDL production itself.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28748993" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28748993" target="_blank">PMID:28748993</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Per one hour increase in sedentary behavior there were significant adverse changes in glucose (4.79 mg/dl), insulin (2.73 pmol/l), HOMA-IR (0.75), BMI (0.69 kg/m²), waist circumference (1.95 cm), fat mass (1.03%), total cholesterol (9.73 mg/dl), HDL-cholesterol (-3.50 mg/dl), LDL-cholesterol..."</div>
+
+
+                <div class="evidence-explanation">Quantifies adverse changes per hour of sedentary time in insulin, HOMA-IR, and triglycerides together, spanning the insulin-resistance step this link traverses without observing the node between them.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28748993" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28748993" target="_blank">PMID:28748993</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The detrimental effect of sedentary behaviors on cardiometabolic and obesity-related traits is independent of physical activity levels."</div>
+
+
+                <div class="evidence-explanation">Establishes the effect as independent of physical activity level, so the exposure is sedentary behaviour itself rather than the absence of exercise. It fixes what the exposure is, not what it does to this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-obesity" data-dismech-node="Obesity" data-dismech-type="environmental">
                 <div class="item-name">Obesity</div>
+
+
+
+
 
 
 
@@ -7255,6 +7911,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Dysregulated Hepatic Lipogenesis and VLDL Overproduction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Excess adiposity reaches hepatic VLDL overproduction by the same insulin-resistance route as the sedentary link into this node, and is graded identically to it. Both items stay partial because they measure the circulating lipid pattern this node produces rather than the node, though the weight-loss reversal carries more causal weight than an association on its own.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20563664" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20563664" target="_blank">PMID:20563664</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Higher BMI was inversely associated with HDL and directly associated with TG."</div>
+
+
+                <div class="evidence-explanation">Higher body mass index tracks inversely with HDL and directly with triglycerides, which is the circulating pattern this node produces rather than the production step.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37979064" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37979064" target="_blank">PMID:37979064</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Weight loss either with diet or antiobestic medication induces the decrease in triglycerides (TG) and LDL-C and the increase in HDL-C."</div>
+
+
+                <div class="evidence-explanation">Weight loss by diet or antiobesity medication lowers triglycerides and LDL cholesterol and raises HDL. Removing the exposure reverses the output, which is the strongest causal design available in this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7649,9 +8379,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         liver tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-65">UBERON:0002107</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples liver tissue, annotated with liver (UBERON:0002107). UBERON:0002107 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7739,9 +8483,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         adipose tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-66">UBERON:0001013</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples adipose tissue (UBERON:0001013). UBERON:0001013 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7829,9 +8587,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         whole blood
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-67">UBERON:0000178</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples whole blood, annotated with blood (UBERON:0000178). UBERON:0000178 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7923,17 +8695,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased LDL cholesterol concentration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003141">HP:0003141</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0003141</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased LDL cholesterol concentration (HP:0003141). HP:0003141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coronary artery atherosclerosis
@@ -7941,10 +8720,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001677</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8004,17 +8786,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased LDL cholesterol concentration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003141">HP:0003141</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0003141</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased LDL cholesterol concentration (HP:0003141). HP:0003141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coronary artery atherosclerosis
@@ -8022,10 +8811,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0001677</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8085,17 +8877,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased LDL cholesterol concentration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003141">HP:0003141</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0003141</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased LDL cholesterol concentration (HP:0003141). HP:0003141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coronary artery atherosclerosis
@@ -8103,10 +8902,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0001677</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8166,16 +8968,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypertriglyceridemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002155">HP:0002155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0002155</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8223,6 +9030,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8239,7 +9049,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hyperlipidemia
 creation_date: &#34;2026-03-03T12:00:00Z&#34;
-updated_date: &#34;2026-05-09T16:53:23Z&#34;
 description: &gt;
   Hyperlipidemia is a heterogeneous dyslipidemia state characterized by elevated
   apoB-containing lipoproteins and/or triglyceride-rich lipoproteins. This entry
@@ -8869,6 +9678,12 @@ genetic:
     evidence_source: HUMAN_CLINICAL
 environmental:
 - name: High Saturated Fat Diet
+  exposure_term:
+    preferred_term: high dietary saturated fat exposure
+    modifier: INCREASED
+    term:
+      id: ECTO:0090010
+      label: exposure to lipid in food
   description: Dietary intake of saturated and trans fats increases hepatic cholesterol synthesis and reduces LDL receptor expression, raising serum LDL cholesterol.
   evidence:
   - reference: PMID:28166253
@@ -8884,6 +9699,42 @@ environmental:
     explanation: Supports nutrient composition, including fatty acids, as a modifiable driver of lipid abnormalities.
     evidence_source: OTHER
 - name: Sedentary Lifestyle
+  exposure_term:
+    preferred_term: sedentary lifestyle
+    term:
+      id: ECTO:6000004
+      label: exposure to sedentary lifestyle
+  influences_mechanisms:
+  - target: Dysregulated Hepatic Lipogenesis and VLDL Overproduction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Sitting time worsens insulin sensitivity, and insulin resistance is the
+      driver this node already names for SREBP-1c lipogenesis, which is why
+      the intermediate is recorded as known rather than unknown. Both items
+      stay partial because the cohort measures the step before this node, in
+      insulin and HOMA-IR, and the step after it, in triglycerides, without
+      measuring hepatic lipogenesis or VLDL production itself.
+    evidence:
+    - reference: PMID:28748993
+      reference_title: &#34;[Sedentary lifestyle is associated with metabolic and cardiovascular risk factors independent of physical activity].&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Per one hour increase in sedentary behavior there were significant adverse changes in glucose (4.79 mg/dl), insulin (2.73 pmol/l), HOMA-IR (0.75), BMI (0.69 kg/m²), waist circumference (1.95 cm), fat mass (1.03%), total cholesterol (9.73 mg/dl), HDL-cholesterol (-3.50 mg/dl), LDL-cholesterol (10.7 mg/dl) and triglycerides (12.4 mg/dl).&#34;
+      explanation: &gt;-
+        Quantifies adverse changes per hour of sedentary time in insulin,
+        HOMA-IR, and triglycerides together, spanning the insulin-resistance
+        step this link traverses without observing the node between them.
+    - reference: PMID:28748993
+      reference_title: &#34;[Sedentary lifestyle is associated with metabolic and cardiovascular risk factors independent of physical activity].&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The detrimental effect of sedentary behaviors on cardiometabolic and obesity-related traits is independent of physical activity levels.&#34;
+      explanation: &gt;-
+        Establishes the effect as independent of physical activity level, so
+        the exposure is sedentary behaviour itself rather than the absence of
+        exercise. It fixes what the exposure is, not what it does to this
+        node.
   description: Physical inactivity is associated with reduced HDL cholesterol, elevated triglycerides, and impaired lipid metabolism.
   evidence:
   - reference: PMID:28748993
@@ -8899,6 +9750,36 @@ environmental:
     explanation: Supports sedentary behavior as an independent environmental risk factor, not only the absence of exercise.
     evidence_source: HUMAN_CLINICAL
 - name: Obesity
+  influences_mechanisms:
+  - target: Dysregulated Hepatic Lipogenesis and VLDL Overproduction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Excess adiposity reaches hepatic VLDL overproduction by the same
+      insulin-resistance route as the sedentary link into this node, and is
+      graded identically to it. Both items stay partial because they measure
+      the circulating lipid pattern this node produces rather than the node,
+      though the weight-loss reversal carries more causal weight than an
+      association on its own.
+    evidence:
+    - reference: PMID:20563664
+      reference_title: &#34;Association of body mass index and lipid profiles: evaluation of a broad spectrum of body mass index patients including the morbidly obese.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Higher BMI was inversely associated with HDL and directly associated with TG.&#34;
+      explanation: &gt;-
+        Higher body mass index tracks inversely with HDL and directly with
+        triglycerides, which is the circulating pattern this node produces
+        rather than the production step.
+    - reference: PMID:37979064
+      reference_title: &#34;Obesity and Dyslipidemia.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Weight loss either with diet or antiobestic medication induces the decrease in triglycerides (TG) and LDL-C and the increase in HDL-C.&#34;
+      explanation: &gt;-
+        Weight loss by diet or antiobesity medication lowers triglycerides and
+        LDL cholesterol and raises HDL. Removing the exposure reverses the
+        output, which is the strongest causal design available in this entry.
   description: Excess adiposity promotes insulin resistance, hepatic VLDL overproduction, and dyslipidemia characterized by elevated triglycerides and low HDL.
   evidence:
   - reference: DOI:10.3390/nu16132156
@@ -9684,7 +10565,7 @@ Albitar et al. (2024-07; https://doi.org/10.3390/nu16132156) describe macrophage
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hyperlipidemia", "mondoId": "MONDO:0021187", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyperlipidemia", "yamlRevision": "551d8e9dde01"};
+        const OS_CONFIG = {"diseaseName": "Hyperlipidemia", "mondoId": "MONDO:0021187", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyperlipidemia", "yamlRevision": "e9cddd9698f8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10103,5 +10984,73 @@ Albitar et al. (2024-07; https://doi.org/10.3390/nu16132156) describe macrophage
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

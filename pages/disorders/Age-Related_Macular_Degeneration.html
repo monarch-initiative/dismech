@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Age-Related%20Macular%20Degeneration"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3724,7 +3892,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">24</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3759,6 +3927,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3785,27 +3961,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3999,16 +4252,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CFH
 
 
-    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4883">hgnc:4883</a>
+    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFH (hgnc:4883). hgnc:4883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4036,11 +4300,18 @@
         C3
 
 
-    <a href="https://bioregistry.io/hgnc:1318" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1318">hgnc:1318</a>
+    <a href="https://bioregistry.io/hgnc:1318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:1318</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves C3 (hgnc:1318). hgnc:1318 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4068,10 +4339,13 @@
         CFB
 
 
-    <a href="https://bioregistry.io/hgnc:1037" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1037">hgnc:1037</a>
+    <a href="https://bioregistry.io/hgnc:1037" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:1037</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFB (hgnc:1037). hgnc:1037 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4099,16 +4373,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4125,6 +4404,7 @@
 
 
                 </div>
+
 
 
 
@@ -4244,16 +4524,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ARMS2
 
 
-    <a href="https://bioregistry.io/hgnc:32685" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:32685">hgnc:32685</a>
+    <a href="https://bioregistry.io/hgnc:32685" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:32685</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ARMS2 (hgnc:32685). hgnc:32685 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4281,10 +4572,13 @@
         HTRA1
 
 
-    <a href="https://bioregistry.io/hgnc:9476" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9476">hgnc:9476</a>
+    <a href="https://bioregistry.io/hgnc:9476" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:9476</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HTRA1 (hgnc:9476). hgnc:9476 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4304,6 +4598,7 @@
 
 
                 </div>
+
 
 
 
@@ -4362,16 +4657,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4398,16 +4698,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4427,16 +4732,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4457,6 +4767,7 @@
 
 
                 </div>
+
 
 
 
@@ -4562,16 +4873,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4591,16 +4907,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4621,6 +4942,7 @@
 
 
                 </div>
+
 
 
 
@@ -4711,16 +5033,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4750,19 +5077,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         macula lutea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000053">UBERON:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4858,17 +5191,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000210">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4889,10 +5229,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4919,16 +5262,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         photoreceptor cell maintenance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045494">GO:0045494</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0045494</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased photoreceptor cell maintenance (GO:0045494). GO:0045494 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4937,6 +5285,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4954,10 +5304,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001895" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001895">GO:0001895</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001895" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0001895</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased retina homeostasis (GO:0001895). GO:0001895 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4984,19 +5337,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         macula lutea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000053">UBERON:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5100,17 +5459,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002586">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5131,11 +5497,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000636" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000636">CL:0000636</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000636" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000636</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mueller cell (CL:0000636). CL:0000636 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5156,10 +5527,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002585">CL:0002585</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002585" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0002585</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal blood vessel endothelial cell (CL:0002585). CL:0002585 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5186,16 +5560,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vascular endothelial growth factor production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010573" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010573">GO:0010573</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010573" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0010573</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vascular endothelial growth factor production (GO:0010573). GO:0010573 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5204,6 +5583,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5221,10 +5602,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001525">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5251,19 +5635,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         macula lutea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000053">UBERON:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0000053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5347,19 +5737,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         macula lutea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000053">UBERON:0000053</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0000053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in macula lutea (UBERON:0000053). UBERON:0000053 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5457,7 +5853,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"10q26 ARMS2/HTRA1 Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common variants at the chromosome 10q26 ARMS2/HTRA1 locus confer AMD susceptibility. The association is modeled at both candidate genes without selecting one causal gene or assigning an unsupported downstream molecular mechanism.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARMS2\", \"HTRA1\"], \"gene_terms\": [{\"label\": \"ARMS2\", \"id\": \"hgnc:32685\"}, {\"label\": \"HTRA1\", \"id\": \"hgnc:9476\"}]}}, {\"id\": \"ARMS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARMS2\"], \"gene_terms\": [{\"label\": \"ARMS2\", \"id\": \"hgnc:32685\"}], \"association\": \"Common susceptibility locus at 10q26\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"C3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C3\"], \"gene_terms\": [{\"label\": \"C3\", \"id\": \"hgnc:1318\"}], \"association\": \"Common complement-pathway susceptibility variant\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CFB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CFB\"], \"gene_terms\": [{\"label\": \"CFB\", \"id\": \"hgnc:1037\"}], \"association\": \"Complement-region susceptibility with both risk and protective haplotypes\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CFH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFH\"], \"gene_terms\": [{\"label\": \"CFH\", \"id\": \"hgnc:4883\"}], \"association\": \"Common polygenic susceptibility locus\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Central Scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A central visual-field defect associated with macular neovascular injury.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"term_id\": \"HP:0000603\"}}, {\"id\": \"Central Vision Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive or acute loss of central visual function from macular outer-retinal injury.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000572\"}}, {\"id\": \"Choroidal Neovascularization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pathologic neovascular growth in the macula characteristic of neovascular AMD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"term_id\": \"HP:0011506\"}}, {\"id\": \"Complement-Inhibitor Therapy for Geographic Atrophy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal complement inhibitors reduce geographic-atrophy lesion growth, but the cited network meta-analysis found no significant BCVA benefit and identified an increased macular-neovascularization risk with monthly pegcetacoplan.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Complement inhibitor\"]}}, {\"id\": \"Complement-Mediated Para-inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated complement activation in the posterior eye contributes to chronic low-grade para-inflammation and, when poorly controlled, inflammatory tissue injury that can impair retinal integrity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"complement activation\", \"inflammatory response\"]}}, {\"id\": \"Complement-Pathway Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common variation at CFH and in other complement-pathway genes, including C3 and CFB, alters susceptibility to AMD. CFB is not modeled as uniformly risk-increasing because human haplotype studies identify both risk and protective complement-region haplotypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"complement activation\"], \"genes\": [\"CFH\", \"C3\", \"CFB\"], \"gene_terms\": [{\"label\": \"CFH\", \"id\": \"hgnc:4883\"}, {\"label\": \"C3\", \"id\": \"hgnc:1318\"}, {\"label\": \"CFB\", \"id\": \"hgnc:1037\"}]}}, {\"id\": \"HTRA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HTRA1\"], \"gene_terms\": [{\"label\": \"HTRA1\", \"id\": \"hgnc:9476\"}], \"association\": \"Common susceptibility locus at 10q26\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Intravitreal Anti-VEGF Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal VEGF inhibition is first-line therapy for exudative neovascular AMD and preserves visual acuity relative to sham treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Angiogenesis inhibitor\"]}}, {\"id\": \"Low-Vision Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-vision aids and rehabilitation are recommended for geographic-atrophy-related visual loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macular Drusen\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extracellular macular deposits, typically beneath the retinal pigment epithelium.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030499\"}}, {\"id\": \"Macular Geographic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced dry AMD with geographic outer-retinal atrophy in the macula.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Dry AMD\"], \"term_id\": \"HP:0031609\"}}, {\"id\": \"Metamorphopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distortion of visual images caused by neovascular exudative macular injury.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"term_id\": \"HP:0012508\"}}, {\"id\": \"Outer-Retinal Extracellular Deposit Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipid-, complement-, amyloid-, and protein-containing extracellular deposits accumulate in the outer retina, including drusen beneath the retinal pigment epithelium. Drusen are a hallmark and progression marker, but are not treated here as a universally necessary or sufficient cause of advanced AMD.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of macular photoreceptors and loss of supporting retinal pigment epithelium produce outer-retinal atrophy; the advanced dry endpoint is geographic atrophy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal pigment epithelial cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\", \"retina homeostasis\"], \"subtypes\": [\"Dry AMD\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"RPE Oxidative and Lysosomal Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Age-related photo-oxidative products and reactive oxygen species stress retinal pigment epithelial cells. Protein-adduct formation and impaired autophagic flux compromise lysosomal clearance and cellular homeostasis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"autophagy\"], \"subtypes\": [\"Dry AMD\"]}}, {\"id\": \"Reduced Contrast Sensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced contrast discrimination, especially in intermediate AMD under low-light conditions.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032036\"}}, {\"id\": \"Subretinal/Intraretinal Exudative Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macular neovascular lesions disrupt outer-retinal architecture through intraretinal thickening and subretinal or intraretinal exudation, producing distortion, central field defects, and central visual loss.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"VEGF-Driven Macular Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Localized ischemia and inflammation increase VEGF production by retinal pigment epithelial and/or Mueller cells, promoting abnormal macular vascular growth from choriocapillaris or retinal microvascular sources.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\", \"Mueller cell\", \"retinal blood vessel endothelial cell\"], \"biological_processes\": [\"vascular endothelial growth factor production\", \"angiogenesis\"], \"subtypes\": [\"Wet AMD\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"Verteporfin Photodynamic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Verteporfin photodynamic therapy is an occasional treatment option for selected macular neovascular lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"verteporfin\"]}}], \"edges\": [{\"source\": \"Complement-Pathway Genetic Susceptibility\", \"target\": \"Complement-Mediated Para-inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement-pathway susceptibility is placed upstream of dysregulated local complement activity, but the intervening genotype-to-tissue mechanisms are incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered regulation of alternative complement activity\"]}, {\"source\": \"RPE Oxidative and Lysosomal Stress\", \"target\": \"Complement-Mediated Para-inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photo-oxidative lysosomal injury can activate complement and chronic inflammatory responses through protein-adduct formation and impaired autophagic clearance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"photo-oxidative degradation of accumulated bisretinoids\", \"protein-adduct formation\", \"impaired autophagic flux\"]}, {\"source\": \"RPE Oxidative and Lysosomal Stress\", \"target\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE injury and disrupted cellular homeostasis impair support of the outer retina and contribute to photoreceptor degeneration and atrophy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"RPE cellular damage\", \"loss of outer-retinal homeostatic support\"]}, {\"source\": \"Complement-Mediated Para-inflammation\", \"target\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic low-grade inflammation can exacerbate AMD tissue injury, although the complete set of intermediates leading to outer-retinal atrophy remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic inflammatory impairment of retinal integrity\"]}, {\"source\": \"Outer-Retinal Extracellular Deposit Accumulation\", \"target\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deposit accumulation precedes photoreceptor degeneration in the canonical AMD course, but the edge remains partial because drusen may also function as a biomarker and advanced AMD can occur without them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"incompletely resolved deposit-associated outer-retinal injury\"]}, {\"source\": \"Outer-Retinal Extracellular Deposit Accumulation\", \"target\": \"Macular Drusen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-retinal deposit accumulation is clinically observed as macular drusen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"target\": \"Macular Geographic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced outer-retinal atrophy in dry AMD is termed geographic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"target\": \"Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular photoreceptor degeneration impairs central vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"target\": \"Reduced Contrast Sensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-retinal dysfunction can reduce contrast sensitivity, particularly in intermediate AMD and under low-light conditions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired macular visual processing under low luminance\"]}, {\"source\": \"VEGF-Driven Macular Neovascularization\", \"target\": \"Subretinal/Intraretinal Exudative Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile macular neovascular complexes produce intraretinal thickening and subretinal exudation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VEGF-Driven Macular Neovascularization\", \"target\": \"Choroidal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neovascular wet AMD includes abnormal vessels arising from the choriocapillaris and presenting clinically as choroidal neovascularization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subretinal/Intraretinal Exudative Injury\", \"target\": \"Metamorphopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exudative disruption of macular architecture distorts central vision.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distortion of central retinal architecture\"]}, {\"source\": \"Subretinal/Intraretinal Exudative Injury\", \"target\": \"Central Scotoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exudative macular injury can produce a relative central scotoma.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"localized macular dysfunction\"]}, {\"source\": \"Subretinal/Intraretinal Exudative Injury\", \"target\": \"Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exudative damage to the macula reduces central vision.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disruption of central retinal structure and function\"]}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"VEGF-Driven Macular Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Choroidal Neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Complement-Inhibitor Therapy for Geographic Atrophy\", \"target\": \"Complement-Mediated Para-inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Complement-Inhibitor Therapy for Geographic Atrophy\", \"target\": \"Macular Geographic Atrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Verteporfin Photodynamic Therapy\", \"target\": \"Choroidal Neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-Vision Rehabilitation\", \"target\": \"Central Vision Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFH\", \"target\": \"Complement-Pathway Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARMS2\", \"target\": \"10q26 ARMS2/HTRA1 Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HTRA1\", \"target\": \"10q26 ARMS2/HTRA1 Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C3\", \"target\": \"Complement-Pathway Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFB\", \"target\": \"Complement-Pathway Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"10q26 ARMS2/HTRA1 Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common variants at the chromosome 10q26 ARMS2/HTRA1 locus confer AMD susceptibility. The association is modeled at both candidate genes without selecting one causal gene or assigning an unsupported downstream molecular mechanism.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARMS2\", \"HTRA1\"], \"gene_terms\": [{\"label\": \"ARMS2\", \"id\": \"hgnc:32685\"}, {\"label\": \"HTRA1\", \"id\": \"hgnc:9476\"}]}}, {\"id\": \"ARMS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ARMS2\"], \"gene_terms\": [{\"label\": \"ARMS2\", \"id\": \"hgnc:32685\"}], \"association\": \"Common susceptibility locus at 10q26\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"C3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"C3\"], \"gene_terms\": [{\"label\": \"C3\", \"id\": \"hgnc:1318\"}], \"association\": \"Common complement-pathway susceptibility variant\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CFB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CFB\"], \"gene_terms\": [{\"label\": \"CFB\", \"id\": \"hgnc:1037\"}], \"association\": \"Complement-region susceptibility with both risk and protective haplotypes\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CFH\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFH\"], \"gene_terms\": [{\"label\": \"CFH\", \"id\": \"hgnc:4883\"}], \"association\": \"Common polygenic susceptibility locus\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Central Scotoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A central visual-field defect associated with macular neovascular injury.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"term_id\": \"HP:0000603\"}}, {\"id\": \"Central Vision Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive or acute loss of central visual function from macular outer-retinal injury.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000572\"}}, {\"id\": \"Choroidal Neovascularization\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pathologic neovascular growth in the macula characteristic of neovascular AMD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"term_id\": \"HP:0011506\"}}, {\"id\": \"Cigarette Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Long-term cigarette smoking is associated with higher AMD incidence.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Complement-Inhibitor Therapy for Geographic Atrophy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal complement inhibitors reduce geographic-atrophy lesion growth, but the cited network meta-analysis found no significant BCVA benefit and identified an increased macular-neovascularization risk with monthly pegcetacoplan.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Complement inhibitor\"]}}, {\"id\": \"Complement-Mediated Para-inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated complement activation in the posterior eye contributes to chronic low-grade para-inflammation and, when poorly controlled, inflammatory tissue injury that can impair retinal integrity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"complement activation\", \"inflammatory response\"]}}, {\"id\": \"Complement-Pathway Genetic Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common variation at CFH and in other complement-pathway genes, including C3 and CFB, alters susceptibility to AMD. CFB is not modeled as uniformly risk-increasing because human haplotype studies identify both risk and protective complement-region haplotypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"complement activation\"], \"genes\": [\"CFH\", \"C3\", \"CFB\"], \"gene_terms\": [{\"label\": \"CFH\", \"id\": \"hgnc:4883\"}, {\"label\": \"C3\", \"id\": \"hgnc:1318\"}, {\"label\": \"CFB\", \"id\": \"hgnc:1037\"}]}}, {\"id\": \"HTRA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HTRA1\"], \"gene_terms\": [{\"label\": \"HTRA1\", \"id\": \"hgnc:9476\"}], \"association\": \"Common susceptibility locus at 10q26\", \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Intravitreal Anti-VEGF Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal VEGF inhibition is first-line therapy for exudative neovascular AMD and preserves visual acuity relative to sham treatment.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"Angiogenesis inhibitor\"]}}, {\"id\": \"Low-Vision Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-vision aids and rehabilitation are recommended for geographic-atrophy-related visual loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macular Drusen\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extracellular macular deposits, typically beneath the retinal pigment epithelium.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030499\"}}, {\"id\": \"Macular Geographic Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced dry AMD with geographic outer-retinal atrophy in the macula.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Dry AMD\"], \"term_id\": \"HP:0031609\"}}, {\"id\": \"Metamorphopsia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Distortion of visual images caused by neovascular exudative macular injury.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"term_id\": \"HP:0012508\"}}, {\"id\": \"Outer-Retinal Extracellular Deposit Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipid-, complement-, amyloid-, and protein-containing extracellular deposits accumulate in the outer retina, including drusen beneath the retinal pigment epithelium. Drusen are a hallmark and progression marker, but are not treated here as a universally necessary or sufficient cause of advanced AMD.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of macular photoreceptors and loss of supporting retinal pigment epithelium produce outer-retinal atrophy; the advanced dry endpoint is geographic atrophy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"photoreceptor cell\", \"retinal pigment epithelial cell\"], \"biological_processes\": [\"photoreceptor cell maintenance\", \"retina homeostasis\"], \"subtypes\": [\"Dry AMD\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"RPE Oxidative and Lysosomal Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Age-related photo-oxidative products and reactive oxygen species stress retinal pigment epithelial cells. Protein-adduct formation and impaired autophagic flux compromise lysosomal clearance and cellular homeostasis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\", \"autophagy\"], \"subtypes\": [\"Dry AMD\"]}}, {\"id\": \"Reduced Contrast Sensitivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced contrast discrimination, especially in intermediate AMD under low-light conditions.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032036\"}}, {\"id\": \"Subretinal/Intraretinal Exudative Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macular neovascular lesions disrupt outer-retinal architecture through intraretinal thickening and subretinal or intraretinal exudation, producing distortion, central field defects, and central visual loss.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Wet AMD\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"VEGF-Driven Macular Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Localized ischemia and inflammation increase VEGF production by retinal pigment epithelial and/or Mueller cells, promoting abnormal macular vascular growth from choriocapillaris or retinal microvascular sources.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal pigment epithelial cell\", \"Mueller cell\", \"retinal blood vessel endothelial cell\"], \"biological_processes\": [\"vascular endothelial growth factor production\", \"angiogenesis\"], \"subtypes\": [\"Wet AMD\"], \"locations\": [\"macula lutea\"]}}, {\"id\": \"Verteporfin Photodynamic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Verteporfin photodynamic therapy is an occasional treatment option for selected macular neovascular lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"verteporfin\"]}}], \"edges\": [{\"source\": \"Complement-Pathway Genetic Susceptibility\", \"target\": \"Complement-Mediated Para-inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement-pathway susceptibility is placed upstream of dysregulated local complement activity, but the intervening genotype-to-tissue mechanisms are incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered regulation of alternative complement activity\"]}, {\"source\": \"RPE Oxidative and Lysosomal Stress\", \"target\": \"Complement-Mediated Para-inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Photo-oxidative lysosomal injury can activate complement and chronic inflammatory responses through protein-adduct formation and impaired autophagic clearance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"photo-oxidative degradation of accumulated bisretinoids\", \"protein-adduct formation\", \"impaired autophagic flux\"]}, {\"source\": \"RPE Oxidative and Lysosomal Stress\", \"target\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RPE injury and disrupted cellular homeostasis impair support of the outer retina and contribute to photoreceptor degeneration and atrophy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"RPE cellular damage\", \"loss of outer-retinal homeostatic support\"]}, {\"source\": \"Complement-Mediated Para-inflammation\", \"target\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic low-grade inflammation can exacerbate AMD tissue injury, although the complete set of intermediates leading to outer-retinal atrophy remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic inflammatory impairment of retinal integrity\"]}, {\"source\": \"Outer-Retinal Extracellular Deposit Accumulation\", \"target\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deposit accumulation precedes photoreceptor degeneration in the canonical AMD course, but the edge remains partial because drusen may also function as a biomarker and advanced AMD can occur without them.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"incompletely resolved deposit-associated outer-retinal injury\"]}, {\"source\": \"Outer-Retinal Extracellular Deposit Accumulation\", \"target\": \"Macular Drusen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-retinal deposit accumulation is clinically observed as macular drusen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"target\": \"Macular Geographic Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced outer-retinal atrophy in dry AMD is termed geographic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"target\": \"Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macular photoreceptor degeneration impairs central vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Photoreceptor Degeneration and Outer-Retinal Atrophy\", \"target\": \"Reduced Contrast Sensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Outer-retinal dysfunction can reduce contrast sensitivity, particularly in intermediate AMD and under low-light conditions.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired macular visual processing under low luminance\"]}, {\"source\": \"VEGF-Driven Macular Neovascularization\", \"target\": \"Subretinal/Intraretinal Exudative Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile macular neovascular complexes produce intraretinal thickening and subretinal exudation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VEGF-Driven Macular Neovascularization\", \"target\": \"Choroidal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neovascular wet AMD includes abnormal vessels arising from the choriocapillaris and presenting clinically as choroidal neovascularization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subretinal/Intraretinal Exudative Injury\", \"target\": \"Metamorphopsia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exudative disruption of macular architecture distorts central vision.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"distortion of central retinal architecture\"]}, {\"source\": \"Subretinal/Intraretinal Exudative Injury\", \"target\": \"Central Scotoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exudative macular injury can produce a relative central scotoma.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"localized macular dysfunction\"]}, {\"source\": \"Subretinal/Intraretinal Exudative Injury\", \"target\": \"Central Vision Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exudative damage to the macula reduces central vision.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disruption of central retinal structure and function\"]}, {\"source\": \"Cigarette Smoking\", \"target\": \"RPE Oxidative and Lysosomal Stress\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Pointed at retinal pigment epithelium oxidative and lysosomal stress because that is where this entry places the earliest acquired injury, and oxidative stress is the route by which smoking is understood to reach it. The intermediates are recorded as known on that mapped route rather than on the quoted sentence, which reaches only the disease. Predisposing rather than triggering because the item is an incidence comparison between smokers and never-smokers, which is a statement about risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"VEGF-Driven Macular Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Choroidal Neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Complement-Inhibitor Therapy for Geographic Atrophy\", \"target\": \"Complement-Mediated Para-inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Complement-Inhibitor Therapy for Geographic Atrophy\", \"target\": \"Macular Geographic Atrophy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Verteporfin Photodynamic Therapy\", \"target\": \"Choroidal Neovascularization\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Low-Vision Rehabilitation\", \"target\": \"Central Vision Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFH\", \"target\": \"Complement-Pathway Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ARMS2\", \"target\": \"10q26 ARMS2/HTRA1 Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HTRA1\", \"target\": \"10q26 ARMS2/HTRA1 Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"C3\", \"target\": \"Complement-Pathway Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFB\", \"target\": \"Complement-Pathway Genetic Susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5496,14 +5892,23 @@
                         Central Vision Loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual loss
+
+                        <span class="phenotype-term-label">Visual loss</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000572</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central vision loss, annotated with Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5555,14 +5960,21 @@
                         Central Scotoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central scotoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000603">HP:0000603</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5623,14 +6035,21 @@
                         Metamorphopsia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Metamorphopsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012508">HP:0012508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metamorphopsia (HP:0012508). HP:0012508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5682,14 +6101,21 @@
                         Reduced Contrast Sensitivity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced contrast sensitivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032036" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032036">HP:0032036</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0032036</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced contrast sensitivity (HP:0032036). HP:0032036 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5741,14 +6167,21 @@
                         Macular Drusen
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macular drusen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030499" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030499">HP:0030499</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030499</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macular drusen (HP:0030499). HP:0030499 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5800,14 +6233,21 @@
                         Macular Geographic Atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Macular geographic atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031609" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031609">HP:0031609</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0031609</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macular geographic atrophy (HP:0031609). HP:0031609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5859,14 +6299,21 @@
                         Choroidal Neovascularization
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Choroidal neovascularization
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011506">HP:0011506</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011506</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Choroidal neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5964,13 +6411,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFH
 
 
-    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4883">hgnc:4883</a>
+    <a href="https://bioregistry.io/hgnc:4883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:4883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFH (hgnc:4883). hgnc:4883 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6032,13 +6484,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ARMS2
 
 
-    <a href="https://bioregistry.io/hgnc:32685" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:32685">hgnc:32685</a>
+    <a href="https://bioregistry.io/hgnc:32685" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:32685</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARMS2 (hgnc:32685). hgnc:32685 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6100,13 +6557,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HTRA1
 
 
-    <a href="https://bioregistry.io/hgnc:9476" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9476">hgnc:9476</a>
+    <a href="https://bioregistry.io/hgnc:9476" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:9476</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HTRA1 (hgnc:9476). hgnc:9476 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6168,13 +6630,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: C3
 
 
-    <a href="https://bioregistry.io/hgnc:1318" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1318">hgnc:1318</a>
+    <a href="https://bioregistry.io/hgnc:1318" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:1318</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C3 (hgnc:1318). hgnc:1318 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6236,13 +6703,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFB
 
 
-    <a href="https://bioregistry.io/hgnc:1037" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1037">hgnc:1037</a>
+    <a href="https://bioregistry.io/hgnc:1037" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:1037</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFB (hgnc:1037). hgnc:1037 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6337,7 +6809,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6367,16 +6844,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         Angiogenesis inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1742" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1742">NCIT:C1742</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1742" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C1742</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Angiogenesis inhibitor (NCIT:C1742). NCIT:C1742 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6440,16 +6922,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Choroidal Neovascularization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011506">HP:0011506</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0011506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Choroidal Neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6522,7 +7009,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">nutritional supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -6602,7 +7094,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6632,16 +7129,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         Complement inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C199456" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C199456">NCIT:C199456</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C199456" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C199456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses Complement inhibitor (NCIT:C199456). NCIT:C199456 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6705,16 +7207,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Macular Geographic Atrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031609" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031609">HP:0031609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0031609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Macular Geographic Atrophy (HP:0031609). HP:0031609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6787,7 +7294,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">photodynamic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">photodynamic therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is photodynamic therapy (NCIT:C15300). NCIT:C15300 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Photodynamic Therapy</span>
 
 
@@ -6818,16 +7330,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         verteporfin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_32293" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:32293">CHEBI:32293</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_32293" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:32293</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses verteporfin (CHEBI:32293). CHEBI:32293 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6841,16 +7358,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Choroidal Neovascularization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011506">HP:0011506</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0011506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Choroidal Neovascularization (HP:0011506). HP:0011506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6901,7 +7423,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Rehabilitation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6937,16 +7464,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Central Vision Loss
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000572</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Central Vision Loss, annotated with Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7006,6 +7538,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">AMD incidence rises steeply across older age strata.</div>
 
 
@@ -7051,21 +7587,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to cigarette smoking
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0100003">ECTO:0100003</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-50">ECTO:0100003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -7107,6 +7652,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">RPE Oxidative and Lysosomal Stress</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pointed at retinal pigment epithelium oxidative and lysosomal stress because that is where this entry places the earliest acquired injury, and oxidative stress is the route by which smoking is understood to reach it. The intermediates are recorded as known on that mapped route rather than on the quoted sentence, which reaches only the disease. Predisposing rather than triggering because the item is an incidence comparison between smokers and never-smokers, which is a statement about risk.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38193957" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38193957" target="_blank">PMID:38193957</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Long-term prospective cohort studies show a significantly higher AMD incidence in people who smoke more than 20 cigarettes per day compared with people who never smoked."</div>
+
+
+                <div class="evidence-explanation">Long-term prospective cohorts showing significantly higher disease incidence in people smoking more than twenty cigarettes a day than in never-smokers. A dose-related incidence difference for the disease, which does not reach the retinal pigment epithelium at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -7120,11 +7717,163 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Non-canonical roles of CFH in retinal pigment epithelial cells revealed by dysfunctional rare CFH variants
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE275494" target="_blank">geo:GSE275494</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Complement Factor H (CFH) common genetic variants have been associated with age-related macular degeneration (AMD). While most previous in vitro RPE studies focused on the common p.His402Tyr CFH variant, we characterized rare CFH variants that are highly penetrant for AMD using induced pluripotent stem cell derived retinal pigment epithelium (iPSC-RPE). Our results show that lower FH levels were detected in AMD RPE, which potentially disrupted canonical and non-canonical roles of FH. Specifically, AMD RPE displayed higher inflammation rate and a reduced set of differentially expressed genes compared to control RPE upon A2E and blue light challenge.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=90</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39753135" target="_blank" style="color: var(--secondary);">PMID:39753135</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Age-Related Macular Degeneration (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Human Plasma Metabolomics in Age-related Macular Degeneration (AMD) Using Nuclear Magnetic Resonance Spectroscopy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000590" target="_blank">metabolomics_workbench:ST000590</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Age-Related Macular Degeneration&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Retinal pigment epithelium extracellular vesicles are potent inducers of age-related macular degeneration disease phenotype in the outer retina
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000088713" target="_blank">massive:MSV000088713</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Age-related macular degeneration (AMD) is a leading cause of blindness. Vision loss is caused by the loss of the retinal pigment epithelium (RPE) and photoreceptors and/or retinal and choroidal angiogenesis. Here we use AMD patient specific RPE cells with the Y402H high-risk polymorphism in the complement factor H to perform a comprehensive analysis of EVs, their cargo and role in disease pathology. We show that AMD RPE is characterised by enhanced and polarised EV secretion.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Age-Related Macular Degeneration&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genetics of Age-Related Macular Degeneration in the Amish
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs001361" target="_blank">dbgap:phs001361</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Identifying genetic risk loci for Age-Related Macular Degeneration is important. Most of the loci identified to date have been found through the interrogation of common variants. This study initiates the identification of rare variants in a founder population, the Amish, and will use genotyping of known risk loci and ultimately use the whole exome chip to assess the association of Age-related Macular Degeneration with coding variants.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Age-Related Macular Degeneration&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7143,7 +7892,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Age-Related Macular Degeneration
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Age-related macular degeneration (AMD) is a multifactorial disease of the
   macula in which age, smoking, and polygenic susceptibility converge on
@@ -7988,6 +8736,30 @@ environmental:
     snippet: &#34;Older age, genetic factors, and environmental factors, such as cigarette smoking, are associated with development of AMD.&#34;
     explanation: The review identifies older age as an AMD-associated factor.
 - name: Cigarette Smoking
+  influences_mechanisms:
+  - target: RPE Oxidative and Lysosomal Stress
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Pointed at retinal pigment epithelium oxidative and lysosomal stress
+      because that is where this entry places the earliest acquired injury,
+      and oxidative stress is the route by which smoking is understood to
+      reach it. The intermediates are recorded as known on that mapped route
+      rather than on the quoted sentence, which reaches only the disease.
+      Predisposing rather than triggering because the item is an incidence
+      comparison between smokers and never-smokers, which is a statement about
+      risk.
+    evidence:
+    - reference: PMID:38193957
+      reference_title: &#34;Age-Related Macular Degeneration: A Review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Long-term prospective cohort studies show a significantly higher AMD incidence in people who smoke more than 20 cigarettes per day compared with people who never smoked.&#34;
+      explanation: &gt;-
+        Long-term prospective cohorts showing significantly higher disease
+        incidence in people smoking more than twenty cigarettes a day than in
+        never-smokers. A dose-related incidence difference for the disease,
+        which does not reach the retinal pigment epithelium at this node.
   presence: Risk factor
   description: Long-term cigarette smoking is associated with higher AMD incidence.
   exposure_term:
@@ -8244,6 +9016,30 @@ references:
 - reference: DOI:10.3389/fphar.2024.1410172
   title: &#34;Efficacy and safety of complement inhibitors in patients with geographic atrophy associated with age-related macular degeneration: a network meta-analysis of randomized controlled trials&#34;
   findings: []
+datasets:
+- accession: geo:GSE275494
+  title: Non-canonical roles of CFH in retinal pigment epithelial cells revealed by dysfunctional rare CFH variants
+  description: Complement Factor H (CFH) common genetic variants have been associated with age-related macular degeneration (AMD). While most previous in vitro RPE studies focused on the common p.His402Tyr CFH variant, we characterized rare CFH variants that are highly penetrant for AMD using induced pluripotent stem cell derived retinal pigment epithelium (iPSC-RPE). Our results show that lower FH levels were detected in AMD RPE, which potentially disrupted canonical and non-canonical roles of FH. Specifically, AMD RPE displayed higher inflammation rate and a reduced set of differentially expressed genes compared to control RPE upon A2E and blue light challenge.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 90
+  publication: PMID:39753135
+  notes: Identified by GEO DataSets index search for Age-Related Macular Degeneration (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: metabolomics_workbench:ST000590
+  title: Human Plasma Metabolomics in Age-related Macular Degeneration (AMD) Using Nuclear Magnetic Resonance Spectroscopy
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Age-Related Macular Degeneration&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000088713
+  title: Retinal pigment epithelium extracellular vesicles are potent inducers of age-related macular degeneration disease phenotype in the outer retina
+  description: Age-related macular degeneration (AMD) is a leading cause of blindness. Vision loss is caused by the loss of the retinal pigment epithelium (RPE) and photoreceptors and/or retinal and choroidal angiogenesis. Here we use AMD patient specific RPE cells with the Y402H high-risk polymorphism in the complement factor H to perform a comprehensive analysis of EVs, their cargo and role in disease pathology. We show that AMD RPE is characterised by enhanced and polarised EV secretion.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Age-Related Macular Degeneration&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs001361
+  title: Genetics of Age-Related Macular Degeneration in the Amish
+  description:  Identifying genetic risk loci for Age-Related Macular Degeneration is important. Most of the loci identified to date have been found through the interrogation of common variants. This study initiates the identification of rare variants in a founder population, the Amish, and will use genotyping of known risk loci and ultimately use the whole exome chip to assess the association of Age-related Macular Degeneration with coding variants.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Age-Related Macular Degeneration&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -8749,7 +9545,7 @@ AMD is a multifactorial neurodegenerative disease of the macula characterized by
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Age-Related Macular Degeneration", "mondoId": "MONDO:0005150", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Age-Related_Macular_Degeneration", "yamlRevision": "19a47888acc3"};
+        const OS_CONFIG = {"diseaseName": "Age-Related Macular Degeneration", "mondoId": "MONDO:0005150", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Age-Related_Macular_Degeneration", "yamlRevision": "255fe430a714"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9168,5 +9964,73 @@ AMD is a multifactorial neurodegenerative disease of the macula characterized by
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=SHH%20Holoprosencephaly%20Spectrum"
@@ -3701,6 +3867,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3746,7 +3914,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4400,16 +4568,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000047">CL:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell, annotated with neural stem cell (CL:0000047). CL:0000047 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4436,16 +4609,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Smoothened signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4454,6 +4632,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4471,10 +4651,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021798" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0021798">GO:0021798</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021798" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0021798</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Forebrain dorsal/ventral pattern formation (GO:0021798). GO:0021798 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4501,19 +4684,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         forebrain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001890">UBERON:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0001890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:0001890 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4641,19 +4830,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         forebrain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001890">UBERON:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0001890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:0001890 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4745,19 +4940,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         face
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001456">UBERON:0001456</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in face (UBERON:0001456). UBERON:0001456 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4840,19 +5041,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         hypothalamus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001898">UBERON:0001898</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:0001898 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4921,6 +5128,7 @@
                 <div class="item-name">Hypothalamic Autonomic and Homeostatic Dysfunction</div>
 
                 <div class="item-desc">Non-endocrine hypothalamic failure in HPE - disturbed sleep-wake cycles, temperature dysregulation, and autonomic instability - the second consequence arm of hypothalamic non-separation alongside central diabetes insipidus.</div>
+
 
 
 
@@ -5018,6 +5226,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5057,6 +5266,7 @@
                 <div class="item-name">Neurological Impairment</div>
 
                 <div class="item-desc">Neurologic dysfunction in HPE worsens as hemispheric non-separation becomes more severe.</div>
+
 
 
 
@@ -5151,19 +5361,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pituitary gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000007">UBERON:0000007</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000007</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON:0000007 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5231,6 +5447,7 @@
                 <div class="item-name">Modifier-Dependent Variable Expressivity</div>
 
                 <div class="item-desc">SHH HPE follows a multi-hit model in which the primary heterozygous SHH variant interacts with additional genetic modifiers and environmental factors to determine the position on the severity spectrum from microform to alobar HPE.</div>
+
 
 
 
@@ -5370,7 +5587,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Balloon Dilation and Neonatal Palatal Expander for CNPAS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined otolaryngological-orthodontic airway management for congenital nasal pyriform aperture stenosis in the mild/microform end of the HPE spectrum. Balloon dilation widens the nasal cavity and a neonatal palatal expander plate stabilises the result and restores the sucking-swallowing mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Central Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypocorticism from anterior pituitary dysfunction secondary to midline forebrain maldevelopment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011734\"}}, {\"id\": \"Central Diabetes Insipidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arginine-vasopressin deficiency arising from failure of hypothalamic nuclear cleavage. The single most common endocrinopathy in classic HPE, with severity tracking the grade of hypothalamic non-separation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000863\"}}, {\"id\": \"Central Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid hormone deficiency of hypothalamic-pituitary origin, one of the less common anterior pituitary dysfunctions in HPE.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011787\"}}, {\"id\": \"Craniofacial Midline Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced SHH morphogen from the prechordal plate impairs midline facial development, producing a spectrum from cyclopia and proboscis in severe cases to hypotelorism, SMMCI, and cleft lip/palate in milder forms. The principle that \\\"the face predicts the brain\\\" reflects the shared embryological origin.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"face\"]}}, {\"id\": \"Desmopressin for Central Diabetes Insipidus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vasopressin-analogue replacement for the arginine-vasopressin deficiency that arises from hypothalamic non-separation. Central diabetes insipidus is the most common endocrinopathy in classic HPE and is a standing indication for endocrine surveillance and replacement.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"desmopressin\"]}}, {\"id\": \"Endocrine Hormone Replacement for Anterior Pituitary Deficiency\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement of deficient anterior pituitary axes - levothyroxine for central hypothyroidism, glucocorticoid for central adrenal insufficiency, and growth hormone for somatotropin deficiency - guided by surveillance. These deficiencies are substantially less common than diabetes insipidus.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enteral Feeding Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy feeding secures nutrition and reduces aspiration risk in children with oromotor dysfunction, which is a common complication in the more severe HPE subtypes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oromotor dysfunction with impaired suck-swallow coordination, poor nutrition, and aspiration risk; frequently requires gastrostomy in severe subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Hypothalamic Autonomic and Homeostatic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-endocrine hypothalamic dysfunction arising from the same failure of hypothalamic nuclear cleavage that produces central diabetes insipidus, manifesting as disturbed sleep-wake cycles, impaired thermoregulation, and autonomic instability.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012332\"}}, {\"id\": \"Hypothalamic Non-Separation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of cleavage of the hypothalamic nuclei is the anatomic substrate of the posterior pituitary/vasopressin axis failure in HPE. The severity of hypothalamic non-separation grades with the severity of central diabetes insipidus.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hypothalamus\"]}}, {\"id\": \"Impaired Forebrain Midline Separation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insufficient SHH signaling causes failure of the prosencephalon to cleave into distinct cerebral hemispheres, resulting in the characteristic alobar through lobar HPE continuum.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"forebrain\"]}}, {\"id\": \"Modifier-Dependent Variable Expressivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SHH HPE follows a multi-hit model in which the primary heterozygous SHH variant interacts with additional genetic modifiers and environmental factors to determine the position on the severity spectrum from microform to alobar HPE.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Neurological Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurologic dysfunction in HPE worsens as hemispheric non-separation becomes more severe.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pituitary Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior pituitary hypoplasia or dysfunction secondary to midline brain defects, manifesting as deficiency of one or more anterior pituitary hormones - growth hormone deficiency, central hypothyroidism, or central adrenal insufficiency. The posterior/hypothalamic axis failure of HPE is modeled separately as central diabetes insipidus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000830\"}}, {\"id\": \"Pyriform Aperture Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital nasal pyriform aperture stenosis (CNPAS), a bony narrowing of the anterior nasal airway that causes neonatal nasal obstruction and is associated with mild/microform holoprosencephaly and SMMCI.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Microform HPE\"], \"term_id\": \"HP:0025011\"}}, {\"id\": \"Reduced SHH Signaling in Forebrain Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous loss-of-function variants in SHH reduce the morphogen gradient required for ventral forebrain specification and midline patterning. SHH protein acts as a morphogen secreted from the prechordal plate and ventral midline, directing dorsoventral patterning of the prosencephalon and separation of the cerebral hemispheres.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"Smoothened signaling pathway\", \"Forebrain dorsal/ventral pattern formation\"], \"locations\": [\"forebrain\"]}}], \"edges\": [{\"source\": \"Reduced SHH Signaling in Forebrain Patterning\", \"target\": \"Impaired Forebrain Midline Separation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the ventral midline SHH gradient prevents cleavage of the prosencephalon into paired hemispheres.\"}, {\"source\": \"Reduced SHH Signaling in Forebrain Patterning\", \"target\": \"Craniofacial Midline Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same prechordal-plate SHH deficiency that mispatterns the forebrain also impairs midline facial morphogenesis.\"}, {\"source\": \"Impaired Forebrain Midline Separation\", \"target\": \"Neurological Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More severe forebrain non-separation is associated with more severe neurologic dysfunction.\"}, {\"source\": \"Impaired Forebrain Midline Separation\", \"target\": \"Hypothalamic Non-Separation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of midline cleavage extends to the hypothalamic nuclei.\"}, {\"source\": \"Impaired Forebrain Midline Separation\", \"target\": \"Pituitary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brain midline defects disrupt pituitary gland formation, causing endocrine insufficiency.\"}, {\"source\": \"Hypothalamic Non-Separation\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-separated hypothalamic nuclei fail to support normal arginine-vasopressin production.\"}, {\"source\": \"Hypothalamic Non-Separation\", \"target\": \"Hypothalamic Autonomic and Homeostatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-separated hypothalamic nuclei also fail to support the non-endocrine homeostatic functions of the hypothalamus - circadian sleep-wake regulation, thermoregulation, and autonomic control.\"}, {\"source\": \"Modifier-Dependent Variable Expressivity\", \"target\": \"Reduced SHH Signaling in Forebrain Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Second-site modifiers act on the same hedgehog-dependent midline program as the primary SHH variant, shifting how far pathway output falls below the threshold required for midline patterning and thus where an individual lands on the microform-to-alobar spectrum.\"}, {\"source\": \"Desmopressin for Central Diabetes Insipidus\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Desmopressin for Central Diabetes Insipidus\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Endocrine Hormone Replacement for Anterior Pituitary Deficiency\", \"target\": \"Central Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Endocrine Hormone Replacement for Anterior Pituitary Deficiency\", \"target\": \"Central Adrenal Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Enteral Feeding Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Balloon Dilation and Neonatal Palatal Expander for CNPAS\", \"target\": \"Pyriform Aperture Stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Balloon Dilation and Neonatal Palatal Expander for CNPAS\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combined otolaryngological-orthodontic airway management for congenital nasal pyriform aperture stenosis in the mild/microform end of the HPE spectrum. Balloon dilation widens the nasal cavity and a neonatal palatal expander plate stabilises the result and restores the sucking-swallowing mechanism.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Central Adrenal Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypocorticism from anterior pituitary dysfunction secondary to midline forebrain maldevelopment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011734\"}}, {\"id\": \"Central Diabetes Insipidus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arginine-vasopressin deficiency arising from failure of hypothalamic nuclear cleavage. The single most common endocrinopathy in classic HPE, with severity tracking the grade of hypothalamic non-separation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000863\"}}, {\"id\": \"Central Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thyroid hormone deficiency of hypothalamic-pituitary origin, one of the less common anterior pituitary dysfunctions in HPE.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011787\"}}, {\"id\": \"Craniofacial Midline Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced SHH morphogen from the prechordal plate impairs midline facial development, producing a spectrum from cyclopia and proboscis in severe cases to hypotelorism, SMMCI, and cleft lip/palate in milder forms. The principle that \\\"the face predicts the brain\\\" reflects the shared embryological origin.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"face\"]}}, {\"id\": \"Cumulative gene-environment insult\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Holoprosencephaly is a paradigm multifactorial malformation in which a partially penetrant genetic lesion in the hedgehog pathway is pushed past a developmental threshold by an independent environmental insult. This is the mechanistic rationale for the multi-hit model of SHH HPE expressivity.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Modifying factor\"}}, {\"id\": \"Desmopressin for Central Diabetes Insipidus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vasopressin-analogue replacement for the arginine-vasopressin deficiency that arises from hypothalamic non-separation. Central diabetes insipidus is the most common endocrinopathy in classic HPE and is a standing indication for endocrine surveillance and replacement.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"desmopressin\"]}}, {\"id\": \"Endocrine Hormone Replacement for Anterior Pituitary Deficiency\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Replacement of deficient anterior pituitary axes - levothyroxine for central hypothyroidism, glucocorticoid for central adrenal insufficiency, and growth hormone for somatotropin deficiency - guided by surveillance. These deficiencies are substantially less common than diabetes insipidus.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Enteral Feeding Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gastrostomy feeding secures nutrition and reduces aspiration risk in children with oromotor dysfunction, which is a common complication in the more severe HPE subtypes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oromotor dysfunction with impaired suck-swallow coordination, poor nutrition, and aspiration risk; frequently requires gastrostomy in severe subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Hypothalamic Autonomic and Homeostatic Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-endocrine hypothalamic dysfunction arising from the same failure of hypothalamic nuclear cleavage that produces central diabetes insipidus, manifesting as disturbed sleep-wake cycles, impaired thermoregulation, and autonomic instability.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012332\"}}, {\"id\": \"Hypothalamic Non-Separation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of cleavage of the hypothalamic nuclei is the anatomic substrate of the posterior pituitary/vasopressin axis failure in HPE. The severity of hypothalamic non-separation grades with the severity of central diabetes insipidus.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hypothalamus\"]}}, {\"id\": \"Impaired Forebrain Midline Separation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insufficient SHH signaling causes failure of the prosencephalon to cleave into distinct cerebral hemispheres, resulting in the characteristic alobar through lobar HPE continuum.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"forebrain\"]}}, {\"id\": \"Maternal pregestational diabetes mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pre-existing maternal diabetes with periconceptional hyperglycaemia is the best-established non-genetic risk factor for holoprosencephaly. The proposed mechanism is hyperglycaemia-driven oxidative stress in the neuroectoderm, particularly cranial neural crest cells, converging on the same midline developmental field that SHH dosage controls.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Risk factor\"}}, {\"id\": \"Modifier-Dependent Variable Expressivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SHH HPE follows a multi-hit model in which the primary heterozygous SHH variant interacts with additional genetic modifiers and environmental factors to determine the position on the severity spectrum from microform to alobar HPE.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Neurological Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurologic dysfunction in HPE worsens as hemispheric non-separation becomes more severe.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pituitary Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior pituitary hypoplasia or dysfunction secondary to midline brain defects, manifesting as deficiency of one or more anterior pituitary hormones - growth hormone deficiency, central hypothyroidism, or central adrenal insufficiency. The posterior/hypothalamic axis failure of HPE is modeled separately as central diabetes insipidus.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000830\"}}, {\"id\": \"Pyriform Aperture Stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital nasal pyriform aperture stenosis (CNPAS), a bony narrowing of the anterior nasal airway that causes neonatal nasal obstruction and is associated with mild/microform holoprosencephaly and SMMCI.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Microform HPE\"], \"term_id\": \"HP:0025011\"}}, {\"id\": \"Reduced SHH Signaling in Forebrain Patterning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous loss-of-function variants in SHH reduce the morphogen gradient required for ventral forebrain specification and midline patterning. SHH protein acts as a morphogen secreted from the prechordal plate and ventral midline, directing dorsoventral patterning of the prosencephalon and separation of the cerebral hemispheres.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"Smoothened signaling pathway\", \"Forebrain dorsal/ventral pattern formation\"], \"locations\": [\"forebrain\"]}}], \"edges\": [{\"source\": \"Reduced SHH Signaling in Forebrain Patterning\", \"target\": \"Impaired Forebrain Midline Separation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the ventral midline SHH gradient prevents cleavage of the prosencephalon into paired hemispheres.\"}, {\"source\": \"Reduced SHH Signaling in Forebrain Patterning\", \"target\": \"Craniofacial Midline Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same prechordal-plate SHH deficiency that mispatterns the forebrain also impairs midline facial morphogenesis.\"}, {\"source\": \"Impaired Forebrain Midline Separation\", \"target\": \"Neurological Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More severe forebrain non-separation is associated with more severe neurologic dysfunction.\"}, {\"source\": \"Impaired Forebrain Midline Separation\", \"target\": \"Hypothalamic Non-Separation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of midline cleavage extends to the hypothalamic nuclei.\"}, {\"source\": \"Impaired Forebrain Midline Separation\", \"target\": \"Pituitary Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brain midline defects disrupt pituitary gland formation, causing endocrine insufficiency.\"}, {\"source\": \"Hypothalamic Non-Separation\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-separated hypothalamic nuclei fail to support normal arginine-vasopressin production.\"}, {\"source\": \"Hypothalamic Non-Separation\", \"target\": \"Hypothalamic Autonomic and Homeostatic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Non-separated hypothalamic nuclei also fail to support the non-endocrine homeostatic functions of the hypothalamus - circadian sleep-wake regulation, thermoregulation, and autonomic control.\"}, {\"source\": \"Modifier-Dependent Variable Expressivity\", \"target\": \"Reduced SHH Signaling in Forebrain Patterning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Second-site modifiers act on the same hedgehog-dependent midline program as the primary SHH variant, shifting how far pathway output falls below the threshold required for midline patterning and thus where an individual lands on the microform-to-alobar spectrum.\"}, {\"source\": \"Maternal pregestational diabetes mellitus\", \"target\": \"Impaired Forebrain Midline Separation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The best-established non-genetic risk factor for this malformation, and one of the few exposures in this backfill whose intervening step is named by its own evidence rather than only by the entry\u0027s prose: periconceptional hyperglycaemia is proposed to act through oxidative stress in the neuroectoderm and cranial neural crest, converging on the midline field this node holds. That is why the intermediates are recorded as known.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cumulative gene-environment insult\", \"target\": \"Modifier-Dependent Variable Expressivity\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Recorded as modulating rather than predisposing, and pointed at the variable-expressivity node rather than at a developmental step, because that is exactly what this exposure claims to do: it is not an insult in its own right but the proposition that a partially penetrant genetic lesion can be pushed past a threshold by an independent one. The cited sentence is candid that this is speculation and that what drives manifestation in genetically at-risk individuals remains unknown, which is why the grade is as low as it is.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Desmopressin for Central Diabetes Insipidus\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Desmopressin for Central Diabetes Insipidus\", \"target\": \"Central Diabetes Insipidus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Endocrine Hormone Replacement for Anterior Pituitary Deficiency\", \"target\": \"Central Hypothyroidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Endocrine Hormone Replacement for Anterior Pituitary Deficiency\", \"target\": \"Central Adrenal Insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Enteral Feeding Support\", \"target\": \"Feeding Difficulties\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Balloon Dilation and Neonatal Palatal Expander for CNPAS\", \"target\": \"Pyriform Aperture Stenosis\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5417,14 +5634,21 @@
                         Feeding Difficulties
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5487,14 +5711,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central diabetes insipidus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000863">HP:0000863</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000863</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central diabetes insipidus (HP:0000863). HP:0000863 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5570,14 +5801,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Secondary growth hormone deficiency
+
+                        <span class="phenotype-term-label">Secondary growth hormone deficiency</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008240">HP:0008240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0008240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Secondary growth hormone deficiency (HP:0008240). HP:0008240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5638,14 +5878,21 @@
                         Hypotelorism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000601">HP:0000601</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000601</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotelorism (HP:0000601). HP:0000601 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5697,14 +5944,21 @@
                         Microphthalmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5756,14 +6010,21 @@
                         Coloboma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000589</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5824,14 +6085,21 @@
                         Microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5883,14 +6151,21 @@
                         Solitary Median Maxillary Central Incisor
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Solitary median maxillary central incisor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006315">HP:0006315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Solitary median maxillary central incisor (HP:0006315). HP:0006315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5964,14 +6239,21 @@
                         Orofacial Cleft
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Orofacial cleft
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000202">HP:0000202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6023,14 +6305,21 @@
                         Choanal Atresia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Choanal atresia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000453">HP:0000453</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000453</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6091,14 +6380,21 @@
                         Holoprosencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001360">HP:0001360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6152,14 +6448,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6211,14 +6514,21 @@
                         Intellectual Disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6270,14 +6580,21 @@
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6329,14 +6646,21 @@
                         Hydrocephalus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6388,14 +6712,23 @@
                         Hypothalamic Autonomic and Homeostatic Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal autonomic nervous system physiology
+
+                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012332">HP:0012332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6478,14 +6811,21 @@
                         Alobar Holoprosencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Alobar holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006988" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006988">HP:0006988</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006988</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Alobar holoprosencephaly (HP:0006988). HP:0006988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6537,14 +6877,21 @@
                         Semilobar Holoprosencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Semilobar holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002507" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002507">HP:0002507</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002507" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002507</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Semilobar holoprosencephaly (HP:0002507). HP:0002507 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6596,14 +6943,21 @@
                         Lobar Holoprosencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lobar holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006870">HP:0006870</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0006870</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lobar holoprosencephaly (HP:0006870). HP:0006870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6655,14 +7009,21 @@
                         Cyclopia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyclopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009914" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009914">HP:0009914</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009914" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0009914</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyclopia (HP:0009914). HP:0009914 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6714,14 +7075,21 @@
                         Proboscis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Proboscis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012806" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012806">HP:0012806</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012806</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Proboscis (HP:0012806). HP:0012806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6773,14 +7141,21 @@
                         Pyriform Aperture Stenosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pyriform aperture stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025011" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025011">HP:0025011</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0025011</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pyriform aperture stenosis (HP:0025011). HP:0025011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6856,14 +7231,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011787">HP:0011787</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central hypothyroidism (HP:0011787). HP:0011787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6917,14 +7299,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Central adrenal insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011734" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011734">HP:0011734</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011734</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Central adrenal insufficiency (HP:0011734). HP:0011734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6976,14 +7365,23 @@
                         Pituitary Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anterior hypopituitarism
+
+                        <span class="phenotype-term-label">Anterior hypopituitarism</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000830">HP:0000830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anterior hypopituitarism (HP:0000830). HP:0000830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7103,13 +7501,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SHH
 
 
-    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10848">hgnc:10848</a>
+    <a href="https://bioregistry.io/hgnc:10848" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:10848</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SHH (hgnc:10848). hgnc:10848 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7213,13 +7616,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GAS1
 
 
-    <a href="https://bioregistry.io/hgnc:4165" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4165">hgnc:4165</a>
+    <a href="https://bioregistry.io/hgnc:4165" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:4165</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GAS1 (hgnc:4165). hgnc:4165 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7343,7 +7751,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7443,7 +7856,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7473,16 +7891,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         desmopressin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4450" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4450">CHEBI:4450</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4450" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:4450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses desmopressin (CHEBI:4450). CHEBI:4450 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7546,16 +7969,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Central diabetes insipidus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000863">HP:0000863</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000863</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Central diabetes insipidus (HP:0000863). HP:0000863 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7604,7 +8032,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7640,17 +8073,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Central hypothyroidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011787">HP:0011787</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0011787</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Central hypothyroidism (HP:0011787). HP:0011787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Central adrenal insufficiency
@@ -7658,10 +8098,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011734" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011734">HP:0011734</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0011734</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Central adrenal insufficiency (HP:0011734). HP:0011734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7710,7 +8153,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gastrostomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gastrostomy</span>
 
 
@@ -7747,16 +8195,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0011968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7805,7 +8258,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7842,16 +8300,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pyriform aperture stenosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025011" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025011">HP:0025011</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0025011</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pyriform aperture stenosis (HP:0025011). HP:0025011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7922,7 +8385,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -8055,6 +8523,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Pre-existing maternal diabetes with periconceptional hyperglycaemia is the best-established non-genetic risk factor for holoprosencephaly. The proposed mechanism is hyperglycaemia-driven oxidative stress in the neuroectoderm, particularly cranial neural crest cells, converging on the same midline developmental field that SHH dosage controls.</div>
 
 
@@ -8115,10 +8587,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Impaired Forebrain Midline Separation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The best-established non-genetic risk factor for this malformation, and one of the few exposures in this backfill whose intervening step is named by its own evidence rather than only by the entry&#39;s prose: periconceptional hyperglycaemia is proposed to act through oxidative stress in the neuroectoderm and cranial neural crest, converging on the midline field this node holds. That is why the intermediates are recorded as known.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38088397" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38088397" target="_blank">PMID:38088397</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pregestational diabetes, with periconceptional hyperglycaemia, is the main non-genetic risk factor; increased oxidative stress in neuroectoderm, in particular neural crest cells, appears as the main mechanism."</div>
+
+
+                <div class="evidence-explanation">Names pregestational diabetes with periconceptional hyperglycaemia as the main non-genetic risk factor and identifies oxidative stress in neuroectoderm, particularly neural crest cells, as the main mechanism. Exposure and route in one sentence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29761639" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29761639" target="_blank">PMID:29761639</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"including maternal diabetes, twinning, and a predominance of females"</div>
+
+
+                <div class="evidence-explanation">Systematic epidemiologic review listing maternal diabetes among the factors consistently over-represented among cases. Over-representation, without a route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-cumulative-gene-environment-insult" data-dismech-node="Cumulative gene-environment insult" data-dismech-type="environmental">
                 <div class="item-name">Cumulative gene-environment insult</div>
+
+
+
+
 
 
 
@@ -8159,6 +8709,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Modifier-Dependent Variable Expressivity</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Recorded as modulating rather than predisposing, and pointed at the variable-expressivity node rather than at a developmental step, because that is exactly what this exposure claims to do: it is not an insult in its own right but the proposition that a partially penetrant genetic lesion can be pushed past a threshold by an independent one. The cited sentence is candid that this is speculation and that what drives manifestation in genetically at-risk individuals remains unknown, which is why the grade is as low as it is.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25339593" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25339593" target="_blank">PMID:25339593</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is currently unknown what drives manifestation of HPE in genetically at-risk individuals, but it has been speculated that other gene mutations and environmental factors may combine as cumulative insults."</div>
+
+
+                <div class="evidence-explanation">States the cumulative-insult model while saying outright that it is currently unknown what drives manifestation and that the combination has been speculated rather than shown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8287,6 +8889,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8303,7 +8908,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: SHH Holoprosencephaly Spectrum
 creation_date: &#39;2026-04-04T00:00:00Z&#39;
-updated_date: &#39;2026-07-31T02:23:12Z&#39;
 description: &gt;-
   SHH-related holoprosencephaly spectrum encompasses a continuum of forebrain
   and craniofacial midline defects caused by heterozygous loss-of-function
@@ -9649,14 +10253,18 @@ pathophysiology:
       modification of Shh-dependent midline phenotype severity.
   - reference: PMID:25339593
     reference_title: &#34;Holoprosencephaly: signaling interactions between the brain and the face, the environment and the genes, and the phenotypic variability in animal models and humans.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      it has been speculated that other gene mutations and environmental
-      factors may combine as cumulative insults.
+      It is currently unknown what drives manifestation of HPE in genetically
+      at-risk individuals, but it has been speculated that other gene mutations
+      and environmental factors may combine as cumulative insults.
     explanation: &gt;-
-      States the cumulative-insult (multi-hit) model that this node
-      represents.
+      States the cumulative-insult model that this node represents. Quoted from
+      the start of the sentence so the hedge travels with it: the same sentence
+      says outright that what drives manifestation in genetically at-risk
+      individuals is currently unknown, which is why this is partial rather than
+      supporting.
   downstream:
   - target: Reduced SHH Signaling in Forebrain Patterning
     description: &gt;-
@@ -9680,6 +10288,38 @@ pathophysiology:
         modifier synergy reported in PMID:29992659 on this node.
 environmental:
 - name: Maternal pregestational diabetes mellitus
+  influences_mechanisms:
+  - target: Impaired Forebrain Midline Separation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The best-established non-genetic risk factor for this malformation, and
+      one of the few exposures in this backfill whose intervening step is
+      named by its own evidence rather than only by the entry&#39;s prose:
+      periconceptional hyperglycaemia is proposed to act through oxidative
+      stress in the neuroectoderm and cranial neural crest, converging on the
+      midline field this node holds. That is why the intermediates are
+      recorded as known.
+    evidence:
+    - reference: PMID:38088397
+      reference_title: &#34;The rare malformation holoprosencephaly: pathogenesis, association with pregestational diabetes and the possible link with food pollutants.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Pregestational diabetes, with periconceptional hyperglycaemia, is the main non-genetic risk factor; increased oxidative stress in neuroectoderm, in particular neural crest cells, appears as the main mechanism.&#34;
+      explanation: &gt;-
+        Names pregestational diabetes with periconceptional hyperglycaemia as
+        the main non-genetic risk factor and identifies oxidative stress in
+        neuroectoderm, particularly neural crest cells, as the main mechanism.
+        Exposure and route in one sentence.
+    - reference: PMID:29761639
+      reference_title: &#34;Nongenetic risk factors for holoprosencephaly: An updated review of the epidemiologic literature.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;including maternal diabetes, twinning, and a predominance of females&#34;
+      explanation: &gt;-
+        Systematic epidemiologic review listing maternal diabetes among the
+        factors consistently over-represented among cases.
+        Over-representation, without a route.
   description: &gt;-
     Pre-existing maternal diabetes with periconceptional hyperglycaemia is the
     best-established non-genetic risk factor for holoprosencephaly. The
@@ -9711,6 +10351,29 @@ environmental:
       Systematic epidemiologic review listing maternal diabetes among the risk
       factors consistently over-represented among HPE cases.
 - name: Cumulative gene-environment insult
+  influences_mechanisms:
+  - target: Modifier-Dependent Variable Expressivity
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Recorded as modulating rather than predisposing, and pointed at the
+      variable-expressivity node rather than at a developmental step, because
+      that is exactly what this exposure claims to do: it is not an insult in
+      its own right but the proposition that a partially penetrant genetic
+      lesion can be pushed past a threshold by an independent one. The cited
+      sentence is candid that this is speculation and that what drives
+      manifestation in genetically at-risk individuals remains unknown, which
+      is why the grade is as low as it is.
+    evidence:
+    - reference: PMID:25339593
+      reference_title: &#34;Holoprosencephaly: signaling interactions between the brain and the face, the environment and the genes, and the phenotypic variability in animal models and humans.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It is currently unknown what drives manifestation of HPE in genetically at-risk individuals, but it has been speculated that other gene mutations and environmental factors may combine as cumulative insults.&#34;
+      explanation: &gt;-
+        States the cumulative-insult model while saying outright that it is
+        currently unknown what drives manifestation and that the combination
+        has been speculated rather than shown.
   description: &gt;-
     Holoprosencephaly is a paradigm multifactorial malformation in which a
     partially penetrant genetic lesion in the hedgehog pathway is pushed past
@@ -12128,7 +12791,7 @@ above threshold ──┼── below threshold
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SHH Holoprosencephaly Spectrum", "mondoId": "MONDO:0007733", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SHH_Holoprosencephaly_Spectrum", "yamlRevision": "bdf06881414f"};
+        const OS_CONFIG = {"diseaseName": "SHH Holoprosencephaly Spectrum", "mondoId": "MONDO:0007733", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SHH_Holoprosencephaly_Spectrum", "yamlRevision": "2a301c42948a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12547,5 +13210,73 @@ above threshold ──┼── below threshold
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

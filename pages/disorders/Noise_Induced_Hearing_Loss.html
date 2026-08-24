@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3693,6 +3859,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3773,6 +3941,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3798,6 +3974,141 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">DISORDER OF EAR</span>
+
+
+                    <span class="tag tag-classification">ENVIRONMENTAL EXPOSURES</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Occupational Disease</div>
+
+
+
+                <div class="tag-list">
+
+
+
+                    <span style="font-size: 0.78rem; color: #6b7280;">ILO (revised 2010) — by causative agent</span>
+
+
+
+                    <span class="tag tag-classification" title="ILO List of Occupational Diseases (revised 2010), item 1.2.1 &#34;Hearing impairment caused by noise&#34;, under section 1.2 (physical agents). Note this is a section-1 (by causative agent) assignment with no section-2 counterpart: the ILO list has no hearing/vestibular organ-system subsection, so unlike asbestosis or silicosis this disease takes exactly one item. NIHL also has a large non-occupational (recreational, firearms, military) component; the assignment records that an occupational form is recognised, not that every case is occupational.">hearing impairment caused by noise</span>
+
+                </div>
+
+
+
+                <div class="tag-list">
+
+
+
+                    <span style="font-size: 0.78rem; color: #6b7280;">European schedule</span>
+
+
+
+                    <span class="tag tag-classification" title="European schedule of occupational diseases (Commission Recommendation 2003/670/EC as amended), Annex I item 503 &#34;Hypoacousis or deafness caused by noise&#34;, under chapter 5 (physical agents).">noise induced hypoacousis or deafness</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -4052,16 +4363,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Sensory perception of sound
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007605">GO:0007605</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0007605</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Sensory perception of sound (GO:0007605). GO:0007605 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4078,6 +4394,7 @@
 
 
                 </div>
+
 
 
 
@@ -4156,16 +4473,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cochlear outer hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000601">CL:0000601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cochlear outer hair cell (CL:0000601). CL:0000601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4182,6 +4504,7 @@
 
 
                 </div>
+
 
 
 
@@ -4284,17 +4607,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Reactive oxygen species metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072593">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0072593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4315,10 +4645,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034599">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0034599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4335,6 +4668,7 @@
 
 
                 </div>
+
 
 
 
@@ -4418,6 +4752,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4477,16 +4812,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000589">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4513,16 +4853,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4539,6 +4884,7 @@
 
 
                 </div>
+
 
 
 
@@ -4627,16 +4973,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cochlear inner hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000589">CL:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000589</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cochlear inner hair cell (CL:0000589). CL:0000589 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4653,6 +5004,7 @@
 
 
                 </div>
+
 
 
 
@@ -4754,16 +5106,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cochlear outer hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000601">CL:0000601</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000601</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cochlear outer hair cell (CL:0000601). CL:0000601 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4790,17 +5147,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Outer hair cell apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1905584" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1905584">GO:1905584</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1905584" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:1905584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Outer hair cell apoptotic process (GO:1905584). GO:1905584 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4821,10 +5185,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070266">GO:0070266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0070266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Necroptotic process (GO:0070266). GO:0070266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4841,6 +5208,7 @@
 
 
                 </div>
+
 
 
 
@@ -4907,16 +5275,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Type I spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023115">CL:4023115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:4023115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Type I spiral ganglion neuron, annotated with type 1 spiral ganglion neuron (CL:4023115). CL:4023115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4933,6 +5306,7 @@
 
 
                 </div>
+
 
 
 
@@ -5035,16 +5409,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Sensory perception of sound
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007605">GO:0007605</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007605" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007605</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Sensory perception of sound (GO:0007605). GO:0007605 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5061,6 +5440,7 @@
 
 
                 </div>
+
 
 
 
@@ -5114,16 +5494,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Type I spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023115">CL:4023115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:4023115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Type I spiral ganglion neuron, annotated with type 1 spiral ganglion neuron (CL:4023115). CL:4023115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5140,6 +5525,7 @@
 
 
                 </div>
+
 
 
 
@@ -5277,14 +5663,21 @@
                         Tinnitus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tinnitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000360">HP:0000360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5367,14 +5760,23 @@
                         Bilateral high-frequency sensorineural hearing loss
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        High-frequency hearing impairment
+
+                        <span class="phenotype-term-label">High-frequency hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005101" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005101">HP:0005101</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005101</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is High-frequency sensorineural hearing impairment, annotated with High-frequency hearing impairment (HP:0005101), qualified as course progressive. HP:0005101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5444,14 +5846,23 @@
                         Poor speech-in-noise discrimination
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal speech discrimination
+
+                        <span class="phenotype-term-label">Abnormal speech discrimination</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001963">HP:0001963</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001963" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001963</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor speech discrimination in noise, annotated with Abnormal speech discrimination (HP:0001963). HP:0001963 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5547,13 +5958,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOX3
 
 
-    <a href="https://bioregistry.io/hgnc:7890" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7890">hgnc:7890</a>
+    <a href="https://bioregistry.io/hgnc:7890" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:7890</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOX3 (hgnc:7890). hgnc:7890 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5611,13 +6027,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNQ4
 
 
-    <a href="https://bioregistry.io/hgnc:6298" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6298">hgnc:6298</a>
+    <a href="https://bioregistry.io/hgnc:6298" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:6298</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNQ4 (hgnc:6298). hgnc:6298 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5675,13 +6096,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CAT
 
 
-    <a href="https://bioregistry.io/hgnc:1516" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1516">hgnc:1516</a>
+    <a href="https://bioregistry.io/hgnc:1516" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:1516</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CAT (hgnc:1516). hgnc:1516 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5739,13 +6165,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNE1
 
 
-    <a href="https://bioregistry.io/hgnc:6240" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6240">hgnc:6240</a>
+    <a href="https://bioregistry.io/hgnc:6240" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:6240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNE1 (hgnc:6240). hgnc:6240 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5803,13 +6234,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOD2
 
 
-    <a href="https://bioregistry.io/hgnc:11180" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11180">hgnc:11180</a>
+    <a href="https://bioregistry.io/hgnc:11180" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11180</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOD2 (hgnc:11180). hgnc:11180 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5878,7 +6314,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">therapeutic avoidance of noise exposure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">therapeutic avoidance of noise exposure<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is therapeutic avoidance of noise exposure, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Lifestyle Therapy</span>
 
 
@@ -6007,7 +6448,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cochlear device implantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6085,7 +6531,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6162,7 +6613,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6312,18 +6768,78 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         exposure to sound radiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000044" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000044">ECTO:8000044</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000044" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-26">ECTO:8000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:8000044 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+
+
+
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">Hazard type:</strong>
+
+                        <span class="tag tag-classification" title="Noise is a physical energy, classified by the nature of the agent rather than by its effect — the injury is cochlear, but the hazard is physical.">PHYSICAL</span>
+
+                    </div>
+
+
+
+
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">Route:</strong>
+
+                        <span class="tag tag-classification" title="Route of exposure is a toxicological concept for agents taken up into the body and does not apply to acoustic energy, which acts directly on the cochlea without a portal of entry. Recorded as UNKNOWN rather than forcing an inapplicable value; this is the honest reading for physical agents generally.">UNKNOWN</span>
+
+                    </div>
+
+
+
+
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">Duration:</strong>
+
+                        <span class="tag tag-classification" title="ATSDR chronic duration (365 days and longer) for cumulative occupational overexposure, the dominant pattern — the NIOSH recommended limit is an 85 dBA 8-hour time-weighted average with a 3-dB exchange rate.">CHRONIC</span>
+
+                        <span class="tag tag-classification" title="ATSDR acute duration for acoustic trauma: a single high-intensity impulse or blast can produce immediate permanent mechanical injury, so both duration patterns are genuinely in play for this exposure.">ACUTE</span>
+
+                    </div>
+
+
+
+
+
+
+
+
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">Exposome domain:</strong>
+
+                        <span class="tag tag-classification" title="An identifiable individual-level exposure in Wild&#39;s specific external domain, whether occupational or recreational. No IARC or GHS value applies — those instruments classify chemical agents, and noise is neither a carcinogen evaluation subject nor a GHS-classifiable substance.">SPECIFIC EXTERNAL</span>
+
+                    </div>
 
 
                 </div>
@@ -6674,6 +7190,101 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Heat-Shock Pathway Activation by TRC-051384 Protects Spiral Ganglion Neurons from Noise-Induced Hearing Loss [Spatial Transcriptomics]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE312646" target="_blank">geo:GSE312646</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Noise-induced hearing loss (NIHL) is a major public health problem caused by damage to cochlear hair cells, synapses, and spiral ganglion neurons (SGNs). However, effective treatments are completely lacking. We investigated cellular stress responses induced by loud noise in a mouse model of cochlear synaptopathy and tested whether selective activation of the dominant pathway identified could confer protection. RNA sequencing and spatial transcriptomics revealed that noise exposure elicited a robust but transient upregulation of endoplasmic reticulum chaperones and proteasome subunits in SGNs and supporting cells.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">SPATIAL TRANSCRIPTOMICS</span>
+
+
+                    <span class="tag tag-dataset">n=51</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41415422" target="_blank" style="color: var(--secondary);">PMID:41415422</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Noise Induced Hearing Loss (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Brimonidine protects IHC ribbon synapses and SGNs from noise-induced hearing loss
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE307393" target="_blank">geo:GSE307393</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Exposure to excessive noise levels can result in hearing impairment. Currently, there are no effective pharmacological interventions available for the prevention of noise-induced hearing loss. This study was designed to investigate the protective effects of brimonidine, an α2-adrenergic receptor agonist, against noise-induced inner ear damage in mice, as well as to explore the underlying mechanisms.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=17</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41953996" target="_blank" style="color: var(--secondary);">PMID:41953996</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Noise Induced Hearing Loss (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -6699,17 +7310,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Tinnitus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000360">HP:0000360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000360</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Tinnitus (HP:0000360). HP:0000360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         High-frequency sensorineural hearing impairment
@@ -6717,10 +7335,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005101" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005101">HP:0005101</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets High-frequency sensorineural hearing impairment, annotated with High-frequency hearing impairment (HP:0005101). HP:0005101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6766,6 +7387,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6818,6 +7442,27 @@ synonyms:
 - noise-induced hearing impairment
 - noise-induced deafness
 
+classifications:
+  harrisons_chapter:
+  - classification_value: DISORDER_OF_EAR
+  - classification_value: ENVIRONMENTAL_EXPOSURES
+  ilo_agent_category:
+  - classification_value: hearing_impairment_caused_by_noise
+    notes: &gt;-
+      ILO List of Occupational Diseases (revised 2010), item 1.2.1 &#34;Hearing
+      impairment caused by noise&#34;, under section 1.2 (physical agents). Note
+      this is a section-1 (by causative agent) assignment with no section-2
+      counterpart: the ILO list has no hearing/vestibular organ-system
+      subsection, so unlike asbestosis or silicosis this disease takes exactly
+      one item. NIHL also has a large non-occupational (recreational, firearms,
+      military) component; the assignment records that an occupational form is
+      recognised, not that every case is occupational.
+  eu_occupational_category:
+  - classification_value: noise_induced_hypoacousis_or_deafness
+    notes: &gt;-
+      European schedule of occupational diseases (Commission Recommendation
+      2003/670/EC as amended), Annex I item 503 &#34;Hypoacousis or deafness caused
+      by noise&#34;, under chapter 5 (physical agents).
 environmental:
 - name: Hazardous noise exposure
   exposure_term:
@@ -6825,6 +7470,38 @@ environmental:
     term:
       id: ECTO:8000044
       label: exposure to sound radiation
+  exposure_classifications:
+    hazard_agent_type:
+    - classification_value: PHYSICAL
+      notes: &gt;-
+        Noise is a physical energy, classified by the nature of the agent rather
+        than by its effect — the injury is cochlear, but the hazard is physical.
+    exposure_route:
+    - classification_value: UNKNOWN
+      notes: &gt;-
+        Route of exposure is a toxicological concept for agents taken up into
+        the body and does not apply to acoustic energy, which acts directly on
+        the cochlea without a portal of entry. Recorded as UNKNOWN rather than
+        forcing an inapplicable value; this is the honest reading for physical
+        agents generally.
+    exposure_duration:
+    - classification_value: CHRONIC
+      notes: &gt;-
+        ATSDR chronic duration (365 days and longer) for cumulative occupational
+        overexposure, the dominant pattern — the NIOSH recommended limit is an
+        85 dBA 8-hour time-weighted average with a 3-dB exchange rate.
+    - classification_value: ACUTE
+      notes: &gt;-
+        ATSDR acute duration for acoustic trauma: a single high-intensity
+        impulse or blast can produce immediate permanent mechanical injury, so
+        both duration patterns are genuinely in play for this exposure.
+    exposome_domain:
+    - classification_value: SPECIFIC_EXTERNAL
+      notes: &gt;-
+        An identifiable individual-level exposure in Wild&#39;s specific external
+        domain, whether occupational or recreational. No IARC or GHS value
+        applies — those instruments classify chemical agents, and noise is
+        neither a carcinogen evaluation subject nor a GHS-classifiable substance.
   description: &gt;-
     The sole cause of NIHL is exposure to sound energy at intensities and
     durations exceeding the cochlea&#39;s tolerance. Risk rises with sound-pressure
@@ -7738,6 +8415,31 @@ discussions:
     explanation: &gt;-
       States the animal-to-human translation gap that defines this mismatch.
       Evidence source is HUMAN_CLINICAL (randomized clinical trial).
+datasets:
+- accession: geo:GSE312646
+  title: Heat-Shock Pathway Activation by TRC-051384 Protects Spiral Ganglion Neurons from Noise-Induced Hearing Loss [Spatial Transcriptomics]
+  data_type: SPATIAL_TRANSCRIPTOMICS
+  description: Noise-induced hearing loss (NIHL) is a major public health problem caused by damage to cochlear hair cells, synapses, and spiral ganglion neurons (SGNs). However, effective treatments are completely lacking. We investigated cellular stress responses induced by loud noise in a mouse model of cochlear synaptopathy and tested whether selective activation of the dominant pathway identified could confer protection. RNA sequencing and spatial transcriptomics revealed that noise exposure elicited a robust but transient upregulation of endoplasmic reticulum chaperones and proteasome subunits in SGNs and supporting cells.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  sample_count: 51
+  publication: PMID:41415422
+  notes: Identified by GEO DataSets index search for Noise Induced Hearing Loss (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE307393
+  title: Brimonidine protects IHC ribbon synapses and SGNs from noise-induced hearing loss
+  description: Exposure to excessive noise levels can result in hearing impairment. Currently, there are no effective pharmacological interventions available for the prevention of noise-induced hearing loss. This study was designed to investigate the protective effects of brimonidine, an α2-adrenergic receptor agonist, against noise-induced inner ear damage in mice, as well as to explore the underlying mechanisms.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 17
+  publication: PMID:41953996
+  notes: Identified by GEO DataSets index search for Noise Induced Hearing Loss (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -8126,7 +8828,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Noise Induced Hearing Loss", "mondoId": "MONDO:0013098", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Noise_Induced_Hearing_Loss", "yamlRevision": "d7e37b90847a"};
+        const OS_CONFIG = {"diseaseName": "Noise Induced Hearing Loss", "mondoId": "MONDO:0013098", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Noise_Induced_Hearing_Loss", "yamlRevision": "9bd4bf4ff7e4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8545,5 +9247,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

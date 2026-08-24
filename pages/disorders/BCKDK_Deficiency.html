@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3814,7 +3982,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3843,27 +4011,121 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
 
 
 
 
+
+                    <span class="tag tag-classification">branched chain amino acids</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4379,15 +4641,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BCKDK
 
 
-    <a href="https://bioregistry.io/hgnc:16902" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16902">hgnc:16902</a>
+    <a href="https://bioregistry.io/hgnc:16902" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:16902</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BCKDK (hgnc:16902). hgnc:16902 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4416,16 +4685,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         branched-chain ketoacid dehydrogenase kinase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0047323" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0047323">GO:0047323</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0047323" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0047323</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased branched-chain ketoacid dehydrogenase kinase activity, annotated with [3-methyl-2-oxobutanoate dehydrogenase (acetyl-transferring)] kinase activity (GO:0047323). GO:0047323 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4451,19 +4725,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4560,16 +4840,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         branched-chain amino acid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009083">GO:0009083</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0009083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased branched-chain amino acid catabolic process (GO:0009083). GO:0009083 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4589,16 +4874,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         protein dephosphorylation of BCKDH E1-alpha
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006470" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006470">GO:0006470</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006470" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006470</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein dephosphorylation of BCKDH E1-alpha, annotated with protein dephosphorylation (GO:0006470). GO:0006470 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4621,16 +4911,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4652,6 +4947,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4756,16 +5052,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         branched-chain amino acid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009083">GO:0009083</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0009083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased branched-chain amino acid catabolic process (GO:0009083). GO:0009083 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4785,16 +5086,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         amino acid transmembrane transport across the blood-brain barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003333" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003333">GO:0003333</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003333" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0003333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves amino acid transmembrane transport across the blood-brain barrier, annotated with amino acid transmembrane transport (GO:0003333). GO:0003333 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4811,6 +5117,7 @@
 
 
                 </div>
+
 
 
 
@@ -4934,16 +5241,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4960,6 +5272,7 @@
 
 
                 </div>
+
 
 
 
@@ -5058,16 +5371,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5094,16 +5412,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein phosphorylation (loss of E1-alpha phosphorylation)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006468">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein phosphorylation (loss of E1-alpha phosphorylation), annotated with protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5124,6 +5447,7 @@
 
 
                 </div>
+
 
 
 
@@ -5302,16 +5626,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         branched-chain amino acid catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009083">GO:0009083</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009083" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0009083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased branched-chain amino acid catabolic process (GO:0009083). GO:0009083 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5332,6 +5661,7 @@
 
 
                 </div>
+
 
 
 
@@ -5438,7 +5768,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant catabolic flux beyond simple BCAA insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent mouse-model evidence challenges a purely \\\"BCAA-insufficiency\\\" model. In a Bckdk-deficient mouse, enteral BCAA supplementation raised systemic BCAA levels but exacerbated neurodevelopmental deficits and failed to correct biochemical abnormalities, suggesting that aberrant flux through the BCAA catabolic pathway (not just low BCAAs) contributes to disease. Genetic re-regulation of catabolism via Dbt haploinsufficiency partially rescued biochemical and behavioral phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder / autistic features were the presenting feature in the original discovery cohort and are reiterated in later case reports.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"BCAA-enriched high-protein dietary supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal reported disease-directed intervention is a dietitian-directed high-protein diet plus oral leucine, isoleucine, and valine. In the largest human cohort, reported intake was at least 2 g protein/kg/day with total BCAA supplementation of 100\\u2013250 mg/kg/day; plasma BCAAs rose and motor function and head growth commonly stabilized or improved. Earlier reports found strong seizure control with less complete developmental response. These uncontrolled human observations should be interpreted separately from a 2024 mouse study in which enteral BCAAs raised systemic concentrations but worsened neurodevelopmental deficits and failed to correct the modeled pathway abnormality.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"leucine\", \"isoleucine\", \"valine\"]}}, {\"id\": \"BCKDK loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in BCKDK (frameshift, nonsense, missense, or in-frame deletion) reduce or abolish the mitochondrial branched-chain ketoacid dehydrogenase kinase. Patient cells show reduced BCKDK mRNA (consistent with nonsense-mediated decay), undetectable BCKDK protein, and loss of the phospho-E1-alpha (Ser293) signal that normally inactivates BCKDH.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"branched-chain ketoacid dehydrogenase kinase activity\"], \"genes\": [\"BCKDK\"], \"gene_terms\": [{\"label\": \"BCKDK\", \"id\": \"hgnc:16902\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"BCKDK pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDK\"], \"gene_terms\": [{\"label\": \"BCKDK\", \"id\": \"hgnc:16902\"}], \"variant_count\": 3}}, {\"id\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The branched-chain ketoacid dehydrogenase (BCKDH) complex catalyzes the irreversible, rate-limiting step in BCAA catabolism. Without BCKDK-mediated phosphorylation, BCKDH activity is unchecked, accelerating the breakdown of leucine, isoleucine, and valine.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"protein dephosphorylation of BCKDH E1-alpha\"], \"locations\": [\"mitochondrion\"], \"experimental_models\": [{\"name\": \"Mutant BCKDK transfection functional assay\", \"model_type\": \"CELL_LINE\", \"description\": \"The assay measures loss of BCKDK-mediated restraint on BCKDH.\"}]}}, {\"id\": \"Decreased CSF valine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrospinal fluid concentrations of the branched-chain amino acids (leucine, isoleucine, and valine) are markedly reduced, reflecting depletion of central BCAAs. The bound HP term captures the valine component; HPO does not currently provide CSF leucine/isoleucine concentration terms.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500188\"}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of affected children lose previously acquired developmental skills.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Epileptic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early generalized seizures and epileptic encephalopathy occur; seizure control can improve substantially with dietary BCAA therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200134\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty occurs in a minority of affected children and may add to nutritional vulnerability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe developmental delays, including psychomotor delay from the first year of life, were reported in an affected sibling series.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypoisoleucinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma isoleucine completes the low-BCAA biochemical signature of BCKDK deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500144\"}}, {\"id\": \"Hypoleucinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma leucine is part of the low-BCAA biochemical signature of BCKDK deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500143\"}}, {\"id\": \"Hypovalinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma valine is part of the biochemical hallmark of BCKDK deficiency, reflecting accelerated catabolism of this essential branched-chain amino acid.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500132\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability with severe developmental delay is a core neurodevelopmental feature across reported families.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Language impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spoken-language development is commonly and substantially impaired.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002463\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal/progressive microcephaly is repeatedly reported in human cases and is recapitulated in mouse models.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gross-motor impairment is a major component of the developmental phenotype and ranges from delayed milestones to severe functional limitation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Mutant BCKDK transfection functional assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Expression of mutant BCKDK was used to test its functional effect on BCKDH activity and BCAA consumption.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\"}}, {\"id\": \"Neurodevelopmental and epileptic phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disorder localizes chiefly to the central nervous system, with neurons strongly implicated. In mouse studies, cortex-neuron involvement is central to the neurological abnormalities, and the spontaneous frogleg rat model affects both the central and peripheral nervous systems.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"protein phosphorylation (loss of E1-alpha phosphorylation)\"]}}, {\"id\": \"Plasma branched-chain amino acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Systemic and CSF BCAA depletion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low plasma BCAA reports the increased BCKDH-mediated catabolic flux resulting from loss of BCKDK inhibitory phosphorylation.\\n\"}]}}, {\"id\": \"Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive peripheral BCAA oxidation limits the circulating precursor pool and reduces incorporation of BCAA-derived nitrogen into brain glutamate. During fasting, Bckdk-null brain activates the integrated stress response, increases Atf4 targets including Slc7a5, and reduces protein synthesis, whereas skeletal muscle is comparatively resilient. This supplies a mechanistic bridge between systemic amino-acid depletion and neurologic vulnerability but does not yet explain every human developmental feature.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures are a recurrent feature; in the original report, seizures or abnormal EEG were present, and Bckdk knockout mice develop seizures.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is an uncommon but recurrently observed extra-developmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Systemic and CSF BCAA depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Markedly reduced concentrations of leucine, isoleucine, and valine in plasma and cerebrospinal fluid are the biochemical hallmark of BCKDK deficiency. Because BCAAs share blood-brain barrier transporters (notably LAT1, SLC7A5/SLC3A2) with other large neutral amino acids, low plasma BCAAs also perturb brain concentrations of other large neutral amino acids that are precursors for neurotransmitters.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"amino acid transmembrane transport across the blood-brain barrier\"]}}, {\"id\": \"c.999_1001delCAC (p.Thr334del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous in-frame deletion (c.999_1001delCAC; p.Thr334del) was identified in three siblings; functional tests in transfected cells demonstrated BCKDH hyperactivity and BCAA over-consumption.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p.Arg156* and p.M74fs (null variants)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The original report identified a nonsense variant (C466T; premature stop at position 156, p.Arg156*) in family 558 and a single-base deletion (c.G222del) causing a frameshift terminating the protein at position 74 (p.M74fs) in family 18. Both are null, homozygous, loss-of-function variants segregating recessively.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p.Arg224Pro (missense)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A missense variant (c.G671C) substituting a highly conserved arginine with proline at position 224 was identified in a third family; structural modeling predicted disruption of the kinase domain. Missense variants caused less severe plasma BCAA reductions than null variants.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"BCKDK loss of function\", \"target\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of BCKDK-mediated inhibitory phosphorylation of the BCKDH E1-alpha subunit leaves the BCKDH complex constitutively active, increasing catabolic flux through the rate-limiting step of BCAA degradation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"target\": \"Systemic and CSF BCAA depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated BCKDH-mediated catabolism depletes circulating and central branched-chain amino acids. BCAAs are essential amino acids that cannot be synthesized de novo, so increased catabolism is not compensated by synthesis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"target\": \"Aberrant catabolic flux beyond simple BCAA insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond depleting circulating and central BCAAs, the constitutively active BCKDH complex drives aberrant flux through the BCAA catabolic pathway itself. Mouse-model evidence indicates that this excess catabolic flux (not just the resulting low BCAA levels) is a mechanistic contributor to disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low systemic BCAAs restrict the BCAA-derived nitrogen reaching the brain and alter amino-acid-transporter and integrated-stress-response programs, especially under nutrient scarcity.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Hypovalinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic BCAA depletion includes low plasma valine.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Hypoleucinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic BCAA depletion includes low plasma leucine.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Hypoisoleucinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic BCAA depletion includes low plasma isoleucine.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Decreased CSF valine concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central BCAA depletion includes decreased CSF valine concentration.\"}, {\"source\": \"Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response\", \"target\": \"Neurodevelopmental and epileptic phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic disruption of brain precursor delivery and stress adaptation contributes to motor and neurologic disease, while the full developmental causal chain remains incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests clinically as autistic behavior.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests clinically as intellectual disability.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests clinically as global developmental delay.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction manifests as epileptic encephalopathy in severe reported cases.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction manifests as epileptic seizures.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurodevelopmental phenotype includes postnatal or progressive microcephaly.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement commonly impairs gross motor function.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Language impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Language development is prominently affected.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some affected children lose previously acquired skills.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is an uncommon but documented feature.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulty occurs in a minority of reported patients.\"}, {\"source\": \"Aberrant catabolic flux beyond simple BCAA insufficiency\", \"target\": \"Neurodevelopmental and epileptic phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess pathway flux contributes to behavioral disease independently of the measured systemic BCAA concentration.\"}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Systemic and CSF BCAA depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Motor delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Microcephaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Language impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mutant BCKDK transfection functional assay\", \"target\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Plasma branched-chain amino acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low plasma BCAA reports the increased BCKDH-mediated catabolic flux resulting from loss of BCKDK inhibitory phosphorylation.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"BCKDK pathogenic variants\", \"target\": \"BCKDK loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg156* and p.M74fs (null variants)\", \"target\": \"BCKDK pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg224Pro (missense)\", \"target\": \"BCKDK pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.999_1001delCAC (p.Thr334del)\", \"target\": \"BCKDK pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant catabolic flux beyond simple BCAA insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recent mouse-model evidence challenges a purely \\\"BCAA-insufficiency\\\" model. In a Bckdk-deficient mouse, enteral BCAA supplementation raised systemic BCAA levels but exacerbated neurodevelopmental deficits and failed to correct biochemical abnormalities, suggesting that aberrant flux through the BCAA catabolic pathway (not just low BCAAs) contributes to disease. Genetic re-regulation of catabolism via Dbt haploinsufficiency partially rescued biochemical and behavioral phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Autistic behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder / autistic features were the presenting feature in the original discovery cohort and are reiterated in later case reports.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000729\"}}, {\"id\": \"BCAA-enriched high-protein dietary supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal reported disease-directed intervention is a dietitian-directed high-protein diet plus oral leucine, isoleucine, and valine. In the largest human cohort, reported intake was at least 2 g protein/kg/day with total BCAA supplementation of 100\\u2013250 mg/kg/day; plasma BCAAs rose and motor function and head growth commonly stabilized or improved. Earlier reports found strong seizure control with less complete developmental response. These uncontrolled human observations should be interpreted separately from a 2024 mouse study in which enteral BCAAs raised systemic concentrations but worsened neurodevelopmental deficits and failed to correct the modeled pathway abnormality.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"leucine\", \"isoleucine\", \"valine\"]}}, {\"id\": \"BCKDK loss of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in BCKDK (frameshift, nonsense, missense, or in-frame deletion) reduce or abolish the mitochondrial branched-chain ketoacid dehydrogenase kinase. Patient cells show reduced BCKDK mRNA (consistent with nonsense-mediated decay), undetectable BCKDK protein, and loss of the phospho-E1-alpha (Ser293) signal that normally inactivates BCKDH.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"branched-chain ketoacid dehydrogenase kinase activity\"], \"genes\": [\"BCKDK\"], \"gene_terms\": [{\"label\": \"BCKDK\", \"id\": \"hgnc:16902\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"BCKDK pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDK\"], \"gene_terms\": [{\"label\": \"BCKDK\", \"id\": \"hgnc:16902\"}], \"variant_count\": 3}}, {\"id\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The branched-chain ketoacid dehydrogenase (BCKDH) complex catalyzes the irreversible, rate-limiting step in BCAA catabolism. Without BCKDK-mediated phosphorylation, BCKDH activity is unchecked, accelerating the breakdown of leucine, isoleucine, and valine.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"protein dephosphorylation of BCKDH E1-alpha\"], \"locations\": [\"mitochondrion\"], \"experimental_models\": [{\"name\": \"Mutant BCKDK transfection functional assay\", \"model_type\": \"CELL_LINE\", \"description\": \"The assay measures loss of BCKDK-mediated restraint on BCKDH.\"}]}}, {\"id\": \"Decreased CSF valine concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebrospinal fluid concentrations of the branched-chain amino acids (leucine, isoleucine, and valine) are markedly reduced, reflecting depletion of central BCAAs. The bound HP term captures the valine component; HPO does not currently provide CSF leucine/isoleucine concentration terms.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500188\"}}, {\"id\": \"Developmental regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A minority of affected children lose previously acquired developmental skills.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002376\"}}, {\"id\": \"Epileptic encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early generalized seizures and epileptic encephalopathy occur; seizure control can improve substantially with dietary BCAA therapy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200134\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty occurs in a minority of affected children and may add to nutritional vulnerability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe developmental delays, including psychomotor delay from the first year of life, were reported in an affected sibling series.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypoisoleucinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma isoleucine completes the low-BCAA biochemical signature of BCKDK deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500144\"}}, {\"id\": \"Hypoleucinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma leucine is part of the low-BCAA biochemical signature of BCKDK deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500143\"}}, {\"id\": \"Hypovalinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced plasma valine is part of the biochemical hallmark of BCKDK deficiency, reflecting accelerated catabolism of this essential branched-chain amino acid.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500132\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability with severe developmental delay is a core neurodevelopmental feature across reported families.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Language impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spoken-language development is commonly and substantially impaired.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002463\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal/progressive microcephaly is repeatedly reported in human cases and is recapitulated in mouse models.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gross-motor impairment is a major component of the developmental phenotype and ranges from delayed milestones to severe functional limitation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001270\"}}, {\"id\": \"Mutant BCKDK transfection functional assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Expression of mutant BCKDK was used to test its functional effect on BCKDH activity and BCAA consumption.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\"}}, {\"id\": \"Neurodevelopmental and epileptic phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disorder localizes chiefly to the central nervous system, with neurons strongly implicated. In mouse studies, cortex-neuron involvement is central to the neurological abnormalities, and the spontaneous frogleg rat model affects both the central and peripheral nervous systems.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"protein phosphorylation (loss of E1-alpha phosphorylation)\"]}}, {\"id\": \"Plasma branched-chain amino acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Systemic and CSF BCAA depletion\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low plasma BCAA reports the increased BCKDH-mediated catabolic flux resulting from loss of BCKDK inhibitory phosphorylation.\\n\"}]}}, {\"id\": \"Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive peripheral BCAA oxidation limits the circulating precursor pool and reduces incorporation of BCAA-derived nitrogen into brain glutamate. During fasting, Bckdk-null brain activates the integrated stress response, increases Atf4 targets including Slc7a5, and reduces protein synthesis, whereas skeletal muscle is comparatively resilient. This supplies a mechanistic bridge between systemic amino-acid depletion and neurologic vulnerability but does not yet explain every human developmental feature.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epileptic seizures are a recurrent feature; in the original report, seizures or abnormal EEG were present, and Bckdk knockout mice develop seizures.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is an uncommon but recurrently observed extra-developmental manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Systemic and CSF BCAA depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Markedly reduced concentrations of leucine, isoleucine, and valine in plasma and cerebrospinal fluid are the biochemical hallmark of BCKDK deficiency. Because BCAAs share blood-brain barrier transporters (notably LAT1, SLC7A5/SLC3A2) with other large neutral amino acids, low plasma BCAAs also perturb brain concentrations of other large neutral amino acids that are precursors for neurotransmitters.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\", \"amino acid transmembrane transport across the blood-brain barrier\"]}}, {\"id\": \"c.999_1001delCAC (p.Thr334del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous in-frame deletion (c.999_1001delCAC; p.Thr334del) was identified in three siblings; functional tests in transfected cells demonstrated BCKDH hyperactivity and BCAA over-consumption.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p.Arg156* and p.M74fs (null variants)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The original report identified a nonsense variant (C466T; premature stop at position 156, p.Arg156*) in family 558 and a single-base deletion (c.G222del) causing a frameshift terminating the protein at position 74 (p.M74fs) in family 18. Both are null, homozygous, loss-of-function variants segregating recessively.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"p.Arg224Pro (missense)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A missense variant (c.G671C) substituting a highly conserved arginine with proline at position 224 was identified in a third family; structural modeling predicted disruption of the kinase domain. Missense variants caused less severe plasma BCAA reductions than null variants.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"BCKDK loss of function\", \"target\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of BCKDK-mediated inhibitory phosphorylation of the BCKDH E1-alpha subunit leaves the BCKDH complex constitutively active, increasing catabolic flux through the rate-limiting step of BCAA degradation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"target\": \"Systemic and CSF BCAA depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated BCKDH-mediated catabolism depletes circulating and central branched-chain amino acids. BCAAs are essential amino acids that cannot be synthesized de novo, so increased catabolism is not compensated by synthesis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"target\": \"Aberrant catabolic flux beyond simple BCAA insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Beyond depleting circulating and central BCAAs, the constitutively active BCKDH complex drives aberrant flux through the BCAA catabolic pathway itself. Mouse-model evidence indicates that this excess catabolic flux (not just the resulting low BCAA levels) is a mechanistic contributor to disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Low systemic BCAAs restrict the BCAA-derived nitrogen reaching the brain and alter amino-acid-transporter and integrated-stress-response programs, especially under nutrient scarcity.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Hypovalinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic BCAA depletion includes low plasma valine.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Hypoleucinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic BCAA depletion includes low plasma leucine.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Hypoisoleucinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic BCAA depletion includes low plasma isoleucine.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Decreased CSF valine concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central BCAA depletion includes decreased CSF valine concentration.\"}, {\"source\": \"Reduced BCAA-derived nitrogen delivery and brain nutrient-stress response\", \"target\": \"Neurodevelopmental and epileptic phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic disruption of brain precursor delivery and stress adaptation contributes to motor and neurologic disease, while the full developmental causal chain remains incompletely resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Autistic behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests clinically as autistic behavior.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests clinically as intellectual disability.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests clinically as global developmental delay.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Epileptic encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction manifests as epileptic encephalopathy in severe reported cases.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal dysfunction manifests as epileptic seizures.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurodevelopmental phenotype includes postnatal or progressive microcephaly.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement commonly impairs gross motor function.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Language impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Language development is prominently affected.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Developmental regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some affected children lose previously acquired skills.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is an uncommon but documented feature.\"}, {\"source\": \"Neurodevelopmental and epileptic phenotype\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Feeding difficulty occurs in a minority of reported patients.\"}, {\"source\": \"Aberrant catabolic flux beyond simple BCAA insufficiency\", \"target\": \"Neurodevelopmental and epileptic phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess pathway flux contributes to behavioral disease independently of the measured systemic BCAA concentration.\"}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Systemic and CSF BCAA depletion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Motor delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Microcephaly\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BCAA-enriched high-protein dietary supplementation\", \"target\": \"Language impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mutant BCKDK transfection functional assay\", \"target\": \"Constitutive BCKDH activation and excessive BCAA catabolism\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The assay measures loss of BCKDK-mediated restraint on BCKDH.\"}, {\"source\": \"Systemic and CSF BCAA depletion\", \"target\": \"Plasma branched-chain amino acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low plasma BCAA reports the increased BCKDH-mediated catabolic flux resulting from loss of BCKDK inhibitory phosphorylation.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"BCKDK pathogenic variants\", \"target\": \"BCKDK loss of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg156* and p.M74fs (null variants)\", \"target\": \"BCKDK pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg224Pro (missense)\", \"target\": \"BCKDK pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.999_1001delCAC (p.Thr334del)\", \"target\": \"BCKDK pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5485,14 +5815,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5555,14 +5892,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5623,14 +5967,21 @@
                         Microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5691,14 +6042,21 @@
                         Autistic behavior
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autistic behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000729</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5750,14 +6108,21 @@
                         Intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5809,14 +6174,21 @@
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5868,14 +6240,21 @@
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5929,14 +6308,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5990,14 +6376,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6058,14 +6451,21 @@
                         Epileptic encephalopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Epileptic encephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200134">HP:0200134</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0200134</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6119,14 +6519,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Language impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002463">HP:0002463</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002463</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Language impairment (HP:0002463). HP:0002463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6178,14 +6585,21 @@
                         Hypovalinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypovalinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500132" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500132">HP:0500132</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0500132</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypovalinemia (HP:0500132). HP:0500132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6237,14 +6651,21 @@
                         Hypoleucinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoleucinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500143" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500143">HP:0500143</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500143" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0500143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoleucinemia (HP:0500143). HP:0500143 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6296,14 +6717,21 @@
                         Hypoisoleucinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoisoleucinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500144" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500144">HP:0500144</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500144" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0500144</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoisoleucinemia (HP:0500144). HP:0500144 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6355,14 +6783,21 @@
                         Decreased CSF valine concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased CSF valine concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500188" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500188">HP:0500188</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500188" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0500188</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased CSF valine concentration (HP:0500188). HP:0500188 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6458,13 +6893,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BCKDK
 
 
-    <a href="https://bioregistry.io/hgnc:16902" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16902">hgnc:16902</a>
+    <a href="https://bioregistry.io/hgnc:16902" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:16902</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BCKDK (hgnc:16902). hgnc:16902 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6707,7 +7147,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">amino acid supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">amino acid supplementation<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is amino acid supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Supplementation</span>
 
 
@@ -6738,17 +7183,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         leucine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_25017" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:25017">CHEBI:25017</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_25017" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:25017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses leucine (CHEBI:25017). CHEBI:25017 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         isoleucine
@@ -6756,11 +7208,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_24898" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:24898">CHEBI:24898</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_24898" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:24898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses isoleucine (CHEBI:24898). CHEBI:24898 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         valine
@@ -6768,10 +7225,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27266" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27266">CHEBI:27266</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27266" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:27266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valine (CHEBI:27266). CHEBI:27266 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6836,17 +7296,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Motor delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001270</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Microcephaly
@@ -6854,11 +7321,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
@@ -6866,11 +7338,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Language impairment
@@ -6878,10 +7355,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002463">HP:0002463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002463</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Language impairment (HP:0002463). HP:0002463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6978,7 +7458,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">clinical monitoring</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Clinical Evaluation</span>
 
 
@@ -7078,7 +7563,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7795,15 +8285,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-39">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-39">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7817,6 +8312,8 @@
 
 
                 </div>
+
+
 
 
 
@@ -7927,15 +8424,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-40">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-40">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7951,14 +8453,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-constitutive-bckdh-activation-and-excessive-bcaa-catabolism">Constitutive BCKDH activation and excessive BCAA catabolism</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The assay measures loss of BCKDK-mediated restraint on BCKDH.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-constitutive-bckdh-activation-and-excessive-bcaa-catabolism">Constitutive BCKDH activation and excessive BCAA catabolism</a>
+
+
+
+                <span class="crosslink-desc">The assay measures loss of BCKDK-mediated restraint on BCKDH.</span>
+
+
 
 
 
@@ -7995,10 +8502,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8093,6 +8601,314 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-bckdk-knockout-bckdk-mouse-mus-musculus" data-dismech-node="Bckdk knockout (Bckdk−/−) Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Bckdk knockout (Bckdk−/−) Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Constitutive Bckdk-null mice reproduce the biochemical depletion and a reversible neurologic phenotype. Recent isotope-tracing work adds impaired BCAA-derived nitrogen delivery to brain and nutrient-stress-dependent motor dysfunction, while also showing relative skeletal-muscle resilience.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced circulating and brain BCAAs</span>
+
+                    <span class="tag tag-phenotype">Growth retardation</span>
+
+                    <span class="tag tag-phenotype">Tremor, seizures, and hindlimb clasping</span>
+
+                    <span class="tag tag-phenotype">Impaired motor coordination during protein restriction</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Bckdk knockout (Bckdk−/−)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22956686" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22956686" target="_blank">PMID:22956686</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adults developed neurological abnormalities, such as tremors, epileptic seizures, and hindlimb clasping phenotypes observed in some other mouse models of autism spectrum disorders"</div>
+
+
+                <div class="evidence-explanation">Documents the core neurologic phenotype of the knockout mouse.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41587643" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41587643" target="_blank">PMID:41587643</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bckdk KO showed normal grip strength but poor beam traversal and reduced wheel running during protein restriction."</div>
+
+
+                <div class="evidence-explanation">Establishes coordination and activity deficits under nutrient stress.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-homozygous-spontaneous-bckdk-p-gly369glu-frogleg-allele-rat-rattus-norvegicus" data-dismech-node="Homozygous spontaneous Bckdk p.Gly369Glu frogleg allele Rat (Rattus norvegicus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Homozygous spontaneous Bckdk p.Gly369Glu frogleg allele Rat (Rattus norvegicus)
+
+                    <span class="tag tag-exp-model-type">Missense loss-of-function model</span>
+
+                </div>
+
+                <div class="item-desc">The autosomal recessive frogleg rat carries a damaging kinase-domain Bckdk missense allele, loses BCKDH Ser293 phosphorylation, and develops central and peripheral nervous-system abnormalities with marked BCAA depletion.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Hindlimb splaying and neuromuscular dysfunction</span>
+
+                    <span class="tag tag-phenotype">Reduced brain weight and ventricular dilation</span>
+
+                    <span class="tag tag-phenotype">Seizures</span>
+
+                    <span class="tag tag-phenotype">Reduced circulating BCAAs</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Rat (Rattus norvegicus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Homozygous spontaneous Bckdk p.Gly369Glu frogleg allele</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27472223" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27472223" target="_blank">PMID:27472223</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"circulating levels of the BCAAs are reduced by 70-80% in animals homozygous for the mutation."</div>
+
+
+                <div class="evidence-explanation">Directly quantifies the model&#39;s systemic biochemical lesion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27472223" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27472223" target="_blank">PMID:27472223</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The frogleg phenotype shares important characteristics with a previously described Bckdk knockout mouse and with human subjects with Bckdk mutations."</div>
+
+
+                <div class="evidence-explanation">Supports translational correspondence across rat, mouse, and human disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-bckdk-deficiency-with-dbt-haploinsufficiency-mouse-mus-musculus" data-dismech-node="Bckdk deficiency with Dbt haploinsufficiency Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Bckdk deficiency with Dbt haploinsufficiency Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Genetic rescue model</span>
+
+                </div>
+
+                <div class="item-desc">Reducing dosage of the downstream BCKDH E2 component Dbt partially re-regulates excessive BCAA catabolism in Bckdk-deficient mice. The result supports catabolic-flux suppression as a preclinical strategy rather than establishing a human treatment.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Partial biochemical rescue</span>
+
+                    <span class="tag tag-phenotype">Partial behavioral rescue</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Bckdk deficiency with Dbt haploinsufficiency</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38770403" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38770403" target="_blank">PMID:38770403</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"genetic re-regulation of BCAA catabolism, through Dbt haploinsufficiency, partially rescued biochemical and behavioral phenotypes in BCKDK deficient mice."</div>
+
+
+                <div class="evidence-explanation">Directly demonstrates partial genetic rescue of biochemical and behavioral phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8109,7 +8925,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: BCKDK Deficiency
 creation_date: &#34;2026-06-04T12:00:00Z&#34;
-updated_date: &#34;2026-07-23T00:00:00Z&#34;
 category: Mendelian
 synonyms:
 - Branched-chain keto acid dehydrogenase kinase deficiency
@@ -10572,7 +11387,7 @@ especially in contexts of consanguinity or affected siblings. (novarino2012mutat
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BCKDK Deficiency", "mondoId": "MONDO:0013970", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BCKDK_Deficiency", "yamlRevision": "0a4764d457d8"};
+        const OS_CONFIG = {"diseaseName": "BCKDK Deficiency", "mondoId": "MONDO:0013970", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BCKDK_Deficiency", "yamlRevision": "7042e83403e3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10991,5 +11806,73 @@ especially in contexts of consanguinity or affected siblings. (novarino2012mutat
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

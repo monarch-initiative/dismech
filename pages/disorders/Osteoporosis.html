@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3565,6 +3731,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Osteoporosis"
@@ -3695,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3728,6 +3898,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3901,10 +4079,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         spatial single-cell multi-omics with conditional perturbation
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type spatial single-cell multi-omics with conditional perturbation.</span>
     </span>
 
 
@@ -3967,10 +4151,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         phospho-EGFR immunohistochemistry
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this readout is measured by this assay
+This readout is measured by phospho-EGFR immunohistochemistry.</span>
     </span>
 
 
@@ -3994,10 +4184,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         single-cell RNA sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this readout is measured by this assay
+This readout is measured by single-cell RNA sequencing.</span>
     </span>
 
 
@@ -4058,10 +4254,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         RANKL and OPG quantification
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this readout is measured by this assay
+This readout is measured by RANKL and OPG quantification.</span>
     </span>
 
 
@@ -4085,10 +4287,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         osteoclast differentiation assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by osteoclast differentiation assay.</span>
     </span>
 
 
@@ -4149,10 +4357,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         micro-computed tomography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by micro-computed tomography.</span>
     </span>
 
 
@@ -4369,10 +4583,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         allosteric EGFR pathway-selectivity assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+This experiment is of type allosteric EGFR pathway-selectivity assay.</span>
     </span>
 
 
@@ -4457,10 +4677,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-8">
 
         tissue-targeted drug-delivery assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this experiment is of type this experiment type
+This experiment is of type tissue-targeted drug-delivery assay.</span>
     </span>
 
 
@@ -4569,17 +4795,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteoclast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000092">CL:0000092</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000092</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoclast (CL:0000092). CL:0000092 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4600,10 +4833,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4630,16 +4866,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Bone Remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Bone Remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4656,6 +4897,7 @@
 
 
                 </div>
+
 
 
 
@@ -4735,16 +4977,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Osteoclast Differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030316">GO:0030316</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Osteoclast Differentiation (GO:0030316). GO:0030316 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4761,6 +5008,7 @@
 
 
                 </div>
+
 
 
 
@@ -4870,6 +5118,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -4958,16 +5207,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000137">CL:0000137</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000137" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteocyte (CL:0000137). CL:0000137 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4994,16 +5248,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cellular Response to Mechanical Stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071260">GO:0071260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0071260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cellular Response to Mechanical Stimulus (GO:0071260). GO:0071260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5020,6 +5279,7 @@
 
 
                 </div>
+
 
 
 
@@ -5102,16 +5362,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Bone Resorption
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045453">GO:0045453</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0045453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Bone Resorption (GO:0045453). GO:0045453 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5128,6 +5393,7 @@
 
 
                 </div>
+
 
 
 
@@ -5210,16 +5476,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Mitochondrion Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Mitochondrion Organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5236,6 +5507,7 @@
 
 
                 </div>
+
 
 
 
@@ -5288,6 +5560,29 @@
 
         <!-- Causal Graph (Pathograph) -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Osteoporosis</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bone Remodeling Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased osteoclast-mediated bone resorption relative to osteoblast- mediated bone formation leads to net bone loss. This imbalance accelerates with aging and estrogen deficiency.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Osteoclast\", \"Osteoblast\"], \"biological_processes\": [\"Bone Remodeling\"]}}, {\"id\": \"Estrogen Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Glucocorticoid Use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Microgravity Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Microgravity-Accelerated Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spaceflight induces a rapid and sustained increase in osteoclast-mediated bone resorption. Astronauts lose approximately 0.8% of bone mass per month in weight-bearing lower limb sites, with bone resorption markers plateauing at 113% above pre-flight levels within days of entering microgravity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Bone Resorption\"]}}, {\"id\": \"RANKL/OPG Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased RANKL and decreased osteoprotegerin (OPG) ratio promotes osteoclast differentiation and activation. Estrogen normally suppresses RANKL and increases OPG. Microgravity further exacerbates this imbalance by directly increasing the osteoblast RANKL/OPG ratio.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Osteoclast Differentiation\"]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Estrogen Deficiency\", \"target\": \"RANKL/OPG Dysregulation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Estrogen restrains osteoclastogenesis largely by holding down RANKL relative to osteoprotegerin, so its withdrawal releases that brake directly. This is why bone loss accelerates sharply at menopause rather than gradually with age.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Smoking\", \"target\": \"Bone Remodeling Imbalance\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Tobacco shifts bone turnover toward loss on top of whatever else is driving remodelling, lowering attained bone mass. The responsible constituents and steps are not established in the cited source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Glucocorticoid Use\", \"target\": \"Bone Remodeling Imbalance\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Therapeutic glucocorticoids suppress osteoblast function and lifespan while prolonging osteoclast survival, tipping remodelling toward resorption. It is the commonest secondary cause of the disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Microgravity Exposure\", \"target\": \"Microgravity-Accelerated Bone Resorption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Unloading removes the mechanical signal that normally restrains resorption, and this entry carries a node specifically for it. Notably the loss is not fully reversible on return to gravity.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+
 
         <!-- Phenotypes -->
 
@@ -5325,14 +5620,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Femur fracture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031846" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031846">HP:0031846</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0031846</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Femur Fractures, annotated with Femur fracture (HP:0031846). HP:0031846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5365,14 +5667,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced bone mineral density
+
+                        <span class="phenotype-term-label">Reduced bone mineral density</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased Bone Density, annotated with Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5446,14 +5757,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertebral compression fracture
+
+                        <span class="phenotype-term-label">Vertebral compression fracture</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002953">HP:0002953</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002953</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertebral Compression Fractures, annotated with Vertebral compression fracture (HP:0002953). HP:0002953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5505,14 +5825,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002808">HP:0002808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5545,14 +5872,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
+
+                        <span class="phenotype-term-label">Short stature</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short Stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5614,6 +5950,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: LRP5
+
+
+    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:6697</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5626,6 +5984,28 @@
                     SOST
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: SOST
+
+
+    <a href="https://bioregistry.io/hgnc:13771" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:13771</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOST (hgnc:13771). hgnc:13771 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5644,6 +6024,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ESR1
+
+
+    <a href="https://bioregistry.io/hgnc:3467" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:3467</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ESR1 (hgnc:3467). hgnc:3467 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -5656,6 +6058,28 @@
                     VDR
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: VDR
+
+
+    <a href="https://bioregistry.io/hgnc:12679" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:12679</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VDR (hgnc:12679). hgnc:12679 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -5687,7 +6111,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bisphosphonate agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">bisphosphonate agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bisphosphonate Therapy</span>
 
 
@@ -5809,7 +6238,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5839,16 +6273,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         denosumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C61313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C61313">NCIT:C61313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61313" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C61313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5871,7 +6310,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5901,16 +6345,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         teriparatide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C61966" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C61966">NCIT:C61966</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61966" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C61966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses teriparatide (NCIT:C61966). NCIT:C61966 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5933,7 +6382,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5963,16 +6417,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         romosozumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152246" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152246">NCIT:C152246</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152246" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C152246</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses romosozumab (NCIT:C152246). NCIT:C152246 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -5995,7 +6454,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">calcium supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">calcium supplementation<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is calcium supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -6041,7 +6505,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vitamin D supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">vitamin D supplementation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vitamin D supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Supplementation</span>
 
 
@@ -6087,7 +6556,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6141,6 +6615,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-estrogen-deficiency" data-dismech-node="Estrogen Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Estrogen Deficiency</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        low endogenous estrogen exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000010" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-36">ECTO:9000010</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is decreased low endogenous estrogen exposure, annotated with exposure to estrogens (ECTO:9000010). ECTO:9000010 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Menopause is major risk factor</div>
@@ -6200,16 +6701,104 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">RANKL/OPG Dysregulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Estrogen restrains osteoclastogenesis largely by holding down RANKL relative to osteoprotegerin, so its withdrawal releases that brake directly. This is why bone loss accelerates sharply at menopause rather than gradually with age.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12697741" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12697741" target="_blank">PMID:12697741</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The data suggest that upregulation of RANKL on bone marrow cells is an important determinant of increased bone resorption induced by estrogen deficiency."</div>
+
+
+                <div class="evidence-explanation">Measures RANKL directly on bone marrow cells in early postmenopausal women, finding it two- to threefold higher than in premenopausal or estrogen-treated women and inversely correlated with serum estradiol. That reaches the specific ratio this node is named for, which the previous citation did not.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-calcium-deficiency" data-dismech-node="Calcium Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Calcium Deficiency</div>
 
 
+
+
+
+
                 <div class="item-desc">Inadequate dietary intake</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35247225" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35247225" target="_blank">PMID:35247225</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When calcium intake is low or when calcium is poorly absorbed, bone resorption occurs since the stored calcium in bone is used to maintain normal biological functions."</div>
+
+
+                <div class="evidence-explanation">States the mechanism by which low or poorly absorbed dietary calcium drives bone resorption, the basis for calcium deficiency as an osteoporosis risk factor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6218,11 +6807,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-vitamin-d-deficiency" data-dismech-node="Vitamin D Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Vitamin D Deficiency</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        low vitamin D exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000133" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-37">ECTO:9000133</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is decreased low vitamin D exposure, annotated with exposure to vitamin D (ECTO:9000133). ECTO:9000133 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Impairs calcium absorption</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21872800" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21872800" target="_blank">PMID:21872800</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The consequences of vitamin D deficiency are secondary hyperparathyroidism and bone loss, leading to osteoporosis and fractures"</div>
+
+
+                <div class="evidence-explanation">Directly states that vitamin D deficiency causes secondary hyperparathyroidism and bone loss leading to osteoporosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6231,11 +6879,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
                 <div class="item-name">Sedentary Lifestyle</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        sedentary lifestyle
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-38">ECTO:6000004</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Lack of weight-bearing exercise</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30998435" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30998435" target="_blank">PMID:30998435</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Substitution of 30 min of sedentary time with an equal amount of light physical activity was associated with increased bone mineral density of about 3 mg/cm2 and a 12% reduced risk of osteoporosis in the spine."</div>
+
+
+                <div class="evidence-explanation">Quantifies the bone-density benefit of replacing sedentary time with activity, the inverse relationship supporting sedentary lifestyle as an osteoporosis risk factor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6243,6 +6950,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-39">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Accelerates bone loss</div>
@@ -6282,10 +7016,87 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Bone Remodeling Imbalance</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Tobacco shifts bone turnover toward loss on top of whatever else is driving remodelling, lowering attained bone mass. The responsible constituents and steps are not established in the cited source.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30631414" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30631414" target="_blank">PMID:30631414</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"tobacco smoking causes an imbalance in bone turnover, leading to lower bone mass and making bone vulnerable to osteoporosis and fracture"</div>
+
+
+                <div class="evidence-explanation">States that tobacco smoking causes an imbalance in bone turnover leading to lower bone mass, the remodelling imbalance this node represents.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-glucocorticoid-use" data-dismech-node="Glucocorticoid Use" data-dismech-type="environmental">
                 <div class="item-name">Glucocorticoid Use</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to glucocorticoid
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000259" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-40">ECTO:0000259</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to glucocorticoid (ECTO:0000259). ECTO:0000259 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Major cause of secondary osteoporosis</div>
@@ -6325,10 +7136,64 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Bone Remodeling Imbalance</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Therapeutic glucocorticoids suppress osteoblast function and lifespan while prolonging osteoclast survival, tipping remodelling toward resorption. It is the commonest secondary cause of the disease.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29691807" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29691807" target="_blank">PMID:29691807</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"Glucocorticoid-induced osteoporosis is the most common secondary cause of osteoporosis and the resulting fractures cause significant morbidity."</div>
+
+
+                <div class="evidence-explanation">Identifies glucocorticoid-induced osteoporosis as the most common secondary cause of the disease, an iatrogenic exposure rather than a background risk factor.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-microgravity-exposure" data-dismech-node="Microgravity Exposure" data-dismech-type="environmental">
                 <div class="item-name">Microgravity Exposure</div>
+
+
+
+
 
 
                 <div class="item-desc">Spaceflight-induced mechanical unloading causes 1-1.5% bone loss per month in weight-bearing sites. Recovery is slow and often incomplete, with some astronauts showing deficits equivalent to a decade of terrestrial aging after one year.
@@ -6416,6 +7281,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Microgravity-Accelerated Bone Resorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Unloading removes the mechanical signal that normally restrains resorption, and this entry carries a node specifically for it. Notably the loss is not fully reversible on return to gravity.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35773442" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35773442" target="_blank">PMID:35773442</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"nine of 17 astronauts did not fully recover tibia total BMD after 12-months"</div>
+
+
+                <div class="evidence-explanation">Reports that nine of seventeen astronauts had not fully recovered tibial bone mineral density twelve months after flight, the incomplete recovery this node&#39;s downstream consequences reflect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6791,6 +7708,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6807,7 +7727,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Osteoporosis
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-03-17T00:00:00Z&#39;
 description: &gt;-
   Osteoporosis results from an imbalance in bone remodeling, with osteoclast-mediated resorption outpacing osteoblast-mediated formation.
   An increased RANKL-to-osteoprotegerin ratio, accelerated by estrogen deficiency and aging, promotes osteoclastogenesis and net bone loss.
@@ -7105,19 +8024,66 @@ biochemical:
   context: May be elevated with vitamin D deficiency
 genetic:
 - name: LRP5
+  gene_term:
+    preferred_term: LRP5
+    term:
+      id: hgnc:6697
+      label: LRP5
   association: Risk Factor
   notes: Wnt signaling pathway
 - name: SOST
+  gene_term:
+    preferred_term: SOST
+    term:
+      id: hgnc:13771
+      label: SOST
   association: Risk Factor
   notes: Encodes sclerostin
 - name: ESR1
+  gene_term:
+    preferred_term: ESR1
+    term:
+      id: hgnc:3467
+      label: ESR1
   association: Risk Factor
   notes: Estrogen receptor
 - name: VDR
+  gene_term:
+    preferred_term: VDR
+    term:
+      id: hgnc:12679
+      label: VDR
   association: Risk Factor
   notes: Vitamin D receptor
 environmental:
 - name: Estrogen Deficiency
+  exposure_term:
+    preferred_term: low endogenous estrogen exposure
+    modifier: DECREASED
+    term:
+      id: ECTO:9000010
+      label: exposure to estrogens
+  influences_mechanisms:
+  - target: RANKL/OPG Dysregulation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Estrogen restrains osteoclastogenesis largely by holding down RANKL
+      relative to osteoprotegerin, so its withdrawal releases that brake
+      directly. This is why bone loss accelerates sharply at menopause rather
+      than gradually with age.
+    evidence:
+    - reference: PMID:12697741
+      reference_title: &#34;Role of RANK ligand in mediating increased bone resorption in early postmenopausal women.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The data suggest that upregulation of RANKL on bone marrow cells is an important determinant of increased bone resorption induced by estrogen deficiency.&#34;
+      explanation: &gt;-
+        Measures RANKL directly on bone marrow cells in early postmenopausal
+        women, finding it two- to threefold higher than in premenopausal or
+        estrogen-treated women and inversely correlated with serum estradiol.
+        That reaches the specific ratio this node is named for, which the
+        previous citation did not.
   notes: Menopause is major risk factor
   evidence:
   - reference: PMID:21874760
@@ -7139,11 +8105,65 @@ environmental:
       sexes, with deficiency leading to osteoporosis
 - name: Calcium Deficiency
   notes: Inadequate dietary intake
+  evidence:
+  - reference: PMID:35247225
+    reference_title: &#34;Calcium deficiency worldwide: prevalence of inadequate intakes and associated health outcomes.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;When calcium intake is low or when calcium is poorly absorbed, bone resorption occurs since the stored calcium in bone is used to maintain normal biological functions.&#34;
+    explanation: States the mechanism by which low or poorly absorbed dietary calcium drives bone resorption, the basis for calcium deficiency as an osteoporosis risk factor.
 - name: Vitamin D Deficiency
+  exposure_term:
+    preferred_term: low vitamin D exposure
+    modifier: DECREASED
+    term:
+      id: ECTO:9000133
+      label: exposure to vitamin D
   notes: Impairs calcium absorption
+  evidence:
+  - reference: PMID:21872800
+    reference_title: &#34;The effect of vitamin D on bone and osteoporosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The consequences of vitamin D deficiency are secondary hyperparathyroidism and bone loss, leading to osteoporosis and fractures&#34;
+    explanation: Directly states that vitamin D deficiency causes secondary hyperparathyroidism and bone loss leading to osteoporosis.
 - name: Sedentary Lifestyle
+  exposure_term:
+    preferred_term: sedentary lifestyle
+    term:
+      id: ECTO:6000004
+      label: exposure to sedentary lifestyle
+  evidence:
+  - reference: PMID:30998435
+    reference_title: &#34;Substitution of sedentary time with light physical activity is related to increased bone density in U.S. women over 50 years old. An iso-temporal substitution analysis based on the National health and Nutrition Examination Survey.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Substitution of 30 min of sedentary time with an equal amount of light physical activity was associated with increased bone mineral density of about 3 mg/cm2 and a 12% reduced risk of osteoporosis in the spine.&#34;
+    explanation: Quantifies the bone-density benefit of replacing sedentary time with activity, the inverse relationship supporting sedentary lifestyle as an osteoporosis risk factor.
   notes: Lack of weight-bearing exercise
 - name: Smoking
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: Bone Remodeling Imbalance
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Tobacco shifts bone turnover toward loss on top of whatever else is
+      driving remodelling, lowering attained bone mass. The responsible
+      constituents and steps are not established in the cited source.
+    evidence:
+    - reference: PMID:30631414
+      reference_title: &#34;The Effect of Tobacco Smoking on Bone Mass: An Overview of Pathophysiologic Mechanisms.&#34;
+      supports: SUPPORT
+      snippet: &#34;tobacco smoking causes an imbalance in bone turnover, leading to lower bone mass and making bone vulnerable to osteoporosis and fracture&#34;
+      explanation: &gt;-
+        States that tobacco smoking causes an imbalance in bone turnover
+        leading to lower bone mass, the remodelling imbalance this node
+        represents.
   notes: Accelerates bone loss
   evidence:
   - reference: PMID:30631414
@@ -7154,6 +8174,28 @@ environmental:
     explanation: Review confirms that smoking causes bone turnover imbalance that
       increases osteoporosis and fracture risk.
 - name: Glucocorticoid Use
+  exposure_term:
+    preferred_term: exposure to glucocorticoid
+    term:
+      id: ECTO:0000259
+      label: exposure to glucocorticoid
+  influences_mechanisms:
+  - target: Bone Remodeling Imbalance
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Therapeutic glucocorticoids suppress osteoblast function and lifespan
+      while prolonging osteoclast survival, tipping remodelling toward
+      resorption. It is the commonest secondary cause of the disease.
+    evidence:
+    - reference: PMID:29691807
+      reference_title: &#34;Glucocorticoid-induced osteoporosis: an update.&#34;
+      supports: SUPPORT
+      snippet: &#34;Glucocorticoid-induced osteoporosis is the most common secondary cause of osteoporosis and the resulting fractures cause significant morbidity.&#34;
+      explanation: &gt;-
+        Identifies glucocorticoid-induced osteoporosis as the most common
+        secondary cause of the disease, an iatrogenic exposure rather than a
+        background risk factor.
   notes: Major cause of secondary osteoporosis
   evidence:
   - reference: PMID:29691807
@@ -7164,6 +8206,24 @@ environmental:
     explanation: Review confirms glucocorticoid use is the leading cause of secondary
       osteoporosis.
 - name: Microgravity Exposure
+  influences_mechanisms:
+  - target: Microgravity-Accelerated Bone Resorption
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Unloading removes the mechanical signal that normally restrains
+      resorption, and this entry carries a node specifically for it. Notably
+      the loss is not fully reversible on return to gravity.
+    evidence:
+    - reference: PMID:35773442
+      reference_title: &#34;Incomplete recovery of bone strength and trabecular microarchitecture at the distal tibia 1 year after return from long duration spaceflight.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;nine of 17 astronauts did not fully recover tibia total BMD after 12-months&#34;
+      explanation: &gt;-
+        Reports that nine of seventeen astronauts had not fully recovered
+        tibial bone mineral density twelve months after flight, the incomplete
+        recovery this node&#39;s downstream consequences reflect.
   notes: &gt;
     Spaceflight-induced mechanical unloading causes 1-1.5% bone loss per month in
     weight-bearing sites. Recovery is slow and often incomplete, with some astronauts
@@ -8051,7 +9111,7 @@ Osteoporosis is driven by chronic imbalance in bone remodeling: increased osteoc
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Osteoporosis", "mondoId": "MONDO:0005298", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteoporosis", "yamlRevision": "d4fc7adfa3b8"};
+        const OS_CONFIG = {"diseaseName": "Osteoporosis", "mondoId": "MONDO:0005298", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Osteoporosis", "yamlRevision": "d03aa645595a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8470,5 +9530,73 @@ Osteoporosis is driven by chronic imbalance in bone remodeling: increased osteoc
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

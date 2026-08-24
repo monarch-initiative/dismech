@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 35</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 39</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Carnitine%20Palmitoyltransferase%20II%20Deficiency"
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3727,7 +3895,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">35</div>
+                <div class="stat-value">39</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3804,27 +3972,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+
+
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4094,17 +4339,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4125,10 +4377,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4155,15 +4410,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CPT2
 
 
-    <a href="https://bioregistry.io/hgnc:2330" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2330">hgnc:2330</a>
+    <a href="https://bioregistry.io/hgnc:2330" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2330</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CPT2 (hgnc:2330). hgnc:2330 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4191,17 +4453,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         fatty acid beta-oxidation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006635">GO:0006635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006635</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4222,10 +4491,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001676" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001676">GO:0001676</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001676" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001676</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves long-chain fatty acid metabolic process (GO:0001676). GO:0001676 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4248,19 +4520,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4422,16 +4700,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006457">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4452,16 +4735,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         carnitine O-palmitoyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004095" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004095">GO:0004095</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004095" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0004095</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased carnitine O-palmitoyltransferase activity (GO:0004095). GO:0004095 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4482,6 +4770,7 @@
 
 
                 </div>
+
 
 
 
@@ -4572,16 +4861,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4607,6 +4901,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         calcium ion homeostasis
@@ -4614,10 +4910,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055074">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0055074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4640,19 +4939,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         sarcoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016529">GO:0016529</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0016529</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in sarcoplasmic reticulum (GO:0016529). GO:0016529 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4719,16 +5024,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4755,16 +5065,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006936">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006936</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased muscle contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4785,6 +5100,7 @@
 
 
                 </div>
+
 
 
 
@@ -4931,16 +5247,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         carnitine shuttle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006853" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006853">GO:0006853</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006853" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006853</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves carnitine shuttle (GO:0006853). GO:0006853 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4963,19 +5284,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitochondrial inner membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005743">GO:0005743</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0005743</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrial inner membrane (GO:0005743). GO:0005743 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5057,7 +5384,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of neuronal migration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neuronal migration defects are reported in the severe neonatal CPT2 deficiency presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Lethal neonatal\"], \"term_id\": \"HP:0002269\"}}, {\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal failure secondary to massive rhabdomyolysis and myoglobin nephrotoxicity. Managed with aggressive fluid resuscitation and occasionally hemodialysis; GeneReviews lists intravenous hydration and/or dialysis for rhabdomyolysis and myoglobinuria among acute inpatient measures.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myopathic\"], \"term_id\": \"HP:0001919\"}}, {\"id\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management of acute rhabdomyolysis episodes with aggressive intravenous fluid therapy using crystalloid solutions to prevent or treat myoglobin-induced acute kidney injury.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Avoidance of metabolic triggers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifestyle modification to avoid prolonged exercise, fasting, cold exposure, and other metabolic stressors is the primary preventive strategy. Patients should modify daily activities to prevent recurrent rhabdomyolysis episodes. A distinct and easily overlooked hazard is general anaesthesia, which GeneReviews says should proceed with caution because of possible risk of malignant hyperthermia or rhabdomyolysis - to the point that genetic testing of at-risk asymptomatic siblings is advised BEFORE they undergo anaesthesia.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Bezafibrate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A fibrate investigated as pharmacotherapy for CPT II deficiency on the basis of in vitro evidence that fibrates upregulate CPT2 expression. A randomized, double-blind, crossover trial in patients with CPT II (n=5) and VLCAD (n=5) deficiency found NO effect: despite the expected lipid-lowering, there were no changes in palmitate oxidation, total fatty acid oxidation, or heart rate during exercise. The authors graded this Class I evidence that bezafibrate is ineffective, and concluded that the in vitro therapeutic promise does not translate in vivo. Bezafibrate is recorded here as a refuted therapeutic hypothesis, not a candidate treatment.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"bezafibrate\"]}}, {\"id\": \"CPT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CPT2\"], \"gene_terms\": [{\"label\": \"CPT2\", \"id\": \"hgnc:2330\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CPT2 - Various private mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"More than 60 mostly private mutations have been described in CPT2 beyond the common S113L variant. Novel variants include p.F352L, p.R498L, p.F434S, p.A515P, and c.153-2A\u003eG reported in a Chinese pediatric cohort.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous CPT2 variants identified by whole-genome sequencing in a patient with recurrent rhabdomyolysis and normal inter-episode acylcarnitine profiles.\\n\"}, {\"id\": \"CPT2 - p.Ser113Leu (S113L)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant, found in approximately 90% of myopathic CPT II patients with an allele frequency of 60-70%. Produces a thermolabile enzyme with abnormal sensitivity to malonyl-CoA inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CPT2 gene variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CPT2\"], \"gene_terms\": [{\"label\": \"CPT2\", \"id\": \"hgnc:2330\"}], \"variant_count\": 3}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement in severe early-onset forms, also reported as a complication in the adult myopathic form. One case report documented left ventricular ejection fraction of 40% during acute crisis.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Severe infantile\", \"Lethal neonatal\", \"Myopathic\"], \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carnitine shuttle disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CPT-II is the final enzyme of the three-component carnitine shuttle that transports long-chain fatty acids into the mitochondrial matrix. CPT-I on the outer mitochondrial membrane converts acyl-CoA to acylcarnitine, CACT translocates acylcarnitine across the inner membrane, and CPT-II regenerates acyl-CoA inside the mitochondrion. Loss of CPT-II activity blocks this shuttle at its terminal step.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"carnitine shuttle\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine supplementation may be used to support conjugation and excretion of accumulated long-chain acyl groups, though its use remains debated in fatty acid oxidation disorders. Free carnitine is often decreased in CPT2 deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Creatine kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"CK elevation tracks acute metabolic myofiber injury during rhabdomyolysis episodes.\"}]}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated serum creatine kinase during rhabdomyolysis episodes, reflecting skeletal muscle damage. CK levels normalize between episodes, and CK is a GeneReviews-recommended surveillance measurement.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"reports_on\": [{\"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Damaged skeletal muscle releases creatine kinase into serum during rhabdomyolysis.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Episodic muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle stiffness and cramps occurring during or after exercise or illness episodes, often preceding frank rhabdomyolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"term_id\": \"HP:0008967\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance in the myopathic form reflects failure to meet skeletal-muscle energy demand during sustained exertion and often accompanies recurrent rhabdomyolysis attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"term_id\": \"HP:0003546\"}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased free carnitine can accompany the CPT2 block when long-chain acyl groups are trapped as acylcarnitine esters.\"}]}}, {\"id\": \"High-carbohydrate, low-fat diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary modification emphasizing high carbohydrate and low long-chain fat intake to reduce reliance on fatty acid oxidation. Medium-chain triglyceride (MCT) supplementation may be used as an alternative energy source since MCT can bypass the carnitine shuttle.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia, characteristic of severe infantile and neonatal forms due to impaired hepatic fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Severe infantile\", \"Lethal neonatal\"], \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CPT-II function impairs mitochondrial beta-oxidation of long-chain fatty acids, resulting in accumulation of long-chain acylcarnitines and disruption of energy homeostasis, especially during fasting, illness, fever, or prolonged exercise when reliance on fatty acid oxidation increases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\", \"hepatocyte\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"long-chain fatty acid metabolic process\"], \"genes\": [\"CPT2\"], \"gene_terms\": [{\"label\": \"CPT2\", \"id\": \"hgnc:2330\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In CPT2-deficient muscle, accumulation of long-chain acylcarnitines (LCACs), particularly palmitoyl-carnitine, directly inhibits sarcoplasmic reticulum calcium uptake, disrupts excitation-contraction coupling structures, and increases mitochondrial calcium stress and permeability transition pore susceptibility. This leads to contractile dysfunction and myofiber injury beyond simple energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"calcium ion homeostasis\"], \"locations\": [\"sarcoplasmic reticulum\"]}}, {\"id\": \"Liver dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased liver function and liver failure occur in severe neonatal and infantile CPT2 deficiency as part of the hepatocardiomuscular presentation, reflecting impaired hepatic long-chain fatty acid oxidation during metabolic stress.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Severe infantile\", \"Lethal neonatal\"], \"term_id\": \"HP:0001410\"}}, {\"id\": \"Long-chain acylcarnitines (C16, C18:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated long-chain acylcarnitine species are the diagnostic plasma readout of the CPT2 carnitine-shuttle block.\"}]}}, {\"id\": \"Metabolic myofiber injury and rhabdomyolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During metabolic stress, CPT2-deficient skeletal muscle cannot meet energy demands from long-chain fatty acid oxidation and accumulates lipid intermediates. The resulting ATP stress, calcium dyshomeostasis, and contractile structure disruption lead to episodic myofiber injury, rhabdomyolysis, leakage of creatine kinase and myoglobin, and secondary renal risk.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"muscle contraction\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic muscle weakness during attacks, reported in 76% of patients. Unlike carnitine deficiency, persistent muscle weakness is not characteristic between episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent attacks of muscle pain are the most common symptom, reported in 94% of patients with muscle CPT II deficiency. Typically triggered by exercise, infection, or fasting.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myopathic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Myoglobinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark urine due to myoglobin release from damaged skeletal muscle, occurring with rhabdomyolysis episodes. Reported in 86% of patients with the myopathic form.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myopathic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002913\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopathy is a severe infantile CPT2 deficiency manifestation reflecting skeletal-muscle involvement from impaired long-chain fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe infantile\"], \"term_id\": \"HP:0003198\"}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CPT II deficiency is detectable by newborn screening via tandem mass spectrometry using elevated long-chain acylcarnitines (C16, C18:1) as primary markers. Three of six children in one cohort were diagnosed through neonatal screening. However, biochemical abnormalities may only be detectable during metabolic stress.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Palmitoyl-carnitine in muscle\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Renal cyst\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic kidneys are reported in the severe neonatal CPT2 deficiency presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Lethal neonatal\"], \"term_id\": \"HP:0000107\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of skeletal muscle breakdown triggered by prolonged exercise, fasting, fever, or cold exposure. This is the hallmark manifestation of the myopathic form. In a cohort of 50 patients, myoglobinuria was observed in 86%.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Myopathic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Thermolability of mutant CPT-II enzyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common myopathic variant p.Ser113Leu produces an enzyme with near-normal baseline activity but marked thermolability at elevated temperatures (40-45 degrees C) and abnormal sensitivity to inhibition by malonyl-CoA. This provides a mechanistic rationale for fever- and exertion-triggered metabolic crises, as the mutant enzyme loses activity precisely when fatty acid oxidation demand is greatest.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"], \"molecular_functions\": [\"carnitine O-palmitoyltransferase activity\"]}}, {\"id\": \"Triheptanoin (Dojolvi)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An odd-chain (C7) triglyceride providing anaplerotic substrate to sustain the TCA cycle, gluconeogenesis and energy production - the rationale being that conventional even-chain MCT supplies acetyl-CoA but does not replenish depleted TCA-cycle intermediates. Unlike bezafibrate, triheptanoin is an approved therapy: it is licensed as a source of calories and fatty acids for long-chain fatty acid oxidation disorders, the class that includes CPT II deficiency. A double-blind randomized comparison against MCT showed a positive cardiac effect, with improvement in major clinical events in open-label extension studies.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"triheptanoin\"]}}], \"edges\": [{\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Long-chain acylcarnitines (C16, C18:1)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CPT2 impairment blocks reconversion of long-chain acylcarnitines to long-chain acyl-CoA, producing the characteristic plasma long-chain acylcarnitine signature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Long-chain acyl group trapping as acylcarnitine esters can reduce the free carnitine pool in symptomatic patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Accumulated long-chain acyl groups are esterified to carnitine when CPT2 cannot efficiently regenerate acyl-CoA in the mitochondrial matrix.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Palmitoyl-carnitine in muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CPT2-deficient oxidative skeletal muscle accumulates palmitoyl-carnitine, providing the upstream substrate for LCAC-mediated calcium handling injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated LCACs, including palmitoyl-carnitine, inhibit sarcoplasmic reticulum calcium uptake in CPT2-deficient muscle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Long-chain acylcarnitine accumulation links the mitochondrial beta-oxidation block to sarcoplasmic reticulum calcium uptake defects.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe hepatic long-chain FAO impairment reduces fasting energy and ketone production, producing hypoketotic hypoglycemia in neonatal and infantile forms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatic fatty acid oxidation failure lowers acetyl-CoA supply for ketogenesis and fasting energy homeostasis.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac long-chain FAO dependence makes severe CPT2 deficiency manifest as cardiomyopathy and heart failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cardiomyocyte energy failure occurs when long-chain fatty acid oxidation cannot meet cardiac energy demand.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Liver dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic long-chain FAO failure contributes to liver dysfunction or failure in severe neonatal and infantile CPT2 deficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatic energy failure during fasting or illness impairs liver function in severe CPT2 deficiency.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-muscle energy failure in infantile CPT2 deficiency manifests as myopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired long-chain fatty acid oxidation limits ATP supply in skeletal muscle during infancy and metabolic stress.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Abnormality of neuronal migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neonatal CPT2 deficiency includes neuronal migration defects; the precise developmental intermediates are not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Renal cyst\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neonatal CPT2 deficiency includes cystic kidneys; the direct renal-development mechanism remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In skeletal muscle, long-chain FAO failure creates ATP stress and toxic lipid intermediate accumulation that lead to episodic myofiber breakdown.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ATP deficit and accumulated long-chain lipid intermediates impair muscle contraction and myofiber integrity under stress.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"During exertion, skeletal muscle reliance on fatty acid oxidation unmasks the CPT2 block, producing exercise intolerance and precipitating rhabdomyolysis attacks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Exercise increases skeletal-muscle ATP demand and fatty acid oxidation flux, exposing the impaired carnitine shuttle.\"]}, {\"source\": \"Thermolability of mutant CPT-II enzyme\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heat- and inhibitor-sensitive CPT2 variants lose functional activity during stress, reducing cellular beta-oxidation and ATP generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LCAC-driven calcium uptake impairment and contractile proteome disruption compromise muscle structure and function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolic myofiber injury manifests clinically as recurrent rhabdomyolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent myofiber metabolic injury produces attacks of muscle pain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute myofiber dysfunction during attacks manifests as episodic muscle weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Episodic muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attack-related contractile dysfunction manifests as stiffness and cramps during exercise or febrile illness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myoglobinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis releases myoglobin from damaged myofibers into urine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myofiber breakdown releases myoglobin that is filtered by the kidney.\"]}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Serum CK rises as a biochemical marker of attack-related myofiber injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Massive rhabdomyolysis can cause AKI through myoglobin-mediated renal injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myoglobin release during rhabdomyolysis injures renal tubules and can require renal replacement therapy.\"]}, {\"source\": \"Carnitine shuttle disruption\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the terminal CPT2 step prevents long-chain acylcarnitines from being regenerated as mitochondrial acyl-CoA substrates for beta-oxidation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Myoglobinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Acute kidney injury\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"target\": \"Myoglobinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"target\": \"Acute kidney injury\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Liver dysfunction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Long-chain acylcarnitines (C16, C18:1)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated long-chain acylcarnitine species are the diagnostic plasma readout of the CPT2 carnitine-shuttle block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased free carnitine can accompany the CPT2 block when long-chain acyl groups are trapped as acylcarnitine esters.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Creatine kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CK elevation tracks acute metabolic myofiber injury during rhabdomyolysis episodes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Damaged skeletal muscle releases creatine kinase into serum during rhabdomyolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CPT2 gene variants\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2 - p.Ser113Leu (S113L)\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - Various private mutations\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormality of neuronal migration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neuronal migration defects are reported in the severe neonatal CPT2 deficiency presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Lethal neonatal\"], \"term_id\": \"HP:0002269\"}}, {\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal failure secondary to massive rhabdomyolysis and myoglobin nephrotoxicity. Managed with aggressive fluid resuscitation and occasionally hemodialysis; GeneReviews lists intravenous hydration and/or dialysis for rhabdomyolysis and myoglobinuria among acute inpatient measures.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myopathic\"], \"term_id\": \"HP:0001919\"}}, {\"id\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency management of acute rhabdomyolysis episodes with aggressive intravenous fluid therapy using crystalloid solutions to prevent or treat myoglobin-induced acute kidney injury.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Avoidance of metabolic triggers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifestyle modification to avoid prolonged exercise, fasting, cold exposure, and other metabolic stressors is the primary preventive strategy. Patients should modify daily activities to prevent recurrent rhabdomyolysis episodes. A distinct and easily overlooked hazard is general anaesthesia, which GeneReviews says should proceed with caution because of possible risk of malignant hyperthermia or rhabdomyolysis - to the point that genetic testing of at-risk asymptomatic siblings is advised BEFORE they undergo anaesthesia.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Bezafibrate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A fibrate investigated as pharmacotherapy for CPT II deficiency on the basis of in vitro evidence that fibrates upregulate CPT2 expression. A randomized, double-blind, crossover trial in patients with CPT II (n=5) and VLCAD (n=5) deficiency found NO effect: despite the expected lipid-lowering, there were no changes in palmitate oxidation, total fatty acid oxidation, or heart rate during exercise. The authors graded this Class I evidence that bezafibrate is ineffective, and concluded that the in vitro therapeutic promise does not translate in vivo. Bezafibrate is recorded here as a refuted therapeutic hypothesis, not a candidate treatment.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"bezafibrate\"]}}, {\"id\": \"CPT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CPT2\"], \"gene_terms\": [{\"label\": \"CPT2\", \"id\": \"hgnc:2330\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CPT2 - Various private mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"More than 60 mostly private mutations have been described in CPT2 beyond the common S113L variant. Novel variants include p.F352L, p.R498L, p.F434S, p.A515P, and c.153-2A\u003eG reported in a Chinese pediatric cohort.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous CPT2 variants identified by whole-genome sequencing in a patient with recurrent rhabdomyolysis and normal inter-episode acylcarnitine profiles.\\n\"}, {\"id\": \"CPT2 - p.Ser113Leu (S113L)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant, found in approximately 90% of myopathic CPT II patients with an allele frequency of 60-70%. Produces a thermolabile enzyme with abnormal sensitivity to malonyl-CoA inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CPT2 gene variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CPT2\"], \"gene_terms\": [{\"label\": \"CPT2\", \"id\": \"hgnc:2330\"}], \"variant_count\": 3}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement in severe early-onset forms, also reported as a complication in the adult myopathic form. One case report documented left ventricular ejection fraction of 40% during acute crisis.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Severe infantile\", \"Lethal neonatal\", \"Myopathic\"], \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carnitine shuttle disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CPT-II is the final enzyme of the three-component carnitine shuttle that transports long-chain fatty acids into the mitochondrial matrix. CPT-I on the outer mitochondrial membrane converts acyl-CoA to acylcarnitine, CACT translocates acylcarnitine across the inner membrane, and CPT-II regenerates acyl-CoA inside the mitochondrion. Loss of CPT-II activity blocks this shuttle at its terminal step.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"carnitine shuttle\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine supplementation may be used to support conjugation and excretion of accumulated long-chain acyl groups, though its use remains debated in fatty acid oxidation disorders. Free carnitine is often decreased in CPT2 deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cold exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to cold is a recognized trigger for metabolic crises in CPT II deficiency.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Creatine kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"CK elevation tracks acute metabolic myofiber injury during rhabdomyolysis episodes.\"}]}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated serum creatine kinase during rhabdomyolysis episodes, reflecting skeletal muscle damage. CK levels normalize between episodes, and CK is a GeneReviews-recommended surveillance measurement.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"reports_on\": [{\"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Damaged skeletal muscle releases creatine kinase into serum during rhabdomyolysis.\"}], \"term_id\": \"HP:0003236\"}}, {\"id\": \"Episodic muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle stiffness and cramps occurring during or after exercise or illness episodes, often preceding frank rhabdomyolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"term_id\": \"HP:0008967\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance in the myopathic form reflects failure to meet skeletal-muscle energy demand during sustained exertion and often accompanies recurrent rhabdomyolysis attacks.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fasting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Fasting increases dependency on fatty acid oxidation for energy, precipitating metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fever and infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Fever both increases energy demand and, in thermolabile variants, directly destabilizes the mutant CPT-II enzyme. Infections triggered episodes in 62% of patients.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Decreased free carnitine can accompany the CPT2 block when long-chain acyl groups are trapped as acylcarnitine esters.\"}]}}, {\"id\": \"High-carbohydrate, low-fat diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary modification emphasizing high carbohydrate and low long-chain fat intake to reduce reliance on fatty acid oxidation. Medium-chain triglyceride (MCT) supplementation may be used as an alternative energy source since MCT can bypass the carnitine shuttle.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia, characteristic of severe infantile and neonatal forms due to impaired hepatic fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Severe infantile\", \"Lethal neonatal\"], \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CPT-II function impairs mitochondrial beta-oxidation of long-chain fatty acids, resulting in accumulation of long-chain acylcarnitines and disruption of energy homeostasis, especially during fasting, illness, fever, or prolonged exercise when reliance on fatty acid oxidation increases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\", \"hepatocyte\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"long-chain fatty acid metabolic process\"], \"genes\": [\"CPT2\"], \"gene_terms\": [{\"label\": \"CPT2\", \"id\": \"hgnc:2330\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In CPT2-deficient muscle, accumulation of long-chain acylcarnitines (LCACs), particularly palmitoyl-carnitine, directly inhibits sarcoplasmic reticulum calcium uptake, disrupts excitation-contraction coupling structures, and increases mitochondrial calcium stress and permeability transition pore susceptibility. This leads to contractile dysfunction and myofiber injury beyond simple energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"calcium ion homeostasis\"], \"locations\": [\"sarcoplasmic reticulum\"]}}, {\"id\": \"Liver dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased liver function and liver failure occur in severe neonatal and infantile CPT2 deficiency as part of the hepatocardiomuscular presentation, reflecting impaired hepatic long-chain fatty acid oxidation during metabolic stress.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Severe infantile\", \"Lethal neonatal\"], \"term_id\": \"HP:0001410\"}}, {\"id\": \"Long-chain acylcarnitines (C16, C18:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated long-chain acylcarnitine species are the diagnostic plasma readout of the CPT2 carnitine-shuttle block.\"}]}}, {\"id\": \"Metabolic myofiber injury and rhabdomyolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During metabolic stress, CPT2-deficient skeletal muscle cannot meet energy demands from long-chain fatty acid oxidation and accumulates lipid intermediates. The resulting ATP stress, calcium dyshomeostasis, and contractile structure disruption lead to episodic myofiber injury, rhabdomyolysis, leakage of creatine kinase and myoglobin, and secondary renal risk.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"muscle contraction\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic muscle weakness during attacks, reported in 76% of patients. Unlike carnitine deficiency, persistent muscle weakness is not characteristic between episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Myopathic\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent attacks of muscle pain are the most common symptom, reported in 94% of patients with muscle CPT II deficiency. Typically triggered by exercise, infection, or fasting.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myopathic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Myoglobinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark urine due to myoglobin release from damaged skeletal muscle, occurring with rhabdomyolysis episodes. Reported in 86% of patients with the myopathic form.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Myopathic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002913\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopathy is a severe infantile CPT2 deficiency manifestation reflecting skeletal-muscle involvement from impaired long-chain fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Severe infantile\"], \"term_id\": \"HP:0003198\"}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CPT II deficiency is detectable by newborn screening via tandem mass spectrometry using elevated long-chain acylcarnitines (C16, C18:1) as primary markers. Three of six children in one cohort were diagnosed through neonatal screening. However, biochemical abnormalities may only be detectable during metabolic stress.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Palmitoyl-carnitine in muscle\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Prolonged exercise\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exercise is the most common trigger for rhabdomyolysis episodes, reported in 87% of patients. Sustained muscle activity increases reliance on fatty acid oxidation, unmasking the enzymatic defect.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal cyst\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cystic kidneys are reported in the severe neonatal CPT2 deficiency presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Lethal neonatal\"], \"term_id\": \"HP:0000107\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of skeletal muscle breakdown triggered by prolonged exercise, fasting, fever, or cold exposure. This is the hallmark manifestation of the myopathic form. In a cohort of 50 patients, myoglobinuria was observed in 86%.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Myopathic\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Thermolability of mutant CPT-II enzyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common myopathic variant p.Ser113Leu produces an enzyme with near-normal baseline activity but marked thermolability at elevated temperatures (40-45 degrees C) and abnormal sensitivity to inhibition by malonyl-CoA. This provides a mechanistic rationale for fever- and exertion-triggered metabolic crises, as the mutant enzyme loses activity precisely when fatty acid oxidation demand is greatest.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"], \"molecular_functions\": [\"carnitine O-palmitoyltransferase activity\"]}}, {\"id\": \"Triheptanoin (Dojolvi)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An odd-chain (C7) triglyceride providing anaplerotic substrate to sustain the TCA cycle, gluconeogenesis and energy production - the rationale being that conventional even-chain MCT supplies acetyl-CoA but does not replenish depleted TCA-cycle intermediates. Unlike bezafibrate, triheptanoin is an approved therapy: it is licensed as a source of calories and fatty acids for long-chain fatty acid oxidation disorders, the class that includes CPT II deficiency. A double-blind randomized comparison against MCT showed a positive cardiac effect, with improvement in major clinical events in open-label extension studies.\\n\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"triheptanoin\"]}}], \"edges\": [{\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Long-chain acylcarnitines (C16, C18:1)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CPT2 impairment blocks reconversion of long-chain acylcarnitines to long-chain acyl-CoA, producing the characteristic plasma long-chain acylcarnitine signature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Long-chain acyl group trapping as acylcarnitine esters can reduce the free carnitine pool in symptomatic patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Accumulated long-chain acyl groups are esterified to carnitine when CPT2 cannot efficiently regenerate acyl-CoA in the mitochondrial matrix.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Palmitoyl-carnitine in muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CPT2-deficient oxidative skeletal muscle accumulates palmitoyl-carnitine, providing the upstream substrate for LCAC-mediated calcium handling injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated LCACs, including palmitoyl-carnitine, inhibit sarcoplasmic reticulum calcium uptake in CPT2-deficient muscle.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Long-chain acylcarnitine accumulation links the mitochondrial beta-oxidation block to sarcoplasmic reticulum calcium uptake defects.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe hepatic long-chain FAO impairment reduces fasting energy and ketone production, producing hypoketotic hypoglycemia in neonatal and infantile forms.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatic fatty acid oxidation failure lowers acetyl-CoA supply for ketogenesis and fasting energy homeostasis.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac long-chain FAO dependence makes severe CPT2 deficiency manifest as cardiomyopathy and heart failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cardiomyocyte energy failure occurs when long-chain fatty acid oxidation cannot meet cardiac energy demand.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Liver dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic long-chain FAO failure contributes to liver dysfunction or failure in severe neonatal and infantile CPT2 deficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hepatic energy failure during fasting or illness impairs liver function in severe CPT2 deficiency.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skeletal-muscle energy failure in infantile CPT2 deficiency manifests as myopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired long-chain fatty acid oxidation limits ATP supply in skeletal muscle during infancy and metabolic stress.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Abnormality of neuronal migration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neonatal CPT2 deficiency includes neuronal migration defects; the precise developmental intermediates are not resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Renal cyst\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neonatal CPT2 deficiency includes cystic kidneys; the direct renal-development mechanism remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In skeletal muscle, long-chain FAO failure creates ATP stress and toxic lipid intermediate accumulation that lead to episodic myofiber breakdown.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"ATP deficit and accumulated long-chain lipid intermediates impair muscle contraction and myofiber integrity under stress.\"]}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"During exertion, skeletal muscle reliance on fatty acid oxidation unmasks the CPT2 block, producing exercise intolerance and precipitating rhabdomyolysis attacks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Exercise increases skeletal-muscle ATP demand and fatty acid oxidation flux, exposing the impaired carnitine shuttle.\"]}, {\"source\": \"Thermolability of mutant CPT-II enzyme\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heat- and inhibitor-sensitive CPT2 variants lose functional activity during stress, reducing cellular beta-oxidation and ATP generation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LCAC-driven calcium uptake impairment and contractile proteome disruption compromise muscle structure and function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolic myofiber injury manifests clinically as recurrent rhabdomyolysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent myofiber metabolic injury produces attacks of muscle pain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute myofiber dysfunction during attacks manifests as episodic muscle weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Episodic muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attack-related contractile dysfunction manifests as stiffness and cramps during exercise or febrile illness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myoglobinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis releases myoglobin from damaged myofibers into urine.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myofiber breakdown releases myoglobin that is filtered by the kidney.\"]}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Serum CK rises as a biochemical marker of attack-related myofiber injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Massive rhabdomyolysis can cause AKI through myoglobin-mediated renal injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Myoglobin release during rhabdomyolysis injures renal tubules and can require renal replacement therapy.\"]}, {\"source\": \"Carnitine shuttle disruption\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the terminal CPT2 step prevents long-chain acylcarnitines from being regenerated as mitochondrial acyl-CoA substrates for beta-oxidation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged exercise\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sustained exercise shifts muscle onto fatty acid oxidation for fuel, so it loads the exact pathway this enzyme cannot service. The deficiency is silent until demand exceeds residual capacity, which is why attacks are exertional rather than constant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fasting\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Fasting withdraws glucose and forces reliance on fatty acid oxidation, imposing the same demand on the blocked pathway that exercise does by a different route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fever and infection\", \"target\": \"Thermolability of mutant CPT-II enzyme\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Fever is mechanistically distinct from the other triggers in this entry. Rather than merely raising fatty acid oxidation demand, a febrile core temperature directly destabilises the mutant enzyme, so it targets the thermolability node rather than the shared demand node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cold exposure\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Cold raises thermogenic demand, which is met by fatty acid oxidation, so it loads the blocked pathway through the known intermediate of shivering and non-shivering thermogenesis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Myoglobinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Acute kidney injury\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of metabolic triggers\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"High-carbohydrate, low-fat diet\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"target\": \"Myoglobinuria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Aggressive fluid resuscitation for rhabdomyolysis\", \"target\": \"Acute kidney injury\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bezafibrate\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Myalgia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Exercise intolerance\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin (Dojolvi)\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Liver dysfunction\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Long-chain acylcarnitines (C16, C18:1)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated long-chain acylcarnitine species are the diagnostic plasma readout of the CPT2 carnitine-shuttle block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Decreased free carnitine can accompany the CPT2 block when long-chain acyl groups are trapped as acylcarnitine esters.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Creatine kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"CK elevation tracks acute metabolic myofiber injury during rhabdomyolysis episodes.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Damaged skeletal muscle releases creatine kinase into serum during rhabdomyolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CPT2 gene variants\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2 - p.Ser113Leu (S113L)\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - Various private mutations\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5106,14 +5433,21 @@
                         Cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001638</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5221,14 +5555,23 @@
                         Liver dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased liver function
+
+                        <span class="phenotype-term-label">Decreased liver function</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001410">HP:0001410</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001410</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Liver dysfunction, annotated with Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5335,14 +5678,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myoglobinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002913">HP:0002913</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002913</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5416,14 +5766,21 @@
                         Acute kidney injury
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Acute kidney injury
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5500,14 +5857,21 @@
                         Renal cyst
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal cyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000107">HP:0000107</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000107</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cystic kidneys, annotated with Renal cyst (HP:0000107). HP:0000107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5568,14 +5932,21 @@
                         Hypoketotic hypoglycemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoketotic hypoglycemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001985">HP:0001985</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001985</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5652,14 +6023,23 @@
                         Elevated creatine kinase
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating creatine kinase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003236">HP:0003236</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003236</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5725,14 +6105,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rhabdomyolysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003201</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5833,14 +6220,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5892,14 +6286,21 @@
                         Myopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003198</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5951,14 +6352,23 @@
                         Episodic muscle stiffness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise-induced muscle stiffness
+
+                        <span class="phenotype-term-label">Exercise-induced muscle stiffness</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008967">HP:0008967</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008967</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise-induced muscle stiffness (HP:0008967). HP:0008967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6024,14 +6434,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myalgia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6105,14 +6522,21 @@
                         Exercise intolerance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6173,14 +6597,21 @@
                         Abnormality of neuronal migration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of neuronal migration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002269">HP:0002269</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002269</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of neuronal migration (HP:0002269). HP:0002269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6276,13 +6707,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CPT2
 
 
-    <a href="https://bioregistry.io/hgnc:2330" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2330">hgnc:2330</a>
+    <a href="https://bioregistry.io/hgnc:2330" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:2330</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CPT2 (hgnc:2330). hgnc:2330 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6528,13 +6964,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CPT2
 
 
-    <a href="https://bioregistry.io/hgnc:2330" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2330">hgnc:2330</a>
+    <a href="https://bioregistry.io/hgnc:2330" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:2330</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CPT2 (hgnc:2330). hgnc:2330 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6601,7 +7042,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6689,17 +7135,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Rhabdomyolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myalgia
@@ -6707,11 +7160,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Muscle weakness
@@ -6719,11 +7177,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001324</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myoglobinuria
@@ -6731,11 +7194,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002913">HP:0002913</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myoglobinuria (HP:0002913). HP:0002913 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Acute kidney injury
@@ -6743,11 +7211,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001919</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
@@ -6755,10 +7228,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6853,7 +7329,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -6963,17 +7444,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Rhabdomyolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
@@ -6981,11 +7469,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypoketotic hypoglycemia
@@ -6993,10 +7486,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001985">HP:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001985</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7045,7 +7541,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7083,17 +7584,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Rhabdomyolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myoglobinuria
@@ -7101,11 +7609,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002913">HP:0002913</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002913" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myoglobinuria (HP:0002913). HP:0002913 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Acute kidney injury
@@ -7113,10 +7626,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001919">HP:0001919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001919</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7187,7 +7703,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">carnitine supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">carnitine supplementation<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is carnitine supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -7316,7 +7837,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7346,16 +7872,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bezafibrate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C87449" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C87449">NCIT:C87449</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C87449" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C87449</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bezafibrate (NCIT:C87449). NCIT:C87449 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7440,17 +7971,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myalgia
@@ -7458,11 +7996,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0003326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Rhabdomyolysis
@@ -7470,10 +8013,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0003201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7564,7 +8110,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">nutritional supplementation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">nutritional supplementation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -7595,9 +8146,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
-                    <span class="tag tag-treatment">
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">
                         triheptanoin
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Relation: this treatment uses this therapeutic agent
+This treatment uses triheptanoin.</span>
                     </span>
 
                 </div>
@@ -7682,17 +8237,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myalgia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003326">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0003326</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cardiomyopathy
@@ -7700,11 +8262,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001638</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
@@ -7712,11 +8279,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Rhabdomyolysis
@@ -7724,10 +8296,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0003201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7820,7 +8395,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">disease screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">disease screening<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Disease Screening</span>
 
 
@@ -7858,17 +8438,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypoketotic hypoglycemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001985">HP:0001985</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001985" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001985</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypoketotic hypoglycemia (HP:0001985). HP:0001985 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cardiomyopathy
@@ -7876,11 +8463,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001638</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Liver dysfunction
@@ -7888,11 +8480,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001410">HP:0001410</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001410</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Liver dysfunction, annotated with Decreased liver function (HP:0001410). HP:0001410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Rhabdomyolysis
@@ -7900,10 +8497,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003201">HP:0003201</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0003201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7974,7 +8574,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8061,6 +8666,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-prolonged-exercise" data-dismech-node="Prolonged exercise" data-dismech-type="environmental">
                 <div class="item-name">Prolonged exercise</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        prolonged physical activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000031" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-65">ECTO:6000031</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is prolonged physical activity, annotated with exposure to strenuous exercise (ECTO:6000031). ECTO:6000031 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Exercise is the most common trigger for rhabdomyolysis episodes, reported in 87% of patients. Sustained muscle activity increases reliance on fatty acid oxidation, unmasking the enzymatic defect.
@@ -8102,10 +8734,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Impaired mitochondrial long-chain fatty acid oxidation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Sustained exercise shifts muscle onto fatty acid oxidation for fuel, so it loads the exact pathway this enzyme cannot service. The deficiency is silent until demand exceeds residual capacity, which is why attacks are exertional rather than constant.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28054946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28054946" target="_blank">PMID:28054946</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common trigger factors were exercise (87%) and infection (62%)."</div>
+
+
+                <div class="evidence-explanation">Identifies exercise as the most common trigger factor, present in 87% of episodes, the demand state that unmasks the enzymatic block.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-fasting" data-dismech-node="Fasting" data-dismech-type="environmental">
                 <div class="item-name">Fasting</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        fasting
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0000102" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-66">XCO:0000102</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is fasting (XCO:0000102). XCO:0000102 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -8148,10 +8859,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Impaired mitochondrial long-chain fatty acid oxidation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Fasting withdraws glucose and forces reliance on fatty acid oxidation, imposing the same demand on the blocked pathway that exercise does by a different route.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28054946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28054946" target="_blank">PMID:28054946</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Trigger factors are prolonged exercise, fasting, fever and exposure to cold"</div>
+
+
+                <div class="evidence-explanation">Lists fasting among the trigger factors, alongside prolonged exercise, fever and cold, all states that force reliance on fatty acid oxidation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-fever-and-infection" data-dismech-node="Fever and infection" data-dismech-type="environmental">
                 <div class="item-name">Fever and infection</div>
+
+
+
+
 
 
 
@@ -8216,10 +8983,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Thermolability of mutant CPT-II enzyme</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Fever is mechanistically distinct from the other triggers in this entry. Rather than merely raising fatty acid oxidation demand, a febrile core temperature directly destabilises the mutant enzyme, so it targets the thermolability node rather than the shared demand node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28054946" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28054946" target="_blank">PMID:28054946</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the mutated enzyme showed an abnormal thermal destabilization at 40 and 45 °C"</div>
+
+
+                <div class="evidence-explanation">The mutant enzyme showed abnormal thermal destabilization at 40 and 45 degrees Celsius, the temperature range reached in fever. Support is PARTIAL because the demonstration is an in vitro enzyme assay rather than a clinical measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-cold-exposure" data-dismech-node="Cold exposure" data-dismech-type="environmental">
                 <div class="item-name">Cold exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to decreased temperature
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-67">ECTO:0001057</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to decreased temperature (ECTO:0001057). ECTO:0001057 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -8261,6 +9107,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Impaired mitochondrial long-chain fatty acid oxidation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Cold raises thermogenic demand, which is met by fatty acid oxidation, so it loads the blocked pathway through the known intermediate of shivering and non-shivering thermogenesis.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28054946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28054946" target="_blank">PMID:28054946</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Trigger factors are prolonged exercise, fasting, fever and exposure to cold"</div>
+
+
+                <div class="evidence-explanation">Lists exposure to cold among the trigger factors for metabolic decompensation in this disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8719,17 +9617,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myopathy
@@ -8737,10 +9642,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0003198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8797,17 +9705,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Myopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003198">HP:0003198</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0003198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cardiomyopathy
@@ -8815,10 +9730,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0001638</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8875,17 +9793,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cardiomyopathy
@@ -8893,10 +9818,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001638">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0001638</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8942,6 +9870,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8959,7 +9890,6 @@
                 <pre class="yaml-preview">name: Carnitine Palmitoyltransferase II Deficiency
 category: Mendelian
 creation_date: &#39;2025-06-12T20:16:27Z&#39;
-updated_date: &#39;2026-05-18T17:46:54Z&#39;
 classifications:
   harrisons_chapter:
   - classification_value: GENETICS_ENVIRONMENT_DISEASE
@@ -10076,6 +11006,29 @@ genetic:
     explanation: ClinGen classifies the CPT2-carnitine palmitoyltransferase II deficiency gene-disease relationship as definitive with autosomal recessive inheritance.
 environmental:
 - name: Prolonged exercise
+  exposure_term:
+    preferred_term: prolonged physical activity
+    term:
+      id: ECTO:6000031
+      label: exposure to strenuous exercise
+  influences_mechanisms:
+  - target: Impaired mitochondrial long-chain fatty acid oxidation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Sustained exercise shifts muscle onto fatty acid oxidation for fuel, so
+      it loads the exact pathway this enzyme cannot service. The deficiency is
+      silent until demand exceeds residual capacity, which is why attacks are
+      exertional rather than constant.
+    evidence:
+    - reference: PMID:28054946
+      reference_title: &#34;Muscle Carnitine Palmitoyltransferase II Deficiency: A Review of Enzymatic Controversy and Clinical Features.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The most common trigger factors were exercise (87%) and infection (62%).&#34;
+      explanation: &gt;-
+        Identifies exercise as the most common trigger factor, present in 87%
+        of episodes, the demand state that unmasks the enzymatic block.
   description: &#39;Exercise is the most common trigger for rhabdomyolysis episodes, reported in 87% of patients. Sustained muscle activity increases reliance on fatty acid oxidation, unmasking the enzymatic defect.
 
     &#39;
@@ -10087,6 +11040,29 @@ environmental:
     snippet: The most common trigger factors were exercise (87%) and infection (62%).
     explanation: Quantifies exercise as the most common trigger at 87%.
 - name: Fasting
+  exposure_term:
+    preferred_term: fasting
+    term:
+      id: XCO:0000102
+      label: fasting
+  influences_mechanisms:
+  - target: Impaired mitochondrial long-chain fatty acid oxidation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fasting withdraws glucose and forces reliance on fatty acid oxidation,
+      imposing the same demand on the blocked pathway that exercise does by a
+      different route.
+    evidence:
+    - reference: PMID:28054946
+      reference_title: &#34;Muscle Carnitine Palmitoyltransferase II Deficiency: A Review of Enzymatic Controversy and Clinical Features.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Trigger factors are prolonged exercise, fasting, fever and exposure to cold&#34;
+      explanation: &gt;-
+        Lists fasting among the trigger factors, alongside prolonged exercise,
+        fever and cold, all states that force reliance on fatty acid
+        oxidation.
   description: &#39;Fasting increases dependency on fatty acid oxidation for energy, precipitating metabolic crises.
 
     &#39;
@@ -10098,6 +11074,26 @@ environmental:
     snippet: Trigger factors are prolonged exercise, fasting, fever and exposure to cold
     explanation: Lists fasting as a recognized trigger factor.
 - name: Fever and infection
+  influences_mechanisms:
+  - target: Thermolability of mutant CPT-II enzyme
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fever is mechanistically distinct from the other triggers in this entry.
+      Rather than merely raising fatty acid oxidation demand, a febrile core
+      temperature directly destabilises the mutant enzyme, so it targets the
+      thermolability node rather than the shared demand node.
+    evidence:
+    - reference: PMID:28054946
+      reference_title: &#34;Muscle Carnitine Palmitoyltransferase II Deficiency: A Review of Enzymatic Controversy and Clinical Features.&#34;
+      supports: PARTIAL
+      evidence_source: IN_VITRO
+      snippet: &#34;the mutated enzyme showed an abnormal thermal destabilization at 40 and 45 °C&#34;
+      explanation: &gt;-
+        The mutant enzyme showed abnormal thermal destabilization at 40 and 45
+        degrees Celsius, the temperature range reached in fever. Support is
+        PARTIAL because the demonstration is an in vitro enzyme assay rather
+        than a clinical measurement.
   description: &#39;Fever both increases energy demand and, in thermolabile variants, directly destabilizes the mutant CPT-II enzyme. Infections triggered episodes in 62% of patients.
 
     &#39;
@@ -10115,6 +11111,28 @@ environmental:
     snippet: the mutated enzyme showed an abnormal thermal destabilization at 40 and 45 °C
     explanation: Thermolability of S113L variant at fever-range temperatures explains fever as a trigger.
 - name: Cold exposure
+  exposure_term:
+    preferred_term: exposure to decreased temperature
+    term:
+      id: ECTO:0001057
+      label: exposure to decreased temperature
+  influences_mechanisms:
+  - target: Impaired mitochondrial long-chain fatty acid oxidation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Cold raises thermogenic demand, which is met by fatty acid oxidation, so
+      it loads the blocked pathway through the known intermediate of shivering
+      and non-shivering thermogenesis.
+    evidence:
+    - reference: PMID:28054946
+      reference_title: &#34;Muscle Carnitine Palmitoyltransferase II Deficiency: A Review of Enzymatic Controversy and Clinical Features.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Trigger factors are prolonged exercise, fasting, fever and exposure to cold&#34;
+      explanation: &gt;-
+        Lists exposure to cold among the trigger factors for metabolic
+        decompensation in this disorder.
   description: &#39;Exposure to cold is a recognized trigger for metabolic crises in CPT II deficiency.
 
     &#39;
@@ -10965,7 +11983,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Carnitine Palmitoyltransferase II Deficiency", "mondoId": "MONDO:0015515", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carnitine_Palmitoyltransferase_II_Deficiency", "yamlRevision": "3a38a46098bc"};
+        const OS_CONFIG = {"diseaseName": "Carnitine Palmitoyltransferase II Deficiency", "mondoId": "MONDO:0015515", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carnitine_Palmitoyltransferase_II_Deficiency", "yamlRevision": "b201ae53c0e5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11384,5 +12402,73 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

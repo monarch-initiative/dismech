@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3768,6 +3936,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3931,15 +4107,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NAA10
 
 
-    <a href="https://bioregistry.io/hgnc:18704" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18704">hgnc:18704</a>
+    <a href="https://bioregistry.io/hgnc:18704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:18704</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves abnormal NAA10 (hgnc:18704). hgnc:18704 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3971,15 +4154,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NAA10
 
 
-    <a href="https://bioregistry.io/hgnc:18704" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18704">hgnc:18704</a>
+    <a href="https://bioregistry.io/hgnc:18704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:18704</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NAA10 (hgnc:18704). hgnc:18704 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4007,16 +4197,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Protein acetylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006473" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006473">GO:0006473</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006473" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Protein acetylation (GO:0006473). GO:0006473 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4033,6 +4228,7 @@
 
 
                 </div>
+
 
 
 
@@ -4130,16 +4326,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein acetylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006473" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006473">GO:0006473</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006473" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006473</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein acetylation (GO:0006473). GO:0006473 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4160,6 +4361,7 @@
 
 
                 </div>
+
 
 
 
@@ -4228,16 +4430,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4264,16 +4471,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4282,6 +4494,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4299,10 +4513,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4322,16 +4539,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007049">GO:0007049</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal cell cycle (GO:0007049). GO:0007049 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4352,6 +4574,7 @@
 
 
                 </div>
+
 
 
 
@@ -4459,16 +4682,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         developmental process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032502" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032502">GO:0032502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0032502</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal developmental process (GO:0032502). GO:0032502 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4489,6 +4717,7 @@
 
 
                 </div>
+
 
 
 
@@ -4618,16 +4847,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         developmental process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032502" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032502">GO:0032502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0032502</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal developmental process (GO:0032502). GO:0032502 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4648,6 +4882,7 @@
 
 
                 </div>
+
 
 
 
@@ -4761,16 +4996,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         heart development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007507">GO:0007507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal heart development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4791,6 +5031,7 @@
 
 
                 </div>
+
 
 
 
@@ -4862,6 +5103,7 @@
                 <div class="item-name">Postnatal respiratory and feeding fragility</div>
 
                 <div class="item-desc">Classic Ogden syndrome often requires neonatal intensive care for respiratory distress and feeding difficulties, contributing to early medical fragility.</div>
+
 
 
 
@@ -4958,6 +5200,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5035,7 +5278,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electrophysiologic cardiac abnormalities, including QT prolongation and arrhythmia, are a key life-threatening feature of Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiovascular involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ogden syndrome includes both structural cardiac anomalies and electrophysiologic abnormalities, including arrhythmias.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart development\"]}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain involvement in classic Ogden syndrome can include cerebral atrophy on neuroimaging.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002059\"}}, {\"id\": \"Craniofacial anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic craniofacial dysmorphism is a recurring part of the classic Ogden syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are part of the classic male Ogden syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic affected males often require intensive neonatal care, with feeding difficulties and respiratory distress contributing to medical fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008872\"}}, {\"id\": \"Fibroblast proliferation and migration defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived Ogden syndrome fibroblasts show impaired proliferation, abnormal cell-cycle behavior, and defective migration, linking selective NatA substrate hypoacetylation to downstream cellular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cell population proliferation\", \"cell migration\", \"cell cycle\"]}}, {\"id\": \"Genitourinary developmental involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cryptorchidism is part of the recurrent classic Ogden syndrome phenotype, consistent with multisystem developmental involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental impairment is a core neurodevelopmental feature of Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation and poor somatic growth are prominent features of classic Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized muscular hypotonia is a frequent early feature of Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired NatA catalytic activity and complex assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent NAA10 p.Ser37Pro variant disrupts the catalytic function of the NatA complex and weakens interactions between NAA10 and its binding partners NAA15 and NAA50. Because NatA is the major N-terminal acetyltransferase in human cells, this defect reduces co-translational N-terminal acetylation of selected substrates and establishes the primary molecular lesion in Ogden syndrome. This interpretation is variant-specific: the severe p.Ser37Pro phenotype reflects selective substrate hypoacetylation and NatA complex-assembly defects rather than a nonspecific collapse of all NAA10/NAA15-related acetylation biology.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein acetylation\"], \"genes\": [\"NAA10\"], \"gene_terms\": [{\"label\": \"NAA10\", \"id\": \"hgnc:18704\", \"modifier\": \"ABNORMAL\"}, {\"label\": \"NAA10\", \"id\": \"hgnc:18704\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a common neurodevelopmental manifestation across the broader Ogden syndrome cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"NAA10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Missense mutation\"}}, {\"id\": \"Neonatal respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is a common early complication of classic Ogden syndrome and often contributes to neonatal intensive-care needs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002643\"}}, {\"id\": \"Neurodevelopmental involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ogden syndrome has severe neurologic involvement, including global developmental delay, intellectual disability, hypotonia, seizures, and structural brain abnormalities.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"developmental process\"]}}, {\"id\": \"Postnatal respiratory and feeding fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic Ogden syndrome often requires neonatal intensive care for respiratory distress and feeding difficulties, contributing to early medical fragility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prematurely aged appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A progeroid or prematurely aged facial and skin appearance with reduced subcutaneous adipose tissue is a striking and characteristic feature of classic Ogden syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007495\"}}, {\"id\": \"Progeroid craniofacial and somatic growth phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic Ogden syndrome has a recognizable progeroid craniofacial gestalt with reduced subcutaneous adipose tissue and postnatal growth failure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"developmental process\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of individuals with Ogden syndrome and are part of the recognized neurologic spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Selective NatA substrate hypoacetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced NatA function in Ogden syndrome causes incomplete N-terminal acetylation of a subset of NatA and NatE substrates rather than a global proteome-wide collapse, defining a selective proteostasis defect downstream of impaired NatA complex activity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acetylation\"]}}, {\"id\": \"Structural cardiac anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital structural cardiac abnormalities are a major contributor to morbidity in Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}], \"edges\": [{\"source\": \"Impaired NatA catalytic activity and complex assembly\", \"target\": \"Selective NatA substrate hypoacetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced NatA catalytic activity decreases N-terminal acetylation of selected substrates\"}, {\"source\": \"Selective NatA substrate hypoacetylation\", \"target\": \"Fibroblast proliferation and migration defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective substrate hypoacetylation perturbs fibroblast cell-cycle and motility programs\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Neurodevelopmental involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell-cycle and migration defects provide a plausible bridge from selective NatA substrate hypoacetylation to the severe neurodevelopmental phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Progeroid craniofacial and somatic growth phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental and tissue-maintenance defects converge on the recognizable aged appearance, craniofacial gestalt, and growth failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Cardiovascular involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ogden syndrome includes structural and electrophysiologic cardiac involvement downstream of the NAA10/NatA defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Postnatal respiratory and feeding fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The postnatal clinical course includes neonatal intensive-care needs for respiratory distress and feeding problems.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Genitourinary developmental involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent classic phenotype includes cryptorchidism, consistent with multisystem developmental involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests as severe global developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Broader NAA10-related Ogden cohorts include intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuromotor involvement manifests as hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurologic involvement can manifest as seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural brain involvement includes cerebral atrophy on imaging.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progeroid craniofacial and somatic growth phenotype\", \"target\": \"Prematurely aged appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progeroid tissue phenotype is expressed clinically as prematurely aged appearance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progeroid craniofacial and somatic growth phenotype\", \"target\": \"Craniofacial anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recognizable craniofacial gestalt is represented as abnormal facial shape.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progeroid craniofacial and somatic growth phenotype\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic growth impairment manifests as postnatal growth delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular involvement\", \"target\": \"Structural cardiac anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac developmental involvement manifests as abnormal heart morphology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular involvement\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrophysiologic cardiac involvement manifests as arrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Postnatal respiratory and feeding fragility\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal fragility includes feeding difficulty in infancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Postnatal respiratory and feeding fragility\", \"target\": \"Neonatal respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal fragility includes neonatal respiratory distress.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genitourinary developmental involvement\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genitourinary developmental involvement manifests as cryptorchidism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NAA10\", \"target\": \"Impaired NatA catalytic activity and complex assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Electrophysiologic cardiac abnormalities, including QT prolongation and arrhythmia, are a key life-threatening feature of Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011675\"}}, {\"id\": \"Cardiovascular involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ogden syndrome includes both structural cardiac anomalies and electrophysiologic abnormalities, including arrhythmias.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"heart development\"]}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain involvement in classic Ogden syndrome can include cerebral atrophy on neuroimaging.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002059\"}}, {\"id\": \"Craniofacial anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic craniofacial dysmorphism is a recurring part of the classic Ogden syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes are part of the classic male Ogden syndrome phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000028\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Classic affected males often require intensive neonatal care, with feeding difficulties and respiratory distress contributing to medical fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008872\"}}, {\"id\": \"Fibroblast proliferation and migration defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived Ogden syndrome fibroblasts show impaired proliferation, abnormal cell-cycle behavior, and defective migration, linking selective NatA substrate hypoacetylation to downstream cellular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cell population proliferation\", \"cell migration\", \"cell cycle\"]}}, {\"id\": \"Genitourinary developmental involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cryptorchidism is part of the recurrent classic Ogden syndrome phenotype, consistent with multisystem developmental involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental impairment is a core neurodevelopmental feature of Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation and poor somatic growth are prominent features of classic Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized muscular hypotonia is a frequent early feature of Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired NatA catalytic activity and complex assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The recurrent NAA10 p.Ser37Pro variant disrupts the catalytic function of the NatA complex and weakens interactions between NAA10 and its binding partners NAA15 and NAA50. Because NatA is the major N-terminal acetyltransferase in human cells, this defect reduces co-translational N-terminal acetylation of selected substrates and establishes the primary molecular lesion in Ogden syndrome. This interpretation is variant-specific: the severe p.Ser37Pro phenotype reflects selective substrate hypoacetylation and NatA complex-assembly defects rather than a nonspecific collapse of all NAA10/NAA15-related acetylation biology.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein acetylation\"], \"genes\": [\"NAA10\"], \"gene_terms\": [{\"label\": \"NAA10\", \"id\": \"hgnc:18704\", \"modifier\": \"ABNORMAL\"}, {\"label\": \"NAA10\", \"id\": \"hgnc:18704\"}]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is a common neurodevelopmental manifestation across the broader Ogden syndrome cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"NAA10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NAA10\"], \"gene_terms\": [{\"label\": \"NAA10\", \"id\": \"hgnc:18704\"}], \"association\": \"Missense mutation\"}}, {\"id\": \"Neonatal respiratory distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory distress is a common early complication of classic Ogden syndrome and often contributes to neonatal intensive-care needs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002643\"}}, {\"id\": \"Neurodevelopmental involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ogden syndrome has severe neurologic involvement, including global developmental delay, intellectual disability, hypotonia, seizures, and structural brain abnormalities.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"developmental process\"]}}, {\"id\": \"Postnatal respiratory and feeding fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic Ogden syndrome often requires neonatal intensive care for respiratory distress and feeding difficulties, contributing to early medical fragility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prematurely aged appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A progeroid or prematurely aged facial and skin appearance with reduced subcutaneous adipose tissue is a striking and characteristic feature of classic Ogden syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007495\"}}, {\"id\": \"Progeroid craniofacial and somatic growth phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic Ogden syndrome has a recognizable progeroid craniofacial gestalt with reduced subcutaneous adipose tissue and postnatal growth failure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"developmental process\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in a subset of individuals with Ogden syndrome and are part of the recognized neurologic spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Selective NatA substrate hypoacetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced NatA function in Ogden syndrome causes incomplete N-terminal acetylation of a subset of NatA and NatE substrates rather than a global proteome-wide collapse, defining a selective proteostasis defect downstream of impaired NatA complex activity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acetylation\"]}}, {\"id\": \"Structural cardiac anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital structural cardiac abnormalities are a major contributor to morbidity in Ogden syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}], \"edges\": [{\"source\": \"Impaired NatA catalytic activity and complex assembly\", \"target\": \"Selective NatA substrate hypoacetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced NatA catalytic activity decreases N-terminal acetylation of selected substrates\"}, {\"source\": \"Selective NatA substrate hypoacetylation\", \"target\": \"Fibroblast proliferation and migration defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective substrate hypoacetylation perturbs fibroblast cell-cycle and motility programs\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Neurodevelopmental involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell-cycle and migration defects provide a plausible bridge from selective NatA substrate hypoacetylation to the severe neurodevelopmental phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Progeroid craniofacial and somatic growth phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental and tissue-maintenance defects converge on the recognizable aged appearance, craniofacial gestalt, and growth failure.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Cardiovascular involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ogden syndrome includes structural and electrophysiologic cardiac involvement downstream of the NAA10/NatA defect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Postnatal respiratory and feeding fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The postnatal clinical course includes neonatal intensive-care needs for respiratory distress and feeding problems.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fibroblast proliferation and migration defects\", \"target\": \"Genitourinary developmental involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent classic phenotype includes cryptorchidism, consistent with multisystem developmental involvement.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement manifests as severe global developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Broader NAA10-related Ogden cohorts include intellectual disability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuromotor involvement manifests as hypotonia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurologic involvement can manifest as seizures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurodevelopmental involvement\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural brain involvement includes cerebral atrophy on imaging.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progeroid craniofacial and somatic growth phenotype\", \"target\": \"Prematurely aged appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The progeroid tissue phenotype is expressed clinically as prematurely aged appearance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progeroid craniofacial and somatic growth phenotype\", \"target\": \"Craniofacial anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recognizable craniofacial gestalt is represented as abnormal facial shape.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progeroid craniofacial and somatic growth phenotype\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic growth impairment manifests as postnatal growth delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular involvement\", \"target\": \"Structural cardiac anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac developmental involvement manifests as abnormal heart morphology.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiovascular involvement\", \"target\": \"Arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Electrophysiologic cardiac involvement manifests as arrhythmia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Postnatal respiratory and feeding fragility\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal fragility includes feeding difficulty in infancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Postnatal respiratory and feeding fragility\", \"target\": \"Neonatal respiratory distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Postnatal fragility includes neonatal respiratory distress.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genitourinary developmental involvement\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genitourinary developmental involvement manifests as cryptorchidism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NAA10\", \"target\": \"Impaired NatA catalytic activity and complex assembly\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5088,14 +5331,23 @@
                         Structural cardiac anomaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5147,14 +5399,21 @@
                         Arrhythmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5217,14 +5476,21 @@
                         Feeding difficulties in infancy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties in infancy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008872">HP:0008872</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008872</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties in infancy (HP:0008872). HP:0008872 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5285,14 +5551,21 @@
                         Cryptorchidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cryptorchidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000028">HP:0000028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5353,14 +5626,23 @@
                         Craniofacial anomaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal facial shape
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Craniofacial anomaly, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5421,14 +5703,21 @@
                         Prematurely aged appearance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prematurely aged appearance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007495" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007495">HP:0007495</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007495</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prematurely aged appearance (HP:0007495). HP:0007495 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5511,14 +5800,21 @@
                         Hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5579,14 +5875,21 @@
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5638,14 +5941,21 @@
                         Intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5697,14 +6007,21 @@
                         Cerebral atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002059">HP:0002059</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002059</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5756,14 +6073,21 @@
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5824,14 +6148,21 @@
                         Neonatal respiratory distress
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal respiratory distress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002643">HP:0002643</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002643</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5892,14 +6223,21 @@
                         Growth delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5995,6 +6333,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: NAA10
+
+
+    <a href="https://bioregistry.io/hgnc:18704" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:18704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NAA10 (hgnc:18704). hgnc:18704 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -6055,7 +6415,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">echocardiography</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">echocardiography<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is echocardiography, annotated with Echocardiography Test (NCIT:C16525). NCIT:C16525 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Echocardiography Test</span>
 
 
@@ -6133,7 +6498,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -6211,7 +6581,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6289,7 +6664,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">feeding therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">feeding therapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is feeding therapy, annotated with Swallowing Therapy (NCIT:C156237). NCIT:C156237 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Swallowing Therapy</span>
 
 
@@ -6367,7 +6747,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anticonvulsant agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">anticonvulsant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
@@ -6445,7 +6830,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">occupational therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Occupational Therapy</span>
 
 
@@ -6523,7 +6913,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">ophthalmologist evaluation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">ophthalmologist evaluation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ophthalmologist evaluation, annotated with Eye Examination (NCIT:C38060). NCIT:C38060 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Eye Examination</span>
 
 
@@ -6601,7 +6996,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6910,11 +7310,56 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Structural, molecular and cellular impact of the Ogden syndrome mutant N-terminal acetyltransferase hNaa10-Ser37Pro
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000083564" target="_blank">massive:MSV000083564</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Abstract still has to be written. The obtained peptide mixtures were introduced into an LC-MS/MS system, the Ultimate 3000 (Dionex, Amsterdam, The Netherlands) in-line connected to an LTQ Orbitrap XL mass spectrometer (Thermo Fisher Scientific, Bremen, Germany). Samples were first loaded on a trapping column (made in-house, 100 um internal diameter (I.D.) x 20 mm, 5 um beads C18 Reprosil-HD, Dr. Maisch). After back-flushing from the trapping column, the sample was loaded on a reverse-phase column (made in-house, 75 um I.D. x 150 mm, 5 um beads C18 Reprosil-HD, Dr. Maisch).</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Ogden syndrome&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6933,7 +7378,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ogden syndrome
 creation_date: &#39;2026-04-11T16:28:32Z&#39;
-updated_date: &#39;2026-04-11T18:18:00Z&#39;
 category: Mendelian
 description: &gt;-
   Ogden syndrome is used here for the classic rare X-linked recessive
@@ -7580,6 +8024,11 @@ phenotypes:
       recognized neurologic phenotype.
 genetic:
 - name: NAA10
+  gene_term:
+    preferred_term: NAA10
+    term:
+      id: hgnc:18704
+      label: NAA10
   association: Missense mutation
   notes: &gt;-
     Classic Ogden syndrome is caused by a recurrent hemizygous NAA10 missense
@@ -7951,7 +8400,11 @@ differential_diagnoses:
       This case report directly documents Donohue syndrome as an initial
       clinical differential diagnosis for an infant with Ogden syndrome.
 clinical_trials: []
-datasets: []
+datasets:
+- accession: massive:MSV000083564
+  title: Structural, molecular and cellular impact of the Ogden syndrome mutant N-terminal acetyltransferase hNaa10-Ser37Pro
+  description: Abstract still has to be written. The obtained peptide mixtures were introduced into an LC-MS/MS system, the Ultimate 3000 (Dionex, Amsterdam, The Netherlands) in-line connected to an LTQ Orbitrap XL mass spectrometer (Thermo Fisher Scientific, Bremen, Germany). Samples were first loaded on a trapping column (made in-house, 100 um internal diameter (I.D.) x 20 mm, 5 um beads C18 Reprosil-HD, Dr. Maisch). After back-flushing from the trapping column, the sample was loaded on a reverse-phase column (made in-house, 75 um I.D. x 150 mm, 5 um beads C18 Reprosil-HD, Dr. Maisch).
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Ogden syndrome&#34;). Retrieved 2026-08-02.
 notes: &gt;-
   Scope note: this entry keeps Ogden syndrome restricted to the classic
   NAA10 p.Ser37Pro, X-linked, infant male-lethal presentation. Broader
@@ -8409,7 +8862,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ogden syndrome", "mondoId": "MONDO:0010457", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ogden_syndrome", "yamlRevision": "c6158b730ed9"};
+        const OS_CONFIG = {"diseaseName": "Ogden syndrome", "mondoId": "MONDO:0010457", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ogden_syndrome", "yamlRevision": "469f699fffbd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8828,5 +9281,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3796,7 +3964,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4813,6 +4981,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4904,6 +5073,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4965,16 +5135,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholinergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000108">CL:0000108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholinergic neuron (CL:0000108). CL:0000108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4991,6 +5166,7 @@
 
 
                 </div>
+
 
 
 
@@ -5084,16 +5260,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholinergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000108">CL:0000108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholinergic neuron (CL:0000108). CL:0000108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5120,16 +5301,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         receptor-mediated endocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006898">GO:0006898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves receptor-mediated endocytosis (GO:0006898). GO:0006898 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5146,6 +5332,7 @@
 
 
                 </div>
+
 
 
 
@@ -5277,16 +5464,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholinergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000108">CL:0000108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholinergic neuron (CL:0000108). CL:0000108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5303,6 +5495,7 @@
 
 
                 </div>
+
 
 
 
@@ -5408,16 +5601,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5462,6 +5660,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5537,16 +5736,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholinergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000108">CL:0000108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholinergic neuron (CL:0000108). CL:0000108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5573,16 +5777,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5620,6 +5829,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5706,16 +5916,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholinergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000108">CL:0000108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholinergic neuron (CL:0000108). CL:0000108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5742,16 +5957,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of acetylcholine secretion, neurotransmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014058" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014058">GO:0014058</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014058" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0014058</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves negative regulation of acetylcholine secretion, neurotransmission (GO:0014058). GO:0014058 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5768,6 +5988,7 @@
 
 
                 </div>
+
 
 
 
@@ -5860,16 +6081,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5896,16 +6122,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         synaptic transmission, cholinergic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007271">GO:0007271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves synaptic transmission, cholinergic (GO:0007271). GO:0007271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5922,6 +6153,7 @@
 
 
                 </div>
+
 
 
 
@@ -6006,16 +6238,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6032,6 +6269,7 @@
 
 
                 </div>
+
 
 
 
@@ -6163,16 +6401,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6189,6 +6432,7 @@
 
 
                 </div>
+
 
 
 
@@ -6272,16 +6516,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cholinergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000108">CL:0000108</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000108" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholinergic neuron (CL:0000108). CL:0000108 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6298,6 +6547,7 @@
 
 
                 </div>
+
 
 
 
@@ -6404,6 +6654,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6529,16 +6780,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6555,6 +6811,7 @@
 
 
                 </div>
+
 
 
 
@@ -6632,6 +6889,7 @@
                 <div class="item-name">Serotype-specific light-chain persistence through ubiquitin-proteasome turnover</div>
 
                 <div class="item-desc">Differential ubiquitin-dependent proteasomal turnover of intracellular botulinum neurotoxin light chains helps determine paralysis duration: BoNT/E light chain is promoted toward degradation by TRAF2, while BoNT/A light chain is stabilized by VCIP135 despite HECTD2-mediated ubiquitination.</div>
+
 
 
 
@@ -6747,7 +7005,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial respiratory and bulbar monitoring, timely airway protection, mechanical ventilation, nutrition, complication prevention, communication support, and rehabilitation sustain patients while neuromuscular transmission recovers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In genetically engineered RenVM neurons, BoNT/A activity first appeared in the soma; perturbation and complementation experiments supported retromer-dependent trafficking through Golgi and ER and an apparent Sec61-associated cytosolic exit. This is provisional and model-specific.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"Engineered RenVM neuron trafficking model\", \"model_type\": \"CELL_LINE\", \"description\": \"The model directly assays the provisional alternative intracellular itinerary.\"}]}}, {\"id\": \"Autonomic cholinergic transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic blockade at postganglionic parasympathetic terminals reduces salivation and intestinal or bladder activity and impairs pupillary constriction, producing dry mouth, constipation, urinary retention, and dilated pupils.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Blurred vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000622\"}}, {\"id\": \"BoNT/A-exposed human iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived neurons profiled two days and two weeks after toxin or atoxic-derivative exposure provide an experimental model of neuronal responses beyond acute SNARE cleavage. They are not patient samples and are not established as motor or cholinergic neurons.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"BoNT/A1 exposure\", \"BoNT/A atoxic-derivative exposure\", \"Non-exposed control\"], \"publication\": \"PMID:25337697\"}}, {\"id\": \"Bulbar and ocular neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial motor-terminal blockade impairs extraocular movement, eyelid elevation, facial movement, phonation, articulation, and swallowing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Canonical acidified-endosome light-chain translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endosomal acidification induces a heavy-chain membrane channel. The disulfide-linked catalytic light chain crosses the membrane and is released into the cytosol after translocation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Cholinergic-terminal receptor binding and endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The toxin heavy chain uses gangliosides together with serotype-dependent synaptic-vesicle protein receptors. BoNT/A binds SV2, while other serotypes use related receptor combinations; vesicle cycling exposes these receptors and enables receptor-mediated endocytosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"receptor-mediated endocytosis\"]}}, {\"id\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed toxin distributes to peripheral cholinergic sites, including skeletal neuromuscular junctions and postganglionic parasympathetic terminals. Direct central nervous system effects have not been documented in humans.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000651\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysphonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Engineered RenVM neuron trafficking model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A neuron model used to trace a proposed retrograde synapse-to-Golgi-to-ER route and identify host factors. Its findings may depend on the model and molecular reporters and are not yet established in human peripheral cholinergic terminals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"BoNT/A intoxication\"], \"publication\": \"PMID:39196607\"}}, {\"id\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Request and administer heptavalent BAT as soon as clinically suspected symptomatic noninfant botulism is recognized; do not wait for laboratory confirmation. BAT neutralizes circulating unbound toxin and can limit progression but cannot reverse paralysis already established by intracellular toxin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nausea, vomiting, and abdominal pain can accompany botulism. These findings are most clinically relevant to foodborne disease, but the available frequency data do not isolate a single route or prove whether toxin, contaminated food, or autonomic effects are causal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BIG-IV (BabyBIG) is the form-specific antitoxin for infant intestinal botulism caused by toxin type A or B. Prompt administration shortens hospital, intensive-care, ventilation, and assisted-feeding duration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Infant intestinal colonization and in-situ toxin production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In infant botulism, ingested spore-forming toxigenic clostridia colonize the large intestine and produce botulinum neurotoxin in situ before systemic distribution.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor endplate recovery by sprouting and terminal restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After BoNT/A-induced functional denervation, nerve-terminal sprouts transiently support transmission. Vesicle cycling later returns to original terminals and the superfluous sprouts regress. This detailed sequence is established primarily in a locally injected mouse neuromuscular-junction model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Mydriasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011499\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002018\"}}, {\"id\": \"Ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000602\"}}, {\"id\": \"Paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003470\"}}, {\"id\": \"Presynaptic acetylcholine release blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SNARE disruption prevents acetylcholine exocytosis from somatic motor and autonomic cholinergic terminals. This functional denervation is presynaptic and explains the simultaneous motor and parasympathetic manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"negative regulation of acetylcholine secretion, neurotransmission\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Respiratory neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diaphragmatic, intercostal, and upper-airway neuromuscular weakness can rapidly cause dyspnea, inadequate ventilation, intubation, and respiratory failure, sometimes before reported extremity weakness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Route-specific toxin exposure or production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Preformed toxin is ingested, inhaled, or injected in intoxication forms, whereas wound and intestinal forms generate toxin after local bacterial colonization. These distinct routes converge on absorption into the vascular circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Serotype-specific SNARE proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The zinc-dependent light chain cleaves components of the vesicle-fusion SNARE machinery. BoNT/A and E target SNAP-25, whereas BoNT/B and several other serotypes target VAMP/synaptobrevin; substrate and cleavage-site specificity vary by toxin.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"proteolysis\"], \"experimental_models\": [{\"name\": \"BoNT/A-exposed human iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.\"}]}}, {\"id\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differential ubiquitin-dependent proteasomal turnover of intracellular botulinum neurotoxin light chains helps determine paralysis duration: BoNT/E light chain is promoted toward degradation by TRAF2, while BoNT/A light chain is stabilized by VCIP135 despite HECTD2-mediated ubiquitination.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Somatic neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic functional denervation produces generalized weakness and the characteristic descending flaccid paralysis, although the exact sequence, symmetry, and absence of atypical findings are not absolute.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"synaptic transmission, cholinergic\"]}}, {\"id\": \"Urinary retention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000016\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weakness of facial musculature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Wound debridement and source control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For wound botulism, debride and control the colonized anaerobic wound in addition to antitoxin and supportive care. Antimicrobials do not treat the toxin-mediated neurologic syndrome and must be individualized to the wound context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xerostomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000217\"}}], \"edges\": [{\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin entering from any clinically recognized route is distributed through the circulation to peripheral cholinergic terminals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms occur in botulism cohorts, particularly in the foodborne clinical context, but their immediate causal route is unresolved.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infant intestinal colonization and in-situ toxin production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin produced in the colonized infant intestine enters the systemic toxin route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"target\": \"Cholinergic-terminal receptor binding and endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating toxin binds neuronal surface receptors at susceptible peripheral cholinergic terminals and is internalized.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Canonical acidified-endosome light-chain translocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acidification of the internalized compartment activates heavy-chain channel formation and light-chain translocation.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An alternative model routes internalized BoNT/A through the soma-localized Golgi and ER before cytosolic entry.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"retrograde transport from synapse to soma\", \"retromer-dependent Golgi trafficking\", \"endoplasmic-reticulum entry and Sec61-associated retrotranslocation\"]}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light-chain metalloprotease cleaves its serotype-specific SNARE substrate.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light chains become substrates for serotype-specific ubiquitin-proteasome turnover after translocation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed ER exit ultimately delivers active BoNT/A light chain to cytosolic SNAP-25.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serotype-specific SNARE proteolysis\", \"target\": \"Presynaptic acetylcholine release blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional SNARE machinery prevents stimulus-evoked synaptic-vesicle fusion and acetylcholine release.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Somatic neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of acetylcholine release at skeletal neuromuscular junctions produces weakness and flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Bulbar and ocular neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial motor terminals are prominently affected, producing ocular, facial, phonatory, and swallowing deficits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure at diaphragmatic and other respiratory neuromuscular junctions compromises ventilation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Autonomic cholinergic transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin action at postganglionic parasympathetic terminals impairs glandular, pupillary, bladder, and intestinal functions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread motor-terminal failure manifests as descending flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial neuromuscular transmission failure manifests as weakness or fatigue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional denervation induces a repair program that transiently recruits sprouts before original terminals recover.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"formation of functional nerve-terminal sprouts\", \"restoration of vesicle cycling at original parent terminals\"]}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar weakness impairs swallowing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and facial weakness impair articulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laryngeal and palatal weakness changes voice quality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular neuromuscular weakness causes binocular double vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Levator weakness causes eyelid droop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Blurred vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular motor and pupillary dysfunction can cause blurred vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular motor-terminal blockade produces ophthalmoplegia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Weakness of facial musculature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial motor-terminal blockade causes facial weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness produces shortness of breath.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe respiratory neuromuscular blockade produces ventilatory failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Xerostomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic terminal blockade reduces salivary secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced parasympathetic stimulation of salivary glands\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Mydriasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic pupillary blockade produces dilated pupils.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cholinergic pupillary constriction\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade slows intestinal transit.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced gastrointestinal cholinergic motility\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Urinary retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade impairs bladder emptying.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired parasympathetic bladder contraction\"]}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nausea is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vomiting is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More persistent light-chain activity delays restoration of transmitter release and terminal recovery.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duration of intracellular light-chain protease activity\", \"restoration of presynaptic SNARE function\"]}, {\"source\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wound debridement and source control\", \"target\": \"Route-specific toxin exposure or production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BoNT/A-exposed human iPSC-derived neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Engineered RenVM neuron trafficking model\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Serial respiratory and bulbar monitoring, timely airway protection, mechanical ventilation, nutrition, complication prevention, communication support, and rehabilitation sustain patients while neuromuscular transmission recovers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In genetically engineered RenVM neurons, BoNT/A activity first appeared in the soma; perturbation and complementation experiments supported retromer-dependent trafficking through Golgi and ER and an apparent Sec61-associated cytosolic exit. This is provisional and model-specific.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"experimental_models\": [{\"name\": \"Engineered RenVM neuron trafficking model\", \"model_type\": \"CELL_LINE\", \"description\": \"The model directly assays the provisional alternative intracellular itinerary.\"}]}}, {\"id\": \"Autonomic cholinergic transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic blockade at postganglionic parasympathetic terminals reduces salivation and intestinal or bladder activity and impairs pupillary constriction, producing dry mouth, constipation, urinary retention, and dilated pupils.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Blurred vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000622\"}}, {\"id\": \"BoNT/A-exposed human iPSC-derived neurons\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human iPSC-derived neurons profiled two days and two weeks after toxin or atoxic-derivative exposure provide an experimental model of neuronal responses beyond acute SNARE cleavage. They are not patient samples and are not established as motor or cholinergic neurons.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"BoNT/A1 exposure\", \"BoNT/A atoxic-derivative exposure\", \"Non-exposed control\"], \"publication\": \"PMID:25337697\"}}, {\"id\": \"Bulbar and ocular neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial motor-terminal blockade impairs extraocular movement, eyelid elevation, facial movement, phonation, articulation, and swallowing.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Canonical acidified-endosome light-chain translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endosomal acidification induces a heavy-chain membrane channel. The disulfide-linked catalytic light chain crosses the membrane and is released into the cytosol after translocation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Cholinergic-terminal receptor binding and endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The toxin heavy chain uses gangliosides together with serotype-dependent synaptic-vesicle protein receptors. BoNT/A binds SV2, while other serotypes use related receptor combinations; vesicle cycling exposes these receptors and enables receptor-mediated endocytosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"receptor-mediated endocytosis\"]}}, {\"id\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Absorbed toxin distributes to peripheral cholinergic sites, including skeletal neuromuscular junctions and postganglionic parasympathetic terminals. Direct central nervous system effects have not been documented in humans.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Diplopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000651\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Dysphonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001618\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Engineered RenVM neuron trafficking model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A neuron model used to trace a proposed retrograde synapse-to-Golgi-to-ER route and identify host factors. Its findings may depend on the model and molecular reporters and are not yet established in human peripheral cholinergic terminals.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"BoNT/A intoxication\"], \"publication\": \"PMID:39196607\"}}, {\"id\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Request and administer heptavalent BAT as soon as clinically suspected symptomatic noninfant botulism is recognized; do not wait for laboratory confirmation. BAT neutralizes circulating unbound toxin and can limit progression but cannot reverse paralysis already established by intracellular toxin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nausea, vomiting, and abdominal pain can accompany botulism. These findings are most clinically relevant to foodborne disease, but the available frequency data do not isolate a single route or prove whether toxin, contaminated food, or autonomic effects are causal.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BIG-IV (BabyBIG) is the form-specific antitoxin for infant intestinal botulism caused by toxin type A or B. Prompt administration shortens hospital, intensive-care, ventilation, and assisted-feeding duration.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Infant intestinal colonization and in-situ toxin production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In infant botulism, ingested spore-forming toxigenic clostridia colonize the large intestine and produce botulinum neurotoxin in situ before systemic distribution.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor endplate recovery by sprouting and terminal restoration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After BoNT/A-induced functional denervation, nerve-terminal sprouts transiently support transmission. Vesicle cycling later returns to original terminals and the superfluous sprouts regress. This detailed sequence is established primarily in a locally injected mouse neuromuscular-junction model.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Mydriasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011499\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002018\"}}, {\"id\": \"Ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000602\"}}, {\"id\": \"Paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003470\"}}, {\"id\": \"Presynaptic acetylcholine release blockade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SNARE disruption prevents acetylcholine exocytosis from somatic motor and autonomic cholinergic terminals. This functional denervation is presynaptic and explains the simultaneous motor and parasympathetic manifestations.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"negative regulation of acetylcholine secretion, neurotransmission\"]}}, {\"id\": \"Ptosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000508\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"SEVERE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"Respiratory neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diaphragmatic, intercostal, and upper-airway neuromuscular weakness can rapidly cause dyspnea, inadequate ventilation, intubation, and respiratory failure, sometimes before reported extremity weakness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"]}}, {\"id\": \"Route-specific toxin exposure or production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Preformed toxin is ingested, inhaled, or injected in intoxication forms, whereas wound and intestinal forms generate toxin after local bacterial colonization. These distinct routes converge on absorption into the vascular circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Serotype-specific SNARE proteolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The zinc-dependent light chain cleaves components of the vesicle-fusion SNARE machinery. BoNT/A and E target SNAP-25, whereas BoNT/B and several other serotypes target VAMP/synaptobrevin; substrate and cleavage-site specificity vary by toxin.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"proteolysis\"], \"experimental_models\": [{\"name\": \"BoNT/A-exposed human iPSC-derived neurons\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.\"}]}}, {\"id\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differential ubiquitin-dependent proteasomal turnover of intracellular botulinum neurotoxin light chains helps determine paralysis duration: BoNT/E light chain is promoted toward degradation by TRAF2, while BoNT/A light chain is stabilized by VCIP135 despite HECTD2-mediated ubiquitination.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Somatic neuromuscular transmission failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Presynaptic functional denervation produces generalized weakness and the characteristic descending flaccid paralysis, although the exact sequence, symmetry, and absence of atypical findings are not absolute.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"synaptic transmission, cholinergic\"]}}, {\"id\": \"Urinary retention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000016\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"Weakness of facial musculature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030319\"}}, {\"id\": \"Wound debridement and source control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For wound botulism, debride and control the colonized anaerobic wound in addition to antitoxin and supportive care. Antimicrobials do not treat the toxin-mediated neurologic syndrome and must be individualized to the wound context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xerostomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000217\"}}], \"edges\": [{\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin entering from any clinically recognized route is distributed through the circulation to peripheral cholinergic terminals.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Route-specific toxin exposure or production\", \"target\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gastrointestinal symptoms occur in botulism cohorts, particularly in the foodborne clinical context, but their immediate causal route is unresolved.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Infant intestinal colonization and in-situ toxin production\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin produced in the colonized infant intestine enters the systemic toxin route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"target\": \"Cholinergic-terminal receptor binding and endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating toxin binds neuronal surface receptors at susceptible peripheral cholinergic terminals and is internalized.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Canonical acidified-endosome light-chain translocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acidification of the internalized compartment activates heavy-chain channel formation and light-chain translocation.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholinergic-terminal receptor binding and endocytosis\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An alternative model routes internalized BoNT/A through the soma-localized Golgi and ER before cytosolic entry.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"retrograde transport from synapse to soma\", \"retromer-dependent Golgi trafficking\", \"endoplasmic-reticulum entry and Sec61-associated retrotranslocation\"]}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light-chain metalloprotease cleaves its serotype-specific SNARE substrate.\", \"hypothesis_groups\": [\"canonical_endosomal_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Canonical acidified-endosome light-chain translocation\", \"target\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytosolic light chains become substrates for serotype-specific ubiquitin-proteasome turnover after translocation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed ER exit ultimately delivers active BoNT/A light chain to cytosolic SNAP-25.\", \"hypothesis_groups\": [\"alternative_golgi_er_translocation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Serotype-specific SNARE proteolysis\", \"target\": \"Presynaptic acetylcholine release blockade\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional SNARE machinery prevents stimulus-evoked synaptic-vesicle fusion and acetylcholine release.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Somatic neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of acetylcholine release at skeletal neuromuscular junctions produces weakness and flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Bulbar and ocular neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial motor terminals are prominently affected, producing ocular, facial, phonatory, and swallowing deficits.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure at diaphragmatic and other respiratory neuromuscular junctions compromises ventilation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Presynaptic acetylcholine release blockade\", \"target\": \"Autonomic cholinergic transmission failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toxin action at postganglionic parasympathetic terminals impairs glandular, pupillary, bladder, and intestinal functions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread motor-terminal failure manifests as descending flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial neuromuscular transmission failure manifests as weakness or fatigue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Somatic neuromuscular transmission failure\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Functional denervation induces a repair program that transiently recruits sprouts before original terminals recover.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"formation of functional nerve-terminal sprouts\", \"restoration of vesicle cycling at original parent terminals\"]}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar weakness impairs swallowing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and facial weakness impair articulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Dysphonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laryngeal and palatal weakness changes voice quality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Diplopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular neuromuscular weakness causes binocular double vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Levator weakness causes eyelid droop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Blurred vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular motor and pupillary dysfunction can cause blurred vision.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular motor-terminal blockade produces ophthalmoplegia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bulbar and ocular neuromuscular transmission failure\", \"target\": \"Weakness of facial musculature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial motor-terminal blockade causes facial weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness produces shortness of breath.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Respiratory neuromuscular transmission failure\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe respiratory neuromuscular blockade produces ventilatory failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Xerostomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic terminal blockade reduces salivary secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced parasympathetic stimulation of salivary glands\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Mydriasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parasympathetic pupillary blockade produces dilated pupils.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cholinergic pupillary constriction\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade slows intestinal transit.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced gastrointestinal cholinergic motility\"]}, {\"source\": \"Autonomic cholinergic transmission failure\", \"target\": \"Urinary retention\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic cholinergic blockade impairs bladder emptying.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired parasympathetic bladder contraction\"]}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nausea is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vomiting is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Foodborne gastrointestinal prodrome with unresolved mechanism\", \"target\": \"Abdominal pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abdominal pain is part of the gastrointestinal presentation, with unresolved intermediates.\", \"hypothesis_groups\": [\"foodborne_gastrointestinal_mechanism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Serotype-specific light-chain persistence through ubiquitin-proteasome turnover\", \"target\": \"Motor endplate recovery by sprouting and terminal restoration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"More persistent light-chain activity delays restoration of transmitter release and terminal recovery.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"duration of intracellular light-chain protease activity\", \"restoration of presynaptic SNARE function\"]}, {\"source\": \"Equine-derived heptavalent botulinum antitoxin for noninfant botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human botulism immune globulin intravenous for infant type A or B botulism\", \"target\": \"Circulating botulinum neurotoxin reaches peripheral cholinergic terminals\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway protection, invasive ventilation, and intensive supportive care\", \"target\": \"Respiratory neuromuscular transmission failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Wound debridement and source control\", \"target\": \"Route-specific toxin exposure or production\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BoNT/A-exposed human iPSC-derived neurons\", \"target\": \"Serotype-specific SNARE proteolysis\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.\"}, {\"source\": \"Engineered RenVM neuron trafficking model\", \"target\": \"Alternative retrograde Golgi-ER trafficking in RenVM neurons\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model directly assays the provisional alternative intracellular itinerary.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6802,14 +7060,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6863,14 +7128,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Constipation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002019">HP:0002019</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002019</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6924,14 +7196,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nausea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002018">HP:0002018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6985,14 +7264,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vomiting
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002013">HP:0002013</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002013</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7055,14 +7341,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diplopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000651">HP:0000651</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000651</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7116,14 +7409,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000508">HP:0000508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7177,14 +7477,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Blurred vision
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000622">HP:0000622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7247,14 +7554,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Urinary retention
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000016">HP:0000016</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000016</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7317,14 +7631,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weakness of facial musculature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030319">HP:0030319</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030319</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7378,14 +7699,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Xerostomia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000217">HP:0000217</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000217</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7446,14 +7774,21 @@
                         Hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7507,14 +7842,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7577,14 +7919,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paralysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003470">HP:0003470</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003470</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paralysis (HP:0003470). HP:0003470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7638,14 +7987,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7708,14 +8064,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7769,14 +8132,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7839,14 +8209,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7909,14 +8286,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001618">HP:0001618</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001618</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7970,14 +8354,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ophthalmoplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000602">HP:0000602</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000602</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmoplegia (HP:0000602). HP:0000602 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8031,14 +8422,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mydriasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011499" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011499">HP:0011499</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0011499</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mydriasis (HP:0011499). HP:0011499 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8138,7 +8536,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8289,7 +8692,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">immunoglobulin infusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">immunoglobulin infusion<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunoglobulin infusion, annotated with Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
@@ -8419,7 +8827,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">artificial respiration</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">artificial respiration<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is artificial respiration, annotated with Mechanical Ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
@@ -8549,7 +8962,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8685,6 +9103,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-honey-exposure-in-infancy" data-dismech-node="Honey exposure in infancy" data-dismech-type="environmental">
                 <div class="item-name">Honey exposure in infancy</div>
+
+
+
+
 
 
 
@@ -8935,16 +9357,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         iPSC-derived neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this dataset samples this sample type
+This dataset samples iPSC-derived neuron, annotated with neuron (CL:0000540). CL:0000540 is a sample type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -9184,15 +9613,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -9202,15 +9636,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-42">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-42">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -9243,14 +9682,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-serotype-specific-snare-proteolysis">Serotype-specific SNARE proteolysis</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-serotype-specific-snare-proteolysis">Serotype-specific SNARE proteolysis</a>
+
+
+
+                <span class="crosslink-desc">Active BoNT/A1 exposure places the neuronal transcriptomic response downstream of the canonical SNAP-25-cleaving toxin.</span>
+
+
 
 
 
@@ -9287,10 +9731,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9354,15 +9799,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -9372,15 +9822,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             rat
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10116">NCBITaxon:10116</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-44">NCBITaxon:10116</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-44">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in rat, annotated with Rattus norvegicus (NCBITaxon:10116). NCBITaxon:10116 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -9413,14 +9868,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-alternative-retrograde-golgi-er-trafficking-in-renvm-neurons">Alternative retrograde Golgi-ER trafficking in RenVM neurons</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">The model directly assays the provisional alternative intracellular itinerary.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-alternative-retrograde-golgi-er-trafficking-in-renvm-neurons">Alternative retrograde Golgi-ER trafficking in RenVM neurons</a>
+
+
+
+                <span class="crosslink-desc">The model directly assays the provisional alternative intracellular itinerary.</span>
+
+
 
 
 
@@ -9457,10 +9917,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9506,6 +9967,100 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mus-musculus" data-dismech-node="Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mus musculus
+
+                    <span class="tag tag-exp-model-type">Local intoxication and motor-endplate recovery model</span>
+
+                </div>
+
+                <div class="item-desc">Repeated in-vivo imaging after a single intramuscular BoNT/A injection follows loss of parent-terminal vesicle cycling, temporary transmission by new sprouts, later recovery of the original terminal, and elimination of superfluous sprouts. It models local neuromuscular repair rather than route-specific systemic human botulism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Paralysis</span>
+
+                    <span class="tag tag-phenotype">Muscle weakness</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">Mouse sternomastoid neuromuscular junction after a single local BoNT/A injection</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1073/pnas.96.6.3200" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1073/pnas.96.6.3200" target="_blank">DOI:10.1073/pnas.96.6.3200</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By repeated in vivo imaging of N -(3-triethyl ammonium propyl)-4-(4-(dibutylamino)styryl) pyridinium dibromide uptake into identified nerve endings of the mouse sternomastoid muscle after a single intramuscular injection of the toxin, inhibition of stimulated uptake of the dye at the terminals..."</div>
+
+
+                <div class="evidence-explanation">The source describes the species, local exposure, imaging method, and sprouting response.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -9522,7 +10077,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Botulism
 creation_date: &#39;2026-02-02T00:16:36Z&#39;
-updated_date: &#39;2026-07-24T14:48:33Z&#39;
 category: Infectious Disease
 parents:
 - Bacterial Infection
@@ -12407,7 +12961,7 @@ Botulism is a neuroparalytic syndrome caused by botulinum neurotoxins (BoNTs) pr
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Botulism", "mondoId": "MONDO:0005498", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Botulism", "yamlRevision": "3c47189af51e"};
+        const OS_CONFIG = {"diseaseName": "Botulism", "mondoId": "MONDO:0005498", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Botulism", "yamlRevision": "fe2b5e2061eb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12826,5 +13380,73 @@ Botulism is a neuroparalytic syndrome caused by botulinum neurotoxins (BoNTs) pr
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

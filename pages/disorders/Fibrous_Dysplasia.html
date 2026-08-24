@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3702,6 +3868,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3790,6 +3958,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3816,6 +3992,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3825,9 +4071,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 29 &#34;Disorganized development of skeletal components group&#34;; listed as &#34;Fibrous dysplasia, polyostotic form (McCune-Albright)&#34;.">disorganized development of skeletal components</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4108,16 +4370,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal stem/progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000134">CL:0000134</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal stem/progenitor cell, annotated with mesenchymal stem cell (CL:0000134). CL:0000134 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4142,15 +4409,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4178,16 +4452,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         adenylate cyclase-activating G protein-coupled receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007189">GO:0007189</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007189</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adenylate cyclase-activating G protein-coupled receptor signaling pathway (GO:0007189). GO:0007189 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4208,6 +4487,7 @@
 
 
                 </div>
+
 
 
 
@@ -4307,16 +4587,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteoblast lineage cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast lineage cell, annotated with osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4343,16 +4628,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001649">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4372,16 +4662,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001503">GO:0001503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal ossification (GO:0001503). GO:0001503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4402,6 +4697,7 @@
 
 
                 </div>
+
 
 
 
@@ -4582,16 +4878,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046849">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4612,6 +4913,7 @@
 
 
                 </div>
+
 
 
 
@@ -4741,16 +5043,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         osteogenic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteogenic cell, annotated with osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4777,23 +5084,28 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phosphate ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055062">GO:0055062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0055062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phosphate ion homeostasis (GO:0055062). GO:0055062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
     <span class="tag tag-modifier">
-        ⚠ ABNORMAL
+        ↓ DECREASED
     </span>
 
 
@@ -4807,6 +5119,7 @@
 
 
                 </div>
+
 
 
 
@@ -4927,15 +5240,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:4392</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4963,16 +5283,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         adenylate cyclase-activating G protein-coupled receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007189">GO:0007189</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007189" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007189</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adenylate cyclase-activating G protein-coupled receptor signaling pathway (GO:0007189). GO:0007189 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4993,6 +5318,7 @@
 
 
                 </div>
+
 
 
 
@@ -5269,14 +5595,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,14 +5672,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperthyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000836">HP:0000836</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000836</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5400,14 +5740,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thyroid carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002890" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002890">HP:0002890</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002890</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thyroid carcinoma (HP:0002890). HP:0002890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5470,14 +5817,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Visual loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000572">HP:0000572</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000572</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Visual loss (HP:0000572). HP:0000572 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5540,14 +5894,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal mandible morphology
+
+                        <span class="phenotype-term-label">Abnormal mandible morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000277" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000277">HP:0000277</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000277" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000277</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the mandible, annotated with Abnormal mandible morphology (HP:0000277). HP:0000277 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5610,14 +5973,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bowing of the long bones
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006487">HP:0006487</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006487</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5671,14 +6041,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coxa vara
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002812">HP:0002812</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002812</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5741,14 +6118,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypophosphatemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002148">HP:0002148</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002148</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5833,14 +6217,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteolysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002797" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002797">HP:0002797</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002797" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002797</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteolysis (HP:0002797). HP:0002797 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5894,14 +6285,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rickets
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002748">HP:0002748</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002748</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5955,14 +6353,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pathologic fracture
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002756">HP:0002756</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002756</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pathologic fracture (HP:0002756). HP:0002756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6016,14 +6421,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6077,14 +6489,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteomalacia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002749">HP:0002749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteomalacia (HP:0002749). HP:0002749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6147,14 +6566,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6217,14 +6643,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bone pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002653">HP:0002653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6287,14 +6720,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6348,14 +6788,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lower limb asymmetry
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100559" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100559">HP:0100559</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100559" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100559</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower limb asymmetry (HP:0100559). HP:0100559 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6418,14 +6865,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fibrous dysplasia of the bones
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010734" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010734">HP:0010734</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010734" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010734</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fibrous dysplasia of the bones (HP:0010734). HP:0010734 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6479,14 +6933,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal skull morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000929" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000929">HP:0000929</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000929" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000929</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal skull morphology (HP:0000929). HP:0000929 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6540,14 +7001,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal bone structure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003330" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003330">HP:0003330</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003330" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003330</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal bone structure (HP:0003330). HP:0003330 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6601,14 +7069,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal axial skeleton morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009121" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009121">HP:0009121</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0009121</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal axial skeleton morphology (HP:0009121). HP:0009121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6662,14 +7137,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of limbs
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040064" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040064">HP:0040064</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0040064</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of limbs (HP:0040064). HP:0040064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6723,14 +7205,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal maxilla morphology
+
+                        <span class="phenotype-term-label">Abnormal maxilla morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000326" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000326">HP:0000326</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000326</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the maxilla, annotated with Abnormal maxilla morphology (HP:0000326). HP:0000326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6784,14 +7275,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin bony cortex
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002753" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002753">HP:0002753</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002753" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002753</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin bony cortex (HP:0002753). HP:0002753 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6845,14 +7343,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal femur morphology
+
+                        <span class="phenotype-term-label">Abnormal femur morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002823">HP:0002823</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002823</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of femur morphology, annotated with Abnormal femur morphology (HP:0002823). HP:0002823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6906,14 +7413,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating alkaline phosphatase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003155">HP:0003155</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003155</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6967,14 +7481,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cortical irregularity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005731" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005731">HP:0005731</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005731" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005731</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cortical irregularity (HP:0005731). HP:0005731 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7028,14 +7549,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Patchy reduction of bone mineral density
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010657" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010657">HP:0010657</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010657" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0010657</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Patchy reduction of bone mineral density (HP:0010657). HP:0010657 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7089,14 +7617,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal zygomatic bone morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010668" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010668">HP:0010668</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0010668</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal zygomatic bone morphology (HP:0010668). HP:0010668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7150,14 +7685,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal facial skeleton morphology
+
+                        <span class="phenotype-term-label">Abnormal facial skeleton morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011821">HP:0011821</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0011821</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of facial skeleton, annotated with Abnormal facial skeleton morphology (HP:0011821). HP:0011821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7211,14 +7755,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Antalgic gait
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031955" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031955">HP:0031955</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0031955</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Antalgic gait (HP:0031955). HP:0031955 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7272,14 +7823,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ovarian cyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000138">HP:0000138</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000138</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7333,14 +7891,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating growth hormone concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000845">HP:0000845</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000845</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating growth hormone concentration (HP:0000845). HP:0000845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7394,14 +7959,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Large cafe-au-lait macules with irregular margins
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005605" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005605">HP:0005605</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005605" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0005605</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large cafe-au-lait macules with irregular margins (HP:0005605). HP:0005605 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7455,14 +8027,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Precocious puberty in females
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010465" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010465">HP:0010465</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010465" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0010465</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Precocious puberty in females (HP:0010465). HP:0010465 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7516,14 +8095,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the breast
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100013" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100013">HP:0100013</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100013" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100013</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the breast (HP:0100013). HP:0100013 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7621,13 +8207,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GNAS
 
 
-    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4392">hgnc:4392</a>
+    <a href="https://bioregistry.io/hgnc:4392" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:4392</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GNAS (hgnc:4392). hgnc:4392 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7720,7 +8311,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7817,7 +8413,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -7855,16 +8456,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Antalgic gait
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031955" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031955">HP:0031955</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0031955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Antalgic gait (HP:0031955). HP:0031955 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7913,7 +8519,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7943,17 +8554,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         phosphate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_26020" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:26020">CHEBI:26020</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_26020" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:26020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses phosphate (CHEBI:26020). CHEBI:26020 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         calcitriol
@@ -7961,10 +8579,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17823">CHEBI:17823</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:17823</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8030,16 +8651,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypophosphatemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002148">HP:0002148</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8110,7 +8736,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8148,17 +8779,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pathologic fracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002756">HP:0002756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002756</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pathologic fracture (HP:0002756). HP:0002756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Bowing of the long bones
@@ -8166,10 +8804,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006487">HP:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0006487</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8218,7 +8859,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bisphosphonate agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">bisphosphonate agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bisphosphonate agent therapy, annotated with Bisphosphonate Therapy (NCIT:C198585). NCIT:C198585 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Bisphosphonate Therapy</span>
 
 
@@ -8249,16 +8895,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bisphosphonate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_77383" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:77383">CHEBI:77383</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_77383" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-60">CHEBI:77383</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bisphosphonate, annotated with 1,1-bis(phosphonic acid) (CHEBI:77383). CHEBI:77383 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8273,16 +8924,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Bone pain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002653">HP:0002653</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8353,7 +9009,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8383,16 +9044,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         denosumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C61313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C61313">NCIT:C61313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61313" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C61313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses denosumab (NCIT:C61313). NCIT:C61313 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8474,11 +9140,109 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptomic signature and pro-osteoclastic secreted factors of abnormal bone marrow stromal cells in fibrous dysplasia (Human)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE261358" target="_blank">geo:GSE261358</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Fibrous dysplasia (FD) is a mosaic skeletal disorder caused by somatic activating variants in GNAS, encoding for Gαs, which leads to excessive cAMP signaling in bone marrow stromal cells (BMSCs). Despite advancements in our understanding of FD pathophysiology, the effect of Gαs activation in the BMSC transcriptome remains unclear, as well as how this translates into their local influence in the lesional microenvironment. In this study, we analyzed changes induced by Gαs activation in BMSC transcriptome and performed a comprehensive analysis of their production of cytokines and other secreted factors.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39273006" target="_blank" style="color: var(--secondary);">PMID:39273006</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Fibrous Dysplasia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single-cell analysis of human fibrous dysplasia bone reveals a fibrotic transcriptome and somatic, mosaic GNAS R201H/C mutations in endothelial, perivascular, and stromal cells
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301458" target="_blank">geo:GSE301458</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Genetic mosaicism is a leading cause of human disease across the lifespan. Improving the tools to detect somatic mosaicism and applying them to understand the cellular and molecular mechanisms that contribute to disease is of critical importance for improving human health. Fibrous dysplasia (FD) is a prototypical disease of Gs-GPCR activation caused by somatic, mosaic GNAS R201H/C mutations that result in fibrotic bone. Utilizing single-cell RNA sequencing and a unique GNAS genotyping strategy, we analyzed non-hematopoietic cells from FD and non-FD human bone. FD bone showed an altered fibroblast composition with a unique FD-specific osteoblastic cluster.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40848713" target="_blank" style="color: var(--secondary);">PMID:40848713</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Fibrous Dysplasia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8498,7 +9262,6 @@
                 <pre class="yaml-preview">name: Fibrous Dysplasia
 category: Somatic mosaic
 creation_date: &#34;2026-05-09T17:35:00Z&#34;
-updated_date: &#34;2026-05-09T17:35:00Z&#34;
 synonyms:
 - Fibrous dysplasia of bone
 - FD
@@ -8823,6 +9586,7 @@ pathophysiology:
   - target: Hearing impairment
   - target: Visual loss
 - name: FGF23-mediated phosphate wasting
+  conforms_to: &#34;defective_skeletal_mineralization#Phosphopenic Substrate Deficiency&#34;
   description: &gt;
     Active dysplastic osteogenic cells can overproduce FGF23. FGF23 decreases
     renal phosphate reabsorption and active vitamin D, causing hypophosphatemia
@@ -8837,7 +9601,7 @@ pathophysiology:
     term:
       id: GO:0055062
       label: phosphate ion homeostasis
-    modifier: ABNORMAL
+    modifier: DECREASED
   evidence:
   - reference: PMID:31037426
     reference_title: &#34;Fibrous Dysplasia of Bone and McCune-Albright Syndrome: A Bench to Bedside Review.&#34;
@@ -9681,7 +10445,31 @@ references:
   found_in:
   - Fibrous_Dysplasia-deep-research-fallback.md
 clinical_trials: []
-datasets: []
+datasets:
+- accession: geo:GSE261358
+  title: Transcriptomic signature and pro-osteoclastic secreted factors of abnormal bone marrow stromal cells in fibrous dysplasia (Human)
+  description: Fibrous dysplasia (FD) is a mosaic skeletal disorder caused by somatic activating variants in GNAS, encoding for Gαs, which leads to excessive cAMP signaling in bone marrow stromal cells (BMSCs). Despite advancements in our understanding of FD pathophysiology, the effect of Gαs activation in the BMSC transcriptome remains unclear, as well as how this translates into their local influence in the lesional microenvironment. In this study, we analyzed changes induced by Gαs activation in BMSC transcriptome and performed a comprehensive analysis of their production of cytokines and other secreted factors.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:39273006
+  notes: Identified by GEO DataSets index search for Fibrous Dysplasia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE301458
+  title: Single-cell analysis of human fibrous dysplasia bone reveals a fibrotic transcriptome and somatic, mosaic GNAS R201H/C mutations in endothelial, perivascular, and stromal cells
+  description: Genetic mosaicism is a leading cause of human disease across the lifespan. Improving the tools to detect somatic mosaicism and applying them to understand the cellular and molecular mechanisms that contribute to disease is of critical importance for improving human health. Fibrous dysplasia (FD) is a prototypical disease of Gs-GPCR activation caused by somatic, mosaic GNAS R201H/C mutations that result in fibrotic bone. Utilizing single-cell RNA sequencing and a unique GNAS genotyping strategy, we analyzed non-hematopoietic cells from FD and non-FD human bone. FD bone showed an altered fibroblast composition with a unique FD-specific osteoblastic cluster.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 12
+  publication: PMID:40848713
+  notes: Identified by GEO DataSets index search for Fibrous Dysplasia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 notes: &gt;-
   ORPHA:249 contains additional occasional and very rare phenotype rows not
   expanded in this initial entry. The included phenotype set covers all ORPHA
@@ -9884,7 +10672,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fibrous Dysplasia", "mondoId": "MONDO:0000845", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrous_Dysplasia", "yamlRevision": "3459b28b2b3d"};
+        const OS_CONFIG = {"diseaseName": "Fibrous Dysplasia", "mondoId": "MONDO:0000845", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fibrous_Dysplasia", "yamlRevision": "18d4caaeaa5b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10303,5 +11091,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

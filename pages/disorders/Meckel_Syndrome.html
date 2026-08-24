@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3809,6 +3977,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3818,9 +4056,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 41 &#34;Polydactyly-Syndactyly-Triphalangism group&#34;; listed as &#34;Meckel syndrome types 1-6&#34;.">polydactyly syndactyly triphalangism</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4419,15 +4673,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TMEM67
 
 
-    <a href="https://bioregistry.io/hgnc:28396" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28396">hgnc:28396</a>
+    <a href="https://bioregistry.io/hgnc:28396" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:28396</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM67 (hgnc:28396). hgnc:28396 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4457,19 +4718,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4528,15 +4795,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MKS1
 
 
-    <a href="https://bioregistry.io/hgnc:7121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7121">hgnc:7121</a>
+    <a href="https://bioregistry.io/hgnc:7121" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:7121</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MKS1 (hgnc:7121). hgnc:7121 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4566,17 +4840,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         ciliary basal body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary basal body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary base
@@ -4584,13 +4865,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097546">GO:0097546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0097546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary base (GO:0097546). GO:0097546 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4649,16 +4934,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TMEM216
 
 
-    <a href="https://bioregistry.io/hgnc:25018" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25018">hgnc:25018</a>
+    <a href="https://bioregistry.io/hgnc:25018" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:25018</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM216 (hgnc:25018). hgnc:25018 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4686,11 +4982,18 @@
         TMEM231
 
 
-    <a href="https://bioregistry.io/hgnc:37234" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:37234">hgnc:37234</a>
+    <a href="https://bioregistry.io/hgnc:37234" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:37234</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM231 (hgnc:37234). hgnc:37234 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4718,11 +5021,18 @@
         TCTN2
 
 
-    <a href="https://bioregistry.io/hgnc:25774" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25774">hgnc:25774</a>
+    <a href="https://bioregistry.io/hgnc:25774" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:25774</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TCTN2 (hgnc:25774). hgnc:25774 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4750,11 +5060,18 @@
         TMEM237
 
 
-    <a href="https://bioregistry.io/hgnc:14432" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14432">hgnc:14432</a>
+    <a href="https://bioregistry.io/hgnc:14432" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:14432</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM237 (hgnc:14432). hgnc:14432 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4782,11 +5099,18 @@
         TMEM107
 
 
-    <a href="https://bioregistry.io/hgnc:28128" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28128">hgnc:28128</a>
+    <a href="https://bioregistry.io/hgnc:28128" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:28128</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM107 (hgnc:28128). hgnc:28128 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4814,11 +5138,18 @@
         TXNDC15
 
 
-    <a href="https://bioregistry.io/hgnc:20652" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20652">hgnc:20652</a>
+    <a href="https://bioregistry.io/hgnc:20652" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:20652</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TXNDC15 (hgnc:20652). hgnc:20652 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4846,11 +5177,18 @@
         RPGRIP1L
 
 
-    <a href="https://bioregistry.io/hgnc:29168" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29168">hgnc:29168</a>
+    <a href="https://bioregistry.io/hgnc:29168" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:29168</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RPGRIP1L (hgnc:29168). hgnc:29168 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4878,10 +5216,13 @@
         CEP290
 
 
-    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29021">hgnc:29021</a>
+    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:29021</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4909,16 +5250,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4944,17 +5290,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary basal body
@@ -4962,11 +5315,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary basal body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary base
@@ -4974,13 +5332,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097546">GO:0097546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0097546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary base (GO:0097546). GO:0097546 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5039,16 +5401,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5074,17 +5441,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary basal body
@@ -5092,11 +5466,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary basal body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary base
@@ -5104,13 +5483,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097546">GO:0097546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0097546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary base (GO:0097546). GO:0097546 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5169,15 +5552,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CC2D2A
 
 
-    <a href="https://bioregistry.io/hgnc:29253" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29253">hgnc:29253</a>
+    <a href="https://bioregistry.io/hgnc:29253" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:29253</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CC2D2A (hgnc:29253). hgnc:29253 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5205,16 +5595,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5240,17 +5635,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary basal body
@@ -5258,11 +5660,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary basal body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary base
@@ -5270,13 +5677,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097546">GO:0097546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0097546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary base (GO:0097546). GO:0097546 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5335,16 +5746,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         B9D1
 
 
-    <a href="https://bioregistry.io/hgnc:24123" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24123">hgnc:24123</a>
+    <a href="https://bioregistry.io/hgnc:24123" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:24123</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves B9D1 (hgnc:24123). hgnc:24123 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5372,10 +5794,13 @@
         B9D2
 
 
-    <a href="https://bioregistry.io/hgnc:28636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28636">hgnc:28636</a>
+    <a href="https://bioregistry.io/hgnc:28636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:28636</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves B9D2 (hgnc:28636). hgnc:28636 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5405,17 +5830,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         axoneme
@@ -5423,11 +5855,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005930" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005930">GO:0005930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0005930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary basal body
@@ -5435,11 +5872,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036064">GO:0036064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0036064</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary basal body (GO:0036064). GO:0036064 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         ciliary base
@@ -5447,13 +5889,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097546">GO:0097546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0097546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves ciliary base (GO:0097546). GO:0097546 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5534,16 +5980,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5564,6 +6015,7 @@
 
 
                 </div>
+
 
 
 
@@ -5624,16 +6076,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5653,16 +6110,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016055">GO:0016055</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0016055</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Wnt signaling pathway (GO:0016055). GO:0016055 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5683,6 +6145,7 @@
 
 
                 </div>
+
 
 
 
@@ -5743,15 +6206,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TMEM17
 
 
-    <a href="https://bioregistry.io/hgnc:26623" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26623">hgnc:26623</a>
+    <a href="https://bioregistry.io/hgnc:26623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:26623</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMEM17 (hgnc:26623). hgnc:26623 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5779,16 +6249,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         hedgehog signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated hedgehog signaling pathway, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5809,6 +6284,7 @@
 
 
                 </div>
+
 
 
 
@@ -5869,16 +6345,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         hedgehog signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated hedgehog signaling pathway, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5904,16 +6385,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5921,19 +6407,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         neural tube
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001049" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001049">UBERON:0001049</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001049" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0001049</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in neural tube (UBERON:0001049). UBERON:0001049 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6013,16 +6505,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         hedgehog signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated hedgehog signaling pathway, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6048,19 +6545,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         primary cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves primary cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6197,14 +6700,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001395">HP:0001395</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001395</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6267,14 +6777,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cystic renal dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000800">HP:0000800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cystic renal dysplasia (HP:0000800). HP:0000800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6383,14 +6900,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Occipital encephalocele
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002085" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002085">HP:0002085</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002085</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Occipital encephalocele (HP:0002085). HP:0002085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6499,14 +7023,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Postaxial hand polydactyly
+
+                        <span class="phenotype-term-label">Postaxial hand polydactyly</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001162">HP:0001162</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001162</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6615,14 +7148,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002089</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6742,13 +7282,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MKS1
 
 
-    <a href="https://bioregistry.io/hgnc:7121" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7121">hgnc:7121</a>
+    <a href="https://bioregistry.io/hgnc:7121" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:7121</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MKS1 (hgnc:7121). hgnc:7121 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6806,13 +7351,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM67
 
 
-    <a href="https://bioregistry.io/hgnc:28396" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28396">hgnc:28396</a>
+    <a href="https://bioregistry.io/hgnc:28396" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:28396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM67 (hgnc:28396). hgnc:28396 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6870,13 +7420,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CC2D2A
 
 
-    <a href="https://bioregistry.io/hgnc:29253" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29253">hgnc:29253</a>
+    <a href="https://bioregistry.io/hgnc:29253" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:29253</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CC2D2A (hgnc:29253). hgnc:29253 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6978,13 +7533,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM216
 
 
-    <a href="https://bioregistry.io/hgnc:25018" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25018">hgnc:25018</a>
+    <a href="https://bioregistry.io/hgnc:25018" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:25018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM216 (hgnc:25018). hgnc:25018 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7042,13 +7602,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM231
 
 
-    <a href="https://bioregistry.io/hgnc:37234" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:37234">hgnc:37234</a>
+    <a href="https://bioregistry.io/hgnc:37234" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:37234</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM231 (hgnc:37234). hgnc:37234 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7106,13 +7671,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: B9D2
 
 
-    <a href="https://bioregistry.io/hgnc:28636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28636">hgnc:28636</a>
+    <a href="https://bioregistry.io/hgnc:28636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:28636</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is B9D2 (hgnc:28636). hgnc:28636 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7170,13 +7740,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: B9D1
 
 
-    <a href="https://bioregistry.io/hgnc:24123" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24123">hgnc:24123</a>
+    <a href="https://bioregistry.io/hgnc:24123" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:24123</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is B9D1 (hgnc:24123). hgnc:24123 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7256,13 +7831,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CEP290
 
 
-    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29021">hgnc:29021</a>
+    <a href="https://bioregistry.io/hgnc:29021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:29021</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7364,13 +7944,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RPGRIP1L
 
 
-    <a href="https://bioregistry.io/hgnc:29168" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29168">hgnc:29168</a>
+    <a href="https://bioregistry.io/hgnc:29168" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:29168</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RPGRIP1L (hgnc:29168). hgnc:29168 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7428,13 +8013,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NPHP3
 
 
-    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7907">hgnc:7907</a>
+    <a href="https://bioregistry.io/hgnc:7907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:7907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NPHP3 (hgnc:7907). hgnc:7907 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7492,13 +8082,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TCTN2
 
 
-    <a href="https://bioregistry.io/hgnc:25774" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25774">hgnc:25774</a>
+    <a href="https://bioregistry.io/hgnc:25774" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:25774</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TCTN2 (hgnc:25774). hgnc:25774 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7556,13 +8151,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM237
 
 
-    <a href="https://bioregistry.io/hgnc:14432" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14432">hgnc:14432</a>
+    <a href="https://bioregistry.io/hgnc:14432" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:14432</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM237 (hgnc:14432). hgnc:14432 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7620,13 +8220,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM107
 
 
-    <a href="https://bioregistry.io/hgnc:28128" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28128">hgnc:28128</a>
+    <a href="https://bioregistry.io/hgnc:28128" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:28128</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM107 (hgnc:28128). hgnc:28128 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7684,13 +8289,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TXNDC15
 
 
-    <a href="https://bioregistry.io/hgnc:20652" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20652">hgnc:20652</a>
+    <a href="https://bioregistry.io/hgnc:20652" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:20652</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TXNDC15 (hgnc:20652). hgnc:20652 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7794,13 +8404,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM17
 
 
-    <a href="https://bioregistry.io/hgnc:26623" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26623">hgnc:26623</a>
+    <a href="https://bioregistry.io/hgnc:26623" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:26623</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM17 (hgnc:26623). hgnc:26623 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7858,13 +8473,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KIF7
 
 
-    <a href="https://bioregistry.io/hgnc:30497" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30497">hgnc:30497</a>
+    <a href="https://bioregistry.io/hgnc:30497" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:30497</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KIF7 (hgnc:30497). hgnc:30497 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7931,7 +8551,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical repair</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">surgical repair<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329), qualified as surgical procedure excision. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8009,7 +8634,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical repair</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">surgical repair<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329), qualified as surgical procedure shunt device. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8087,7 +8717,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical repair</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">surgical repair<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical repair, annotated with Surgical Procedure (NCIT:C15329), qualified as surgical procedure excision. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8165,7 +8800,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238), qualified as has participant CC2D2A. NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -8676,6 +9316,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8692,7 +9335,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Meckel Syndrome
 creation_date: &#39;2026-02-02T23:29:30Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 category: Genetic
 description: &gt;-
   Meckel syndrome (Meckel-Gruber syndrome) is a rare, lethal ciliopathy with a
@@ -10470,7 +11112,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Meckel Syndrome", "mondoId": "MONDO:0018921", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meckel_Syndrome", "yamlRevision": "49c5c8d669de"};
+        const OS_CONFIG = {"diseaseName": "Meckel Syndrome", "mondoId": "MONDO:0018921", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meckel_Syndrome", "yamlRevision": "1e6ebd454b2a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10889,5 +11531,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3775,7 +3943,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3804,6 +3972,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3813,9 +4051,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 2 &#34;Type 2 collagen group&#34;; listed as &#34;Spondyloepiphyseal dysplasia with marked metaphyseal changes (SEMD), which the table notes includes SEMD Strudwick type&#34;.">type 2 collagen</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3918,16 +4172,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3954,15 +4213,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         COL2A1
 
 
-    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2200">hgnc:2200</a>
+    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2200</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL2A1 (hgnc:2200). hgnc:2200 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3990,17 +4256,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Collagen Fibril Organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Collagen Fibril Organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4021,10 +4294,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032964">GO:0032964</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0032964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Collagen Biosynthesis, annotated with collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4044,6 +4320,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         extracellular matrix structural constituent
@@ -4051,10 +4329,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005201" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005201">GO:0005201</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005201" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves extracellular matrix structural constituent (GO:0005201). GO:0005201 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4075,19 +4356,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         extracellular matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031012">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal extracellular matrix (GO:0031012). GO:0031012 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4197,17 +4484,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4228,10 +4522,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth Plate Chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4258,17 +4555,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ER Unfolded Protein Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030968">GO:0030968</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ER Unfolded Protein Response, annotated with endoplasmic reticulum unfolded protein response (GO:0030968). GO:0030968 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4289,11 +4593,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0034976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to ER Stress, annotated with response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4314,10 +4623,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002062">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0002062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Chondrocyte Differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4339,19 +4651,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005783">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4448,17 +4766,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Growth Plate Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Growth Plate Chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4479,10 +4804,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4509,17 +4837,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Endochondral Ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001958">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Endochondral Ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4540,11 +4875,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051216">GO:0051216</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051216" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0051216</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cartilage Development (GO:0051216). GO:0051216 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4565,10 +4905,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060348">GO:0060348</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060348" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0060348</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Bone Development (GO:0060348). GO:0060348 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4585,6 +4928,7 @@
 
 
                 </div>
+
 
 
 
@@ -4761,19 +5105,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         extracellular matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031012">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal extracellular matrix (GO:0031012). GO:0031012 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4869,16 +5219,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4904,6 +5259,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         Collagen Fibril Organization
@@ -4911,10 +5268,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Collagen Fibril Organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4936,19 +5296,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         extracellular matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031012">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal extracellular matrix (GO:0031012). GO:0031012 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5094,14 +5460,21 @@
                         Myopia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000545">HP:0000545</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000545</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5175,14 +5548,21 @@
                         Retinal Detachment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal detachment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000541">HP:0000541</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000541</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5243,14 +5623,21 @@
                         Limb Undergrowth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb undergrowth
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009826">HP:0009826</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0009826</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb undergrowth (HP:0009826). HP:0009826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5324,14 +5711,21 @@
                         Metaphyseal Dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Metaphyseal dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100255" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100255">HP:0100255</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100255</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5498,14 +5892,21 @@
                         Coxa Vara
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coxa vara
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002812">HP:0002812</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002812</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coxa vara (HP:0002812). HP:0002812 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5579,14 +5980,21 @@
                         Genu Valgum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Genu valgum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002857">HP:0002857</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002857</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5638,14 +6046,21 @@
                         Hip Subluxation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hip subluxation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030043">HP:0030043</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0030043</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip subluxation (HP:0030043). HP:0030043 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5697,14 +6112,21 @@
                         Talipes Equinovarus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Talipes equinovarus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001762">HP:0001762</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5765,14 +6187,21 @@
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5824,14 +6253,21 @@
                         Kyphosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002808">HP:0002808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5883,14 +6319,21 @@
                         Hyperlordosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperlordosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003307">HP:0003307</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003307</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperlordosis (HP:0003307). HP:0003307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5964,14 +6407,21 @@
                         Pectus Carinatum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus carinatum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000768">HP:0000768</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000768</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6023,14 +6473,21 @@
                         Delayed Epiphyseal Ossification
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed epiphyseal ossification
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002663">HP:0002663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:0002663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6175,14 +6632,21 @@
                         Atlantoaxial Instability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atlantoaxial instability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003467">HP:0003467</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003467</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6234,14 +6698,21 @@
                         Hypoplasia of the Odontoid Process
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the odontoid process
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003311" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003311">HP:0003311</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003311</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the odontoid process (HP:0003311). HP:0003311 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6315,14 +6786,21 @@
                         Early-Onset Osteoarthritis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Osteoarthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002758">HP:0002758</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002758</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteoarthritis (HP:0002758). HP:0002758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6405,14 +6883,21 @@
                         Disproportionate Short-Trunk Short Stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Disproportionate short-trunk short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003521" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003521">HP:0003521</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003521</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Disproportionate short-trunk short stature (HP:0003521). HP:0003521 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6510,13 +6995,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL2A1
 
 
-    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2200">hgnc:2200</a>
+    <a href="https://bioregistry.io/hgnc:2200" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:2200</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6853,7 +7343,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Orthopedic surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Orthopedic surgery<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Orthopedic surgery, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7052,15 +7547,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Chondrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7070,15 +7570,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-42">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-42">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7108,6 +7613,8 @@
 
 
 
+
+
             </div>
 
             <div class="item-box exp-model-box anchor-target" id="experimental-model-isogenic-col2a1-arg719cys-ipsc-derived-cartilage" data-dismech-node="Isogenic COL2A1 Arg719Cys iPSC-derived cartilage" data-dismech-type="experimental_model">
@@ -7126,15 +7633,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Chondrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7144,15 +7656,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-44">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-44">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7182,6 +7699,93 @@
 
 
 
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-col2a1-r992c-conditional-transgenic-mouse" data-dismech-node="Col2a1 R992C conditional transgenic Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Col2a1 R992C conditional transgenic Mouse
+
+                </div>
+
+                <div class="item-desc">Conditional transgenic mice expressing the R992C collagen II mutation in chondrocytes develop disorganized growth plates with loss of columnar chondrocyte arrangement, ER stress, aberrant cell polarization, reduced proliferation, and abnormal primary cilia morphology. Switching off transgene expression restores normal growth plate morphology, confirming direct causality.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Col2a1 R992C conditional transgenic</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25451152" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25451152" target="_blank">PMID:25451152</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"chondrocytes expressing the thermolabile R992C mutant collagen II molecules endured endoplasmic reticulum stress, had atypical polarization, and had reduced proliferation. Moreover, we demonstrated aberrant organization and morphology of primary cilia."</div>
+
+
+                <div class="evidence-explanation">R992C mouse model recapitulates key aspects of type II collagenopathy pathomechanism including ER stress and growth plate disorganization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
             </div>
 
         </div>
@@ -7203,7 +7807,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Spondyloepimetaphyseal Dysplasia Strudwick Type
 creation_date: &#39;2026-02-06T03:25:37Z&#39;
-updated_date: &#39;2026-04-19T07:03:05Z&#39;
 category: Mendelian
 description: &gt;
   Spondyloepimetaphyseal dysplasia Strudwick type (SEMD Strudwick) is a rare
@@ -8998,7 +9601,7 @@ Key evidence sources (with publication date and URL/DOI from the retrieved texts
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spondyloepimetaphyseal Dysplasia Strudwick Type", "mondoId": "MONDO:0008476", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepimetaphyseal_Dysplasia_Strudwick_Type", "yamlRevision": "15d4bcf35491"};
+        const OS_CONFIG = {"diseaseName": "Spondyloepimetaphyseal Dysplasia Strudwick Type", "mondoId": "MONDO:0008476", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepimetaphyseal_Dysplasia_Strudwick_Type", "yamlRevision": "fda511a2a3fd"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9417,5 +10020,73 @@ Key evidence sources (with publication date and URL/DOI from the retrieved texts
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

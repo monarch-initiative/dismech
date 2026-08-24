@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3782,7 +3950,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3819,38 +3987,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">RESPIRATORY</span>
 
-                    <span class="tag tag-classification">GENETICS_ENVIRONMENT_DISEASE</span>
+
+                    <span class="tag tag-classification">GENETICS ENVIRONMENT DISEASE</span>
 
                 </div>
-            </div>
 
+            </div>
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">Mechanistic Nosology</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-mechanistic">ciliopathy</span>
 
                 </div>
+
             </div>
 
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4351,17 +4605,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         respiratory ciliated cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves respiratory ciliated cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4382,10 +4643,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000065">CL:0000065</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000065</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ependymal cell (CL:0000065). CL:0000065 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4412,16 +4676,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         DNAI1
 
 
-    <a href="https://bioregistry.io/hgnc:2954" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2954">hgnc:2954</a>
+    <a href="https://bioregistry.io/hgnc:2954" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2954</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAI1 (hgnc:2954). hgnc:2954 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4449,11 +4724,18 @@
         DNAH5
 
 
-    <a href="https://bioregistry.io/hgnc:2950" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2950">hgnc:2950</a>
+    <a href="https://bioregistry.io/hgnc:2950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2950</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAH5 (hgnc:2950). hgnc:2950 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4481,11 +4763,18 @@
         DNAH11
 
 
-    <a href="https://bioregistry.io/hgnc:2942" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2942">hgnc:2942</a>
+    <a href="https://bioregistry.io/hgnc:2942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2942</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAH11 (hgnc:2942). hgnc:2942 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4513,11 +4802,18 @@
         CCDC39
 
 
-    <a href="https://bioregistry.io/hgnc:25244" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25244">hgnc:25244</a>
+    <a href="https://bioregistry.io/hgnc:25244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:25244</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CCDC39 (hgnc:25244). hgnc:25244 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4545,11 +4841,18 @@
         CCDC40
 
 
-    <a href="https://bioregistry.io/hgnc:26090" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26090">hgnc:26090</a>
+    <a href="https://bioregistry.io/hgnc:26090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:26090</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CCDC40 (hgnc:26090). hgnc:26090 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4577,11 +4880,18 @@
         RSPH1
 
 
-    <a href="https://bioregistry.io/hgnc:12371" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12371">hgnc:12371</a>
+    <a href="https://bioregistry.io/hgnc:12371" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:12371</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RSPH1 (hgnc:12371). hgnc:12371 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4609,11 +4919,18 @@
         RSPH4A
 
 
-    <a href="https://bioregistry.io/hgnc:21558" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21558">hgnc:21558</a>
+    <a href="https://bioregistry.io/hgnc:21558" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:21558</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RSPH4A (hgnc:21558). hgnc:21558 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4641,11 +4958,18 @@
         RSPH9
 
 
-    <a href="https://bioregistry.io/hgnc:21057" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21057">hgnc:21057</a>
+    <a href="https://bioregistry.io/hgnc:21057" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:21057</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RSPH9 (hgnc:21057). hgnc:21057 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4673,11 +4997,18 @@
         CCNO
 
 
-    <a href="https://bioregistry.io/hgnc:18576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18576">hgnc:18576</a>
+    <a href="https://bioregistry.io/hgnc:18576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:18576</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CCNO (hgnc:18576). hgnc:18576 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4705,11 +5036,18 @@
         FOXJ1
 
 
-    <a href="https://bioregistry.io/hgnc:3816" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3816">hgnc:3816</a>
+    <a href="https://bioregistry.io/hgnc:3816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:3816</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXJ1 (hgnc:3816). hgnc:3816 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4737,11 +5075,18 @@
         MCIDAS
 
 
-    <a href="https://bioregistry.io/hgnc:40050" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:40050">hgnc:40050</a>
+    <a href="https://bioregistry.io/hgnc:40050" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:40050</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MCIDAS (hgnc:40050). hgnc:40050 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4769,11 +5114,18 @@
         ODAD1
 
 
-    <a href="https://bioregistry.io/hgnc:26560" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26560">hgnc:26560</a>
+    <a href="https://bioregistry.io/hgnc:26560" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:26560</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ODAD1 (hgnc:26560). hgnc:26560 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4801,11 +5153,18 @@
         CFAP221
 
 
-    <a href="https://bioregistry.io/hgnc:33720" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:33720">hgnc:33720</a>
+    <a href="https://bioregistry.io/hgnc:33720" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:33720</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFAP221 (hgnc:33720). hgnc:33720 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4833,11 +5192,18 @@
         CFAP46
 
 
-    <a href="https://bioregistry.io/hgnc:25247" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25247">hgnc:25247</a>
+    <a href="https://bioregistry.io/hgnc:25247" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:25247</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFAP46 (hgnc:25247). hgnc:25247 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4865,11 +5231,18 @@
         CFAP57
 
 
-    <a href="https://bioregistry.io/hgnc:26485" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26485">hgnc:26485</a>
+    <a href="https://bioregistry.io/hgnc:26485" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:26485</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CFAP57 (hgnc:26485). hgnc:26485 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4897,11 +5270,18 @@
         DAW1
 
 
-    <a href="https://bioregistry.io/hgnc:26383" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26383">hgnc:26383</a>
+    <a href="https://bioregistry.io/hgnc:26383" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:26383</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DAW1 (hgnc:26383). hgnc:26383 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4929,11 +5309,18 @@
         DNAH1
 
 
-    <a href="https://bioregistry.io/hgnc:2940" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2940">hgnc:2940</a>
+    <a href="https://bioregistry.io/hgnc:2940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2940</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAH1 (hgnc:2940). hgnc:2940 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4961,11 +5348,18 @@
         DNAH10
 
 
-    <a href="https://bioregistry.io/hgnc:2941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2941">hgnc:2941</a>
+    <a href="https://bioregistry.io/hgnc:2941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:2941</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAH10 (hgnc:2941). hgnc:2941 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4993,11 +5387,18 @@
         DNAH7
 
 
-    <a href="https://bioregistry.io/hgnc:18661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18661">hgnc:18661</a>
+    <a href="https://bioregistry.io/hgnc:18661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:18661</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAH7 (hgnc:18661). hgnc:18661 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5025,11 +5426,18 @@
         NME8
 
 
-    <a href="https://bioregistry.io/hgnc:16473" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16473">hgnc:16473</a>
+    <a href="https://bioregistry.io/hgnc:16473" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:16473</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NME8 (hgnc:16473). hgnc:16473 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5057,10 +5465,13 @@
         SPEF2
 
 
-    <a href="https://bioregistry.io/hgnc:26293" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26293">hgnc:26293</a>
+    <a href="https://bioregistry.io/hgnc:26293" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:26293</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPEF2 (hgnc:26293). hgnc:26293 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5088,17 +5499,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cilium movement
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003341" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003341">GO:0003341</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003341" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0003341</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cilium movement (GO:0003341). GO:0003341 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5119,11 +5537,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060271">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cilium assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5144,10 +5567,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035082" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035082">GO:0035082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0035082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves axoneme assembly (GO:0035082). GO:0035082 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5168,6 +5594,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         Cilia
@@ -5175,11 +5603,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005929">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Cilia, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         axoneme
@@ -5187,11 +5620,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005930" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005930">GO:0005930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0005930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axoneme (GO:0005930). GO:0005930 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         outer dynein arm
@@ -5199,10 +5637,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036157" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036157">GO:0036157</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036157" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0036157</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves outer dynein arm (GO:0036157). GO:0036157 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5210,17 +5651,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         respiratory tract epithelium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004802" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004802">UBERON:0004802</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004802" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0004802</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in respiratory tract epithelium (UBERON:0004802). UBERON:0004802 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         nasal cavity epithelium
@@ -5228,11 +5676,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005384">UBERON:0005384</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0005384</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in nasal cavity epithelium (UBERON:0005384). UBERON:0005384 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         trachea
@@ -5240,11 +5693,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003126">UBERON:0003126</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0003126</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in trachea (UBERON:0003126). UBERON:0003126 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         bronchus
@@ -5252,13 +5710,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-33">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5432,16 +5894,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mucociliary clearance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0120197">GO:0120197</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0120197</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mucociliary clearance (GO:0120197). GO:0120197 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5464,17 +5931,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         respiratory system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001004">UBERON:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0001004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         paranasal sinus
@@ -5482,13 +5956,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001825" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001825">UBERON:0001825</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001825" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-36">UBERON:0001825</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in paranasal sinus (UBERON:0001825). UBERON:0001825 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5744,17 +6222,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         determination of left/right symmetry
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007368">GO:0007368</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007368" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0007368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves determination of left/right symmetry (GO:0007368). GO:0007368 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5775,10 +6260,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044458" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044458">GO:0044458</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044458" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0044458</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves nodal cilium assembly, annotated with motile cilium assembly (GO:0044458). GO:0044458 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5801,19 +6289,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         embryo
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000922" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000922">UBERON:0000922</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000922" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-39">UBERON:0000922</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in embryo (UBERON:0000922). UBERON:0000922 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5938,16 +6432,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5974,17 +6473,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6005,10 +6511,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009617">GO:0009617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0009617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to bacterium (GO:0009617). GO:0009617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6031,19 +6540,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6140,16 +6655,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         bronchial epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002328">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0002328</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6175,6 +6695,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         tissue remodeling
@@ -6182,10 +6704,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048771">GO:0048771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0048771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves tissue remodeling (GO:0048771). GO:0048771 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6208,17 +6733,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         lung
@@ -6226,13 +6758,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-47">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6351,16 +6887,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         respiratory gaseous exchange
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007585" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007585">GO:0007585</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007585" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0007585</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased respiratory gaseous exchange, annotated with respiratory gaseous exchange by respiratory system (GO:0007585). GO:0007585 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6387,19 +6928,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6501,7 +7048,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Heart Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Abnormal Sperm Motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012206\"}}, {\"id\": \"Abnormal Sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0032016\"}}, {\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006536\"}}, {\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term or prophylactic antibiotics to control respiratory infections.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"azithromycin\"]}}, {\"id\": \"Atelectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100750\"}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 10, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchiectasis and Airway Wall Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic neutrophilic inflammation and recurrent infection drive structural destruction and remodeling of the bronchial wall, producing the permanent bronchial dilatation (bronchiectasis) that is the hallmark structural lung lesion of established PCD.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"bronchus\", \"lung\"]}}, {\"id\": \"CCDC39\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCDC40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCNO\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP221\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP221\"], \"gene_terms\": [{\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP46\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP46\"], \"gene_terms\": [{\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP57\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP57\"], \"gene_terms\": [{\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \\u2014 the central mechanism of PCD.\", \"meta\": {\"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"publication\": \"DOI:10.1016/j.jnnfm.2023.105029\"}}, {\"id\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent microorganisms retained in the airways because of failed mucociliary clearance drive a chronic host inflammatory response with neutrophil recruitment, which itself damages the airway wall and further upregulates mucus production, establishing a self-amplifying infection-inflammation cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\", \"response to bacterium\"], \"locations\": [\"bronchus\"]}}, {\"id\": \"Chronic Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034315\"}}, {\"id\": \"Chronic Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Chronic Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Chronic Rhinitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002257\"}}, {\"id\": \"Chronic Rhinosinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011109\"}}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in the structure and function of motile cilia impair mucociliary clearance.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"respiratory ciliated cell\", \"ependymal cell\"], \"biological_processes\": [\"cilium movement\", \"cilium assembly\", \"axoneme assembly\"], \"genes\": [\"DNAI1\", \"DNAH5\", \"DNAH11\", \"CCDC39\", \"CCDC40\", \"RSPH1\", \"RSPH4A\", \"RSPH9\", \"CCNO\", \"FOXJ1\", \"MCIDAS\", \"ODAD1\", \"CFAP221\", \"CFAP46\", \"CFAP57\", \"DAW1\", \"DNAH1\", \"DNAH10\", \"DNAH7\", \"NME8\", \"SPEF2\"], \"gene_terms\": [{\"label\": \"DNAI1\", \"id\": \"hgnc:2954\"}, {\"label\": \"DNAH5\", \"id\": \"hgnc:2950\"}, {\"label\": \"DNAH11\", \"id\": \"hgnc:2942\"}, {\"label\": \"CCDC39\", \"id\": \"hgnc:25244\"}, {\"label\": \"CCDC40\", \"id\": \"hgnc:26090\"}, {\"label\": \"RSPH1\", \"id\": \"hgnc:12371\"}, {\"label\": \"RSPH4A\", \"id\": \"hgnc:21558\"}, {\"label\": \"RSPH9\", \"id\": \"hgnc:21057\"}, {\"label\": \"CCNO\", \"id\": \"hgnc:18576\"}, {\"label\": \"FOXJ1\", \"id\": \"hgnc:3816\"}, {\"label\": \"MCIDAS\", \"id\": \"hgnc:40050\"}, {\"label\": \"ODAD1\", \"id\": \"hgnc:26560\"}, {\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}, {\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}, {\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}, {\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}, {\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}, {\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}, {\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}, {\"label\": \"NME8\", \"id\": \"hgnc:16473\"}, {\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"locations\": [\"respiratory tract epithelium\", \"nasal cavity epithelium\", \"trachea\", \"bronchus\"]}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"DAW1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DAW1\"], \"gene_terms\": [{\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH1\"], \"gene_terms\": [{\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH10\"], \"gene_terms\": [{\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH7\"], \"gene_terms\": [{\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAI1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Digital Clubbing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001217\"}}, {\"id\": \"FOXJ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Female Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008222\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to effectively remove mucus and pathogens from respiratory passages.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mucociliary clearance\"], \"locations\": [\"respiratory system\", \"paranasal sinus\"], \"computational_models\": [{\"name\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"description\": \"Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.\"}]}}, {\"id\": \"Intestinal Malrotation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002566\"}}, {\"id\": \"MCIDAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003251\"}}, {\"id\": \"NME8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NME8\"], \"gene_terms\": [{\"label\": \"NME8\", \"id\": \"hgnc:16473\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Nasal Congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Nasal Polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100582\"}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"ODAD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Productive Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031245\"}}, {\"id\": \"Progressive Obstructive Lung Function Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating bronchiectasis and airway remodeling produce progressive, largely obstructive loss of lung function over time. The rate of decline is heterogeneous and is modulated by the underlying ultrastructural defect and genotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"respiratory gaseous exchange\"], \"locations\": [\"lung\"]}}, {\"id\": \"RSPH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH4A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000403\"}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Recurrent Sinopulmonary Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005425\"}}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"SPEF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Sinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000246\"}}, {\"id\": \"Situs Inversus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal placement of internal organs due to ciliary dysfunction during embryonic development.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"determination of left/right symmetry\", \"nodal cilium assembly\"], \"frequency\": \"50%\", \"locations\": [\"embryo\"]}}, {\"id\": \"Situs Inversus Totalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001696\"}}, {\"id\": \"Wheezing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030828\"}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Situs Inversus\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"embryonic_nodal_cilia_laterality\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of motile nodal-cilia-generated leftward fluid flow at the embryonic node randomizes left-right axis specification\"]}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Abnormal Sperm Motility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Female Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Sinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Productive Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Sinopulmonary Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Congestion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Abnormal Sputum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Wheezing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Atelectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Situs Inversus Totalis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Abnormal Heart Morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Intestinal Malrotation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis and Airway Wall Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Progressive Obstructive Lung Function Decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\", \"genotype_ultrastructure_severity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Airway Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Digital Clubbing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Obstructive Lung Function Decline\", \"target\": \"Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"DNAI1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH5\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH11\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC39\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC40\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH4A\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH9\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCNO\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXJ1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCIDAS\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ODAD1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP221\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP46\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP57\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DAW1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH10\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH7\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NME8\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPEF2\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Heart Morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Abnormal Sperm Motility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012206\"}}, {\"id\": \"Abnormal Sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0032016\"}}, {\"id\": \"Airway Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0006536\"}}, {\"id\": \"Antibiotic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term or prophylactic antibiotics to control respiratory infections.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"azithromycin\"]}}, {\"id\": \"Atelectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100750\"}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 10, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchiectasis and Airway Wall Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic neutrophilic inflammation and recurrent infection drive structural destruction and remodeling of the bronchial wall, producing the permanent bronchial dilatation (bronchiectasis) that is the hallmark structural lung lesion of established PCD.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"], \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"bronchus\", \"lung\"]}}, {\"id\": \"CCDC39\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC39\"], \"gene_terms\": [{\"label\": \"CCDC39\", \"id\": \"hgnc:25244\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCDC40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC40\"], \"gene_terms\": [{\"label\": \"CCDC40\", \"id\": \"hgnc:26090\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CCNO\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCNO\"], \"gene_terms\": [{\"label\": \"CCNO\", \"id\": \"hgnc:18576\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP221\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP221\"], \"gene_terms\": [{\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP46\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP46\"], \"gene_terms\": [{\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFAP57\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CFAP57\"], \"gene_terms\": [{\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Three-dimensional computational fluid dynamics model of a bronchial airway-surface-liquid segment, using a two-layer model (Newtonian periciliary liquid beneath a nonlinear viscoelastic mucus layer) with the immersed-boundary method to represent cilia, to quantify how ciliary abnormalities (reduced beat, altered coordination, reduced density) degrade mucociliary clearance \\u2014 the central mechanism of PCD.\", \"meta\": {\"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"publication\": \"DOI:10.1016/j.jnnfm.2023.105029\"}}, {\"id\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent microorganisms retained in the airways because of failed mucociliary clearance drive a chronic host inflammatory response with neutrophil recruitment, which itself damages the airway wall and further upregulates mucus production, establishing a self-amplifying infection-inflammation cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\", \"response to bacterium\"], \"locations\": [\"bronchus\"]}}, {\"id\": \"Chronic Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0034315\"}}, {\"id\": \"Chronic Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000389\"}}, {\"id\": \"Chronic Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Chronic Rhinitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002257\"}}, {\"id\": \"Chronic Rhinosinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011109\"}}, {\"id\": \"Ciliary Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in the structure and function of motile cilia impair mucociliary clearance.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"respiratory ciliated cell\", \"ependymal cell\"], \"biological_processes\": [\"cilium movement\", \"cilium assembly\", \"axoneme assembly\"], \"genes\": [\"DNAI1\", \"DNAH5\", \"DNAH11\", \"CCDC39\", \"CCDC40\", \"RSPH1\", \"RSPH4A\", \"RSPH9\", \"CCNO\", \"FOXJ1\", \"MCIDAS\", \"ODAD1\", \"CFAP221\", \"CFAP46\", \"CFAP57\", \"DAW1\", \"DNAH1\", \"DNAH10\", \"DNAH7\", \"NME8\", \"SPEF2\"], \"gene_terms\": [{\"label\": \"DNAI1\", \"id\": \"hgnc:2954\"}, {\"label\": \"DNAH5\", \"id\": \"hgnc:2950\"}, {\"label\": \"DNAH11\", \"id\": \"hgnc:2942\"}, {\"label\": \"CCDC39\", \"id\": \"hgnc:25244\"}, {\"label\": \"CCDC40\", \"id\": \"hgnc:26090\"}, {\"label\": \"RSPH1\", \"id\": \"hgnc:12371\"}, {\"label\": \"RSPH4A\", \"id\": \"hgnc:21558\"}, {\"label\": \"RSPH9\", \"id\": \"hgnc:21057\"}, {\"label\": \"CCNO\", \"id\": \"hgnc:18576\"}, {\"label\": \"FOXJ1\", \"id\": \"hgnc:3816\"}, {\"label\": \"MCIDAS\", \"id\": \"hgnc:40050\"}, {\"label\": \"ODAD1\", \"id\": \"hgnc:26560\"}, {\"label\": \"CFAP221\", \"id\": \"hgnc:33720\"}, {\"label\": \"CFAP46\", \"id\": \"hgnc:25247\"}, {\"label\": \"CFAP57\", \"id\": \"hgnc:26485\"}, {\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}, {\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}, {\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}, {\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}, {\"label\": \"NME8\", \"id\": \"hgnc:16473\"}, {\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"locations\": [\"respiratory tract epithelium\", \"nasal cavity epithelium\", \"trachea\", \"bronchus\"]}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"DAW1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DAW1\"], \"gene_terms\": [{\"label\": \"DAW1\", \"id\": \"hgnc:26383\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH1\"], \"gene_terms\": [{\"label\": \"DNAH1\", \"id\": \"hgnc:2940\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH10\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH10\"], \"gene_terms\": [{\"label\": \"DNAH10\", \"id\": \"hgnc:2941\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH11\"], \"gene_terms\": [{\"label\": \"DNAH11\", \"id\": \"hgnc:2942\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"DNAH5\"], \"gene_terms\": [{\"label\": \"DNAH5\", \"id\": \"hgnc:2950\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAH7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DNAH7\"], \"gene_terms\": [{\"label\": \"DNAH7\", \"id\": \"hgnc:18661\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DNAI1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"DNAI1\"], \"gene_terms\": [{\"label\": \"DNAI1\", \"id\": \"hgnc:2954\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Digital Clubbing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001217\"}}, {\"id\": \"FOXJ1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXJ1\"], \"gene_terms\": [{\"label\": \"FOXJ1\", \"id\": \"hgnc:3816\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Female Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008222\"}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hydrocephalus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0000238\"}}, {\"id\": \"Impaired Mucociliary Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to effectively remove mucus and pathogens from respiratory passages.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"mucociliary clearance\"], \"locations\": [\"respiratory system\", \"paranasal sinus\"], \"computational_models\": [{\"name\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"model_type\": \"PHYSIOLOGICAL\", \"model_software\": \"in-house finite-difference / immersed-boundary solver\", \"description\": \"Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.\"}]}}, {\"id\": \"Intestinal Malrotation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002566\"}}, {\"id\": \"MCIDAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MCIDAS\"], \"gene_terms\": [{\"label\": \"MCIDAS\", \"id\": \"hgnc:40050\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Male Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003251\"}}, {\"id\": \"NME8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NME8\"], \"gene_terms\": [{\"label\": \"NME8\", \"id\": \"hgnc:16473\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Nasal Congestion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001742\"}}, {\"id\": \"Nasal Polyposis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100582\"}}, {\"id\": \"Neonatal Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002643\"}}, {\"id\": \"ODAD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ODAD1\"], \"gene_terms\": [{\"label\": \"ODAD1\", \"id\": \"hgnc:26560\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000388\"}}, {\"id\": \"Productive Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031245\"}}, {\"id\": \"Progressive Obstructive Lung Function Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating bronchiectasis and airway remodeling produce progressive, largely obstructive loss of lung function over time. The rate of decline is heterogeneous and is modulated by the underlying ultrastructural defect and genotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"respiratory gaseous exchange\"], \"locations\": [\"lung\"]}}, {\"id\": \"RSPH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RSPH1\"], \"gene_terms\": [{\"label\": \"RSPH1\", \"id\": \"hgnc:12371\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH4A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RSPH4A\"], \"gene_terms\": [{\"label\": \"RSPH4A\", \"id\": \"hgnc:21558\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"RSPH9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"RSPH9\"], \"gene_terms\": [{\"label\": \"RSPH9\", \"id\": \"hgnc:21057\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Recurrent Otitis Media\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000403\"}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Recurrent Sinopulmonary Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005425\"}}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"SPEF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SPEF2\"], \"gene_terms\": [{\"label\": \"SPEF2\", \"id\": \"hgnc:26293\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Sinusitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000246\"}}, {\"id\": \"Situs Inversus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal placement of internal organs due to ciliary dysfunction during embryonic development.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"determination of left/right symmetry\", \"nodal cilium assembly\"], \"frequency\": \"50%\", \"locations\": [\"embryo\"]}}, {\"id\": \"Situs Inversus Totalis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001696\"}}, {\"id\": \"Wheezing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0030828\"}}], \"edges\": [{\"source\": \"Ciliary Dysfunction\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Situs Inversus\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"embryonic_nodal_cilia_laterality\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of motile nodal-cilia-generated leftward fluid flow at the embryonic node randomizes left-right axis specification\"]}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Male Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Abnormal Sperm Motility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Female Infertility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ciliary Dysfunction\", \"target\": \"Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Sinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Polyposis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Neonatal Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinosinusitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Productive Cough\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Sinopulmonary Infections\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Nasal Congestion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Chronic Rhinitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Abnormal Sputum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Recurrent Otitis Media\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Wheezing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Atelectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Mucociliary Clearance\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Situs Inversus Totalis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Abnormal Heart Morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Situs Inversus\", \"target\": \"Intestinal Malrotation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis and Airway Wall Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Airway Infection and Neutrophilic Inflammation\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Progressive Obstructive Lung Function Decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"canonical_motile_cilia_beat_failure\", \"genotype_ultrastructure_severity\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Airway Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Bronchiectasis and Airway Wall Remodeling\", \"target\": \"Digital Clubbing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Obstructive Lung Function Decline\", \"target\": \"Respiratory Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antibiotic Therapy\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CFD model of mucociliary clearance under ciliary abnormalities\", \"target\": \"Impaired Mucociliary Clearance\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.\"}, {\"source\": \"DNAI1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH5\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH11\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC39\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC40\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH4A\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RSPH9\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCNO\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FOXJ1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MCIDAS\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ODAD1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP221\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP46\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CFAP57\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DAW1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH1\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH10\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DNAH7\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NME8\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SPEF2\", \"target\": \"Ciliary Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6558,14 +7105,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Situs inversus totalis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001696" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001696">HP:0001696</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001696" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001696</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Situs Inversus Totalis (HP:0001696). HP:0001696 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6659,14 +7213,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6729,14 +7290,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intestinal malrotation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002566">HP:0002566</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002566</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intestinal malrotation (HP:0002566). HP:0002566 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6799,14 +7367,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic otitis media
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000389">HP:0000389</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000389" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000389</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Otitis Media (HP:0000389). HP:0000389 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6898,14 +7473,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
+
+                        <span class="phenotype-term-label">Hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6999,14 +7583,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Otitis media
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000388">HP:0000388</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000388" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0000388</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Otitis Media (HP:0000388). HP:0000388 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7028,14 +7619,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent otitis media
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000403">HP:0000403</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0000403</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7087,14 +7685,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7155,14 +7760,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Male infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003251">HP:0003251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0003251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7216,14 +7828,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Female infertility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008222">HP:0008222</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0008222</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7286,14 +7905,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nasal polyposis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100582" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100582">HP:0100582</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0100582</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nasal Polyposis (HP:0100582). HP:0100582 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7385,14 +8011,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sinusitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000246" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000246">HP:0000246</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000246" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000246</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sinusitis (HP:0000246). HP:0000246 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7414,14 +8047,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic sinusitis
+
+                        <span class="phenotype-term-label">Chronic sinusitis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011109" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011109">HP:0011109</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0011109</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic rhinosinusitis, annotated with Chronic sinusitis (HP:0011109). HP:0011109 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7475,14 +8117,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nasal congestion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001742">HP:0001742</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001742</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7543,14 +8192,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent respiratory infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002205</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent Respiratory Infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7644,14 +8300,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent respiratory infections
+
+                        <span class="phenotype-term-label">Recurrent respiratory infections</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002205</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Respiratory Infections, annotated with Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7682,14 +8347,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Clubbing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001217" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001217">HP:0001217</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001217</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Clubbing (HP:0001217). HP:0001217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7750,14 +8422,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrocephalus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000238">HP:0000238</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000238</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7820,14 +8499,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034315">HP:0034315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0034315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Cough (HP:0034315). HP:0034315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7899,14 +8585,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bronchiectasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002110">HP:0002110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0002110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8000,14 +8693,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal respiratory distress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002643">HP:0002643</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002643</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8081,14 +8781,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Productive cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031245">HP:0031245</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0031245</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Productive cough (HP:0031245). HP:0031245 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8140,14 +8847,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wheezing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030828">HP:0030828</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0030828</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8199,14 +8913,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atelectasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100750">HP:0100750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0100750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atelectasis (HP:0100750). HP:0100750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8258,14 +8979,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8326,14 +9054,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent sinopulmonary infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005425" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005425">HP:0005425</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005425" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0005425</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent sinopulmonary infections (HP:0005425). HP:0005425 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8385,14 +9120,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic rhinitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002257">HP:0002257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0002257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic rhinitis (HP:0002257). HP:0002257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8444,14 +9186,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal sputum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032016" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032016">HP:0032016</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0032016</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal sputum (HP:0032016). HP:0032016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8503,14 +9252,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal sperm motility
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012206" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012206">HP:0012206</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0012206</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal sperm motility (HP:0012206). HP:0012206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8562,14 +9318,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Airway obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006536">HP:0006536</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0006536</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8661,6 +9424,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DNAI1
+
+
+    <a href="https://bioregistry.io/hgnc:2954" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-80">hgnc:2954</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAI1 (hgnc:2954). hgnc:2954 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -8745,6 +9530,28 @@
                     DNAH5
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DNAH5
+
+
+    <a href="https://bioregistry.io/hgnc:2950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-81">hgnc:2950</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAH5 (hgnc:2950). hgnc:2950 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -8833,6 +9640,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: DNAH11
+
+
+    <a href="https://bioregistry.io/hgnc:2942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-82">hgnc:2942</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAH11 (hgnc:2942). hgnc:2942 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -8875,6 +9704,28 @@
                     CCDC39
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CCDC39
+
+
+    <a href="https://bioregistry.io/hgnc:25244" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-83">hgnc:25244</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CCDC39 (hgnc:25244). hgnc:25244 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -8923,6 +9774,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CCDC40
+
+
+    <a href="https://bioregistry.io/hgnc:26090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-84">hgnc:26090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CCDC40 (hgnc:26090). hgnc:26090 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -8965,6 +9838,28 @@
                     RSPH1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RSPH1
+
+
+    <a href="https://bioregistry.io/hgnc:12371" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-85">hgnc:12371</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RSPH1 (hgnc:12371). hgnc:12371 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -9013,6 +9908,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RSPH4A
+
+
+    <a href="https://bioregistry.io/hgnc:21558" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-86">hgnc:21558</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RSPH4A (hgnc:21558). hgnc:21558 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -9055,6 +9972,28 @@
                     RSPH9
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: RSPH9
+
+
+    <a href="https://bioregistry.io/hgnc:21057" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-87">hgnc:21057</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RSPH9 (hgnc:21057). hgnc:21057 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -9103,6 +10042,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CCNO
+
+
+    <a href="https://bioregistry.io/hgnc:18576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-88">hgnc:18576</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CCNO (hgnc:18576). hgnc:18576 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -9145,6 +10106,28 @@
                     FOXJ1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: FOXJ1
+
+
+    <a href="https://bioregistry.io/hgnc:3816" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-89">hgnc:3816</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXJ1 (hgnc:3816). hgnc:3816 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -9193,6 +10176,28 @@
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: MCIDAS
+
+
+    <a href="https://bioregistry.io/hgnc:40050" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-90">hgnc:40050</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MCIDAS (hgnc:40050). hgnc:40050 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
 
@@ -9235,6 +10240,28 @@
                     ODAD1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Pathogenic Variants)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ODAD1
+
+
+    <a href="https://bioregistry.io/hgnc:26560" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-91">hgnc:26560</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ODAD1 (hgnc:26560). hgnc:26560 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -9287,13 +10314,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFAP221
 
 
-    <a href="https://bioregistry.io/hgnc:33720" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:33720">hgnc:33720</a>
+    <a href="https://bioregistry.io/hgnc:33720" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-92">hgnc:33720</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFAP221 (hgnc:33720). hgnc:33720 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9351,13 +10383,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFAP46
 
 
-    <a href="https://bioregistry.io/hgnc:25247" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25247">hgnc:25247</a>
+    <a href="https://bioregistry.io/hgnc:25247" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-93">hgnc:25247</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFAP46 (hgnc:25247). hgnc:25247 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9415,13 +10452,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CFAP57
 
 
-    <a href="https://bioregistry.io/hgnc:26485" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26485">hgnc:26485</a>
+    <a href="https://bioregistry.io/hgnc:26485" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-94">hgnc:26485</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CFAP57 (hgnc:26485). hgnc:26485 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9479,13 +10521,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DAW1
 
 
-    <a href="https://bioregistry.io/hgnc:26383" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26383">hgnc:26383</a>
+    <a href="https://bioregistry.io/hgnc:26383" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-95">hgnc:26383</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DAW1 (hgnc:26383). hgnc:26383 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9543,13 +10590,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNAH1
 
 
-    <a href="https://bioregistry.io/hgnc:2940" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2940">hgnc:2940</a>
+    <a href="https://bioregistry.io/hgnc:2940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-96">hgnc:2940</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAH1 (hgnc:2940). hgnc:2940 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9607,13 +10659,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNAH10
 
 
-    <a href="https://bioregistry.io/hgnc:2941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2941">hgnc:2941</a>
+    <a href="https://bioregistry.io/hgnc:2941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-97">hgnc:2941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAH10 (hgnc:2941). hgnc:2941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9671,13 +10728,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNAH7
 
 
-    <a href="https://bioregistry.io/hgnc:18661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18661">hgnc:18661</a>
+    <a href="https://bioregistry.io/hgnc:18661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-98">hgnc:18661</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-98">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAH7 (hgnc:18661). hgnc:18661 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9735,13 +10797,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NME8
 
 
-    <a href="https://bioregistry.io/hgnc:16473" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16473">hgnc:16473</a>
+    <a href="https://bioregistry.io/hgnc:16473" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-99">hgnc:16473</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NME8 (hgnc:16473). hgnc:16473 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9799,13 +10866,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPEF2
 
 
-    <a href="https://bioregistry.io/hgnc:26293" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26293">hgnc:26293</a>
+    <a href="https://bioregistry.io/hgnc:26293" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-100">hgnc:26293</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPEF2 (hgnc:26293). hgnc:26293 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9872,7 +10944,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-101">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-101">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -9988,7 +11065,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antibiotic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
@@ -10019,16 +11101,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         azithromycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2955">CHEBI:2955</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-103">CHEBI:2955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10042,16 +11129,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent Respiratory Infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-104">HP:0002205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-104">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Recurrent Respiratory Infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10138,7 +11230,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bronchodilator therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">bronchodilator therapy<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bronchodilator therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -10169,16 +11266,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bronchodilator
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C319" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C319">NCIT:C319</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C319" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-106">NCIT:C319</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bronchodilator (NCIT:C319). NCIT:C319 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -10269,7 +11371,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-107">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-107">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10299,16 +11406,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         corticosteroid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50858">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-108">CHEBI:50858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10403,7 +11515,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-109">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-109">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10521,7 +11638,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-110">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-110">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10649,21 +11771,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Air pollution exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000036">ECTO:8000036</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-111">ECTO:8000036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-111">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -11125,16 +12256,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent respiratory infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-112">HP:0002205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-112">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11193,17 +12329,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Airway obstruction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006536">HP:0006536</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-113">HP:0006536</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent respiratory infections
@@ -11211,10 +12354,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-114">HP:0002205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11273,16 +12419,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Recurrent respiratory infections
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-115">HP:0002205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-115">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11369,15 +12520,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         respiratory ciliated cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-116">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-116">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses respiratory ciliated cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -11387,30 +12543,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-117">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-117">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             nasal cavity epithelium
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005384">UBERON:0005384</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-118">UBERON:0005384</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-118">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses nasal cavity epithelium (UBERON:0005384). UBERON:0005384 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -11440,6 +12606,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -11582,15 +12750,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         respiratory ciliated cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-119">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-119">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses respiratory ciliated cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -11600,30 +12773,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-120">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-120">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             nasal cavity epithelium
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0005384">UBERON:0005384</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0005384" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-121">UBERON:0005384</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-121">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses nasal cavity epithelium (UBERON:0005384). UBERON:0005384 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -11653,6 +12836,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -11799,15 +12984,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         respiratory ciliated cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-122">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-122">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses respiratory ciliated cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -11817,30 +13007,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-123">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-123">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             respiratory airway
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001005" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001005">UBERON:0001005</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001005" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-124">UBERON:0001005</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-124">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses respiratory airway (UBERON:0001005). UBERON:0001005 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -11870,6 +13070,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -11985,6 +13187,265 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mdnah5-dnah5-loss-of-function-insertional-mutation-mouse" data-dismech-node="Mdnah5 (Dnah5) loss-of-function (insertional mutation) Mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Mdnah5 (Dnah5) loss-of-function (insertional mutation) Mouse
+
+                    <span class="tag tag-exp-model-type">Spontaneous/engineered axonemal dynein mutant</span>
+
+                </div>
+
+                <div class="item-desc">Insertional loss-of-function mutation in the axonemal outer-dynein-arm heavy chain gene Mdnah5 (the mouse ortholog of human DNAH5) reproduces the core PCD phenotype — recurrent respiratory infection, randomized laterality (situs inversus), ciliary immotility with absent outer dynein arms — and additionally causes lethal hydrocephalus, supporting the motile-cilia beat-failure model.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Mdnah5 (Dnah5) loss-of-function (insertional mutation)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        DNAH5
+
+
+    <a href="https://bioregistry.io/hgnc:2950" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-125">hgnc:2950</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-125">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns DNAH5 (hgnc:2950). hgnc:2950 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11912187" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11912187" target="_blank">PMID:11912187</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have characterized an insertional mutation in a mouse axonemal dynein heavy chain gene (Mdnah5) that reproduces most of the classical features of PCD, including recurrent respiratory infections, situs inversus and ciliary immotility."</div>
+
+
+                <div class="evidence-explanation">The Mdnah5 mutant mouse recapitulates the cardinal PCD features and models the DNAH5 outer-dynein-arm defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-ccdc40-mutant-morphant-zebrafish" data-dismech-node="ccdc40 mutant / morphant Zebrafish" data-dismech-type="animal_model">
+                <div class="item-name">
+                    ccdc40 mutant / morphant Zebrafish
+
+                    <span class="tag tag-exp-model-type">Motile-cilia / left-right patterning mutant</span>
+
+                </div>
+
+                <div class="item-desc">ccdc40 zebrafish (alongside mouse Ccdc40 mutants) model the CCDC39/CCDC40 inner-dynein-arm/microtubular-disorganization class of PCD: loss of Ccdc40 impairs motile-cilia beating and randomizes left-right axis formation, paralleling the laterality defects and severe ciliary dysmotility seen in CCDC40-mutant patients.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Zebrafish</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">ccdc40 mutant / morphant</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CCDC40
+
+
+    <a href="https://bioregistry.io/hgnc:26090" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-126">hgnc:26090</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-126">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CCDC40 (hgnc:26090). hgnc:26090 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21131974" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21131974" target="_blank">PMID:21131974</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In mouse and zebrafish, Ccdc40 is expressed in tissues that contain motile cilia, and mutations in Ccdc40 result in cilia with reduced ranges of motility."</div>
+
+
+                <div class="evidence-explanation">Mouse and zebrafish Ccdc40 mutants model the motile-cilia dysfunction and laterality defects of CCDC40-associated PCD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
         <div class="card">
@@ -12023,22 +13484,28 @@
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-mucociliary-clearance">Impaired Mucociliary Clearance</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-mucociliary-clearance">Impaired Mucociliary Clearance</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Simulates how cilia beat/coordination abnormalities reduce net mucus transport, recapitulating impaired mucociliary clearance.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -12082,7 +13549,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Primary_Ciliary_Dyskinesia
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-28T12:00:00Z&#39;
 description: &gt;-
   Primary ciliary dyskinesia is a genetically heterogeneous, usually autosomal
   recessive disorder caused by defects in the structure or function of motile
@@ -13264,6 +14730,11 @@ biochemical:
         average roughly 300 nL/min.
 genetic:
 - name: DNAI1
+  gene_term:
+    preferred_term: DNAI1
+    term:
+      id: hgnc:2954
+      label: DNAI1
   association: Pathogenic Variants
   notes: Outer dynein arm intermediate chain required for ODA integrity and docking
   evidence:
@@ -13292,6 +14763,11 @@ genetic:
     snippet: We identified compound heterozygous DNAI1 gene defects in three independent patients and in two of their siblings who presented with PCD and situs solitus.
     explanation: The study links compound heterozygous DNAI1 gene defects with primary ciliary dyskinesia.
 - name: DNAH5
+  gene_term:
+    preferred_term: DNAH5
+    term:
+      id: hgnc:2950
+      label: DNAH5
   association: Pathogenic Variants
   notes: Major axonemal outer dynein arm heavy chain generating motile force
   evidence:
@@ -13310,6 +14786,11 @@ genetic:
     snippet: Most PCD-causing variants result in abnormal outer dynein arms (ODAs), which provide the generative force for respiratory ciliary beating and proper mucociliary clearance.
     explanation: The study indicates that pathogenic variants causing PCD often result in abnormal ODAs, which are associated with DNAH5.
 - name: DNAH11
+  gene_term:
+    preferred_term: DNAH11
+    term:
+      id: hgnc:2942
+      label: DNAH11
   association: Pathogenic Variants
   notes: Outer dynein arm heavy chain often causing dyskinetic beating with near-normal ultrastructure; associated with milder lung function decline
   evidence:
@@ -13318,6 +14799,11 @@ genetic:
     snippet: &#34;DNAH11 | dynein axonemal heavy chain 11 | hgnc:2942 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet gene-disease association data confirms DNAH11 as a disease-causing gene for primary ciliary dyskinesia.
 - name: CCDC39
+  gene_term:
+    preferred_term: CCDC39
+    term:
+      id: hgnc:25244
+      label: CCDC39
   association: Pathogenic Variants
   notes: Nexin-dynein regulatory complex scaffold for inner dynein arms; associated with severe early lung disease and low lung function
   evidence:
@@ -13326,6 +14812,11 @@ genetic:
     snippet: &#34;CCDC39 | coiled-coil domain 39 molecular ruler complex subunit | hgnc:25244 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet gene-disease association data confirms CCDC39 as a disease-causing gene for primary ciliary dyskinesia.
 - name: CCDC40
+  gene_term:
+    preferred_term: CCDC40
+    term:
+      id: hgnc:26090
+      label: CCDC40
   association: Pathogenic Variants
   notes: Nexin-dynein regulatory complex scaffold partnering with CCDC39; associated with severe lung function decline and possible congenital heart disease
   evidence:
@@ -13334,6 +14825,11 @@ genetic:
     snippet: &#34;CCDC40 | coiled-coil domain 40 molecular ruler complex subunit | hgnc:26090 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet gene-disease association data confirms CCDC40 as a disease-causing gene for primary ciliary dyskinesia.
 - name: RSPH1
+  gene_term:
+    preferred_term: RSPH1
+    term:
+      id: hgnc:12371
+      label: RSPH1
   association: Pathogenic Variants
   notes: Radial spoke head component coordinating central pair-dynein regulation
   evidence:
@@ -13342,6 +14838,11 @@ genetic:
     snippet: &#34;RSPH1 | radial spoke head component 1 | hgnc:12371 | Disease-causing germline mutation(s) (loss of function) in&#34;
     explanation: Orphanet gene-disease association data confirms RSPH1 as a disease-causing gene for primary ciliary dyskinesia.
 - name: RSPH4A
+  gene_term:
+    preferred_term: RSPH4A
+    term:
+      id: hgnc:21558
+      label: RSPH4A
   association: Pathogenic Variants
   notes: Radial spoke protein required for radial spoke integrity and coordinated beating
   evidence:
@@ -13350,6 +14851,11 @@ genetic:
     snippet: &#34;RSPH4A | radial spoke head component 4A | hgnc:21558 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet gene-disease association data confirms RSPH4A as a disease-causing gene for primary ciliary dyskinesia.
 - name: RSPH9
+  gene_term:
+    preferred_term: RSPH9
+    term:
+      id: hgnc:21057
+      label: RSPH9
   association: Pathogenic Variants
   notes: Radial spoke head subunit impacting central pair-radial spoke interactions
   evidence:
@@ -13358,6 +14864,11 @@ genetic:
     snippet: &#34;RSPH9 | radial spoke head component 9 | hgnc:21057 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet gene-disease association data confirms RSPH9 as a disease-causing gene for primary ciliary dyskinesia.
 - name: CCNO
+  gene_term:
+    preferred_term: CCNO
+    term:
+      id: hgnc:18576
+      label: CCNO
   association: Pathogenic Variants
   notes: Required for centriole amplification and multiciliogenesis; associated with oligocilia and very severe early disease with very low lung function
   evidence:
@@ -13366,6 +14877,11 @@ genetic:
     snippet: &#34;CCNO | cyclin O | hgnc:18576 | Disease-causing germline mutation(s) (loss of function) in&#34;
     explanation: Orphanet gene-disease association data confirms CCNO as a disease-causing gene for primary ciliary dyskinesia.
 - name: FOXJ1
+  gene_term:
+    preferred_term: FOXJ1
+    term:
+      id: hgnc:3816
+      label: FOXJ1
   association: Pathogenic Variants
   notes: Master transcription factor regulating motile ciliogenesis; can present in autosomal dominant fashion
   evidence:
@@ -13374,6 +14890,11 @@ genetic:
     snippet: &#34;FOXJ1 | forkhead box J1 | hgnc:3816 | Disease-causing germline mutation(s) (loss of function) in&#34;
     explanation: Orphanet gene-disease association data confirms FOXJ1 as a disease-causing gene for primary ciliary dyskinesia.
 - name: MCIDAS
+  gene_term:
+    preferred_term: MCIDAS
+    term:
+      id: hgnc:40050
+      label: MCIDAS
   association: Pathogenic Variants
   notes: Drives multiciliated cell differentiation and centriole biogenesis; associated with reduced cilia number
   evidence:
@@ -13382,6 +14903,11 @@ genetic:
     snippet: &#34;MCIDAS | multiciliate differentiation and DNA synthesis associated cell cycle protein | hgnc:40050 | Disease-causing germline mutation(s) (loss of function) in&#34;
     explanation: Orphanet gene-disease association data confirms MCIDAS as a disease-causing gene for primary ciliary dyskinesia.
 - name: ODAD1
+  gene_term:
+    preferred_term: ODAD1
+    term:
+      id: hgnc:26560
+      label: ODAD1
   association: Pathogenic Variants
   notes: Outer dynein arm docking/assembly factor; associated with relatively milder lung function impact
   evidence:
@@ -14485,7 +16011,7 @@ Narrative notes:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Primary_Ciliary_Dyskinesia", "mondoId": "MONDO:0016575", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Ciliary_Dyskinesia", "yamlRevision": "4ec0b726e637"};
+        const OS_CONFIG = {"diseaseName": "Primary_Ciliary_Dyskinesia", "mondoId": "MONDO:0016575", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Ciliary_Dyskinesia", "yamlRevision": "d09ae46b4fa0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14904,5 +16430,73 @@ Narrative notes:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

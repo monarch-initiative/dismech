@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3595,7 +3761,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Gerstmann-Straussler-Scheinker syndrome (GSS) is a very rare, invariably fatal, autosomal dominant genetic prion disease caused by germline variants in the prion protein gene PRNP. It is one of the three classic inherited prion phenotypes (alongside genetic Creutzfeldt-Jakob disease and fatal familial insomnia). A pathogenic PRNP variant lowers the energy barrier between the normal cellular prion protein (PrP-C) and a self-templating misfolded conformer (PrP-Sc), so that over decades a stochastic nucleation event propagates autocatalytically. The clinical signature is a slowly progressive cerebellar ataxia beginning in midlife followed by dementia, and the neuropathological hallmark is multicentric PrP amyloid plaques with a distinctive ~8 kDa protease-resistant PrP fragment. GSS is the rare Mendelian disease whose product is also, under laboratory inoculation, an infectious agent.
+                Gerstmann-Straussler-Scheinker syndrome (GSS) is a very rare, invariably fatal, autosomal dominant genetic prion disease caused by germline variants in the prion protein gene PRNP. It is one of the three classic inherited prion phenotypes (alongside genetic Creutzfeldt-Jakob disease and fatal familial insomnia). A pathogenic PRNP variant renders PrP-C susceptible to conversion into a self-templating misfolded conformer (PrP-Sc), so that over decades a stochastic nucleation event propagates autocatalytically. (For the classic P102L variant this is not explained by loss of native-state thermodynamic stability - see the deprecated `native_state_destabilization` mechanistic hypothesis.) The clinical signature is a slowly progressive cerebellar ataxia beginning in midlife followed by dementia, and the neuropathological hallmark is multicentric PrP amyloid plaques with a distinctive ~8 kDa protease-resistant PrP fragment. GSS is the rare Mendelian disease whose product is also, under laboratory inoculation, an infectious agent.
             </p>
 
         </header>
@@ -3693,6 +3859,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3724,6 +3892,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#discussions">
@@ -4083,6 +4259,120 @@
 
         <!-- Mechanistic Hypotheses -->
 
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target hypothesis-deprecated" id="hypothesis-native-state-destabilization">
+                <div class="item-name">Native-State Thermodynamic/Kinetic Destabilization Model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">native_state_destabilization</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-DEPRECATED">⚠ DEPRECATED</span>
+
+
+                </div>
+
+                <div class="hypothesis-overturned">
+                    <div class="hypothesis-overturned-title">⚠ Overturned model &mdash; shown for reference, not as current mechanism</div>
+                    <p>
+                        DisMech records superseded hypotheses explicitly rather than deleting
+                        them, so that claims still circulating in reviews, textbooks and older
+                        diagnostic criteria can be checked against an assessment. This model is
+                        <strong>not</strong> part of the disease mechanism DisMech asserts.
+                    </p>
+                    <p>
+                        Citation volume does not decide standing here. A hypothesis may retain
+                        more supporting than refuting citations simply because the supporting
+                        literature accumulated for decades before the refutation landed; where
+                        the two conflict, DisMech follows the more recent and more direct
+                        evidence. Supporting citations below are retained for the historical
+                        record.
+                    </p>
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-REFUTE">2 refute</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">Familial PRNP substitutions cause disease by lowering the thermodynamic and/or kinetic barrier separating the native alpha-helical PrP-C fold from beta-sheet-rich conformers, so that a stochastic misfolding event becomes possible.</div>
+
+
+                <div class="mapping-notes">Deprecated for the GSS P102L variant specifically, not just as a general caveat: this is the one familial PRNP substitution in this literature that was directly assayed and found not to be thermodynamically destabilized. Swietnicki et al. (PMID:9813003) recovered recombinant P102L PrP(90-231) in soluble form with wild-type-like secondary structure and stability. Liemann and Glockshuber (PMID:10079068) independently found, across all eight C-terminal familial substitutions tested, that thermodynamic stability does not correlate with disease phenotype - not that no variant is destabilized: five of the eight substitutions they tested (none of them P102L) do destabilize PrP(121-231) relative to wild-type, while the other three do not. Retained as DEPRECATED for provenance so the barrier-lowering framing is not reintroduced as the explanation for P102L specifically.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9813003" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9813003" target="_blank">PMID:9813003</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"some hereditary forms of prion disease cannot be rationalized using the concept of mutation-induced thermodynamic destabilization of the cellular prion protein"</div>
+
+
+                <div class="evidence-explanation">Direct test of the P102L GSS variant itself; its stability was indistinguishable from wild-type, so the destabilization model cannot explain this variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10079068" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10079068" target="_blank">PMID:10079068</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data suggest that destabilization of PrPC is neither a general mechanism underlying the formation of PrPSc nor the basis of disease phenotypes in inherited human TSEs."</div>
+
+
+                <div class="evidence-explanation">Independent replication across all eight C-terminal familial PRNP substitutions: measured thermodynamic stabilities do not correlate with disease phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
 
@@ -4121,7 +4411,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#pathophysiology-destabilization-of-the-prp-c-native-fold">pathophysiology#Destabilization of the PrP-C Native Fold</a>
+    <a class="entity-ref-chip" href="#pathophysiology-acquisition-of-a-conversion-competent-prp-c-conformer">pathophysiology#Acquisition of a Conversion-Competent PrP-C Conformer</a>
 
 
 
@@ -4352,38 +4642,6 @@
 
 
 
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        protein stabilization
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0050821" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050821">GO:0050821</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↓ DECREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
 
 
 
@@ -4396,7 +4654,7 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Destabilization of the PrP-C Native Fold</span>
+	                            <span class="crosslink-meta">Acquisition of a Conversion-Competent PrP-C Conformer</span>
 
 
 	                        </div>
@@ -4409,10 +4667,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilization-of-the-prp-c-native-fold" data-dismech-node="Destabilization of the PrP-C Native Fold" data-dismech-type="pathophysiology">
-                <div class="item-name">Destabilization of the PrP-C Native Fold</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-a-conversion-competent-prp-c-conformer" data-dismech-node="Acquisition of a Conversion-Competent PrP-C Conformer" data-dismech-type="pathophysiology">
+                <div class="item-name">Acquisition of a Conversion-Competent PrP-C Conformer</div>
 
-                <div class="item-desc">The substitution lowers the thermodynamic/kinetic barrier separating the alpha-helical PrP-C fold from beta-sheet-rich conformers, making a stochastic misfolding event eventually possible. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than globular-domain destabilization.)</div>
+                <div class="item-desc">The substitution renders PrP-C susceptible to a stochastic conformational conversion into the PrP-Sc-templating fold, eventually making a misfolding event possible over years to decades. For the classic P102L GSS variant this is not explained by loss of native-state thermodynamic stability: recombinant human PrP(90-231) carrying P102L is recovered soluble, with secondary structure and guanidine/thermal unfolding stability indistinguishable from wild-type. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than a globular-domain conformational change.)</div>
 
 
 
@@ -4425,23 +4683,28 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        protein unfolding
+                        protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043335" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043335">GO:0043335</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
     <span class="tag tag-modifier">
-        ↑ INCREASED
+        ⚠ ABNORMAL
     </span>
 
 
@@ -4455,6 +4718,7 @@
 
 
                 </div>
+
 
 
 
@@ -4477,6 +4741,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9813003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9813003" target="_blank">PMID:9813003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The stability properties of the P102L variant were indistinguishable from those of wild-type PrP"</div>
+
+
+                <div class="evidence-explanation">Establishes the actual observed biophysical property of the P102L variant used to replace the refuted destabilization claim: recovered soluble, with stability indistinguishable from wild-type, rather than an intrinsically destabilized fold.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 	            </div>
 
@@ -4496,16 +4792,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein homooligomerization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051260">GO:0051260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0051260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein homooligomerization (GO:0051260). GO:0051260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4526,6 +4827,7 @@
 
 
                 </div>
+
 
 
 
@@ -4587,6 +4889,7 @@
                 <div class="item-name">Generation of GSS-Specific Protease-Resistant PrP Fragments</div>
 
                 <div class="item-desc">GSS brains carry two major protease-resistant PrP fragments: an ~8 kDa unglycosylated fragment with ragged N- and C-termini (derived from the center of PrP), which is the GSS-defining species and tracks with multicentric amyloid, and a 21 kDa (type-1-like) fragment present in the CJD-like variant. Which fragment forms in vivo determines the neuropathology.</div>
+
 
 
 
@@ -4697,16 +5000,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         amyloid fibril formation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990000" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990000">GO:1990000</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990000" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:1990000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased amyloid fibril formation (GO:1990000). GO:1990000 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4727,6 +5035,7 @@
 
 
                 </div>
+
 
 
 
@@ -4804,6 +5113,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4863,17 +5173,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Purkinje cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4894,10 +5211,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4924,16 +5244,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4953,16 +5278,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4983,6 +5313,7 @@
 
 
                 </div>
+
 
 
 
@@ -5023,17 +5354,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5054,10 +5392,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5084,16 +5425,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         microglial cell activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001774">GO:0001774</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0001774</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased microglial cell activation (GO:0001774). GO:0001774 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5113,16 +5459,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         astrocyte activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048143" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048143">GO:0048143</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048143" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048143</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased astrocyte activation (GO:0048143). GO:0048143 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5153,12 +5504,14 @@
 
 
 
+
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-tau-pathology" data-dismech-node="Secondary Tau Pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Tau Pathology</div>
 
                 <div class="item-desc">In the F198S (and Q217R) variants, neurofibrillary tangles indistinguishable from those of Alzheimer disease arise around PrP plaques. Bank-vole transmission shows the PrP amyloid and tau tangles are independent parallel pathologies rather than one driving the other, so this node is modeled parallel to the amyloid arm without a driving causal edge from it.</div>
+
 
 
 
@@ -5231,17 +5584,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         spinal cord
@@ -5249,13 +5609,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5322,7 +5686,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Destabilization of the PrP-C Native Fold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The substitution lowers the thermodynamic/kinetic barrier separating the alpha-helical PrP-C fold from beta-sheet-rich conformers, making a stochastic misfolding event eventually possible. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than globular-domain destabilization.)\", \"meta\": {\"biological_processes\": [\"protein unfolding\"]}}, {\"id\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GSS brains carry two major protease-resistant PrP fragments: an ~8 kDa unglycosylated fragment with ragged N- and C-termini (derived from the center of PrP), which is the GSS-defining species and tracks with multicentric amyloid, and a 21 kDa (type-1-like) fragment present in the CJD-like variant. Which fragment forms in vivo determines the neuropathology.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multicentric PrP Amyloid Plaque Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 8 kDa fragment drives the pathognomonic lesion: multicentric PrP amyloid plaques (a dense core with satellite deposits) concentrated in the cerebellar molecular layer and cerebral cortex.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"amyloid fibril formation\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive astrogliosis and microglial activation track the PrP deposits, a purely innate neuroinflammatory response (PrP-Sc is a self-protein in a different fold and is not immunogenic, so no adaptive immune response occurs).\", \"meta\": {\"cell_types\": [\"astrocyte\", \"microglial cell\"], \"biological_processes\": [\"microglial cell activation\", \"astrocyte activation\"]}}, {\"id\": \"PRNP Germline Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous PRNP coding variant is present from conception in every cell. It does not break the gene; it renders the encoded protein conformationally unfaithful, a gain-of-toxic-function rather than a loss-of-function lesion.\", \"meta\": {\"biological_processes\": [\"protein stabilization\"]}}, {\"id\": \"Regional Neuronal Loss and Clinical Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regionally selective neuronal loss maps to the clinical syndrome: cerebellar Purkinje/granule loss produces ataxia, cortical involvement produces dementia, substantia nigra loss produces parkinsonism, and caudal spinal cord pathology produces areflexia and painful dysaesthesiae.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\", \"spinal cord\"]}}, {\"id\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 21 kDa fragment drives a parallel, strain-dependent lesion of spongiform degeneration with a synaptic pattern of PrP deposition. It is present in the CJD-like variant and absent in some GSS variants (e.g. D202N without spongiform change), explaining much of the intra-mutation phenotypic variability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic Dysfunction and Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both deposition routes converge on synaptotoxicity and neuronal apoptosis, the proximate cause of the clinical decline.\", \"meta\": {\"cell_types\": [\"Purkinje cell\", \"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"neuron apoptotic process\"]}}, {\"id\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autocatalytic core of the disease: a nucleated conformational conversion in which a misfolded PrP molecule recruits and refolds native PrP-C. This is the step that makes the disease self-propagating and experimentally transmissible.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein homooligomerization\"]}}], \"edges\": [{\"source\": \"PRNP Germline Missense Variant\", \"target\": \"Destabilization of the PrP-C Native Fold\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Destabilization of the PrP-C Native Fold\", \"target\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"target\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Multicentric PrP Amyloid Plaque Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multicentric PrP Amyloid Plaque Formation\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Regional Neuronal Loss and Clinical Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquisition of a Conversion-Competent PrP-C Conformer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The substitution renders PrP-C susceptible to a stochastic conformational conversion into the PrP-Sc-templating fold, eventually making a misfolding event possible over years to decades. For the classic P102L GSS variant this is not explained by loss of native-state thermodynamic stability: recombinant human PrP(90-231) carrying P102L is recovered soluble, with secondary structure and guanidine/thermal unfolding stability indistinguishable from wild-type. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than a globular-domain conformational change.)\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\"]}}, {\"id\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GSS brains carry two major protease-resistant PrP fragments: an ~8 kDa unglycosylated fragment with ragged N- and C-termini (derived from the center of PrP), which is the GSS-defining species and tracks with multicentric amyloid, and a 21 kDa (type-1-like) fragment present in the CJD-like variant. Which fragment forms in vivo determines the neuropathology.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multicentric PrP Amyloid Plaque Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 8 kDa fragment drives the pathognomonic lesion: multicentric PrP amyloid plaques (a dense core with satellite deposits) concentrated in the cerebellar molecular layer and cerebral cortex.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"amyloid fibril formation\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive astrogliosis and microglial activation track the PrP deposits, a purely innate neuroinflammatory response (PrP-Sc is a self-protein in a different fold and is not immunogenic, so no adaptive immune response occurs).\", \"meta\": {\"cell_types\": [\"astrocyte\", \"microglial cell\"], \"biological_processes\": [\"microglial cell activation\", \"astrocyte activation\"]}}, {\"id\": \"PRNP Germline Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous PRNP coding variant is present from conception in every cell. It does not break the gene; it renders the encoded protein conformationally unfaithful, a gain-of-toxic-function rather than a loss-of-function lesion.\"}, {\"id\": \"Regional Neuronal Loss and Clinical Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regionally selective neuronal loss maps to the clinical syndrome: cerebellar Purkinje/granule loss produces ataxia, cortical involvement produces dementia, substantia nigra loss produces parkinsonism, and caudal spinal cord pathology produces areflexia and painful dysaesthesiae.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\", \"spinal cord\"]}}, {\"id\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 21 kDa fragment drives a parallel, strain-dependent lesion of spongiform degeneration with a synaptic pattern of PrP deposition. It is present in the CJD-like variant and absent in some GSS variants (e.g. D202N without spongiform change), explaining much of the intra-mutation phenotypic variability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic Dysfunction and Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both deposition routes converge on synaptotoxicity and neuronal apoptosis, the proximate cause of the clinical decline.\", \"meta\": {\"cell_types\": [\"Purkinje cell\", \"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"neuron apoptotic process\"]}}, {\"id\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autocatalytic core of the disease: a nucleated conformational conversion in which a misfolded PrP molecule recruits and refolds native PrP-C. This is the step that makes the disease self-propagating and experimentally transmissible.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein homooligomerization\"]}}], \"edges\": [{\"source\": \"PRNP Germline Missense Variant\", \"target\": \"Acquisition of a Conversion-Competent PrP-C Conformer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acquisition of a Conversion-Competent PrP-C Conformer\", \"target\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"target\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Multicentric PrP Amyloid Plaque Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multicentric PrP Amyloid Plaque Formation\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Regional Neuronal Loss and Clinical Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5367,14 +5731,21 @@
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5403,14 +5774,21 @@
                         Multicentric PrP amyloid deposition
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Amyloid deposition
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011034" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011034">HP:0011034</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011034</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Amyloid deposition (HP:0011034). HP:0011034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5471,14 +5849,21 @@
                         Spasticity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5507,14 +5892,21 @@
                         Gait ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002066</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait ataxia (HP:0002066), qualified as temporality chronic; course progressive. HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5586,14 +5978,21 @@
                         Progressive cerebellar ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5613,14 +6012,21 @@
                         Dementia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dementia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000726</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5690,14 +6096,21 @@
                         Areflexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Areflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001284">HP:0001284</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001284</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5749,14 +6162,21 @@
                         Paresthesia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paresthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003401</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5776,14 +6196,21 @@
                         Parkinsonism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Parkinsonism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001300</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5803,14 +6230,21 @@
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260), qualified as course progressive. HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5848,14 +6282,21 @@
                         Myoclonus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myoclonus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001336">HP:0001336</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001336</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5875,14 +6316,21 @@
                         Neurofibrillary tangles
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neurofibrillary tangles
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002185" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002185">HP:0002185</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002185</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurofibrillary tangles (HP:0002185). HP:0002185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5902,14 +6350,21 @@
                         Cerebellar atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001272">HP:0001272</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001272</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5929,14 +6384,21 @@
                         Hyperreflexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperreflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001347">HP:0001347</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5965,14 +6427,21 @@
                         Cerebral cortex with spongiform changes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral cortex with spongiform changes
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006790" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006790">HP:0006790</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0006790</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral cortex with spongiform changes (HP:0006790). HP:0006790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6024,14 +6493,21 @@
                         Gliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002171" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002171">HP:0002171</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002171" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002171</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gliosis (HP:0002171). HP:0002171 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6095,13 +6571,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRNP
 
 
-    <a href="https://bioregistry.io/hgnc:9449" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9449">hgnc:9449</a>
+    <a href="https://bioregistry.io/hgnc:9449" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:9449</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRNP (hgnc:9449). hgnc:9449 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6161,13 +6642,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRNP
 
 
-    <a href="https://bioregistry.io/hgnc:9449" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9449">hgnc:9449</a>
+    <a href="https://bioregistry.io/hgnc:9449" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:9449</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRNP (hgnc:9449). hgnc:9449 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6260,7 +6746,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6338,7 +6829,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -6416,7 +6912,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6568,6 +7069,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6605,9 +7109,11 @@ description: &gt;-
   autosomal dominant genetic prion disease caused by germline variants in the prion
   protein gene PRNP. It is one of the three classic inherited prion phenotypes
   (alongside genetic Creutzfeldt-Jakob disease and fatal familial insomnia). A
-  pathogenic PRNP variant lowers the energy barrier between the normal cellular
-  prion protein (PrP-C) and a self-templating misfolded conformer (PrP-Sc), so that
-  over decades a stochastic nucleation event propagates autocatalytically. The
+  pathogenic PRNP variant renders PrP-C susceptible to conversion into a
+  self-templating misfolded conformer (PrP-Sc), so that over decades a stochastic
+  nucleation event propagates autocatalytically. (For the classic P102L variant
+  this is not explained by loss of native-state thermodynamic stability - see the
+  deprecated `native_state_destabilization` mechanistic hypothesis.) The
   clinical signature is a slowly progressive cerebellar ataxia beginning in midlife
   followed by dementia, and the neuropathological hallmark is multicentric PrP
   amyloid plaques with a distinctive ~8 kDa protease-resistant PrP fragment. GSS is
@@ -6711,31 +7217,57 @@ genetic:
 
 pathophysiology:
 - name: PRNP Germline Missense Variant
+  biological_scale: MOLECULAR
   description: &gt;-
     A heterozygous PRNP coding variant is present from conception in every cell. It
     does not break the gene; it renders the encoded protein conformationally
     unfaithful, a gain-of-toxic-function rather than a loss-of-function lesion.
-  biological_processes:
-  - preferred_term: protein stabilization
-    term:
-      id: GO:0050821
-      label: protein stabilization
-    modifier: DECREASED
   downstream:
-  - target: Destabilization of the PrP-C Native Fold
-- name: Destabilization of the PrP-C Native Fold
+  - target: Acquisition of a Conversion-Competent PrP-C Conformer
+- name: Acquisition of a Conversion-Competent PrP-C Conformer
   description: &gt;-
-    The substitution lowers the thermodynamic/kinetic barrier separating the
-    alpha-helical PrP-C fold from beta-sheet-rich conformers, making a stochastic
-    misfolding event eventually possible. (For A117V, an alternative upstream trigger
-    is aberrant C-terminal-transmembrane PrP topogenesis rather than globular-domain
-    destabilization.)
+    The substitution renders PrP-C susceptible to a stochastic conformational
+    conversion into the PrP-Sc-templating fold, eventually making a misfolding event
+    possible over years to decades. For the classic P102L GSS variant this is not
+    explained by loss of native-state thermodynamic stability: recombinant human
+    PrP(90-231) carrying P102L is recovered soluble, with secondary structure and
+    guanidine/thermal unfolding stability indistinguishable from wild-type. (For
+    A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP
+    topogenesis rather than a globular-domain conformational change.)
+  notes: &gt;-
+    Curation note on what this node deliberately does NOT claim. An earlier revision
+    named this node &#34;Destabilization of the PrP-C Native Fold&#34; and asserted that the
+    substitution &#34;lowers the thermodynamic/kinetic barrier&#34; separating the native fold
+    from beta-sheet conformers. That framing states as mechanism a hypothesis the
+    primary literature directly rejects for GSS: Swietnicki et al. (PMID:9813003)
+    assayed the P102L variant itself and found its stability indistinguishable from
+    wild-type, and conclude that &#34;some hereditary forms of prion disease cannot be
+    rationalized using the concept of mutation-induced thermodynamic destabilization
+    of the cellular prion protein.&#34; Liemann and Glockshuber (PMID:10079068)
+    independently measured all eight C-terminal familial substitutions and found
+    stability does not correlate with disease phenotype. Wildegger et al. (Nat Struct
+    Biol, 1999) additionally showed PrP-C folds in ~170 microseconds with no
+    detectable intermediate, undercutting a populated folding-intermediate route to
+    PrP-Sc as well. See the disease-level `native_state_destabilization` mechanistic
+    hypothesis (status DEPRECATED) for the retained refutation evidence. The true
+    proximate trigger for PrP-C-to-PrP-Sc conversion in P102L GSS remains an open
+    question.
   biological_processes:
-  - preferred_term: protein unfolding
+  - preferred_term: protein folding
     term:
-      id: GO:0043335
-      label: protein unfolding
-    modifier: INCREASED
+      id: GO:0006457
+      label: protein folding
+    modifier: ABNORMAL
+  evidence:
+  - reference: PMID:9813003
+    reference_title: &#34;Familial mutations and the thermodynamic stability of the recombinant human prion protein.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;The stability properties of the P102L variant were indistinguishable from those of wild-type PrP&#34;
+    explanation: &gt;-
+      Establishes the actual observed biophysical property of the P102L variant used
+      to replace the refuted destabilization claim: recovered soluble, with stability
+      indistinguishable from wild-type, rather than an intrinsically destabilized fold.
   downstream:
   - target: Template-Directed Conversion of PrP-C to PrP-Sc
 - name: Template-Directed Conversion of PrP-C to PrP-Sc
@@ -7177,6 +7709,45 @@ clinical_trials:
     snippet: &#34;The purpose of this study is to evaluate the safety, tolerability, pharmacokinetics and pharmacodynamics of intrathecal (IT) delivery of ION717.&#34;
     explanation: The active PrP-lowering ASO trial relevant to genetic prion disease including GSS.
 
+mechanistic_hypotheses:
+- hypothesis_group_id: native_state_destabilization
+  hypothesis_label: Native-State Thermodynamic/Kinetic Destabilization Model
+  status: DEPRECATED
+  description: &gt;-
+    Familial PRNP substitutions cause disease by lowering the thermodynamic and/or
+    kinetic barrier separating the native alpha-helical PrP-C fold from beta-sheet-rich
+    conformers, so that a stochastic misfolding event becomes possible.
+  notes: &gt;-
+    Deprecated for the GSS P102L variant specifically, not just as a general caveat:
+    this is the one familial PRNP substitution in this literature that was directly
+    assayed and found not to be thermodynamically destabilized. Swietnicki et al.
+    (PMID:9813003) recovered recombinant P102L PrP(90-231) in soluble form with
+    wild-type-like secondary structure and stability. Liemann and Glockshuber
+    (PMID:10079068) independently found, across all eight C-terminal familial
+    substitutions tested, that thermodynamic stability does not correlate with disease
+    phenotype - not that no variant is destabilized: five of the eight substitutions
+    they tested (none of them P102L) do destabilize PrP(121-231) relative to
+    wild-type, while the other three do not. Retained as DEPRECATED
+    for provenance so the barrier-lowering framing is not reintroduced as the
+    explanation for P102L specifically.
+  evidence:
+  - reference: PMID:9813003
+    reference_title: &#34;Familial mutations and the thermodynamic stability of the recombinant human prion protein.&#34;
+    supports: REFUTE
+    evidence_source: IN_VITRO
+    snippet: &#34;some hereditary forms of prion disease cannot be rationalized using the concept of mutation-induced thermodynamic destabilization of the cellular prion protein&#34;
+    explanation: &gt;-
+      Direct test of the P102L GSS variant itself; its stability was indistinguishable
+      from wild-type, so the destabilization model cannot explain this variant.
+  - reference: PMID:10079068
+    reference_title: &#34;Influence of amino acid substitutions related to inherited human prion diseases on the thermodynamic stability of the cellular prion protein.&#34;
+    supports: REFUTE
+    evidence_source: IN_VITRO
+    snippet: &#34;These data suggest that destabilization of PrPC is neither a general mechanism underlying the formation of PrPSc nor the basis of disease phenotypes in inherited human TSEs.&#34;
+    explanation: &gt;-
+      Independent replication across all eight C-terminal familial PRNP substitutions:
+      measured thermodynamic stabilities do not correlate with disease phenotype.
+
 discussions:
 - discussion_id: gap_gss_prnp_penetrance_modifiers
   prompt: &gt;-
@@ -7188,7 +7759,7 @@ discussions:
   status: OPEN
   attaches_to:
   - genetic#PRNP codon 129 (M129V) and APOE modifiers
-  - pathophysiology#Destabilization of the PrP-C Native Fold
+  - pathophysiology#Acquisition of a Conversion-Competent PrP-C Conformer
   rationale: &gt;-
     Large population control cohorts show that PRNP variants previously reported as
     pathogenic are far more common than expected and confer a wide range of lifetime
@@ -9277,7 +9848,7 @@ aso_details:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gerstmann-Straussler-Scheinker Syndrome", "mondoId": "MONDO:0007656", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gerstmann-Straussler-Scheinker_Syndrome", "yamlRevision": "18708709a142"};
+        const OS_CONFIG = {"diseaseName": "Gerstmann-Straussler-Scheinker Syndrome", "mondoId": "MONDO:0007656", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gerstmann-Straussler-Scheinker_Syndrome", "yamlRevision": "9eba7ffc9700"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9696,5 +10267,73 @@ aso_details:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

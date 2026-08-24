@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Alpha-1%20Antitrypsin%20Deficiency"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3750,7 +3918,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3785,6 +3953,14 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
@@ -3798,7 +3974,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -3826,6 +4002,128 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Early-onset panacinar emphysema is the presenting and dominant clinical problem, so the respiratory Part is the primary chapter home.">RESPIRATORY</span>
+
+
+                    <span class="tag tag-classification" title="The hepatic arm - Z-AAT polymer retention causing cirrhosis and hepatocellular carcinoma - is a mechanistically distinct disease covered separately, so a second Part is assigned rather than folding it into the respiratory one.">GASTROINTESTINAL</span>
+
+
+                    <span class="tag tag-classification" title="Mendelian SERPINA1 disorder with autosomal codominant expression, and the textbook gene-environment interaction: smoking sharply accelerates the emphysema arm.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Mechanistic Nosology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-mechanistic" title="The hepatic arm is a toxic gain-of-function from misfolded Z-AAT polymerizing and being retained in the hepatocyte endoplasmic reticulum - the archetypal serpinopathy. This is deliberately a claim about the liver disease only: the emphysema arm is a loss-of-function antiprotease deficiency, not a proteotoxic one, and the two arms of this disease have opposite mechanistic characters.">proteotoxic disease</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -4205,16 +4503,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4241,16 +4544,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         leukocyte migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4267,6 +4575,7 @@
 
 
                 </div>
+
 
 
 
@@ -4335,16 +4644,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4371,16 +4685,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neutrophil degranulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043312">GO:0043312</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0043312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4397,6 +4716,7 @@
 
 
                 </div>
+
 
 
 
@@ -4473,16 +4793,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         serine-type endopeptidase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004252" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004252">GO:0004252</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004252" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0004252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased serine-type endopeptidase activity (GO:0004252). GO:0004252 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4503,6 +4828,7 @@
 
 
                 </div>
+
 
 
 
@@ -4578,15 +4904,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SERPINA1
 
 
-    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8941">hgnc:8941</a>
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:8941</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SERPINA1 (hgnc:8941). hgnc:8941 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4615,16 +4948,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         serine-type endopeptidase inhibitor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004867" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004867">GO:0004867</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004867" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0004867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased serine-type endopeptidase inhibitor activity (GO:0004867). GO:0004867 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4645,6 +4983,7 @@
 
 
                 </div>
+
 
 
 
@@ -4723,16 +5062,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4759,15 +5103,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SERPINA1
 
 
-    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8941">hgnc:8941</a>
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:8941</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SERPINA1 (hgnc:8941). hgnc:8941 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4813,6 +5164,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4925,16 +5277,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4961,17 +5318,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to endoplasmic reticulum stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034976">GO:0034976</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0034976</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to endoplasmic reticulum stress (GO:0034976). GO:0034976 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4992,10 +5356,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030968">GO:0030968</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0030968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves endoplasmic reticulum unfolded protein response (GO:0030968). GO:0030968 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5033,6 +5400,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5098,16 +5466,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5134,16 +5507,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5181,6 +5559,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5261,16 +5640,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatic stellate cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000632">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5297,16 +5681,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         collagen fibril organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5327,6 +5716,7 @@
 
 
                 </div>
+
 
 
 
@@ -5411,16 +5801,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix disassembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022617">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0022617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5437,6 +5832,7 @@
 
 
                 </div>
+
 
 
 
@@ -5482,16 +5878,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5508,6 +5909,7 @@
 
 
                 </div>
+
 
 
 
@@ -5675,7 +6077,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous purified human plasma-derived AAT slows emphysema progression as measured by CT-density change.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alvelestat is an oral neutrophil-elastase inhibitor evaluated in two randomized Phase 2 AATD trials; 240 mg twice daily suppressed blood neutrophil elastase by more than 90% and reduced disease-activity biomarkers.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Alveolar Tissue Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degradation of alveolar walls and elastin fibers leads to loss of structural integrity, air trapping, and emphysema development.\\n\", \"meta\": {\"biological_processes\": [\"extracellular matrix disassembly\"]}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bronchiectasis is a recognized obstructive-lung presentation of AATD, and AATD genotypes are enriched among patients tested for bronchiectasis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchodilators\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled medication is used as part of guideline-based management of AATD-associated obstructive lung disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bronchodilator\"]}}, {\"id\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The CRISPR-engineered Huh7.5Z line shows UPR activation, caspase and apoptosis-marker activation, chaperone induction, and autophagy markers in a human hepatocellular background.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"PI*Z AAT compared with parental PI*MM AAT cells\"], \"publication\": \"PMID:35621045\"}}, {\"id\": \"Chronic Obstructive Pulmonary Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD can present as chronic obstructive lung disease, characteristically after age 30 years.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006510\"}}, {\"id\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews identifies dapsone or doxycycline as therapy for panniculitis, with high-dose intravenous AAT augmentation for refractory disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dapsone\", \"doxycycline\"]}}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular mutant Z-AAT initiates an ER-stress-associated hepatocyte injury cascade involving unfolded-protein-response signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"endoplasmic reticulum unfolded protein response\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line directly reports UPR activation and chaperone induction.\"}]}}, {\"id\": \"Emphysema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive destruction of alveolar tissue producing panacinar emphysema, typically as chronic obstructive lung disease after age 30 years.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032967\"}}, {\"id\": \"Fazirsiran (Investigational siRNA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The RNA-interference therapeutic fazirsiran degrades Z-AAT mRNA. In the Phase 2 SEQUOIA trial, it produced dose-dependent serum and liver Z-AAT reduction and reduced hepatic globule burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"fazirsiran\"]}}, {\"id\": \"Granulomatosis with Polyangiitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive vasculitis, including granulomatosis with polyangiitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002633\"}}, {\"id\": \"Hepatic Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In a European cohort, Pi*MZ adults were more likely than noncarriers to have liver stiffness of at least 7.1 kPa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic Protein Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PiZZ individuals, mutant Z-AAT misfolds during biogenesis and approximately 85% is retained within hepatocytes rather than secreted, producing hepatic accumulation and limiting access to the circulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"PI*Z AAT expression produces the hepatocellular proteostasis lesion.\"}]}}, {\"id\": \"Hepatic Stellate Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent hepatocyte death and compensatory regeneration activate hepatic stellate cells, initiating the fibrotic response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\"], \"biological_processes\": [\"collagen fibril organization\"]}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma occurred in 8.5% of one AATD end-stage-liver-disease cohort, lower than in the comparator group with other causes of cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intracellular Z-AAT polymer burden drives ER stress, mitochondrial depolarization, caspase activation, and hepatocyte death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"autophagy\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.\"}]}}, {\"id\": \"Liver Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive liver fibrosis and cirrhosis resulting from accumulation of abnormal AAT polymers in hepatocytes. More common in ZZ homozygotes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is the definitive treatment for severe AATD liver disease and restores circulating AAT levels.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lung transplantation may be considered for end-stage lung disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD-associated liver disease in a small portion of affected children presents as neonatal cholestasis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"Neutrophil Elastase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophil elastase is the effector protease left insufficiently inhibited when functional AAT is deficient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase activity\"]}}, {\"id\": \"Neutrophilic Subcutaneous Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AATD-associated panniculitis can show extensive subcutaneous inflammation with neutrophils, foamy macrophages, and fat necrosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Panniculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Panniculitis is a rare and potentially lethal cutaneous manifestation of AATD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012490\"}}, {\"id\": \"Protease-Antiprotease Imbalance in Lung\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced functional AAT disrupts protease-antiprotease homeostasis and decreases neutrophil-elastase inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}]}}, {\"id\": \"Pulmonary Neutrophil Degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated neutrophils degranulate and release inflammatory proteases, including neutrophil elastase.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\"]}}, {\"id\": \"Pulmonary Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary inflammatory stimuli recruit neutrophils from the circulation to affected tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"leukocyte migration\"]}}, {\"id\": \"SAR447537 (INBRX-101; Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SAR447537 (INBRX-101) was compared with plasma-derived A1PI therapy in a Phase 2 study of adults with AATD emphysema.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SERPINA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Pulmonary Neutrophil Recruitment\", \"target\": \"Pulmonary Neutrophil Degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited neutrophils activate and degranulate in inflamed pulmonary tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Neutrophil Degranulation\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degranulation releases neutrophil elastase into the extracellular compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Elastase Activity\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-elastase activity becomes insufficiently opposed when functional AAT is deficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced functional AAT leaves neutrophil elastase insufficiently inhibited, disrupting protease-antiprotease homeostasis and promoting elastin breakdown in the lung interstitium.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protease-antiprotease imbalance in AATD contributes to chronic obstructive lung disease phenotypes that include bronchiectasis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular Z-AAT retention provokes hepatocyte proteostasis stress.\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Neutrophilic Subcutaneous Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe AATD can also produce panniculitis through a cutaneous mechanism whose intermediates remain incompletely established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Granulomatosis with Polyangiitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive granulomatosis with polyangiitis through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte retention of mutant AAT limits circulating functional AAT, leaving the lung exposed to protease-mediated tissue injury.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER-stress-associated signaling proceeds to mitochondrial and caspase-linked hepatocyte injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte death and compensatory regeneration activate hepatic stellate cells.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Neonatal Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A small portion of affected children develop AATD-associated neonatal cholestasis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma can occur in AATD-associated end-stage liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Hepatic Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stellate cell activation and collagen deposition produce hepatic fibrosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Liver Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive bridging fibrosis produces cirrhosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Emphysema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar wall destruction produces the panacinar emphysema phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive emphysematous tissue destruction produces chronic obstructive pulmonary disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophilic Subcutaneous Inflammation\", \"target\": \"Panniculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophilic inflammation and fat necrosis constitute the panniculitis lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SAR447537 (INBRX-101; Investigational)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bronchodilators\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fazirsiran (Investigational siRNA)\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"SERPINA1\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SERPINA1\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous purified human plasma-derived AAT slows emphysema progression as measured by CT-density change.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alvelestat is an oral neutrophil-elastase inhibitor evaluated in two randomized Phase 2 AATD trials; 240 mg twice daily suppressed blood neutrophil elastase by more than 90% and reduced disease-activity biomarkers.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Alveolar Tissue Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degradation of alveolar walls and elastin fibers leads to loss of structural integrity, air trapping, and emphysema development.\\n\", \"meta\": {\"biological_processes\": [\"extracellular matrix disassembly\"]}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bronchiectasis is a recognized obstructive-lung presentation of AATD, and AATD genotypes are enriched among patients tested for bronchiectasis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002110\"}}, {\"id\": \"Bronchodilators\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled medication is used as part of guideline-based management of AATD-associated obstructive lung disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bronchodilator\"]}}, {\"id\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The CRISPR-engineered Huh7.5Z line shows UPR activation, caspase and apoptosis-marker activation, chaperone induction, and autophagy markers in a human hepatocellular background.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"PI*Z AAT compared with parental PI*MM AAT cells\"], \"publication\": \"PMID:35621045\"}}, {\"id\": \"Chronic Obstructive Pulmonary Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD can present as chronic obstructive lung disease, characteristically after age 30 years.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006510\"}}, {\"id\": \"Cigarette Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking accelerates emphysema development and lung-function decline in AATD.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"GeneReviews identifies dapsone or doxycycline as therapy for panniculitis, with high-dose intravenous AAT augmentation for refractory disease.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dapsone\", \"doxycycline\"]}}, {\"id\": \"ER Stress and Unfolded Protein Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular mutant Z-AAT initiates an ER-stress-associated hepatocyte injury cascade involving unfolded-protein-response signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"endoplasmic reticulum unfolded protein response\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line directly reports UPR activation and chaperone induction.\"}]}}, {\"id\": \"Emphysema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive destruction of alveolar tissue producing panacinar emphysema, typically as chronic obstructive lung disease after age 30 years.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032967\"}}, {\"id\": \"Fazirsiran (Investigational siRNA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The RNA-interference therapeutic fazirsiran degrades Z-AAT mRNA. In the Phase 2 SEQUOIA trial, it produced dose-dependent serum and liver Z-AAT reduction and reduced hepatic globule burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"fazirsiran\"]}}, {\"id\": \"Granulomatosis with Polyangiitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive vasculitis, including granulomatosis with polyangiitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002633\"}}, {\"id\": \"Hepatic Fibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In a European cohort, Pi*MZ adults were more likely than noncarriers to have liver stiffness of at least 7.1 kPa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001395\"}}, {\"id\": \"Hepatic Protein Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PiZZ individuals, mutant Z-AAT misfolds during biogenesis and approximately 85% is retained within hepatocytes rather than secreted, producing hepatic accumulation and limiting access to the circulation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"PI*Z AAT expression produces the hepatocellular proteostasis lesion.\"}]}}, {\"id\": \"Hepatic Stellate Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent hepatocyte death and compensatory regeneration activate hepatic stellate cells, initiating the fibrotic response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatic stellate cell\"], \"biological_processes\": [\"collagen fibril organization\"]}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma occurred in 8.5% of one AATD end-stage-liver-disease cohort, lower than in the comparator group with other causes of cirrhosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001402\"}}, {\"id\": \"Hepatocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intracellular Z-AAT polymer burden drives ER stress, mitochondrial depolarization, caspase activation, and hepatocyte death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"autophagy\"], \"experimental_models\": [{\"name\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"model_type\": \"CELL_LINE\", \"description\": \"The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.\"}]}}, {\"id\": \"Liver Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive liver fibrosis and cirrhosis resulting from accumulation of abnormal AAT polymers in hepatocytes. More common in ZZ homozygotes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation is the definitive treatment for severe AATD liver disease and restores circulating AAT levels.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lung transplantation may be considered for end-stage lung disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic Cofactors\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Obesity and diabetes are important cofactors associated with elevated liver stiffness in Pi*MZ adults.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AATD-associated liver disease in a small portion of affected children presents as neonatal cholestasis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"Neutrophil Elastase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophil elastase is the effector protease left insufficiently inhibited when functional AAT is deficient.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase activity\"]}}, {\"id\": \"Neutrophilic Subcutaneous Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AATD-associated panniculitis can show extensive subcutaneous inflammation with neutrophils, foamy macrophages, and fat necrosis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"]}}, {\"id\": \"Panniculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Panniculitis is a rare and potentially lethal cutaneous manifestation of AATD.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012490\"}}, {\"id\": \"Protease-Antiprotease Imbalance in Lung\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced functional AAT disrupts protease-antiprotease homeostasis and decreases neutrophil-elastase inhibition.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"serine-type endopeptidase inhibitor activity\"], \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}]}}, {\"id\": \"Pulmonary Neutrophil Degranulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated neutrophils degranulate and release inflammatory proteases, including neutrophil elastase.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\"]}}, {\"id\": \"Pulmonary Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary inflammatory stimuli recruit neutrophils from the circulation to affected tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"leukocyte migration\"]}}, {\"id\": \"SAR447537 (INBRX-101; Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"SAR447537 (INBRX-101) was compared with plasma-derived A1PI therapy in a Phase 2 study of adults with AATD emphysema.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SERPINA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SERPINA1\"], \"gene_terms\": [{\"label\": \"SERPINA1\", \"id\": \"hgnc:8941\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"Pulmonary Neutrophil Recruitment\", \"target\": \"Pulmonary Neutrophil Degranulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited neutrophils activate and degranulate in inflamed pulmonary tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Neutrophil Degranulation\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degranulation releases neutrophil elastase into the extracellular compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Elastase Activity\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-elastase activity becomes insufficiently opposed when functional AAT is deficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced functional AAT leaves neutrophil elastase insufficiently inhibited, disrupting protease-antiprotease homeostasis and promoting elastin breakdown in the lung interstitium.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Protease-Antiprotease Imbalance in Lung\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Protease-antiprotease imbalance in AATD contributes to chronic obstructive lung disease phenotypes that include bronchiectasis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular Z-AAT retention provokes hepatocyte proteostasis stress.\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Neutrophilic Subcutaneous Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe AATD can also produce panniculitis through a cutaneous mechanism whose intermediates remain incompletely established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Granulomatosis with Polyangiitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AATD is associated with C-ANCA-positive granulomatosis with polyangiitis through unresolved intermediates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Protein Aggregation\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte retention of mutant AAT limits circulating functional AAT, leaving the lung exposed to protease-mediated tissue injury.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER-stress-associated signaling proceeds to mitochondrial and caspase-linked hepatocyte injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hepatocyte death and compensatory regeneration activate hepatic stellate cells.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Neonatal Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A small portion of affected children develop AATD-associated neonatal cholestasis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatocyte Injury\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocellular carcinoma can occur in AATD-associated end-stage liver disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Hepatic Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stellate cell activation and collagen deposition produce hepatic fibrosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hepatic Stellate Cell Activation\", \"target\": \"Liver Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive bridging fibrosis produces cirrhosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Emphysema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alveolar wall destruction produces the panacinar emphysema phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Tissue Destruction\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive emphysematous tissue destruction produces chronic obstructive pulmonary disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophilic Subcutaneous Inflammation\", \"target\": \"Panniculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophilic inflammation and fat necrosis constitute the panniculitis lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cigarette Smoking\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Emphysema is alveolar destruction, and the cited sentence names both the exposure and that outcome. Recorded as exacerbating rather than triggering because the destruction proceeds from the inherited antiprotease deficiency and smoking accelerates it, which is the word the source uses. The intervening step is the protease-antiprotease imbalance this entry models explicitly, so the intermediates are known rather than unknown.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Metabolic Cofactors\", \"target\": \"Hepatic Stellate Cell Activation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Obesity and diabetes are recorded here as accelerants of the hepatic arm rather than the pulmonary one. Two limits are worth stating rather than leaving in the grade: the measurement is liver stiffness, a proxy for the fibrosis this node drives rather than a measure of stellate cell activation, and the finding is specific to heterozygous Pi*MZ adults rather than to the classic homozygous disease this entry mostly models.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alpha-1 Antitrypsin Augmentation Therapy\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dapsone or Doxycycline for AATD-Associated Panniculitis\", \"target\": \"Panniculitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Neutrophil Elastase Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alvelestat (Investigational Neutrophil Elastase Inhibitor)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SAR447537 (INBRX-101; Investigational)\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Bronchodilators\", \"target\": \"Chronic Obstructive Pulmonary Disease\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Alveolar Tissue Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Emphysema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fazirsiran (Investigational siRNA)\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"PI*Z AAT expression produces the hepatocellular proteostasis lesion.\"}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"ER Stress and Unfolded Protein Response\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The line directly reports UPR activation and chaperone induction.\"}, {\"source\": \"CRISPR-engineered Huh7.5Z hepatocyte cell line\", \"target\": \"Hepatocyte Injury\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.\"}, {\"source\": \"SERPINA1\", \"target\": \"Hepatic Protein Aggregation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SERPINA1\", \"target\": \"Protease-Antiprotease Imbalance in Lung\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5718,14 +6120,23 @@
                         Granulomatosis with Polyangiitis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vasculitis
+
+                        <span class="phenotype-term-label">Vasculitis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002633">HP:0002633</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002633</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is granulomatosis with polyangiitis, annotated with Vasculitis (HP:0002633). HP:0002633 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5786,14 +6197,21 @@
                         Liver Cirrhosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is cirrhosis (HP:0001394), qualified as course progressive. HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5885,14 +6303,21 @@
                         Hepatic Fibrosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic fibrosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001395">HP:0001395</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001395</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hepatic fibrosis (HP:0001395), qualified as course progressive. HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5962,14 +6387,21 @@
                         Hepatocellular Carcinoma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatocellular carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001402">HP:0001402</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6021,14 +6453,21 @@
                         Neonatal Cholestasis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cholestasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001396">HP:0001396</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is neonatal cholestasis, annotated with Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6089,14 +6528,21 @@
                         Panniculitis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Panniculitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012490">HP:0012490</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012490</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is panniculitis (HP:0012490). HP:0012490 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6157,14 +6603,23 @@
                         Emphysema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Panacinar emphysema
+
+                        <span class="phenotype-term-label">Panacinar emphysema</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032967">HP:0032967</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0032967</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is panacinar emphysema (HP:0032967). HP:0032967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6238,14 +6693,23 @@
                         Chronic Obstructive Pulmonary Disease
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic pulmonary obstruction
+
+                        <span class="phenotype-term-label">Chronic pulmonary obstruction</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006510">HP:0006510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0006510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is chronic obstructive pulmonary disease, annotated with Chronic pulmonary obstruction (HP:0006510). HP:0006510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6297,14 +6761,21 @@
                         Bronchiectasis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bronchiectasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002110">HP:0002110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6424,13 +6895,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SERPINA1
 
 
-    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8941">hgnc:8941</a>
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:8941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6542,13 +7018,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SERPINA1
 
 
-    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8941">hgnc:8941</a>
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:8941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6661,7 +7142,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6716,17 +7202,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         panacinar emphysema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032967">HP:0032967</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0032967</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         panniculitis
@@ -6734,10 +7227,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012490">HP:0012490</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012490</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets panniculitis (HP:0012490). HP:0012490 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6808,7 +7304,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy for panniculitis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">pharmacotherapy for panniculitis<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy for panniculitis, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6839,17 +7340,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         dapsone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4325" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4325">CHEBI:4325</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4325" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:4325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dapsone (CHEBI:4325). CHEBI:4325 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         doxycycline
@@ -6857,10 +7365,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50845">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6874,16 +7385,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         panniculitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012490">HP:0012490</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012490</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets panniculitis (HP:0012490). HP:0012490 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6932,7 +7448,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -6987,16 +7508,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         panacinar emphysema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032967">HP:0032967</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0032967</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7089,7 +7615,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7126,16 +7657,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         emphysema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002097">HP:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets emphysema (HP:0002097). HP:0002097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7287,7 +7823,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bronchodilator therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">bronchodilator therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bronchodilator therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7318,16 +7859,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bronchodilator
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C319" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C319">NCIT:C319</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C319" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C319</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bronchodilator (NCIT:C319). NCIT:C319 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7342,16 +7888,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         chronic obstructive pulmonary disease
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006510">HP:0006510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0006510</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets chronic obstructive pulmonary disease, annotated with Chronic pulmonary obstruction (HP:0006510). HP:0006510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7400,7 +7951,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Lung Transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Lung Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Lung Transplantation (NCIT:C15274). NCIT:C15274 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7455,16 +8011,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         panacinar emphysema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032967">HP:0032967</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0032967</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets panacinar emphysema (HP:0032967). HP:0032967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7513,7 +8074,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7543,16 +8109,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         fazirsiran
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C188640" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C188640">NCIT:C188640</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C188640" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C188640</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fazirsiran (NCIT:C188640). NCIT:C188640 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7670,7 +8241,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">transplantation procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">transplantation procedure<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is transplantation procedure, annotated with Transplantation (NCIT:C15342). NCIT:C15342 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Transplantation</span>
 
 
@@ -7822,6 +8398,33 @@
             <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette Smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette Smoking</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to cigarette smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-49">ECTO:0100003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Cigarette smoking accelerates emphysema development and lung-function decline in AATD.</div>
@@ -7884,10 +8487,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Alveolar Tissue Destruction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Emphysema is alveolar destruction, and the cited sentence names both the exposure and that outcome. Recorded as exacerbating rather than triggering because the destruction proceeds from the inherited antiprotease deficiency and smoking accelerates it, which is the word the source uses. The intervening step is the protease-antiprotease imbalance this entry models explicitly, so the intermediates are known rather than unknown.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39980299" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39980299" target="_blank">PMID:39980299</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The development of emphysema and decline in lung function varies by AATD genotype and is accelerated by risk factors, such as smoking."</div>
+
+
+                <div class="evidence-explanation">States that emphysema development and lung-function decline are accelerated by risk factors such as smoking, naming the exposure and the alveolar destruction at this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40943425" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40943425" target="_blank">PMID:40943425</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AATD and smoking represent major risk factors for COPD, the third leading cause of death worldwide at present."</div>
+
+
+                <div class="evidence-explanation">Places the deficiency and smoking together as major risk factors for chronic obstructive lung disease. It sets the two side by side without saying what smoking does to this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-metabolic-cofactors" data-dismech-node="Metabolic Cofactors" data-dismech-type="environmental">
                 <div class="item-name">Metabolic Cofactors</div>
+
+
+
+
 
 
 
@@ -7928,6 +8609,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Hepatic Stellate Cell Activation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Obesity and diabetes are recorded here as accelerants of the hepatic arm rather than the pulmonary one. Two limits are worth stating rather than leaving in the grade: the measurement is liver stiffness, a proxy for the fibrosis this node drives rather than a measure of stellate cell activation, and the finding is specific to heterozygous Pi*MZ adults rather than to the classic homozygous disease this entry mostly models.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32376409" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32376409" target="_blank">PMID:32376409</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Obesity and diabetes were the most important factors associated with LSMs ≥7.1 kPa in subjects with the Pi∗MZ genotype."</div>
+
+
+                <div class="evidence-explanation">Identifies obesity and diabetes as the strongest measured correlates of raised liver stiffness in Pi*MZ adults. A stiffness proxy in a heterozygous cohort, one step off this node in two directions at once.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8223,6 +8956,101 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    The Genomic Research in Alpha-1 Antitrypsin Deficiency and Sarcoidosis Study (GRADS)  Alpha-1 study [A1AT]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109515" target="_blank">geo:GSE109515</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Whole genome mRNA and microRNA profiling of bronchoalveolar lavage (BAL) and peripheral blood mononuclear cell (PBMC) in Alpha-1 Antitrypsin Deficiency patients with PiZZ or PiMZ alpha-1 antitrypsin genotypes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=178</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/33303696" target="_blank" style="color: var(--secondary);">PMID:33303696</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Alpha-1 Antitrypsin Deficiency (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A Highly Phenotyped Open Access Repository of Alpha-1 Antitrypsin Deficiency Pluripotent Stem Cells
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE140732" target="_blank">geo:GSE140732</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We profiled the global transcriptomes of 10 featured AATD-patient specific iPSC that underwent directed differentiation towards a hepatic and lung lineage. We used digital gene expression (DGE), a platform for high-fidelity RNA sequencing, and in addition to differentiated iPSC-derived cell types mentioned above (iHeps and iPSC-Lung progenitors), we also collected RNA from undifferentiated iPSCs and from a panel of primary adult human hepatocytes (PHH) for comparison.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=96</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32619491" target="_blank" style="color: var(--secondary);">PMID:32619491</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Alpha-1 Antitrypsin Deficiency (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -8250,17 +9078,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         hepatic fibrosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001395">HP:0001395</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001395" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001395</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets hepatic fibrosis (HP:0001395). HP:0001395 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         cirrhosis
@@ -8268,10 +9103,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001394</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8352,16 +9190,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         emphysema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002097">HP:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8420,16 +9263,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         emphysema
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002097">HP:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets emphysema (HP:0002097). HP:0002097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8508,15 +9356,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-54">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-54">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8549,42 +9402,56 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-hepatic-protein-aggregation">Hepatic Protein Aggregation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">PI*Z AAT expression produces the hepatocellular proteostasis lesion.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hepatic-protein-aggregation">Hepatic Protein Aggregation</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-er-stress-and-unfolded-protein-response">ER Stress and Unfolded Protein Response</a>
-
-                            <span class="crosslink-desc">The line directly reports UPR activation and chaperone induction.</span>
+                <span class="crosslink-desc">PI*Z AAT expression produces the hepatocellular proteostasis lesion.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-hepatocyte-injury">Hepatocyte Injury</a>
-
-                            <span class="crosslink-desc">The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-er-stress-and-unfolded-protein-response">ER Stress and Unfolded Protein Response</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">The line directly reports UPR activation and chaperone induction.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hepatocyte-injury">Hepatocyte Injury</a>
+
+
+
+                <span class="crosslink-desc">The line reports UPR, caspase, apoptosis, chaperone, and autophagy responses.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8630,6 +9497,146 @@
         </div>
 
 
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-full-length-human-pi-z-aat-transgenic-mouse-mus-musculus" data-dismech-node="Full-length human PI*Z AAT transgenic mouse Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Full-length human PI*Z AAT transgenic mouse Mus musculus
+
+                </div>
+
+                <div class="item-desc">A full-length human PI*Z AAT transgenic mouse shows selective attenuation of unfolded-protein-response signaling branches.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Hepatic protein aggregation and selective unfolded-protein-response signaling</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Full-length human PI*Z AAT transgenic mouse</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SERPINA1
+
+
+    <a href="https://bioregistry.io/hgnc:8941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:8941</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SERPINA1 (hgnc:8941). hgnc:8941 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35621045" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35621045" target="_blank">PMID:35621045</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Selective attenuation of UPR signaling branches was observed in PI*Z hAAT mice in which the protein kinase R-like ER kinase and inositol-requiring enzyme1α branches were suppressed while the activating transcription factor 6α branch remained active."</div>
+
+
+                <div class="evidence-explanation">The mouse experiment supports selective UPR-branch attenuation in vivo.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
         <!-- Computational Models -->
 
 
@@ -8646,7 +9653,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Alpha-1 Antitrypsin Deficiency
 creation_date: &#39;2026-01-09T07:11:54Z&#39;
-updated_date: &#39;2026-05-09T20:48:03Z&#39;
 description: &gt;-
   Alpha-1 antitrypsin deficiency is an autosomal codominant disorder caused by
   pathogenic variants in SERPINA1, which encodes the principal circulating
@@ -8666,6 +9672,41 @@ disease_term:
 parents:
 - Genetic Lung Diseases
 - Hereditary Metabolic Diseases
+classifications:
+  harrisons_chapter:
+  - classification_value: RESPIRATORY
+    notes: &gt;-
+      Early-onset panacinar emphysema is the presenting and dominant clinical
+      problem, so the respiratory Part is the primary chapter home.
+  - classification_value: GASTROINTESTINAL
+    notes: &gt;-
+      The hepatic arm - Z-AAT polymer retention causing cirrhosis and
+      hepatocellular carcinoma - is a mechanistically distinct disease covered
+      separately, so a second Part is assigned rather than folding it into the
+      respiratory one.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      Mendelian SERPINA1 disorder with autosomal codominant expression, and the
+      textbook gene-environment interaction: smoking sharply accelerates the
+      emphysema arm.
+  mechanistic_category:
+  - classification_value: proteotoxic disease
+    notes: &gt;-
+      The hepatic arm is a toxic gain-of-function from misfolded Z-AAT
+      polymerizing and being retained in the hepatocyte endoplasmic reticulum -
+      the archetypal serpinopathy. This is deliberately a claim about the liver
+      disease only: the emphysema arm is a loss-of-function antiprotease
+      deficiency, not a proteotoxic one, and the two arms of this disease have
+      opposite mechanistic characters.
+    evidence:
+    - reference: PMID:35868681
+      reference_title: &#34;Alpha-1 Antitrypsin Deficiency Liver Disease.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Liver disease in homozygous ZZ alpha-1 antitrypsin (AAT) deficiency occurs due to the accumulation of large quantities of AAT mutant Z protein polymers in the liver.&#34;
+      explanation: &gt;-
+        Attributes the liver disease to accumulation of mutant Z protein
+        polymers, i.e. a proteotoxic rather than a loss-of-function mechanism.
 inheritance:
 - name: Autosomal codominant inheritance
   description: &gt;-
@@ -9764,6 +10805,42 @@ biochemical:
 
 environmental:
 - name: Cigarette Smoking
+  exposure_term:
+    preferred_term: exposure to cigarette smoking
+    term:
+      id: ECTO:0100003
+      label: exposure to cigarette smoking
+  influences_mechanisms:
+  - target: Alveolar Tissue Destruction
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Emphysema is alveolar destruction, and the cited sentence names both the
+      exposure and that outcome. Recorded as exacerbating rather than
+      triggering because the destruction proceeds from the inherited
+      antiprotease deficiency and smoking accelerates it, which is the word
+      the source uses. The intervening step is the protease-antiprotease
+      imbalance this entry models explicitly, so the intermediates are known
+      rather than unknown.
+    evidence:
+    - reference: PMID:39980299
+      reference_title: &#34;Advancing the understanding and treatment of lung pathologies associated with alpha 1 antitrypsin deficiency.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The development of emphysema and decline in lung function varies by AATD genotype and is accelerated by risk factors, such as smoking.&#34;
+      explanation: &gt;-
+        States that emphysema development and lung-function decline are
+        accelerated by risk factors such as smoking, naming the exposure and
+        the alveolar destruction at this node.
+    - reference: PMID:40943425
+      reference_title: &#34;Next-Generation Regenerative Therapies for Alpha-1 Antitrypsin Deficiency: Molecular Pathogenesis to Clinical Translation.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;AATD and smoking represent major risk factors for COPD, the third leading cause of death worldwide at present.&#34;
+      explanation: &gt;-
+        Places the deficiency and smoking together as major risk factors for
+        chronic obstructive lung disease. It sets the two side by side without
+        saying what smoking does to this node.
   description: &gt;-
     Cigarette smoking accelerates emphysema development and lung-function decline
     in AATD.
@@ -9782,6 +10859,27 @@ environmental:
     snippet: &#34;AATD and smoking represent major risk factors for COPD, the third leading cause of death worldwide at present.&#34;
     explanation: 2025 mechanistic review identifies smoking as a co-equal major risk factor for COPD alongside AATD genotype.
 - name: Metabolic Cofactors
+  influences_mechanisms:
+  - target: Hepatic Stellate Cell Activation
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Obesity and diabetes are recorded here as accelerants of the hepatic arm
+      rather than the pulmonary one. Two limits are worth stating rather than
+      leaving in the grade: the measurement is liver stiffness, a proxy for
+      the fibrosis this node drives rather than a measure of stellate cell
+      activation, and the finding is specific to heterozygous Pi*MZ adults
+      rather than to the classic homozygous disease this entry mostly models.
+    evidence:
+    - reference: PMID:32376409
+      reference_title: &#34;Liver Phenotypes of European Adults Heterozygous or Homozygous for Pi∗Z Variant of AAT (Pi∗MZ vs Pi∗ZZ genotype) and Noncarriers.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Obesity and diabetes were the most important factors associated with LSMs ≥7.1 kPa in subjects with the Pi∗MZ genotype.&#34;
+      explanation: &gt;-
+        Identifies obesity and diabetes as the strongest measured correlates
+        of raised liver stiffness in Pi*MZ adults. A stiffness proxy in a
+        heterozygous cohort, one step off this node in two directions at once.
   description: &gt;-
     Obesity and diabetes are important cofactors associated with elevated liver
     stiffness in Pi*MZ adults.
@@ -10010,6 +11108,30 @@ notes: &gt;-
   represented as structured entries; the focused differential instead records
   evidence-supported features that separate AATD from smoking-related COPD.
 datasets:
+- accession: geo:GSE109515
+  title: The Genomic Research in Alpha-1 Antitrypsin Deficiency and Sarcoidosis Study (GRADS)  Alpha-1 study [A1AT]
+  description: Whole genome mRNA and microRNA profiling of bronchoalveolar lavage (BAL) and peripheral blood mononuclear cell (PBMC) in Alpha-1 Antitrypsin Deficiency patients with PiZZ or PiMZ alpha-1 antitrypsin genotypes
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 178
+  publication: PMID:33303696
+  notes: Identified by GEO DataSets index search for Alpha-1 Antitrypsin Deficiency (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE140732
+  title: A Highly Phenotyped Open Access Repository of Alpha-1 Antitrypsin Deficiency Pluripotent Stem Cells
+  description: We profiled the global transcriptomes of 10 featured AATD-patient specific iPSC that underwent directed differentiation towards a hepatic and lung lineage. We used digital gene expression (DGE), a platform for high-fidelity RNA sequencing, and in addition to differentiated iPSC-derived cell types mentioned above (iHeps and iPSC-Lung progenitors), we also collected RNA from undifferentiated iPSCs and from a panel of primary adult human hepatocytes (PHH) for comparison.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 96
+  publication: PMID:32619491
+  notes: Identified by GEO DataSets index search for Alpha-1 Antitrypsin Deficiency (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 references:
 - reference: PMID:20301692
   title: &#34;Alpha-1 Antitrypsin Deficiency.&#34;
@@ -14799,7 +15921,7 @@ The Z mutation (Glu342Lys) disrupts the critical interaction between the reactiv
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alpha-1 Antitrypsin Deficiency", "mondoId": "MONDO:0013282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alpha-1_Antitrypsin_Deficiency", "yamlRevision": "b78c0af3ce34"};
+        const OS_CONFIG = {"diseaseName": "Alpha-1 Antitrypsin Deficiency", "mondoId": "MONDO:0013282", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alpha-1_Antitrypsin_Deficiency", "yamlRevision": "8c669f7b3153"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15218,5 +16340,73 @@ The Z mutation (Glu342Lys) disrupts the critical interaction between the reactiv
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

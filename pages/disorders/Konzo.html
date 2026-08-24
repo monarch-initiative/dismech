@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Konzo"
@@ -3701,6 +3867,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3735,7 +3903,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3746,7 +3914,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3772,6 +3940,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3964,16 +4140,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cyanide metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019499" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019499">GO:0019499</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019499" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0019499</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cyanide metabolic process (GO:0019499). GO:0019499 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3994,6 +4175,7 @@
 
 
                 </div>
+
 
 
 
@@ -4091,16 +4273,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         sulfur amino acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000096" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000096">GO:0000096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0000096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased sulfur amino acid metabolic process (GO:0000096). GO:0000096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4120,16 +4307,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         detoxification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098754" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0098754">GO:0098754</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098754" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0098754</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased detoxification (GO:0098754). GO:0098754 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4150,6 +4342,7 @@
 
 
                 </div>
+
 
 
 
@@ -4262,16 +4455,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         upper motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008048">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4298,16 +4496,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glutamate receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007215">GO:0007215</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007215" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007215</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glutamate receptor signaling pathway (GO:0007215). GO:0007215 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4316,6 +4519,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4333,10 +4538,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4363,19 +4571,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corticospinal tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002707">UBERON:0002707</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002707" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corticospinal tract (UBERON:0002707). UBERON:0002707 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4485,16 +4699,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         upper motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008048">CL:0008048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0008048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves upper motor neuron (CL:0008048). CL:0008048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4521,16 +4740,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051402">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4551,6 +4775,7 @@
 
 
                 </div>
+
 
 
 
@@ -4642,7 +4867,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating exposure of konzo is high dietary intake of the cyanogenic glucoside linamarin from insufficiently processed bitter cassava roots. During digestion linamarin is hydrolysed by the enzyme linamarase to cyanohydrins, which break down to toxic cyanide, so a monotonous diet of poorly processed bitter cassava delivers a high chronic cyanide load. Epidemiological studies associate urinary linamarin and its cyanide metabolite thiocyanate with the occurrence of konzo, and outbreaks cluster geographically and seasonally with high cyanide exposure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cyanide metabolic process\"]}}, {\"id\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cyanide is normally detoxified to thiocyanate by sulfurtransferase enzymes that require a sulfur donor supplied by dietary sulfur-containing amino acids (methionine, cysteine). In konzo-affected populations the bitter-cassava diet is protein-poor and deficient in sulfur amino acids, so a high cyanide intake is paired with low capacity to detoxify it. Children with konzo have measurably lower cyanide detoxification rates than controls, and worse nutritional status (stunting/wasting) distinguishes konzo patients from equally cyanide-exposed healthy individuals, implicating impaired detoxification and malnutrition as the decisive co-factors.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sulfur amino acid metabolic process\", \"detoxification\"]}}, {\"id\": \"Symmetric Permanent Spastic Paraparesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of konzo is an abrupt-onset, symmetric, permanent and non-progressive spastic paraparesis of the lower limbs, with upper motor neuron signs (spasticity, hyperreflexia, extensor plantar responses, clonus) and a stiff, scissoring gait, and no sensory or genitourinary impairment. Once established the deficit is irreversible.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"upper motor neuron\"], \"biological_processes\": [\"neuron apoptotic process\"]}}, {\"id\": \"Upper Motor Neuron and Corticospinal Tract Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequately detoxified cyanide and its metabolites selectively injure upper motor neurons and their corticospinal (pyramidal) tract axons, with sparing of lower motor neurons, sensory pathways, and sphincter function. Proposed effector mechanisms include excitotoxicity and oxidative stress: cyanide is a mitochondrial toxin, and cassava-cyanide metabolites (thiocyanate, cyanate) act on neurons, with cyanate inducing reactive oxygen species, caspase activation, and depolarizing currents through ionotropic glutamate receptors in spinal cord neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"upper motor neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\", \"response to oxidative stress\"], \"locations\": [\"corticospinal tract\"]}}], \"edges\": [{\"source\": \"Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava\", \"target\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ingested cyanide load must be detoxified, a process dependent on dietary sulfur amino acids.\"}, {\"source\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"target\": \"Upper Motor Neuron and Corticospinal Tract Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequately detoxified cyanide and its metabolites injure upper motor neurons via excitotoxic and oxidative mechanisms.\"}, {\"source\": \"Upper Motor Neuron and Corticospinal Tract Injury\", \"target\": \"Symmetric Permanent Spastic Paraparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of upper motor neuron / corticospinal input produces a permanent spastic paraparesis of the legs.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating exposure of konzo is high dietary intake of the cyanogenic glucoside linamarin from insufficiently processed bitter cassava roots. During digestion linamarin is hydrolysed by the enzyme linamarase to cyanohydrins, which break down to toxic cyanide, so a monotonous diet of poorly processed bitter cassava delivers a high chronic cyanide load. Epidemiological studies associate urinary linamarin and its cyanide metabolite thiocyanate with the occurrence of konzo, and outbreaks cluster geographically and seasonally with high cyanide exposure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cyanide metabolic process\"]}}, {\"id\": \"Drought and food shortage\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Epidemic outbreaks cluster during drought-provoked agricultural and social crises that force populations onto a diet of insufficiently processed bitter cassava, with shortcuts in processing that increase dietary cyanide exposure.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cyanide is normally detoxified to thiocyanate by sulfurtransferase enzymes that require a sulfur donor supplied by dietary sulfur-containing amino acids (methionine, cysteine). In konzo-affected populations the bitter-cassava diet is protein-poor and deficient in sulfur amino acids, so a high cyanide intake is paired with low capacity to detoxify it. Children with konzo have measurably lower cyanide detoxification rates than controls, and worse nutritional status (stunting/wasting) distinguishes konzo patients from equally cyanide-exposed healthy individuals, implicating impaired detoxification and malnutrition as the decisive co-factors.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"sulfur amino acid metabolic process\", \"detoxification\"]}}, {\"id\": \"Insufficiently processed bitter cassava overconsumption\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A monotonous diet dominated by insufficiently processed bitter cassava (Manihot esculenta) is the cause of konzo. Short or shortcut processing leaves large amounts of the cyanogen linamarin in the consumed cassava, delivering a high dietary cyanide load. Outbreaks occur in cassava-dependent regions of sub-Saharan Africa (Democratic Republic of the Congo, Mozambique, Tanzania, Central African Republic, Angola, Cameroon, Zambia), chiefly among children and women of childbearing age.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Protein malnutrition with low sulfur amino acid intake\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A protein-poor diet deficient in sulfur-containing amino acids accompanies the bitter-cassava diet and limits the substrate available for cyanide detoxification. Worse nutritional status (wasting and stunting) is the factor that distinguishes konzo patients from equally cyanide-exposed healthy controls.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Symmetric Permanent Spastic Paraparesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint of konzo is an abrupt-onset, symmetric, permanent and non-progressive spastic paraparesis of the lower limbs, with upper motor neuron signs (spasticity, hyperreflexia, extensor plantar responses, clonus) and a stiff, scissoring gait, and no sensory or genitourinary impairment. Once established the deficit is irreversible.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"upper motor neuron\"], \"biological_processes\": [\"neuron apoptotic process\"]}}, {\"id\": \"Upper Motor Neuron and Corticospinal Tract Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequately detoxified cyanide and its metabolites selectively injure upper motor neurons and their corticospinal (pyramidal) tract axons, with sparing of lower motor neurons, sensory pathways, and sphincter function. Proposed effector mechanisms include excitotoxicity and oxidative stress: cyanide is a mitochondrial toxin, and cassava-cyanide metabolites (thiocyanate, cyanate) act on neurons, with cyanate inducing reactive oxygen species, caspase activation, and depolarizing currents through ionotropic glutamate receptors in spinal cord neurons.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"upper motor neuron\"], \"biological_processes\": [\"glutamate receptor signaling pathway\", \"response to oxidative stress\"], \"locations\": [\"corticospinal tract\"]}}], \"edges\": [{\"source\": \"Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava\", \"target\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ingested cyanide load must be detoxified, a process dependent on dietary sulfur amino acids.\"}, {\"source\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"target\": \"Upper Motor Neuron and Corticospinal Tract Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inadequately detoxified cyanide and its metabolites injure upper motor neurons via excitotoxic and oxidative mechanisms.\"}, {\"source\": \"Upper Motor Neuron and Corticospinal Tract Injury\", \"target\": \"Symmetric Permanent Spastic Paraparesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of upper motor neuron / corticospinal input produces a permanent spastic paraparesis of the legs.\"}, {\"source\": \"Insufficiently processed bitter cassava overconsumption\", \"target\": \"Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Short or shortcut processing leaves linamarin in the root, and eating it delivers the cyanogen the node is named for. The exposure and the node are the same event seen from either side of the mouth, so nothing intervenes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein malnutrition with low sulfur amino acid intake\", \"target\": \"Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Detoxifying cyanide to thiocyanate consumes a sulfur donor that comes from dietary methionine and cysteine, so a protein-poor diet starves the reaction of its substrate. Recorded as direct because the shortfall in the node is the dietary shortfall itself. The cited evidence establishes the nutritional deficit and its association with disease, not the sulfurtransferase step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Drought and food shortage\", \"target\": \"Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Drought does not contain cyanide. It forces a population onto bitter cassava and onto shortcuts in processing it, and those steps raise the dietary cyanide load. Graded below the cassava exposure itself in this entry because two known links sit between the drought and the cyanogen.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4655,7 +4880,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
 
@@ -4665,7 +4890,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4683,14 +4908,21 @@
                         Spastic paraplegia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spastic paraplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001258">HP:0001258</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001258</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic paraplegia (HP:0001258). HP:0001258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4773,14 +5005,21 @@
                         Cognitive impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4833,22 +5072,119 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-selective-upper-motor-neuron-damage" data-dismech-node="Selective upper motor neuron damage" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Selective upper motor neuron damage
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal upper motor neuron morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002127" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002127</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal upper motor neuron morphology (HP:0002127). HP:0002127 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39608576" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39608576" target="_blank">PMID:39608576</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"INTRODUCTION: Chronic cassava-derived cyanide poisoning is associated with the appearance of konzo, a tropical spastic paraparesis due to selective upper motor neuron damage."</div>
+
+
+                <div class="evidence-explanation">Describes konzo as a spastic paraparesis due to selective upper motor neuron damage.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33964344" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33964344" target="_blank">PMID:33964344</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Konzo is a toxico-nutritional upper motor neuron disease causing a spastic paraparesis in schoolchildren and childbearing women in some African countries."</div>
+
+
+                <div class="evidence-explanation">Characterizes konzo as an upper motor neuron disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower limb spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lower limb spasticity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lower limb spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002061">HP:0002061</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002061</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower limb spasticity (HP:0002061), qualified as course stable. HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4918,14 +5254,21 @@
                         Spastic gait
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spastic gait
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002064" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002064">HP:0002064</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002064</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic gait (HP:0002064). HP:0002064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4977,14 +5320,21 @@
                         Upper motor neuron dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Upper motor neuron dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002493" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002493">HP:0002493</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002493</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upper motor neuron dysfunction (HP:0002493). HP:0002493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5082,7 +5432,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -5182,7 +5537,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -5269,7 +5629,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -5347,7 +5712,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -5436,6 +5806,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">A monotonous diet dominated by insufficiently processed bitter cassava (Manihot esculenta) is the cause of konzo. Short or shortcut processing leaves large amounts of the cyanogen linamarin in the consumed cassava, delivering a high dietary cyanide load. Outbreaks occur in cassava-dependent regions of sub-Saharan Africa (Democratic Republic of the Congo, Mozambique, Tanzania, Central African Republic, Angola, Cameroon, Zambia), chiefly among children and women of childbearing age.</div>
 
 
@@ -5496,10 +5870,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Short or shortcut processing leaves linamarin in the root, and eating it delivers the cyanogen the node is named for. The exposure and the node are the same event seen from either side of the mouth, so nothing intervenes.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20619859" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20619859" target="_blank">PMID:20619859</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"invariably associated with monotonous consumption of inadequately processed bitter cassava roots (Manihot esculenta) with very minimal protein supplementation"</div>
+
+
+                <div class="evidence-explanation">States that konzo is invariably associated with monotonous consumption of inadequately processed bitter cassava, the exposure this link records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29981837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29981837" target="_blank">PMID:29981837</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"an association between outbreaks of the disease and chronic dietary reliance on insufficiently processed cyanogenic cassava"</div>
+
+
+                <div class="evidence-explanation">Independently ties disease outbreaks to chronic dietary reliance on insufficiently processed cyanogenic cassava, which is why the link is recorded as direct rather than inferred.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-protein-malnutrition-with-low-sulfur-amino-acid-intake" data-dismech-node="Protein malnutrition with low sulfur amino acid intake" data-dismech-type="environmental">
                 <div class="item-name">Protein malnutrition with low sulfur amino acid intake</div>
+
+
+
+
 
 
 
@@ -5563,10 +6015,88 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Detoxifying cyanide to thiocyanate consumes a sulfur donor that comes from dietary methionine and cysteine, so a protein-poor diet starves the reaction of its substrate. Recorded as direct because the shortfall in the node is the dietary shortfall itself. The cited evidence establishes the nutritional deficit and its association with disease, not the sulfurtransferase step.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34444788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"konzo patients had a high prevalence of both wasting (54.5%) and stunting (72.7%)"</div>
+
+
+                <div class="evidence-explanation">Measures wasting in over half and stunting in nearly three quarters of konzo patients, quantifying the protein-energy deficit this link depends on.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34444788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34444788" target="_blank">PMID:34444788</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"malnutrition may be a key factor for the disease occurrence"</div>
+
+
+                <div class="evidence-explanation">The same comparative study concludes that malnutrition may be a key factor in disease occurrence, which is what distinguishes patients from equally cyanide-exposed controls.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-drought-and-food-shortage" data-dismech-node="Drought and food shortage" data-dismech-type="environmental">
                 <div class="item-name">Drought and food shortage</div>
+
+
+
+
 
 
 
@@ -5607,6 +6137,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Drought does not contain cyanide. It forces a population onto bitter cassava and onto shortcuts in processing it, and those steps raise the dietary cyanide load. Graded below the cassava exposure itself in this entry because two known links sit between the drought and the cyanogen.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12376882" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12376882" target="_blank">PMID:12376882</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidemic outbreaks in subtropical and tropical regions are associated with drought-provoked agricultural and social crises rendering populations dependent on a diet of insufficiently processed bitter cassava."</div>
+
+
+                <div class="evidence-explanation">States that epidemic outbreaks are associated with drought-provoked agricultural and social crises that leave populations dependent on insufficiently processed bitter cassava, naming both intervening steps.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -5844,11 +6426,66 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    DNA methylation patterns associated with cyanogenic cassava exposure and konzo in Sub-Saharan Africa
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE180119" target="_blank">geo:GSE180119</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Konzo, a disease characterized by sudden, irreversible spastic paraparesis, affecting up to 10% of the population in some regions of Sub-Saharan Africa during outbreaks and is strongly associated with dietary exposure to cyanogenic bitter cassava. The molecular mechanisms underlying the development of konzo, remain largely unknown. Here, through an analysis of 16 individuals with konzo and matched healthy controls from the same outbreak zones, we identified 117 differentially methylated loci involved in numerous biological processes that may identify cyanogenic- sensitive regions of the genome, providing the first study of epigenomic alterations associated with sub-lethal cyanide exposure an...</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">METHYLATION</span>
+
+
+                    <span class="tag tag-dataset">n=32</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36536449" target="_blank" style="color: var(--secondary);">PMID:36536449</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Konzo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6076,6 +6713,36 @@ pathophysiology:
     snippet: &#34;Konzo is characterized by the abrupt onset of isolated and symmetric spastic paraparesis of the lower extremities which is permanent but nonprogressive.&#34;
     explanation: &#34;Confirms the abrupt-onset, symmetric, permanent but nonprogressive nature of the spastic paraparesis.&#34;
 phenotypes:
+- name: Selective upper motor neuron damage
+  category: Neurologic
+  description: &gt;-
+    Cyanogenic glucoside exposure selectively injures the corticospinal (upper motor
+    neuron) tracts, producing abrupt symmetric spastic paraparesis with sensory and
+    genitourinary sparing.
+  phenotype_term:
+    preferred_term: Abnormal upper motor neuron morphology
+    term:
+      id: HP:0002127
+      label: Abnormal upper motor neuron morphology
+  evidence:
+  - reference: PMID:39608576
+    reference_title: &#34;New insight into the molecular etiopathogenesis of konzo: Cyanate could be a plausible neurotoxin contributing to konzo, contrary to thiocyanate.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;INTRODUCTION: Chronic cassava-derived cyanide poisoning is associated with the
+      appearance of konzo, a tropical spastic paraparesis due to selective upper motor
+      neuron damage.&#34;
+    explanation: &gt;-
+      Describes konzo as a spastic paraparesis due to selective upper motor neuron
+      damage.
+  - reference: PMID:33964344
+    reference_title: &#34;Konzo risk factors, determinants and etiopathogenesis: What is new? A systematic review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Konzo is a toxico-nutritional upper motor neuron disease causing a spastic
+      paraparesis in schoolchildren and childbearing women in some African countries.&#34;
+    explanation: &gt;-
+      Characterizes konzo as an upper motor neuron disease.
 - name: Spastic paraplegia
   category: Neurologic
   description: &gt;-
@@ -6168,6 +6835,34 @@ phenotypes:
     explanation: &#34;Cognitive impairment and neurodevelopmental delay are reported in konzo-affected children.&#34;
 environmental:
 - name: Insufficiently processed bitter cassava overconsumption
+  influences_mechanisms:
+  - target: Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Short or shortcut processing leaves linamarin in the root, and eating it
+      delivers the cyanogen the node is named for. The exposure and the node
+      are the same event seen from either side of the mouth, so nothing
+      intervenes.
+    evidence:
+    - reference: PMID:20619859
+      reference_title: &#34;Etiology of Konzo, epidemic spastic paraparesis associated with cyanogenic glycosides in cassava: role of thiamine deficiency?&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;invariably associated with monotonous consumption of inadequately processed bitter cassava roots (Manihot esculenta) with very minimal protein supplementation&#34;
+      explanation: &gt;-
+        States that konzo is invariably associated with monotonous consumption
+        of inadequately processed bitter cassava, the exposure this link
+        records.
+    - reference: PMID:29981837
+      reference_title: &#34;Konzo: a distinct neurological disease associated with food (cassava) cyanogenic poisoning.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;an association between outbreaks of the disease and chronic dietary reliance on insufficiently processed cyanogenic cassava&#34;
+      explanation: &gt;-
+        Independently ties disease outbreaks to chronic dietary reliance on
+        insufficiently processed cyanogenic cassava, which is why the link is
+        recorded as direct rather than inferred.
   description: &gt;-
     A monotonous diet dominated by insufficiently processed bitter cassava
     (Manihot esculenta) is the cause of konzo. Short or shortcut processing leaves
@@ -6190,6 +6885,36 @@ environmental:
     snippet: &#34;an association between outbreaks of the disease and chronic dietary reliance on insufficiently processed cyanogenic cassava&#34;
     explanation: &#34;Outbreaks are associated with chronic dietary reliance on insufficiently processed cyanogenic cassava.&#34;
 - name: Protein malnutrition with low sulfur amino acid intake
+  influences_mechanisms:
+  - target: Impaired Cyanide Detoxification with Low Sulfur Amino Acid Intake
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Detoxifying cyanide to thiocyanate consumes a sulfur donor that comes
+      from dietary methionine and cysteine, so a protein-poor diet starves the
+      reaction of its substrate. Recorded as direct because the shortfall in
+      the node is the dietary shortfall itself. The cited evidence establishes
+      the nutritional deficit and its association with disease, not the
+      sulfurtransferase step.
+    evidence:
+    - reference: PMID:34444788
+      reference_title: &#34;Revisiting Konzo Risk Factors in Three Areas Differently Affected by Spastic Paraparesis in Eastern Democratic Republic of the Congo Discloses a Prominent Role of the Nutritional Status-A Comparative Cross-Sectional Study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;konzo patients had a high prevalence of both wasting (54.5%) and stunting (72.7%)&#34;
+      explanation: &gt;-
+        Measures wasting in over half and stunting in nearly three quarters of
+        konzo patients, quantifying the protein-energy deficit this link
+        depends on.
+    - reference: PMID:34444788
+      reference_title: &#34;Revisiting Konzo Risk Factors in Three Areas Differently Affected by Spastic Paraparesis in Eastern Democratic Republic of the Congo Discloses a Prominent Role of the Nutritional Status-A Comparative Cross-Sectional Study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;malnutrition may be a key factor for the disease occurrence&#34;
+      explanation: &gt;-
+        The same comparative study concludes that malnutrition may be a key
+        factor in disease occurrence, which is what distinguishes patients
+        from equally cyanide-exposed controls.
   description: &gt;-
     A protein-poor diet deficient in sulfur-containing amino acids accompanies the
     bitter-cassava diet and limits the substrate available for cyanide
@@ -6209,6 +6934,26 @@ environmental:
     snippet: &#34;malnutrition may be a key factor for the disease occurrence&#34;
     explanation: &#34;Malnutrition is identified as a key factor for konzo occurrence alongside cyanide poisoning.&#34;
 - name: Drought and food shortage
+  influences_mechanisms:
+  - target: Cyanogenic Glucoside (Linamarin) and Cyanide Exposure from Bitter Cassava
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Drought does not contain cyanide. It forces a population onto bitter
+      cassava and onto shortcuts in processing it, and those steps raise the
+      dietary cyanide load. Graded below the cassava exposure itself in this
+      entry because two known links sit between the drought and the cyanogen.
+    evidence:
+    - reference: PMID:12376882
+      reference_title: &#34;[Endemic spastic paraperesis (konzo)].&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Epidemic outbreaks in subtropical and tropical regions are associated with drought-provoked agricultural and social crises rendering populations dependent on a diet of insufficiently processed bitter cassava.&#34;
+      explanation: &gt;-
+        States that epidemic outbreaks are associated with drought-provoked
+        agricultural and social crises that leave populations dependent on
+        insufficiently processed bitter cassava, naming both intervening
+        steps.
   description: &gt;-
     Epidemic outbreaks cluster during drought-provoked agricultural and social
     crises that force populations onto a diet of insufficiently processed bitter
@@ -6414,6 +7159,19 @@ differential_diagnoses:
     evidence_source: OTHER
     snippet: &#34;the retrovirus HTLV-1 is the causeof tropical spastic paraparesis/paraplegia or TSP&#34;
     explanation: &#34;TSP is caused by the retrovirus HTLV-1, distinguishing it from toxin-induced konzo (quote reproduces a spacing artifact in the source abstract).&#34;
+datasets:
+- accession: geo:GSE180119
+  title: DNA methylation patterns associated with cyanogenic cassava exposure and konzo in Sub-Saharan Africa
+  description: Konzo, a disease characterized by sudden, irreversible spastic paraparesis, affecting up to 10% of the population in some regions of Sub-Saharan Africa during outbreaks and is strongly associated with dietary exposure to cyanogenic bitter cassava. The molecular mechanisms underlying the development of konzo, remain largely unknown. Here, through an analysis of 16 individuals with konzo and matched healthy controls from the same outbreak zones, we identified 117 differentially methylated loci involved in numerous biological processes that may identify cyanogenic- sensitive regions of the genome, providing the first study of epigenomic alterations associated with sub-lethal cyanide exposure an...
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: METHYLATION
+  sample_count: 32
+  publication: PMID:36536449
+  notes: Identified by GEO DataSets index search for Konzo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -6474,7 +7232,7 @@ differential_diagnoses:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Konzo", "mondoId": "MONDO:0022666", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Konzo", "yamlRevision": "de4473f45115"};
+        const OS_CONFIG = {"diseaseName": "Konzo", "mondoId": "MONDO:0022666", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Konzo", "yamlRevision": "2d84511024e6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6893,5 +7651,73 @@ differential_diagnoses:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

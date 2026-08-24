@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3816,15 +3984,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BANF1
 
 
-    <a href="https://bioregistry.io/hgnc:17397" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17397">hgnc:17397</a>
+    <a href="https://bioregistry.io/hgnc:17397" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:17397</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BANF1 (hgnc:17397). hgnc:17397 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3852,15 +4027,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         BANF1
 
 
-    <a href="https://bioregistry.io/hgnc:17397" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17397">hgnc:17397</a>
+    <a href="https://bioregistry.io/hgnc:17397" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:17397</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BANF1 (hgnc:17397). hgnc:17397 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3880,6 +4062,7 @@
 
 
                 </div>
+
 
 
 
@@ -3972,6 +4155,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4028,6 +4212,7 @@
                 <div class="item-name">Nuclear envelope and chromatin dysregulation</div>
 
                 <div class="item-desc">BANF1 dysfunction leads to progeroid cellular changes involving nuclear structure and chromatin-associated DNA interactions.</div>
+
 
 
 
@@ -4145,7 +4330,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BANF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causal variant\"}}, {\"id\": \"BANF1 mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nestor-Guillermo progeria syndrome is caused by pathogenic BANF1 mutation, establishing the primary molecular lesion in this progeroid disorder.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BANF1\"], \"gene_terms\": [{\"label\": \"BANF1\", \"id\": \"hgnc:17397\"}]}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation is one of the characteristic early manifestations of NGPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Impaired DNA binding by BAF\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NGPS-associated BANF1 A12T protein is folded and stable but has impaired DNA binding, clarifying the key biochemical defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint stiffness is part of the progeroid musculoskeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Nuclear envelope and chromatin dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BANF1 dysfunction leads to progeroid cellular changes involving nuclear structure and chromatin-associated DNA interactions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced subcutaneous adipose tissue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced subcutaneous fat contributes to the progeroid habitus in NGPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009125\"}}, {\"id\": \"Skeletal abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe skeletal disease is a major source of morbidity in NGPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000924\"}}], \"edges\": [{\"source\": \"BANF1 mutation\", \"target\": \"Impaired DNA binding by BAF\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent BANF1 mutation impairs BAF DNA binding activity.\"}, {\"source\": \"BANF1 mutation\", \"target\": \"Nuclear envelope and chromatin dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered BAF function perturbs nuclear structure and chromatin-related regulation.\"}, {\"source\": \"Impaired DNA binding by BAF\", \"target\": \"Nuclear envelope and chromatin dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired DNA binding perturbs normal BAF-mediated nuclear regulation.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nuclear and chromatin dysregulation contributes to impaired somatic growth.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic connective-tissue and skeletal dysfunction contributes to joint stiffness.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Skeletal abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive skeletal consequences are a major clinical outcome of the disease.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Reduced subcutaneous adipose tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BANF1-related nuclear and chromatin dysregulation contributes to the progeroid habitus, including reduced subcutaneous adipose tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BANF1\", \"target\": \"BANF1 mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BANF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"BANF1\"], \"gene_terms\": [{\"label\": \"BANF1\", \"id\": \"hgnc:17397\"}], \"association\": \"Causal variant\"}}, {\"id\": \"BANF1 mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nestor-Guillermo progeria syndrome is caused by pathogenic BANF1 mutation, establishing the primary molecular lesion in this progeroid disorder.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BANF1\"], \"gene_terms\": [{\"label\": \"BANF1\", \"id\": \"hgnc:17397\"}]}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation is one of the characteristic early manifestations of NGPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Impaired DNA binding by BAF\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The NGPS-associated BANF1 A12T protein is folded and stable but has impaired DNA binding, clarifying the key biochemical defect.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Joint stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint stiffness is part of the progeroid musculoskeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001387\"}}, {\"id\": \"Nuclear envelope and chromatin dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BANF1 dysfunction leads to progeroid cellular changes involving nuclear structure and chromatin-associated DNA interactions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced subcutaneous adipose tissue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced subcutaneous fat contributes to the progeroid habitus in NGPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009125\"}}, {\"id\": \"Skeletal abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe skeletal disease is a major source of morbidity in NGPS.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000924\"}}], \"edges\": [{\"source\": \"BANF1 mutation\", \"target\": \"Impaired DNA binding by BAF\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recurrent BANF1 mutation impairs BAF DNA binding activity.\"}, {\"source\": \"BANF1 mutation\", \"target\": \"Nuclear envelope and chromatin dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered BAF function perturbs nuclear structure and chromatin-related regulation.\"}, {\"source\": \"Impaired DNA binding by BAF\", \"target\": \"Nuclear envelope and chromatin dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired DNA binding perturbs normal BAF-mediated nuclear regulation.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nuclear and chromatin dysregulation contributes to impaired somatic growth.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Joint stiffness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic connective-tissue and skeletal dysfunction contributes to joint stiffness.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Skeletal abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive skeletal consequences are a major clinical outcome of the disease.\"}, {\"source\": \"Nuclear envelope and chromatin dysregulation\", \"target\": \"Reduced subcutaneous adipose tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BANF1-related nuclear and chromatin dysregulation contributes to the progeroid habitus, including reduced subcutaneous adipose tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"BANF1\", \"target\": \"BANF1 mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4184,14 +4369,21 @@
                         Joint stiffness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint stiffness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001387">HP:0001387</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0001387</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4243,14 +4435,23 @@
                         Skeletal abnormalities
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the skeletal system
+
+                        <span class="phenotype-term-label">Abnormality of the skeletal system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000924">HP:0000924</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000924" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000924</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is abnormal skeletal morphology, annotated with Abnormality of the skeletal system (HP:0000924). HP:0000924 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4302,14 +4503,23 @@
                         Reduced subcutaneous adipose tissue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lipodystrophy
+
+                        <span class="phenotype-term-label">Lipodystrophy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009125" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009125">HP:0009125</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009125" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0009125</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is lipoatrophy, annotated with Lipodystrophy (HP:0009125). HP:0009125 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4370,14 +4580,21 @@
                         Growth delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4468,6 +4685,28 @@
                     BANF1
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causal variant)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: BANF1
+
+
+    <a href="https://bioregistry.io/hgnc:17397" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:17397</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BANF1 (hgnc:17397). hgnc:17397 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
 
                 </div>
 
@@ -4716,6 +4955,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -4732,7 +4974,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Nestor-Guillermo progeria syndrome
 creation_date: &#34;2026-04-13T22:47:36Z&#34;
-updated_date: &#34;2026-04-14T14:35:00Z&#34;
 description: &gt;-
   Nestor-Guillermo progeria syndrome is a rare BANF1-related progeroid disorder
   with early onset but comparatively slow progression. Affected individuals
@@ -4894,6 +5135,11 @@ phenotypes:
     explanation: This directly supports reduced subcutaneous fat in NGPS.
 genetic:
 - name: BANF1
+  gene_term:
+    preferred_term: BANF1
+    term:
+      id: hgnc:17397
+      label: BANF1
   association: Causal variant
   notes: &gt;-
     Nestor-Guillermo progeria syndrome is caused by pathogenic BANF1 mutation,
@@ -5395,7 +5641,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Nestor-Guillermo progeria syndrome", "mondoId": "MONDO:0013523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nestor-Guillermo_progeria_syndrome", "yamlRevision": "e7a15fdc94de"};
+        const OS_CONFIG = {"diseaseName": "Nestor-Guillermo progeria syndrome", "mondoId": "MONDO:0013523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Nestor-Guillermo_progeria_syndrome", "yamlRevision": "ef4c83d16ac1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -5814,5 +6060,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

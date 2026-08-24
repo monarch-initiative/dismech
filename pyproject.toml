@@ -19,11 +19,17 @@ dependencies = [
   "httpx>=0.28.1",
   "koza>=2.3.1",
   "linkml-data-qc[viz]",
-  "linkml-reference-validator>=0.2.1rc2",
+  # >=0.2.1 (not the older rc2 pin): 0.2.1 is where _fetch_abstract split into
+  # _fetch_pubmed_xml/_parse_abstract and _save_to_disk gained `private=`, both
+  # of which src/dismech/patch_reference_validator.py now accommodates. Allowing
+  # rc2 as well would keep a second, untested API shape reachable for non-dev
+  # installs for no benefit.
+  "linkml-reference-validator>=0.2.1",
   "linkml-runtime >=1.9.4",
   "linkml-term-validator>=0.4.4",
   "ndex2>=3.9.0,<4",
   "networkx>=3,<4",
+  "oaklib>=0.7.4",
   "typer>=0.9.0",
   "markdown>=3.5",
 ]
@@ -35,6 +41,7 @@ dismech-cx2 = "dismech.export.cx2_export:main"
 dismech-disease-inventory = "dismech.export.disease_inventory:main"
 dismech-mondo-prioritize = "dismech.compare.mondo_priority:main"
 dismech-node-embed = "dismech.node_embeddings.cli:main"
+dismech-stubs = "dismech.stubs.cli:main"
 
 [dependency-groups]
 dev = [
@@ -42,7 +49,7 @@ dev = [
     "mkdocs-material>=8.2.8",
     "jupyter>=1.0.0",
     "mknotebooks>=0.8.0",
-    "deep-research-client[cyberian]>=0.2.7",
+    "deep-research-client[cyberian,validation]>=0.2.10",
     "pytest-xdist>=3.6.0",
 ]
 export = [
@@ -158,3 +165,13 @@ ignore = [
   "S112",   # try-except-continue: intentional skip-on-error in batch/sweep loops
   "S102",   # exec-builtin: only in tests that execute generated-code fixtures
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Every script in scripts/ is run directly rather than imported, so it has to
+# put `src/` on sys.path before it can import `dismech.*`. That makes the import
+# non-top-of-file by construction. Ruff 0.15 began reporting E402 by default,
+# which turned nine long-standing scripts red at once on main and blocked every
+# PR's lint step -- the cost of tracking ruff's default rule set unpinned, which
+# is a deliberate choice made just above. Scoped to scripts/ so E402 still
+# applies to src/ and tests/, where the idiom has no excuse.
+"scripts/*" = ["E402"]

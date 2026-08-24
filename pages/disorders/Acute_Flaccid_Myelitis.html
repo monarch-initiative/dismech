@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3699,6 +3865,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3800,7 +3968,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4641,16 +4809,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009615">GO:0009615</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0009615</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4677,17 +4850,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         respiratory system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001004">UBERON:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0001004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         central nervous system
@@ -4695,13 +4875,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001017">UBERON:0001017</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4837,16 +5021,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MFSD6
 
 
-    <a href="https://bioregistry.io/hgnc:24711" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24711">hgnc:24711</a>
+    <a href="https://bioregistry.io/hgnc:24711" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:24711</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MFSD6 (hgnc:24711). hgnc:24711 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4874,10 +5069,13 @@
         ICAM5
 
 
-    <a href="https://bioregistry.io/hgnc:5348" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5348">hgnc:5348</a>
+    <a href="https://bioregistry.io/hgnc:5348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:5348</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ICAM5 (hgnc:5348). hgnc:5348 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4905,16 +5103,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         symbiont entry into host cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046718">GO:0046718</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0046718</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased symbiont entry into host cell (GO:0046718). GO:0046718 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4935,6 +5138,7 @@
 
 
                 </div>
+
 
 
 
@@ -5054,17 +5258,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5085,11 +5296,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5110,10 +5326,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5143,16 +5362,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         spinal cord
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5174,6 +5398,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5289,16 +5514,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         anterior horn motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000048" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:2000048">CL:2000048</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000048" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:2000048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves anterior horn motor neuron (CL:2000048). CL:2000048 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5325,16 +5555,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5361,17 +5596,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ventral horn of spinal cord
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002257" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002257">UBERON:0002257</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002257" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ventral horn of spinal cord (UBERON:0002257). UBERON:0002257 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brainstem
@@ -5379,10 +5621,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002298">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5404,6 +5649,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5495,16 +5741,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5534,17 +5785,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ventral horn of spinal cord
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002257" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002257">UBERON:0002257</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002257" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002257</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ventral horn of spinal cord (UBERON:0002257). UBERON:0002257 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brainstem
@@ -5552,13 +5810,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002298">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5696,7 +5958,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute flaccid paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003470\"}}, {\"id\": \"Acute limb weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003690\"}}, {\"id\": \"Acute supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute management is primarily supportive and includes close monitoring for bulbar and respiratory muscle involvement, intensive-care support when needed, pain control, prevention of complications, and multidisciplinary neurologic and infectious-disease evaluation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Asymmetric limb weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb weakness is often asymmetric in AFM and helps distinguish AFM from Guillain-Barre syndrome in children with acute flaccid paralysis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003690\"}}, {\"id\": \"Bulbar palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001283\"}}, {\"id\": \"CSF pleocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012229\"}}, {\"id\": \"Cranial nerve palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006824\"}}, {\"id\": \"Facial weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030319\"}}, {\"id\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Two three-dimensional human spinal-cord organoid systems, one enriched for spinal motor neurons and one containing multiple neuronal and glial lineages, model productive infection by contemporary EV-D68 strains. They reproduce neural tropism but not the immune-cell environment or the full route from respiratory infection to human paralysis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"astrocyte\", \"oligodendrocyte precursor cell\"], \"model_type\": \"ORGANOID\", \"conditions\": [\"Naive or EV-D68-infected human spinal cord organoids\"], \"publication\": \"DOI:10.1128/mbio.01058-23\"}}, {\"id\": \"MFSD6- and ICAM5-Mediated EV-D68 Neural Cell Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MFSD6 is a directly demonstrated EV-D68 entry receptor in respiratory and neural primary cells. ICAM5 is a proposed neuron-specific receptor and is retained as complementary, lower-tier evidence rather than treated as a universal AFM receptor mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"symbiont entry into host cell\"], \"genes\": [\"MFSD6\", \"ICAM5\"], \"gene_terms\": [{\"label\": \"MFSD6\", \"id\": \"hgnc:24711\"}, {\"label\": \"ICAM5\", \"id\": \"hgnc:5348\"}]}}, {\"id\": \"Mechanical ventilatory support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness or bulbar dysfunction can require intubation, invasive mechanical ventilation, or other airway and respiratory support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-polio Enterovirus Respiratory Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFM most often occurs after a respiratory or febrile illness. EV-D68 is the leading epidemic-associated virus. Only a very small fraction of respiratory infections are followed by AFM, and the route and determinants that permit subsequent CNS access in children remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to virus\"], \"locations\": [\"respiratory system\", \"central nervous system\"]}}, {\"id\": \"Physical therapy and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term care relies on early, intensive, and individualized rehabilitation, including physical therapy, occupational therapy, bracing, orthopedic monitoring, and functional support for residual motor deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prodromal respiratory tract infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most AFM cases are preceded by a short febrile or upper respiratory illness, typically 1-10 days before the onset of weakness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011947\"}}, {\"id\": \"Respiratory insufficiency due to muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunction of segmental anterior-horn and cranial motor systems produces rapid flaccid weakness, depressed reflexes, asymmetry, and, when brainstem or respiratory motor pools are affected, facial, bulbar, or ventilatory impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"locations\": [\"ventral horn of spinal cord\", \"brainstem\"]}}, {\"id\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFM injury is centered on spinal gray matter and anterior-horn motor neurons. Cranial motor nuclei can also be involved, accounting for facial, bulbar, and respiratory manifestations that cannot be attributed to spinal anterior horns alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"anterior horn motor neuron\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"ventral horn of spinal cord\", \"brainstem\"], \"experimental_models\": [{\"name\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"model_type\": \"ORGANOID\", \"description\": \"Separates productive viral infection from overt cytopathic injury and motivates testing secondary immune-mediated damage.\"}]}}, {\"id\": \"Spinal Neural Cell Tropism and Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Contemporary EV-D68 strains productively infect human spinal-cord organoids. Tropism differs by strain across neurons, cycling astrocytes, and oligodendrocyte precursor cells, indicating that neural susceptibility is neither uniform nor explained by motor neurons alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"astrocyte\", \"oligodendrocyte precursor cell\"], \"locations\": [\"spinal cord\"], \"experimental_models\": [{\"name\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"model_type\": \"ORGANOID\", \"description\": \"Tests whether historical and contemporary EV-D68 strains productively infect human spinal neural populations.\"}]}}, {\"id\": \"Spinal cord gray matter lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100561\"}}, {\"id\": \"Transcutaneous spinal cord stimulation with gait training\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transcutaneous spinal cord stimulation paired with gait training has early pediatric case-series evidence for feasibility and walking-function improvement after AFM-related incomplete spinal cord injury. This is an investigational rehabilitation adjunct rather than established standard care.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Non-polio Enterovirus Respiratory Infection\", \"target\": \"Prodromal respiratory tract infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory enterovirus infection commonly produces the febrile or respiratory prodrome that precedes neurologic weakness.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-polio Enterovirus Respiratory Infection\", \"target\": \"MFSD6- and ICAM5-Mediated EV-D68 Neural Cell Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory infection precedes rare CNS access and neural-cell entry, but the route of spread and other intervening determinants are not established.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MFSD6- and ICAM5-Mediated EV-D68 Neural Cell Entry\", \"target\": \"Spinal Neural Cell Tropism and Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor-dependent cell entry permits productive EV-D68 infection in susceptible neural cells.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal Neural Cell Tropism and Infection\", \"target\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neural infection can precede motor-neuron injury through direct viral effects and/or secondary inflammatory injury; their relative contribution in human AFM remains unresolved.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\", \"secondary_immune_mediated_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"target\": \"Spinal cord gray matter lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gray-matter injury is visualized as the characteristic spinal-cord MRI abnormality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"target\": \"CSF pleocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS inflammation can increase leukocytes in CSF, although pleocytosis is supportive rather than required or disease-specific.\", \"hypothesis_groups\": [\"secondary_immune_mediated_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"target\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss or dysfunction of spinal and cranial motor neurons produces the characteristic lower-motor-neuron syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Acute flaccid paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-neuron dysfunction produces acute flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Acute limb weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Segmental motor-neuron dysfunction produces abrupt limb weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Asymmetric limb weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patchy segmental motor-pool injury often produces asymmetric weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower-motor-neuron dysfunction interrupts the reflex arc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Cranial nerve palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial motor-system involvement can produce cranial neuropathies.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Facial weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial motor involvement can cause weakness of facial musculature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Bulbar palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem motor involvement can impair bulbar function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory motor-pool involvement can cause ventilatory failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute supportive care\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mechanical ventilatory support\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy and rehabilitation\", \"target\": \"Acute limb weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transcutaneous spinal cord stimulation with gait training\", \"target\": \"Acute limb weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"target\": \"Spinal Neural Cell Tropism and Infection\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"target\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute flaccid paralysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003470\"}}, {\"id\": \"Acute limb weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003690\"}}, {\"id\": \"Acute supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acute management is primarily supportive and includes close monitoring for bulbar and respiratory muscle involvement, intensive-care support when needed, pain control, prevention of complications, and multidisciplinary neurologic and infectious-disease evaluation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Areflexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001284\"}}, {\"id\": \"Asymmetric limb weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Limb weakness is often asymmetric in AFM and helps distinguish AFM from Guillain-Barre syndrome in children with acute flaccid paralysis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003690\"}}, {\"id\": \"Bulbar palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001283\"}}, {\"id\": \"CSF pleocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012229\"}}, {\"id\": \"Cranial nerve palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006824\"}}, {\"id\": \"Facial weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030319\"}}, {\"id\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Two three-dimensional human spinal-cord organoid systems, one enriched for spinal motor neurons and one containing multiple neuronal and glial lineages, model productive infection by contemporary EV-D68 strains. They reproduce neural tropism but not the immune-cell environment or the full route from respiratory infection to human paralysis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"astrocyte\", \"oligodendrocyte precursor cell\"], \"model_type\": \"ORGANOID\", \"conditions\": [\"Naive or EV-D68-infected human spinal cord organoids\"], \"publication\": \"DOI:10.1128/mbio.01058-23\"}}, {\"id\": \"MFSD6- and ICAM5-Mediated EV-D68 Neural Cell Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MFSD6 is a directly demonstrated EV-D68 entry receptor in respiratory and neural primary cells. ICAM5 is a proposed neuron-specific receptor and is retained as complementary, lower-tier evidence rather than treated as a universal AFM receptor mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"symbiont entry into host cell\"], \"genes\": [\"MFSD6\", \"ICAM5\"], \"gene_terms\": [{\"label\": \"MFSD6\", \"id\": \"hgnc:24711\"}, {\"label\": \"ICAM5\", \"id\": \"hgnc:5348\"}]}}, {\"id\": \"Mechanical ventilatory support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory muscle weakness or bulbar dysfunction can require intubation, invasive mechanical ventilation, or other airway and respiratory support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Non-polio Enterovirus Respiratory Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFM most often occurs after a respiratory or febrile illness. EV-D68 is the leading epidemic-associated virus. Only a very small fraction of respiratory infections are followed by AFM, and the route and determinants that permit subsequent CNS access in children remain unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to virus\"], \"locations\": [\"respiratory system\", \"central nervous system\"]}}, {\"id\": \"Physical therapy and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term care relies on early, intensive, and individualized rehabilitation, including physical therapy, occupational therapy, bracing, orthopedic monitoring, and functional support for residual motor deficits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prodromal respiratory tract infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Most AFM cases are preceded by a short febrile or upper respiratory illness, typically 1-10 days before the onset of weakness.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011947\"}}, {\"id\": \"Respiratory insufficiency due to muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002747\"}}, {\"id\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunction of segmental anterior-horn and cranial motor systems produces rapid flaccid weakness, depressed reflexes, asymmetry, and, when brainstem or respiratory motor pools are affected, facial, bulbar, or ventilatory impairment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"locations\": [\"ventral horn of spinal cord\", \"brainstem\"]}}, {\"id\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFM injury is centered on spinal gray matter and anterior-horn motor neurons. Cranial motor nuclei can also be involved, accounting for facial, bulbar, and respiratory manifestations that cannot be attributed to spinal anterior horns alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"anterior horn motor neuron\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"ventral horn of spinal cord\", \"brainstem\"], \"experimental_models\": [{\"name\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"model_type\": \"ORGANOID\", \"description\": \"Separates productive viral infection from overt cytopathic injury and motivates testing secondary immune-mediated damage.\"}]}}, {\"id\": \"Spinal Neural Cell Tropism and Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Contemporary EV-D68 strains productively infect human spinal-cord organoids. Tropism differs by strain across neurons, cycling astrocytes, and oligodendrocyte precursor cells, indicating that neural susceptibility is neither uniform nor explained by motor neurons alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"motor neuron\", \"astrocyte\", \"oligodendrocyte precursor cell\"], \"locations\": [\"spinal cord\"], \"experimental_models\": [{\"name\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"model_type\": \"ORGANOID\", \"description\": \"Tests whether historical and contemporary EV-D68 strains productively infect human spinal neural populations.\"}]}}, {\"id\": \"Spinal cord gray matter lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100561\"}}, {\"id\": \"Transcutaneous spinal cord stimulation with gait training\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transcutaneous spinal cord stimulation paired with gait training has early pediatric case-series evidence for feasibility and walking-function improvement after AFM-related incomplete spinal cord injury. This is an investigational rehabilitation adjunct rather than established standard care.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Non-polio Enterovirus Respiratory Infection\", \"target\": \"Prodromal respiratory tract infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory enterovirus infection commonly produces the febrile or respiratory prodrome that precedes neurologic weakness.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-polio Enterovirus Respiratory Infection\", \"target\": \"MFSD6- and ICAM5-Mediated EV-D68 Neural Cell Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory infection precedes rare CNS access and neural-cell entry, but the route of spread and other intervening determinants are not established.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"MFSD6- and ICAM5-Mediated EV-D68 Neural Cell Entry\", \"target\": \"Spinal Neural Cell Tropism and Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Receptor-dependent cell entry permits productive EV-D68 infection in susceptible neural cells.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal Neural Cell Tropism and Infection\", \"target\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neural infection can precede motor-neuron injury through direct viral effects and/or secondary inflammatory injury; their relative contribution in human AFM remains unresolved.\", \"hypothesis_groups\": [\"ev_d68_direct_neuroinvasion_model\", \"secondary_immune_mediated_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"target\": \"Spinal cord gray matter lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gray-matter injury is visualized as the characteristic spinal-cord MRI abnormality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"target\": \"CSF pleocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS inflammation can increase leukocytes in CSF, although pleocytosis is supportive rather than required or disease-specific.\", \"hypothesis_groups\": [\"secondary_immune_mediated_injury_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"target\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss or dysfunction of spinal and cranial motor neurons produces the characteristic lower-motor-neuron syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Acute flaccid paralysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Motor-neuron dysfunction produces acute flaccid paralysis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Acute limb weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Segmental motor-neuron dysfunction produces abrupt limb weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Asymmetric limb weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patchy segmental motor-pool injury often produces asymmetric weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Areflexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lower-motor-neuron dysfunction interrupts the reflex arc.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Cranial nerve palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cranial motor-system involvement can produce cranial neuropathies.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Facial weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial motor involvement can cause weakness of facial musculature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Bulbar palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem motor involvement can impair bulbar function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Segmental and Cranial Lower Motor Neuron Dysfunction\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory motor-pool involvement can cause ventilatory failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute supportive care\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Mechanical ventilatory support\", \"target\": \"Respiratory insufficiency due to muscle weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Physical therapy and rehabilitation\", \"target\": \"Acute limb weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transcutaneous spinal cord stimulation with gait training\", \"target\": \"Acute limb weakness\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"target\": \"Spinal Neural Cell Tropism and Infection\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests whether historical and contemporary EV-D68 strains productively infect human spinal neural populations.\"}, {\"source\": \"Human iPSC-derived spinal cord organoids infected with EV-D68\", \"target\": \"Spinal Gray Matter Inflammation and Motor Neuron Injury\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Separates productive viral infection from overt cytopathic injury and motivates testing secondary immune-mediated damage.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5741,14 +6003,23 @@
                         Facial weakness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weakness of facial musculature
+
+                        <span class="phenotype-term-label">Weakness of facial musculature</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030319">HP:0030319</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030319</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5809,14 +6080,23 @@
                         Acute limb weakness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb muscle weakness
+
+                        <span class="phenotype-term-label">Limb muscle weakness</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is acute limb weakness, annotated with Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5870,14 +6150,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limb muscle weakness
+
+                        <span class="phenotype-term-label">Limb muscle weakness</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003690</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is asymmetric limb weakness, annotated with Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5940,14 +6229,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory insufficiency due to muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002747</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6008,14 +6304,21 @@
                         Acute flaccid paralysis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paralysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003470">HP:0003470</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003470</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is acute flaccid paralysis, annotated with Paralysis (HP:0003470). HP:0003470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6067,14 +6370,21 @@
                         Areflexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Areflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001284">HP:0001284</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001284</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6126,14 +6436,23 @@
                         Cranial nerve palsy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cranial nerve paralysis
+
+                        <span class="phenotype-term-label">Cranial nerve paralysis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006824">HP:0006824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0006824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cranial nerve palsy, annotated with Cranial nerve paralysis (HP:0006824). HP:0006824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6194,14 +6513,21 @@
                         Prodromal respiratory tract infection
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory tract infection
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011947" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011947">HP:0011947</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is acute prodromal respiratory tract infection, annotated with Respiratory tract infection (HP:0011947), qualified as temporality acute. HP:0011947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6273,14 +6599,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spinal cord lesion
+
+                        <span class="phenotype-term-label">Spinal cord lesion</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100561" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100561">HP:0100561</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100561</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is spinal cord gray matter lesion, annotated with Spinal cord lesion (HP:0100561). HP:0100561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6334,14 +6669,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CSF pleocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012229">HP:0012229</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012229</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6393,14 +6735,21 @@
                         Bulbar palsy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bulbar palsy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001283">HP:0001283</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001283</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6498,7 +6847,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6535,16 +6889,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory insufficiency due to muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002747</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6593,7 +6952,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">mechanical ventilation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">mechanical ventilation<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mechanical ventilation (NCIT:C70909). NCIT:C70909 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Mechanical Ventilation</span>
 
 
@@ -6630,16 +6994,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory insufficiency due to muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002747">HP:0002747</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002747</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6688,7 +7057,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -6725,16 +7099,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6783,7 +7162,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">spinal cord stimulation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">spinal cord stimulation<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is spinal cord stimulation (NCIT:C21023). NCIT:C21023 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Spinal Cord Stimulation</span>
 
 
@@ -6820,16 +7204,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003690">HP:0003690</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003690</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6878,7 +7267,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6915,16 +7309,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Upper limb muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003484">HP:0003484</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003484</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Upper limb muscle weakness (HP:0003484). HP:0003484 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6973,7 +7372,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7080,6 +7484,10 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-ev-d68-respiratory-circulation-and-wastewater-seasonality" data-dismech-node="EV-D68 respiratory circulation and wastewater seasonality" data-dismech-type="environmental">
                 <div class="item-name">EV-D68 respiratory circulation and wastewater seasonality</div>
+
+
+
+
 
 
 
@@ -7740,37 +8148,52 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         motor neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         astrocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-41">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         oligodendrocyte precursor cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-42">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7780,30 +8203,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-43">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-43">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             spinal cord
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0002240</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -7835,14 +8268,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-spinal-neural-cell-tropism-and-infection">Spinal Neural Cell Tropism and Infection</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests whether historical and contemporary EV-D68 strains productively infect human spinal neural populations.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-spinal-neural-cell-tropism-and-infection">Spinal Neural Cell Tropism and Infection</a>
+
+
+
+                <span class="crosslink-desc">Tests whether historical and contemporary EV-D68 strains productively infect human spinal neural populations.</span>
+
+
 
 
 
@@ -7879,12 +8317,16 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-spinal-gray-matter-inflammation-and-motor-neuron-injury">Spinal Gray Matter Inflammation and Motor Neuron Injury</a>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-spinal-gray-matter-inflammation-and-motor-neuron-injury">Spinal Gray Matter Inflammation and Motor Neuron Injury</a>
 
-                            <span class="crosslink-desc">Separates productive viral infection from overt cytopathic injury and motivates testing secondary immune-mediated damage.</span>
+
+
+                <span class="crosslink-desc">Separates productive viral infection from overt cytopathic injury and motivates testing secondary immune-mediated damage.</span>
+
+
 
 
 
@@ -7921,10 +8363,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -8070,6 +8513,124 @@
 
 
                 <div class="evidence-explanation">Single-cell profiling distinguishes strain-specific target-cell preferences.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mouse" data-dismech-node="mouse" data-dismech-type="animal_model">
+                <div class="item-name">
+                    mouse
+
+                    <span class="tag tag-exp-model-type">Viral infection mouse model</span>
+
+                </div>
+
+                <div class="item-desc">Neonatal mouse models infected with contemporary EV-D68 outbreak strains develop paralytic myelitis resembling human AFM, with virus and viral genome in spinal cord and motor neuron loss in anterior horns corresponding to paralyzed limbs.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Paralytic myelitis</span>
+
+                    <span class="tag tag-phenotype">Motor neuron loss</span>
+
+                    <span class="tag tag-phenotype">Limb paralysis</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">mouse</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">neonatal mice experimentally infected with EV-D68</div>
+                    </div>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28231269" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28231269" target="_blank">PMID:28231269</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"four EV-D68 strains from the 2014 outbreak (out of five tested) produced a paralytic disease in mice resembling human AFM."</div>
+
+
+                <div class="evidence-explanation">This animal-model study supports EV-D68 as capable of producing an AFM-like paralytic phenotype in neonatal mice.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28231269" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28231269" target="_blank">PMID:28231269</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"infection and loss of motor neurons in the anterior horns of spinal cord segments corresponding to paralyzed limbs."</div>
+
+
+                <div class="evidence-explanation">The model recapitulates the anterior-horn motor neuron injury central to human AFM pathophysiology.</div>
 
 
 
@@ -14321,5 +14882,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

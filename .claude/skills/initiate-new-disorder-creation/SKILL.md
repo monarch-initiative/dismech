@@ -227,6 +227,87 @@ For example:
 
 You MUST read this before progressing.
 
+### Step 3a: Read the report's Reference Validation results (REQUIRED)
+
+Every `just research-*` recipe now resolves the report's citations as part of
+generating it (`deep-research-client >= 0.2.10`, backed by the same
+`linkml-reference-validator` the KB validators use). **The answer is already in
+the report — read it before you cite anything from that report.**
+
+Two places to look:
+
+1. **The frontmatter** carries a machine-readable summary:
+
+   ```yaml
+   reference_validation:
+     total_references: 24
+     verified: 22
+     not_found: 2
+     confabulation_rate: 0.083
+     quotes_checked: 9
+     quotes_valid: 8
+     relevance_assessed: 22
+     on_topic: 19
+     off_topic: 1
+     off_topic_references:
+     - PMID:28123456
+     unresolved_references:
+     - PMID:99999999
+     needs_review: true
+   ```
+
+2. **A `## Reference Validation` section** at the end of the body, with a counts
+   table, an `### Unresolved references` list naming each failing identifier, and
+   a `### References that may not be about this subject` list.
+
+**What to do with it:**
+
+- **Read `needs_review` first.** It is the one key that cannot give you a false
+  all-clear: it is set when any identifier failed to resolve, *or* any quote
+  failed to match, *or* any reference looks off topic. Do **not** read
+  `confabulation_rate` as the whole-report signal — it measures identifier
+  resolution and nothing else, so a report whose every PMID exists but whose
+  quotes do not match still reports `0.0`.
+- Anything under `unresolved_references` — **do not cite it.** Either find a
+  different source for the claim or drop the claim. Do not "verify it yourself"
+  by fetching it again and moving on if it happens to work the second time
+  without saying so; if you do re-check one, say in the history record which
+  identifiers you re-checked and what you found.
+- A high `confabulation_rate` (say, above ~0.1) is a signal about the whole
+  report's *identifiers*, not just the listed ones. Treat the rest of it with
+  extra suspicion and prefer claims you can independently anchor. A low one
+  clears nothing else.
+- `quotes_valid` < `quotes_checked` means the report attributed a quote to a
+  paper that does not contain it. Read which one before reusing any quoted
+  material from that report.
+- Anything under `off_topic_references` resolved, so it is not a fabrication —
+  it just shares almost none of the report's vocabulary. That is **evidence, not
+  a verdict**: read the paper before citing or dropping it, since a paper can be
+  relevant in ways its title and abstract do not spell out. Note also that
+  `off_topic: 0` is not "all cleared" — a record with no abstract can never be
+  called off topic, so some references are simply undecided.
+
+**Reports generated before this existed** (most of `research/`) have no
+validation section. Add one:
+
+```bash
+just validate-research-reference research/DISORDER_NAME-deep-research-PROVIDER.md
+```
+
+That rewrites the report in place with a `## Reference Validation` section (it
+does **not** add a frontmatter summary — on a retro-fitted report, read the
+section at the bottom). Re-running is safe.
+
+**This does not replace anything downstream.** It checks the *report's*
+citations. The snippet you paste into the KB entry is a different quote in a
+different file and still needs the normal checks (Step 4 onwards), and none of
+it catches Named Entity Confusion — run `just preflight-dr` as usual. **The
+relevance check is not a substitute for that**: references are scored against
+*the report's own* vocabulary, so a report built around the wrong disease has
+wrong-disease vocabulary too and scores all of its wrong-disease citations as
+on topic. See
+[`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
+
 ### Step 3b: GeneReviews Baseline (REQUIRED when applicable)
 
 GeneReviews (https://www.ncbi.nlm.nih.gov/books/NBK1116/) is the authoritative
@@ -330,6 +411,12 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 - `just fetch-reference PMID:nnnnnnn DOI:nn.nnnn`
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
+
+Note that a validated report (Step 3a) has already fetched most of these — its
+lookups are cached into the same `references_cache/` — so `just fetch-reference`
+on a reference the report resolved is a cache hit and returns immediately. Run it
+anyway rather than assuming; it costs nothing when the file is already there, and
+it is still required for any reference you found outside the report.
 
 #### Including Images from Deep Research Artifacts
 

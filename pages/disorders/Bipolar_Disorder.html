@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3775,6 +3943,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3809,27 +3985,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4049,7 +4302,13 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">1 support</span>
+                    <span class="evidence-support support-SUPPORT">2 support</span>
+
+                    <span class="evidence-support support-PARTIAL">5 partial</span>
+
+                    <span class="evidence-support support-REFUTE">1 refute</span>
+
+                    <span class="evidence-support support-NO_EVIDENCE">1 no evidence</span>
 
                 </div>
 
@@ -4057,7 +4316,7 @@
                 <div class="item-desc" style="margin-top: 8px;">Bipolar disorder is a highly heritable polygenic mood disorder in which common variants in CACNA1C, ANK3, ODZ4, and other ion-channel and synaptic genes combine with circadian/clock gene variants (CLOCK, BMAL1, NR1D1) to produce episodic mood instability. Mitochondrial dysfunction, calcium- signaling dysregulation, and altered neuroplasticity in fronto-limbic circuits (anterior cingulate, amygdala, ventral striatum) drive cycling between depressive and manic states. Lithium&#39;s mood- stabilizing efficacy (targeting GSK-3β / inositol monophosphatase / circadian amplitude), valproate&#39;s modulation of histone deacetylases, and the recurrent involvement of the dopaminergic reward system during manic episodes corroborate the polygenic-synaptic-circadian framework as the canonical model.</div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL with six explicit qualifications. The 2026 openscientist hypothesis-search report (kb/hypotheses/Bipolar_Disorder/canonical_polygenic_synaptic_circadian_dysregulation_model) finds PARTIALLY SUPPORTED. Each major pillar — common ion- channel / synaptic gene variants (CACNA1C, ANK3, ODZ4), circadian/clock variants, mitochondrial dysfunction, calcium signaling, and fronto-limbic neuroplasticity — has substantial GWAS, iPSC, animal-model, and pharmacological support, with lithium and valproate efficacy and dopaminergic mania consistent with the model. Six qualifications: (1) the model best explains PSYCHOTIC BD-I — transdiagnostic molecular overlap is driven by psychosis subtype, not BD diagnosis per se; (2) the calcium-channel-blocker translational failure reflects pharmacological subclass — dihydropyridine CCBs (L-type, CACNA1C) show efficacy where verapamil (phenylalkylamine) fails; (3) lithium response pharmacogenomics implicates PI3K-Akt / focal-adhesion pathways rather than direct GSK-3β (partially reconcilable via the PI3K→Akt→GSK-3β cascade); (4) circadian gene nominations need updating — TIMELESS and RORA show stronger meta-analytic association with BD than the originally proposed CLOCK/BMAL1; (5) structural brain abnormalities attributed to BD risk genes are shared across the psychosis spectrum, limiting neuroimaging specificity; (6) critical experiments remain unperformed — no GSK-3β-selective inhibitor trial, no modern dihydropyridine CCB trial, and no chronotherapy prevention trial from euthymia exist as of 2026.</div>
+                <div class="mapping-notes">Retained as CANONICAL with six explicit qualifications, independently re-verified against the cited primary sources rather than the 2026 openscientist hypothesis-search report&#39;s framing (kb/hypotheses/Bipolar_Disorder/canonical_polygenic_synaptic_circadian_dysregulation_model), which finds PARTIALLY SUPPORTED. Each major pillar — common ion-channel / synaptic gene variants (CACNA1C, ANK3, ODZ4), circadian/clock variants, mitochondrial dysfunction, calcium signaling, and fronto-limbic neuroplasticity — has substantial GWAS, iPSC, animal-model, and pharmacological support, with lithium and valproate efficacy and dopaminergic mania consistent with the model. The 2025 multi-ancestry PGC4 GWAS (298 genome-wide-significant loci across 158,036 cases and 2.8 million controls, PMID:39843750) is the current largest genetic-architecture study of BD and supersedes the smaller PGC3 scan the report&#39;s genetics framing was based on. Six qualifications, each rescoped to what its cited study actually shows: (1) postmortem cortical transcriptome data (PMID:33442739) show a less-pronounced, psychosis-concentrated similarity between schizophrenia and BD gene-expression alterations — the study never tested the canonical calcium/circadian/synaptic model and did not restrict its BD sample to BD-I, so it qualifies rather than establishes that the model &#34;best explains psychotic BD-I&#34;; (2) the calcium-channel-blocker translational picture is a small, unresolved lead rather than a demonstrated dihydropyridine-vs-verapamil subclass effect — the decisive verapamil-to-dihydropyridine (nimodipine, then isradipine) response switch involved only two bipolar patients embedded in a 30-person mixed unipolar/bipolar refractory-affective-illness cohort (PMID:9790159), and a broader review of calcium-channel antagonist trials in BD found only limited support for efficacy (PMID:11252650); (3) lithium response pharmacogenomics implicates PI3K-Akt / focal-adhesion pathways rather than direct GSK-3β (partially reconcilable via the PI3K→Akt→GSK-3β cascade); (4) TIMELESS and RORA are circadian-gene leads from a single 2014 candidate-gene association study (353 SNPs across 21 circadian genes, meta-analysed across two internal BD cohorts, PMID:24716566), not an update established across the modern GWAS literature, so they supplement rather than displace CLOCK/BMAL1 as canonical circadian candidates; (5) the claim that BD-risk-gene-attributed structural abnormalities are shared across the psychosis spectrum conflates two weaker, separate findings — a candidate-SNP imaging study of CACNA1C/ANK3/ODZ4/SYNE1 found no risk-variant-structural association surviving multiple-testing correction (PMID:23820096), so there is no confirmed gene-attributed structural finding to generalize from, and a separate ENIGMA mega-/meta-analysis found shared cortical/subcortical abnormalities across BD, schizophrenia, major depressive disorder, and OCD generally (PMID:32646651) — a transdiagnostic pattern, not one specific to a psychosis spectrum or tied to risk-gene status; (6) critical experiments remain largely unperformed — no GSK-3β-selective inhibitor trial and no chronotherapy prevention trial from euthymia exist as of 2026, and while a modern dihydropyridine CCB trial was registered (adjunctive isradipine for bipolar depression, NCT01784666), it was terminated early for lack of enrollment (2 participants), so an adequately powered modern DHP-CCB trial remains a real gap rather than one that was never attempted.</div>
 
 
 
@@ -4085,7 +4344,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (9 references)
         </summary>
         <div class="evidence-list">
 
@@ -4112,6 +4371,54 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:33442739" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33442739" target="_blank">PMID:33442739</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"correlation analyses showed that BP subjects had similar, although less pronounced, gene expression alterations"</div>
+
+
+                <div class="evidence-explanation">Postmortem cortical transcriptome comparison finds BD subjects share schizophrenia-like gene-expression alterations, but only less pronounced ones concentrated among BD subjects with psychosis. The case-control study did not test the canonical calcium/circadian/synaptic model directly and did not restrict its BD sample to BD-I, so it qualifies rather than establishes that the model &#34;best explains psychotic BD-I.&#34;
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9790159" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9790159" target="_blank">PMID:9790159</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"two BP patients failed to maintain improvement but responded again to nimodipine and remained well with a blind transition to another dihydropyridine L-type calcium channel blocker (CCB), isradipine"</div>
+
+
+                <div class="evidence-explanation">The decisive verapamil-to-dihydropyridine response switch cited for the pharmacological-subclass hypothesis involved only two bipolar patients within a 30-person mixed-diagnosis refractory-affective-illness cohort — a small case-series lead, not a demonstrated subclass effect.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 6 more references</div>
 
         </div>
     </details>
@@ -4178,10 +4485,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         Mendelian randomization study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type Mendelian randomization study.</span>
     </span>
 
 
@@ -4320,17 +4633,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Dopaminergic Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000700">CL:0000700</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Dopaminergic Neuron (CL:0000700). CL:0000700 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4351,11 +4671,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000850">CL:0000850</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000850" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000850</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Serotonergic Neuron (CL:0000850). CL:0000850 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4376,10 +4701,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008025">CL:0008025</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008025" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0008025</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Noradrenergic Neuron (CL:0008025). CL:0008025 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4406,16 +4734,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neurotransmitter Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neurotransmitter Signaling, annotated with chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4432,6 +4765,7 @@
 
 
                 </div>
+
 
 
 
@@ -4504,16 +4838,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4540,20 +4879,29 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
-                        Mitochondrial Function
+                        Oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
 
 
 
@@ -4566,6 +4914,7 @@
 
 
                 </div>
+
 
 
 
@@ -4618,16 +4967,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4654,16 +5008,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Circadian Rhythm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007623" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007623">GO:0007623</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007623" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Circadian Rhythm (GO:0007623). GO:0007623 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4680,6 +5039,7 @@
 
 
                 </div>
+
 
 
 
@@ -4754,16 +5114,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4790,16 +5155,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Synaptic Plasticity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048167">GO:0048167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Synaptic Plasticity, annotated with regulation of synaptic plasticity (GO:0048167). GO:0048167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4816,6 +5186,7 @@
 
 
                 </div>
+
 
 
 
@@ -4910,16 +5281,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Microglia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4946,16 +5322,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4972,6 +5353,7 @@
 
 
                 </div>
+
 
 
 
@@ -5024,16 +5406,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5060,16 +5447,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Canonical Wnt Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Canonical Wnt Signaling, annotated with canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5090,6 +5482,7 @@
 
 
                 </div>
+
 
 
 
@@ -5207,16 +5600,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5243,16 +5641,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inositol Phosphate Metabolism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043647" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043647">GO:0043647</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043647" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0043647</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inositol Phosphate Metabolism, annotated with inositol phosphate metabolic process (GO:0043647). GO:0043647 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5272,16 +5675,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Phosphatidylinositol-Mediated Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048015">GO:0048015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0048015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Phosphatidylinositol-Mediated Signaling (GO:0048015). GO:0048015 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5302,6 +5710,7 @@
 
 
                 </div>
+
 
 
 
@@ -5443,13 +5852,18 @@
                     <span class="phenotype-category">Psychiatric</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100754" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100754">HP:0100754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100754</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mania (HP:0100754). HP:0100754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5476,13 +5890,18 @@
                     <span class="phenotype-category">Psychiatric</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5539,13 +5958,18 @@
                     <span class="phenotype-category">Psychiatric</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002360">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep Disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5572,13 +5996,18 @@
                     <span class="phenotype-category">Psychiatric</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000709">HP:0000709</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000709</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5605,13 +6034,18 @@
                     <span class="phenotype-category">Psychiatric</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5636,13 +6070,18 @@
                     <span class="phenotype-category">Neurological</span>
 
 
+
+
                     <span class="phenotype-id">
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5927,7 +6366,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -5957,16 +6401,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         lithium carbonate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6504" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6504">CHEBI:6504</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6504" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:6504</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lithium carbonate (CHEBI:6504). CHEBI:6504 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6369,11 +6818,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-childhood-trauma" data-dismech-node="Childhood Trauma" data-dismech-type="environmental">
                 <div class="item-name">Childhood Trauma</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-27">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Increases risk</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33364762" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33364762" target="_blank">PMID:33364762</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"individuals with BD are 2.63 times more likely to report CT compared to healthy individuals"</div>
+
+
+                <div class="evidence-explanation">Review quantifies childhood trauma as a risk factor for bipolar disorder, with individuals with BD reporting childhood trauma at 2.63 times the rate of healthy individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6382,11 +6890,70 @@
             <div class="item-box environmental-box anchor-target" id="environmental-sleep-deprivation" data-dismech-node="Sleep Deprivation" data-dismech-type="environmental">
                 <div class="item-name">Sleep Deprivation</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        sleep deprivation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001069" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-28">XCO:0001069</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is sleep deprivation, annotated with sleep restriction (XCO:0001069). XCO:0001069 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Can trigger manic episodes</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10482346" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10482346" target="_blank">PMID:10482346</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we observed a 4.85% switch rate into mania and a 5.83% switch rate into hypomania"</div>
+
+
+                <div class="evidence-explanation">Clinical trial of therapeutic sleep deprivation in 206 bipolar depressed patients measured the switch into mania (4.85%) and hypomania (5.83%), quantifying sleep loss as a trigger of manic episodes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6396,10 +6963,68 @@
                 <div class="item-name">Substance Use</div>
 
 
+
+
+
+
                 <div class="item-desc">Comorbid and can trigger episodes</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34833474" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34833474" target="_blank">PMID:34833474</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Substance use disorders (SUD) are highly prevalent in bipolar disorder (BD) and significantly affect clinical outcomes"</div>
+
+
+                <div class="evidence-explanation">PARTIAL: this supports the comorbidity half of the annotation and an effect on clinical course, but not the episode-triggering half. The same review notes it is still unclear why bipolar patients are at higher risk of addictive disorders, so the direction of that relationship is not settled.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27476137" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27476137" target="_blank">PMID:27476137</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The SUDs with the highest prevalence in BD were alcohol use (42%) followed by cannabis use (20%) and other illicit drug use (17%)"</div>
+
+
+                <div class="evidence-explanation">Systematic review and meta-analysis quantifies the high prevalence of comorbid substance use disorders in bipolar disorder.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6408,11 +7033,92 @@
             <div class="item-box environmental-box anchor-target" id="environmental-stress" data-dismech-node="Stress" data-dismech-type="environmental">
                 <div class="item-name">Stress</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        psychological stress
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001265" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-29">XCO:0001265</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is psychological stress, annotated with stress (XCO:0001265). XCO:0001265 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
                 <div class="item-desc">Life events can precipitate episodes</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24751308" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24751308" target="_blank">PMID:24751308</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Negative life events were significantly associated with both subsequent severity of mania and depressive symptoms and functional impairment"</div>
+
+
+                <div class="evidence-explanation">Prospective study of 173 bipolar outpatients assessed quarterly for two years. PARTIAL because the same study found the reverse direction as well -- depressive symptoms preceded negative life events, and manic symptoms preceded positive ones -- so its own title asks whether life events are cause or consequence, and its authors state the design cannot settle that.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36940629" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36940629" target="_blank">PMID:36940629</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"possible triggers including fasting, decreased sleep and stressful life events"</div>
+
+
+                <div class="evidence-explanation">Systematic review of triggers for acute mood episodes in bipolar disorder identifies stressful life events among triggers for depressive relapse.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6489,11 +7195,354 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Choroid plexus inflammation in bipolar disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE328018" target="_blank">geo:GSE328018</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Postmortem human choroid plexus tissue from individuals with bipolar disorder and matched controls was analyzed using cytokine protein arrays and bulk RNA sequencing to characterize immune and barrier-related alterations. The study identifies increased pro-inflammatory signaling and reduced trophic/supportive pathways, implicating the choroid plexus as a neuroimmune interface in bipolar disorder.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=23</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41980683" target="_blank" style="color: var(--secondary);">PMID:41980683</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Bipolar Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single-nucleus RNA sequencing in the post-mortem thamaus and cortex in bipolar disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE306819" target="_blank">geo:GSE306819</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We performed high-throughput single-nucleus RNA sequencing (snRNA-seq) using the 10x Genomics Chromium platform on archived postmortem thalamus and frontal cortex (BA10) tissues from patients with bipolar disorder and control subjects to identify cell type–specific differentially expressed genes and compositional changes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=82</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41501055" target="_blank" style="color: var(--secondary);">PMID:41501055</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Bipolar Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Differential effects of lithium on metabolic dysfunction in astrocytes derived from bipolar disorder patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE241671" target="_blank">geo:GSE241671</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Metabolic alterations have been observed in the brains of patients with bipolar disorder (BD), a neuropsychiatric disorder characterized by biphasic mood episodes of mania and depression. However, the specific contributions of glial cells to these metabolic changes in BD patients remain largely unknown and have not been extensively studied. Here, we investigate the metabolic characteristics of induced astrocytes (iAstrocytes) derived from induced pluripotent stem cells of BD patients and their responses to lithium treatment. The gene expression profiles of iAstrocytes from BD patients (BD iAstrocytes) indicate dysregulation of metabolic processes in BD iAstrocytes.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=30</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40847005" target="_blank" style="color: var(--secondary);">PMID:40847005</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Bipolar Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Bipolar Disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000001" target="_blank">ega:EGAS00000000001</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Bipolar disorder (BD) using the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Bipolar Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Bipolar Disorder - Combined Controls
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000002" target="_blank">ega:EGAS00000000002</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Bipolar Disorder (BD) using six disease collections together with the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Bipolar Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Exome sequencing in bipolar disorder families
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003085" target="_blank">ega:EGAS00001003085</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Bipolar disorder (BD) is a major psychiatric disorder affecting around 1% of the global population. BD is characterized by recurrent manic and depressive episodes, and has an estimated heritability of around 70% Research has identified the first BD susceptibility genes. However, the underlying pathways and regulatory networks remain largely unknown. Since research has shown that the cumulative impact of common alleles with small effect appears to explain only around 25-38% of the phenotypic variance for BD, rare variants of high penetrance may also contribute to BD risk.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Bipolar Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Bipolar disorder metabolomics analysis using FiehnLib and GMD for curation
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001946" target="_blank">metabolomics_workbench:ST001946</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Bipolar Disorder&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Dysregulation of the complement and coagulation cascade in treated schizophrenia and bipolar disorder patients
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000086425" target="_blank">massive:MSV000086425</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">A better understanding of the proteomic profile after bipolar disorder (BD) and schizophrenia (SCZ) treatment, through monitoring its progression, may assist the development of novel therapeutic strategies with the ability to reduce or control possible side effects. In this study, proteomics analysis employing liquid chromatography coupled to mass spectrometry (LC-MS) and bioinformatic tools were applied to identify differentially expressed proteins in serum of treated BD and SCZ patients. In total, 10 BD patients, 10 SCZ patients, and 14 healthy participants were included.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Bipolar Disorder&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Family Genomics of Bipolar Disorder
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000866" target="_blank">dbgap:phs000866</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study examined the segregation of variants with phenotype in pedigrees harboring bipolar disorder.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Bipolar Disorder&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6512,7 +7561,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Bipolar Disorder
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-02-17T21:53:14Z&#39;
 description: &gt;-
   Bipolar disorder is a chronic psychiatric mood disorder characterized by
   recurrent episodes of mania or hypomania alternating with depression. Subtypes
@@ -6566,36 +7614,67 @@ mechanistic_hypotheses:
     canonical model.
   notes: &gt;-
     Retained as CANONICAL with six explicit
-    qualifications. The 2026 openscientist hypothesis-search
-    report
-    (kb/hypotheses/Bipolar_Disorder/canonical_polygenic_synaptic_circadian_dysregulation_model)
-    finds PARTIALLY SUPPORTED. Each major pillar — common ion-
-    channel / synaptic gene variants (CACNA1C, ANK3, ODZ4),
+    qualifications, independently re-verified against the cited
+    primary sources rather than the 2026 openscientist
+    hypothesis-search report&#39;s framing
+    (kb/hypotheses/Bipolar_Disorder/canonical_polygenic_synaptic_circadian_dysregulation_model),
+    which finds PARTIALLY SUPPORTED. Each major pillar — common
+    ion-channel / synaptic gene variants (CACNA1C, ANK3, ODZ4),
     circadian/clock variants, mitochondrial dysfunction, calcium
     signaling, and fronto-limbic neuroplasticity — has
     substantial GWAS, iPSC, animal-model, and pharmacological
     support, with lithium and valproate efficacy and dopaminergic
-    mania consistent with the model. Six qualifications:
-    (1) the model best explains PSYCHOTIC BD-I — transdiagnostic
-    molecular overlap is driven by psychosis subtype, not BD
-    diagnosis per se; (2) the calcium-channel-blocker
-    translational failure reflects pharmacological subclass —
-    dihydropyridine CCBs (L-type, CACNA1C) show efficacy where
-    verapamil (phenylalkylamine) fails; (3) lithium response
-    pharmacogenomics implicates PI3K-Akt / focal-adhesion
-    pathways rather than direct GSK-3β (partially reconcilable
-    via the PI3K→Akt→GSK-3β cascade); (4) circadian gene
-    nominations need updating — TIMELESS and RORA show stronger
-    meta-analytic association with BD than the originally
-    proposed CLOCK/BMAL1; (5) structural brain abnormalities
-    attributed to BD risk genes are shared across the psychosis
-    spectrum, limiting neuroimaging specificity; (6) critical
-    experiments remain unperformed — no GSK-3β-selective
-    inhibitor trial, no modern dihydropyridine CCB trial, and no
-    chronotherapy prevention trial from euthymia exist as of 2026.
+    mania consistent with the model. The 2025 multi-ancestry PGC4
+    GWAS (298 genome-wide-significant loci across 158,036 cases
+    and 2.8 million controls, PMID:39843750) is the current
+    largest genetic-architecture study of BD and supersedes the
+    smaller PGC3 scan the report&#39;s genetics framing was based on.
+    Six qualifications, each rescoped to what its cited study
+    actually shows: (1) postmortem cortical transcriptome data
+    (PMID:33442739) show a less-pronounced, psychosis-concentrated
+    similarity between schizophrenia and BD gene-expression
+    alterations — the study never tested the canonical
+    calcium/circadian/synaptic model and did not restrict its BD
+    sample to BD-I, so it qualifies rather than establishes that
+    the model &#34;best explains psychotic BD-I&#34;; (2) the
+    calcium-channel-blocker translational picture is a small,
+    unresolved lead rather than a demonstrated
+    dihydropyridine-vs-verapamil subclass effect — the decisive
+    verapamil-to-dihydropyridine (nimodipine, then isradipine)
+    response switch involved only two bipolar patients embedded in
+    a 30-person mixed unipolar/bipolar refractory-affective-illness
+    cohort (PMID:9790159), and a broader review of calcium-channel
+    antagonist trials in BD found only limited support for efficacy
+    (PMID:11252650); (3) lithium response pharmacogenomics
+    implicates PI3K-Akt / focal-adhesion pathways rather than direct
+    GSK-3β (partially reconcilable via the PI3K→Akt→GSK-3β cascade);
+    (4) TIMELESS and RORA are circadian-gene leads from a single 2014
+    candidate-gene association study (353 SNPs across 21 circadian
+    genes, meta-analysed across two internal BD cohorts,
+    PMID:24716566), not an update established across the modern GWAS
+    literature, so they supplement rather than displace CLOCK/BMAL1
+    as canonical circadian candidates; (5) the claim that
+    BD-risk-gene-attributed structural abnormalities are shared
+    across the psychosis spectrum conflates two weaker, separate
+    findings — a candidate-SNP imaging study of CACNA1C/ANK3/ODZ4/SYNE1
+    found no risk-variant-structural association surviving
+    multiple-testing correction (PMID:23820096), so there is no
+    confirmed gene-attributed structural finding to generalize from,
+    and a separate ENIGMA mega-/meta-analysis found shared
+    cortical/subcortical abnormalities across BD, schizophrenia, major
+    depressive disorder, and OCD generally (PMID:32646651) — a
+    transdiagnostic pattern, not one specific to a psychosis spectrum
+    or tied to risk-gene status; (6) critical experiments remain
+    largely unperformed — no GSK-3β-selective inhibitor trial and no
+    chronotherapy prevention trial from euthymia exist as of 2026, and
+    while a modern dihydropyridine CCB trial was registered (adjunctive
+    isradipine for bipolar depression, NCT01784666), it was terminated
+    early for lack of enrollment (2 participants), so an adequately
+    powered modern DHP-CCB trial remains a real gap rather than one
+    that was never attempted.
   evidence:
   - reference: PMID:21057379
-    reference_title: &#34;Voltage-dependent calcium channels in bipolar disorder and schizophrenia&#34;
+    reference_title: &#34;Case-case genome-wide association analysis shows markers differentially associated with schizophrenia and bipolar disorder and implicates calcium channel genes.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The finding for CACNG5, taken together with the earlier implication of CACNA1C and CACNA1B, strongly suggests a key role for voltage-dependent calcium channel genes in the susceptibility to bipolar disorder and/or schizophrenia.&#34;
@@ -6603,6 +7682,97 @@ mechanistic_hypotheses:
       Existing canonical mechanism citation in the dismech
       knowledge base, used as the seed for the hypothesis-search
       deep-research run.
+  - reference: PMID:33442739
+    reference_title: &#34;Similarities in Cortical Transcriptome Alterations Between Schizophrenia and Bipolar Disorder Are Related to the Presence of Psychosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;correlation analyses showed that BP subjects had similar, although less pronounced, gene expression alterations&#34;
+    explanation: &gt;
+      Postmortem cortical transcriptome comparison finds BD subjects
+      share schizophrenia-like gene-expression alterations, but only
+      less pronounced ones concentrated among BD subjects with
+      psychosis. The case-control study did not test the canonical
+      calcium/circadian/synaptic model directly and did not restrict
+      its BD sample to BD-I, so it qualifies rather than establishes
+      that the model &#34;best explains psychotic BD-I.&#34;
+  - reference: PMID:9790159
+    reference_title: &#34;Nimodipine monotherapy and carbamazepine augmentation in patients with refractory recurrent affective illness.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;two BP patients failed to maintain improvement but responded again to nimodipine and remained well with a blind transition to another dihydropyridine L-type calcium channel blocker (CCB), isradipine&#34;
+    explanation: &gt;
+      The decisive verapamil-to-dihydropyridine response switch cited
+      for the pharmacological-subclass hypothesis involved only two
+      bipolar patients within a 30-person mixed-diagnosis
+      refractory-affective-illness cohort — a small case-series lead,
+      not a demonstrated subclass effect.
+  - reference: PMID:11252650
+    reference_title: &#34;Calcium channel antagonists for the treatment of bipolar disorder.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;concluding there is presently limited support for their efficacy&#34;
+    explanation: &gt;
+      Review of calcium-channel-antagonist trials in bipolar disorder
+      concludes that more recent, better-controlled studies found only
+      limited support for efficacy, tempering the
+      calcium-channel-blocker translational-failure claim.
+  - reference: PMID:24716566
+    reference_title: &#34;Association between circadian genes, bipolar disorders and chronotypes.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;TIMELESS and RORA genes may confer susceptibility to BD and impact on circadian&#34;
+    explanation: &gt;
+      Single 2014 candidate-gene association study (353 SNPs across 21
+      circadian genes, meta-analysed across two internal BD cohorts)
+      finds TIMELESS and RORA variants associated with BD. This is a
+      circadian-gene lead from one study design, not a modern
+      literature-wide meta-analytic replacement for CLOCK/BMAL1
+      priority.
+  - reference: PMID:23820096
+    reference_title: &#34;No evidence for association between bipolar disorder risk gene variants and brain structural phenotypes.&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;these risk SNPs do not explain a large proportion of the structural brain alterations in BD&#34;
+    explanation: &gt;
+      Candidate-SNP imaging study of CACNA1C, ANK3, ODZ4, and SYNE1
+      found no risk-variant-structural association surviving
+      multiple-testing correction, refuting the premise that structural
+      brain abnormalities are attributed to BD risk genes in the first
+      place.
+  - reference: PMID:32646651
+    reference_title: &#34;Cross-Disorder Analysis of Brain Structural Abnormalities in Six Major Psychiatric Disorders: A Secondary Analysis of Mega- and Meta-analytical Findings From the ENIGMA Consortium.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Brain structural abnormalities in major depressive disorder, bipolar disorder, schizophrenia, and obsessive-compulsive disorder were highly correlated&#34;
+    explanation: &gt;
+      ENIGMA mega-/meta-analysis finds shared cortical/subcortical
+      abnormality patterns across BD, schizophrenia, major depressive
+      disorder, and obsessive-compulsive disorder generally — a
+      transdiagnostic pattern, not one specific to a psychosis spectrum
+      or tied to BD-risk-gene status.
+  - reference: clinicaltrials:NCT01784666
+    reference_title: &#34;Adjunctive Isradipine for the Treatment of Bipolar Depression&#34;
+    supports: NO_EVIDENCE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#39;Isradipine or placebo (contains no active medication) will be used as an &#34;add-on&#34; to lithium, valproate, and/or atypical antipsychotics for individuals currently experiencing a major depressive episode.&#39;
+    explanation: &gt;
+      A modern adjunctive-isradipine (dihydropyridine L-type CCB) trial
+      for bipolar depression was registered, refuting a categorical &#34;no
+      modern dihydropyridine CCB trial&#34; claim. ClinicalTrials.gov
+      records it as Terminated for lack of enrollment (2 participants),
+      so an adequately powered modern DHP-CCB trial remains a real gap
+      rather than one never attempted.
+  - reference: PMID:39843750
+    reference_title: &#34;Genomics yields biological and phenotypic insights into bipolar disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We analysed data from participants of European, East Asian, African American and Latino ancestries (n = 158,036 cases with bipolar disorder, 2.8 million controls)&#34;
+    explanation: &gt;
+      The 2025 multi-ancestry PGC4 GWAS (298 genome-wide-significant
+      loci) is the current largest genetic-architecture study of BD,
+      updating the polygenic-risk-locus evidence base beyond the
+      smaller PGC3 scan the 2026 hypothesis-search report&#39;s genetics
+      framing was based on.
 pathophysiology:
 - name: Monoamine Dysregulation
   description: &gt;
@@ -6649,10 +7819,11 @@ pathophysiology:
       id: CL:0000540
       label: neuron
   biological_processes:
-  - preferred_term: Mitochondrial Function
+  - preferred_term: Oxidative phosphorylation
     term:
-      id: GO:0007005
-      label: mitochondrion organization
+      id: GO:0006119
+      label: oxidative phosphorylation
+    modifier: ABNORMAL
   evidence:
   - reference: PMID:30285728
     reference_title: &#34;The TRAX, DISC1, and GSK3 complex in mental disorders and therapeutic interventions.&#34;
@@ -6977,13 +8148,68 @@ genetic:
     explanation: GWAS with independent replication identified the extracellular-matrix glycoprotein gene NCAN (neurocan) as a genome-wide-significant bipolar disorder susceptibility locus.
 environmental:
 - name: Childhood Trauma
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Increases risk
+  evidence:
+  - reference: PMID:33364762
+    reference_title: &#34;The Impact of Childhood Trauma on Developing Bipolar Disorder: Current Understanding and Ensuring Continued Progress.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;individuals with BD are 2.63 times more likely to report CT compared to healthy individuals&#34;
+    explanation: Review quantifies childhood trauma as a risk factor for bipolar disorder, with individuals with BD reporting childhood trauma at 2.63 times the rate of healthy individuals.
 - name: Sleep Deprivation
+  exposure_term:
+    preferred_term: sleep deprivation
+    term:
+      id: XCO:0001069
+      label: sleep restriction
   notes: Can trigger manic episodes
+  evidence:
+  - reference: PMID:10482346
+    reference_title: &#34;Rate of switch from depression into mania after therapeutic sleep deprivation in bipolar depression.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we observed a 4.85% switch rate into mania and a 5.83% switch rate into hypomania&#34;
+    explanation: Clinical trial of therapeutic sleep deprivation in 206 bipolar depressed patients measured the switch into mania (4.85%) and hypomania (5.83%), quantifying sleep loss as a trigger of manic episodes.
 - name: Substance Use
   notes: Comorbid and can trigger episodes
+  evidence:
+  - reference: PMID:34833474
+    reference_title: &#34;Bipolar Disorder and Comorbid Use of Illicit Substances.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Substance use disorders (SUD) are highly prevalent in bipolar disorder (BD) and significantly affect clinical outcomes&#34;
+    explanation: &#34;PARTIAL: this supports the comorbidity half of the annotation and an effect on clinical course, but not the episode-triggering half. The same review notes it is still unclear why bipolar patients are at higher risk of addictive disorders, so the direction of that relationship is not settled.&#34;
+  - reference: PMID:27476137
+    reference_title: &#34;Prevalence of comorbid bipolar and substance use disorders in clinical settings, 1990-2015: Systematic review and meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The SUDs with the highest prevalence in BD were alcohol use (42%) followed by cannabis use (20%) and other illicit drug use (17%)&#34;
+    explanation: Systematic review and meta-analysis quantifies the high prevalence of comorbid substance use disorders in bipolar disorder.
 - name: Stress
+  exposure_term:
+    preferred_term: psychological stress
+    term:
+      id: XCO:0001265
+      label: stress
   notes: Life events can precipitate episodes
+  evidence:
+  - reference: PMID:24751308
+    reference_title: &#34;Stressful life events in bipolar I and II disorder: cause or consequence of mood symptoms?&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Negative life events were significantly associated with both subsequent severity of mania and depressive symptoms and functional impairment&#34;
+    explanation: &#34;Prospective study of 173 bipolar outpatients assessed quarterly for two years. PARTIAL because the same study found the reverse direction as well -- depressive symptoms preceded negative life events, and manic symptoms preceded positive ones -- so its own title asks whether life events are cause or consequence, and its authors state the design cannot settle that.&#34;
+  - reference: PMID:36940629
+    reference_title: &#34;Triggers for acute mood episodes in bipolar disorder: A systematic review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;possible triggers including fasting, decreased sleep and stressful life events&#34;
+    explanation: Systematic review of triggers for acute mood episodes in bipolar disorder identifies stressful life events among triggers for depressive relapse.
 treatments:
 - name: Lithium
   description: First-line mood stabilizer, effective for mania and suicide prevention.
@@ -7155,6 +8381,80 @@ classifications:
   harrisons_chapter:
   - classification_value: NEUROLOGIC
 datasets:
+- accession: geo:GSE328018
+  title: Choroid plexus inflammation in bipolar disorder
+  description: Postmortem human choroid plexus tissue from individuals with bipolar disorder and matched controls was analyzed using cytokine protein arrays and bulk RNA sequencing to characterize immune and barrier-related alterations. The study identifies increased pro-inflammatory signaling and reduced trophic/supportive pathways, implicating the choroid plexus as a neuroimmune interface in bipolar disorder.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 23
+  publication: PMID:41980683
+  notes: Identified by GEO DataSets index search for Bipolar Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE306819
+  title: Single-nucleus RNA sequencing in the post-mortem thamaus and cortex in bipolar disorder
+  description: We performed high-throughput single-nucleus RNA sequencing (snRNA-seq) using the 10x Genomics Chromium platform on archived postmortem thalamus and frontal cortex (BA10) tissues from patients with bipolar disorder and control subjects to identify cell type–specific differentially expressed genes and compositional changes.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 82
+  publication: PMID:41501055
+  notes: Identified by GEO DataSets index search for Bipolar Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE241671
+  title: Differential effects of lithium on metabolic dysfunction in astrocytes derived from bipolar disorder patients
+  description: Metabolic alterations have been observed in the brains of patients with bipolar disorder (BD), a neuropsychiatric disorder characterized by biphasic mood episodes of mania and depression. However, the specific contributions of glial cells to these metabolic changes in BD patients remain largely unknown and have not been extensively studied. Here, we investigate the metabolic characteristics of induced astrocytes (iAstrocytes) derived from induced pluripotent stem cells of BD patients and their responses to lithium treatment. The gene expression profiles of iAstrocytes from BD patients (BD iAstrocytes) indicate dysregulation of metabolic processes in BD iAstrocytes.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 30
+  publication: PMID:40847005
+  notes: Identified by GEO DataSets index search for Bipolar Disorder (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00000000001
+  title: WTCCC case-control study for Bipolar Disorder
+  description: WTCCC genome-wide case-control association study for Bipolar disorder (BD) using the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Bipolar Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00000000002
+  title: WTCCC case-control study for Bipolar Disorder - Combined Controls
+  description: WTCCC genome-wide case-control association study for Bipolar Disorder (BD) using six disease collections together with the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Bipolar Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001003085
+  title: Exome sequencing in bipolar disorder families
+  description: Bipolar disorder (BD) is a major psychiatric disorder affecting around 1% of the global population. BD is characterized by recurrent manic and depressive episodes, and has an estimated heritability of around 70% Research has identified the first BD susceptibility genes. However, the underlying pathways and regulatory networks remain largely unknown. Since research has shown that the cumulative impact of common alleles with small effect appears to explain only around 25-38% of the phenotypic variance for BD, rare variants of high penetrance may also contribute to BD risk.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Bipolar Disorder&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST001946
+  title: Bipolar disorder metabolomics analysis using FiehnLib and GMD for curation
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Bipolar Disorder&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000086425
+  title: Dysregulation of the complement and coagulation cascade in treated schizophrenia and bipolar disorder patients
+  description: A better understanding of the proteomic profile after bipolar disorder (BD) and schizophrenia (SCZ) treatment, through monitoring its progression, may assist the development of novel therapeutic strategies with the ability to reduce or control possible side effects. In this study, proteomics analysis employing liquid chromatography coupled to mass spectrometry (LC-MS) and bioinformatic tools were applied to identify differentially expressed proteins in serum of treated BD and SCZ patients. In total, 10 BD patients, 10 SCZ patients, and 14 healthy participants were included.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Bipolar Disorder&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs000866
+  title: Family Genomics of Bipolar Disorder
+  description:  This study examined the segregation of variants with phenotype in pedigrees harboring bipolar disorder.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Bipolar Disorder&#34;). Retrieved 2026-08-02.
 references:
 - reference: DOI:10.1503/jpn.230112
   title: Advances in the understanding of the pathophysiology of schizophrenia and bipolar disorder through induced pluripotent stem cell models
@@ -7544,7 +8844,7 @@ BD pathophysiology reflects convergent dysregulation of calcium/ion channel–sy
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bipolar Disorder", "mondoId": "MONDO:0004985", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bipolar_Disorder", "yamlRevision": "7f106fe8f9e5"};
+        const OS_CONFIG = {"diseaseName": "Bipolar Disorder", "mondoId": "MONDO:0004985", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bipolar_Disorder", "yamlRevision": "4800a2170ddf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7963,5 +9263,73 @@ BD pathophysiology reflects convergent dysregulation of calcium/ion channel–sy
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

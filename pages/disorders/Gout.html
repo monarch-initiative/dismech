@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3787,27 +3955,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3857,16 +4102,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SLC2A9
 
 
-    <a href="https://bioregistry.io/hgnc:13446" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13446">hgnc:13446</a>
+    <a href="https://bioregistry.io/hgnc:13446" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:13446</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC2A9 (hgnc:13446). hgnc:13446 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3894,11 +4150,18 @@
         ABCG2
 
 
-    <a href="https://bioregistry.io/hgnc:74" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:74">hgnc:74</a>
+    <a href="https://bioregistry.io/hgnc:74" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:74</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCG2 (hgnc:74). hgnc:74 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3926,10 +4189,13 @@
         SLC22A12
 
 
-    <a href="https://bioregistry.io/hgnc:17989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17989">hgnc:17989</a>
+    <a href="https://bioregistry.io/hgnc:17989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:17989</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC22A12 (hgnc:17989). hgnc:17989 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3957,16 +4223,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Purine Metabolism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006144" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006144">GO:0006144</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006144" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006144</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Purine Metabolism, annotated with purine nucleobase metabolic process (GO:0006144). GO:0006144 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3975,6 +4246,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -3992,10 +4265,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046415" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046415">GO:0046415</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046415" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0046415</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Urate metabolic process (GO:0046415). GO:0046415 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4015,16 +4291,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Purine nucleotide catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006195" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006195">GO:0006195</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006195" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006195</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Purine nucleotide catabolic process (GO:0006195). GO:0006195 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4045,6 +4326,7 @@
 
 
                 </div>
+
 
 
 
@@ -4153,6 +4435,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4234,16 +4517,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4270,16 +4558,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         NLRP3 inflammasome complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0044546">GO:0044546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0044546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased NLRP3 inflammasome complex assembly (GO:0044546). GO:0044546 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4288,6 +4581,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -4305,10 +4600,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032611">GO:0032611</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0032611</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Interleukin-1 beta production (GO:0032611). GO:0032611 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4328,16 +4626,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Positive regulation of inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050729" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050729">GO:0050729</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050729" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0050729</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Positive regulation of inflammatory response (GO:0050729). GO:0050729 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4363,19 +4666,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         NLRP3 inflammasome complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072559">GO:0072559</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0072559</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). GO:0072559 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4500,16 +4809,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4536,16 +4850,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neutrophil chemotaxis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030593">GO:0030593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neutrophil chemotaxis (GO:0030593). GO:0030593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4565,16 +4884,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4595,6 +4919,7 @@
 
 
                 </div>
+
 
 
 
@@ -4708,16 +5033,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Complement activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4738,6 +5068,7 @@
 
 
                 </div>
+
 
 
 
@@ -4846,16 +5177,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4882,16 +5218,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050729" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050729">GO:0050729</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050729" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0050729</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of inflammatory response (GO:0050729). GO:0050729 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4911,16 +5252,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050728" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050728">GO:0050728</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050728" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0050728</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of inflammatory response (GO:0050728). GO:0050728 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4941,6 +5287,7 @@
 
 
                 </div>
+
 
 
 
@@ -5063,7 +5410,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"ABCG2\"], \"gene_terms\": [{\"label\": \"ABCG2\", \"id\": \"hgnc:74\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Acute Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Complement Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MSU crystals activate the complement system, particularly C5, contributing to neutrophil recruitment and amplifying the inflammatory response. Effective urate-lowering therapy modulates complement and inflammatory protein networks.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Complement activation\"]}}, {\"id\": \"Crystal Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Monosodium urate (MSU) crystals deposit in joints and soft tissues when serum urate exceeds saturation point (~6.8 mg/dL). Crystals trigger inflammatory response.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated serum uric acid from increased purine metabolism or decreased renal excretion leads to supersaturation and crystal formation. Urate is the end product of purine catabolism in humans.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Purine Metabolism\", \"Urate metabolic process\", \"Purine nucleotide catabolic process\"], \"genes\": [\"SLC2A9\", \"ABCG2\", \"SLC22A12\"], \"gene_terms\": [{\"label\": \"SLC2A9\", \"id\": \"hgnc:13446\"}, {\"label\": \"ABCG2\", \"id\": \"hgnc:74\"}, {\"label\": \"SLC22A12\", \"id\": \"hgnc:17989\"}], \"computational_models\": [{\"name\": \"Minimal Urate Homeostasis Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Serum urate is the model\u0027s single state; it rises above the ~6.8 mg/dL solubility limit under reduced fractional excretion (ABCG2 loss, low f_exc) or increased purine load (HPRT1 loss, PRPS1 superactivity), and is lowered by xanthine-oxidase inhibitors, uricosurics, and uricase.\"}]}}, {\"id\": \"Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MSU crystals are phagocytosed by macrophages, activating NLRP3 inflammasome and triggering IL-1beta release, driving acute inflammatory flare.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\", \"Interleukin-1 beta production\", \"Positive regulation of inflammatory response\"]}}, {\"id\": \"Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Joint Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Minimal Urate Homeostasis Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A single-compartment ODE model of serum urate as the balance of production (purine turnover processed by xanthine oxidase) and elimination (renal/gut fractional excretion plus uricase activity), authored for dismech-perturb (like the CKD-MBD Antimony component; not a BioModels deposit). Calibrated to a normal serum urate of ~5 mg/dL with the monosodium-urate solubility limit (~6.8 mg/dL) as the hyperuricemia threshold. Reducing fractional excretion reproduces underexcretion hyperuricemia (\u003e90% of primary cases); raising purine load reproduces overproduction. Urate-lowering therapies act on distinct nodes: xanthine-oxidase inhibitors reduce production, uricosurics raise excretion, and recombinant uricase adds direct urate degradation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Neutrophil Extracellular Trap Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils form extracellular traps (NETs) in response to MSU crystals. NETs initially amplify inflammation but aggregated NETs (aggNETs) promote resolution by encapsulating crystals, degrading cytokines, and blocking further neutrophil recruitment. NETs also contribute to tophi formation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"positive regulation of inflammatory response\", \"negative regulation of inflammatory response\"]}}, {\"id\": \"Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-1beta and other cytokines recruit neutrophils to the joint, amplifying inflammation and causing the intense pain and swelling of acute gout attacks.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"Neutrophil chemotaxis\", \"Inflammatory response\"]}}, {\"id\": \"SLC22A12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC22A12\"], \"gene_terms\": [{\"label\": \"SLC22A12\", \"id\": \"hgnc:17989\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"SLC2A9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC2A9\"], \"gene_terms\": [{\"label\": \"SLC2A9\", \"id\": \"hgnc:13446\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Serum Uric Acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\", \"term_id\": \"NCIT:C61034\", \"term_label\": \"Serum Uric Acid Measurement\", \"readouts\": [{\"target\": \"Hyperuricemia\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-029\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-029\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Gout\", \"patient_population\": \"Patients with gout\", \"surrogate_endpoint\": \"Serum uric acid\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Xanthine oxidase inhibitor; URAT1 inhibitor; Uricase\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Gout; population: Patients with gout; endpoint: Serum uric acid; approval context: traditional; drug mechanism: Xanthine oxidase inhibitor; URAT1 inhibitor; Uricase.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.\"}]}}], \"edges\": [{\"source\": \"Hyperuricemia\", \"target\": \"Crystal Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperuricemia drives serum urate beyond its saturation point, promoting nucleation and deposition of monosodium urate crystals in joints and soft tissues.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperuricemia\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperuricemia and hyperuricosuria, together with low urinary pH, promote uric acid supersaturation and crystallization in the renal collecting system, producing uric acid nephrolithiasis. This renal stone pathway is mechanistically distinct from articular monosodium urate deposition.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hyperuricosuria\", \"acidic urinary pH promoting uric acid crystallization\"]}, {\"source\": \"Crystal Deposition\", \"target\": \"Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deposited MSU crystals are phagocytosed by resident macrophages, triggering NLRP3 inflammasome activation and the acute inflammatory cascade.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome Activation\", \"target\": \"Neutrophil Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-1beta and downstream cytokines/chemokines released after inflammasome activation recruit neutrophils to the joint, amplifying acute inflammation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome Activation\", \"target\": \"Complement Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory milieu around MSU crystals engages the complement system, with C5 among the key emergent inflammatory mediators.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"MSU crystal surface complement engagement\"]}, {\"source\": \"Inflammasome Activation\", \"target\": \"Acute Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrophage NLRP3 inflammasome activation initiates the acute gouty inflammatory flare manifesting as acute arthritis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment\", \"target\": \"Neutrophil Extracellular Trap Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited neutrophils exposed to MSU crystals form neutrophil extracellular traps (NETs) in the inflamed joint.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment\", \"target\": \"Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil influx and amplified inflammation produce the intense joint pain of the acute gout attack.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neutrophil-amplified acute joint inflammation\"]}, {\"source\": \"Neutrophil Recruitment\", \"target\": \"Joint Swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-amplified joint inflammation produces the swelling characteristic of the acute gout attack.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neutrophil-amplified acute joint inflammation\"]}, {\"source\": \"Complement Activation\", \"target\": \"Neutrophil Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement activation, including C5/C5a generation, contributes to neutrophil recruitment and amplification of the inflammatory response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Extracellular Trap Formation\", \"target\": \"Acute Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MSU-induced NETs initially exacerbate the acute inflammatory flare before aggregated NETs drive its self-limited resolution.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Minimal Urate Homeostasis Model\", \"target\": \"Hyperuricemia\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Hyperuricemia\", \"target\": \"Serum Uric Acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"SLC2A9\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCG2\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC22A12\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"ABCG2\"], \"gene_terms\": [{\"label\": \"ABCG2\", \"id\": \"hgnc:74\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Acute Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"Complement Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MSU crystals activate the complement system, particularly C5, contributing to neutrophil recruitment and amplifying the inflammatory response. Effective urate-lowering therapy modulates complement and inflammatory protein networks.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Complement activation\"]}}, {\"id\": \"Crystal Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Monosodium urate (MSU) crystals deposit in joints and soft tissues when serum urate exceeds saturation point (~6.8 mg/dL). Crystals trigger inflammatory response.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated serum uric acid from increased purine metabolism or decreased renal excretion leads to supersaturation and crystal formation. Urate is the end product of purine catabolism in humans.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Purine Metabolism\", \"Urate metabolic process\", \"Purine nucleotide catabolic process\"], \"genes\": [\"SLC2A9\", \"ABCG2\", \"SLC22A12\"], \"gene_terms\": [{\"label\": \"SLC2A9\", \"id\": \"hgnc:13446\"}, {\"label\": \"ABCG2\", \"id\": \"hgnc:74\"}, {\"label\": \"SLC22A12\", \"id\": \"hgnc:17989\"}], \"computational_models\": [{\"name\": \"Minimal Urate Homeostasis Model\", \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\", \"description\": \"Serum urate is the model\u0027s single state; it rises above the ~6.8 mg/dL solubility limit under reduced fractional excretion (ABCG2 loss, low f_exc) or increased purine load (HPRT1 loss, PRPS1 superactivity), and is lowered by xanthine-oxidase inhibitors, uricosurics, and uricase.\"}]}}, {\"id\": \"Inflammasome Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MSU crystals are phagocytosed by macrophages, activating NLRP3 inflammasome and triggering IL-1beta release, driving acute inflammatory flare.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\", \"Interleukin-1 beta production\", \"Positive regulation of inflammatory response\"]}}, {\"id\": \"Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Joint Swelling\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001386\"}}, {\"id\": \"Minimal Urate Homeostasis Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A single-compartment ODE model of serum urate as the balance of production (purine turnover processed by xanthine oxidase) and elimination (renal/gut fractional excretion plus uricase activity), authored for dismech-perturb (like the CKD-MBD Antimony component; not a BioModels deposit). Calibrated to a normal serum urate of ~5 mg/dL with the monosodium-urate solubility limit (~6.8 mg/dL) as the hyperuricemia threshold. Reducing fractional excretion reproduces underexcretion hyperuricemia (\u003e90% of primary cases); raising purine load reproduces overproduction. Urate-lowering therapies act on distinct nodes: xanthine-oxidase inhibitors reduce production, uricosurics raise excretion, and recombinant uricase adds direct urate degradation.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"Antimony/tellurium\", \"model_format\": \"SBML\"}}, {\"id\": \"Nephrolithiasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000787\"}}, {\"id\": \"Neutrophil Extracellular Trap Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils form extracellular traps (NETs) in response to MSU crystals. NETs initially amplify inflammation but aggregated NETs (aggNETs) promote resolution by encapsulating crystals, degrading cytokines, and blocking further neutrophil recruitment. NETs also contribute to tophi formation.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"positive regulation of inflammatory response\", \"negative regulation of inflammatory response\"]}}, {\"id\": \"Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-1beta and other cytokines recruit neutrophils to the joint, amplifying inflammation and causing the intense pain and swelling of acute gout attacks.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"Neutrophil chemotaxis\", \"Inflammatory response\"]}}, {\"id\": \"SLC22A12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC22A12\"], \"gene_terms\": [{\"label\": \"SLC22A12\", \"id\": \"hgnc:17989\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"SLC2A9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"SLC2A9\"], \"gene_terms\": [{\"label\": \"SLC2A9\", \"id\": \"hgnc:13446\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Serum Uric Acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\", \"term_id\": \"NCIT:C61034\", \"term_label\": \"Serum Uric Acid Measurement\", \"readouts\": [{\"target\": \"Hyperuricemia\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-029\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-029\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Gout\", \"patient_population\": \"Patients with gout\", \"surrogate_endpoint\": \"Serum uric acid\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Xanthine oxidase inhibitor; URAT1 inhibitor; Uricase\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Gout; population: Patients with gout; endpoint: Serum uric acid; approval context: traditional; drug mechanism: Xanthine oxidase inhibitor; URAT1 inhibitor; Uricase.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.\"}]}}], \"edges\": [{\"source\": \"Hyperuricemia\", \"target\": \"Crystal Deposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperuricemia drives serum urate beyond its saturation point, promoting nucleation and deposition of monosodium urate crystals in joints and soft tissues.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperuricemia\", \"target\": \"Nephrolithiasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained hyperuricemia and hyperuricosuria, together with low urinary pH, promote uric acid supersaturation and crystallization in the renal collecting system, producing uric acid nephrolithiasis. This renal stone pathway is mechanistically distinct from articular monosodium urate deposition.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hyperuricosuria\", \"acidic urinary pH promoting uric acid crystallization\"]}, {\"source\": \"Crystal Deposition\", \"target\": \"Inflammasome Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deposited MSU crystals are phagocytosed by resident macrophages, triggering NLRP3 inflammasome activation and the acute inflammatory cascade.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome Activation\", \"target\": \"Neutrophil Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-1beta and downstream cytokines/chemokines released after inflammasome activation recruit neutrophils to the joint, amplifying acute inflammation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inflammasome Activation\", \"target\": \"Complement Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory milieu around MSU crystals engages the complement system, with C5 among the key emergent inflammatory mediators.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"MSU crystal surface complement engagement\"]}, {\"source\": \"Inflammasome Activation\", \"target\": \"Acute Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrophage NLRP3 inflammasome activation initiates the acute gouty inflammatory flare manifesting as acute arthritis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment\", \"target\": \"Neutrophil Extracellular Trap Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited neutrophils exposed to MSU crystals form neutrophil extracellular traps (NETs) in the inflamed joint.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Recruitment\", \"target\": \"Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil influx and amplified inflammation produce the intense joint pain of the acute gout attack.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neutrophil-amplified acute joint inflammation\"]}, {\"source\": \"Neutrophil Recruitment\", \"target\": \"Joint Swelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil-amplified joint inflammation produces the swelling characteristic of the acute gout attack.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neutrophil-amplified acute joint inflammation\"]}, {\"source\": \"Complement Activation\", \"target\": \"Neutrophil Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement activation, including C5/C5a generation, contributes to neutrophil recruitment and amplification of the inflammatory response.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Extracellular Trap Formation\", \"target\": \"Acute Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MSU-induced NETs initially exacerbate the acute inflammatory flare before aggregated NETs drive its self-limited resolution.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Minimal Urate Homeostasis Model\", \"target\": \"Hyperuricemia\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Serum urate is the model\u0027s single state; it rises above the ~6.8 mg/dL solubility limit under reduced fractional excretion (ABCG2 loss, low f_exc) or increased purine load (HPRT1 loss, PRPS1 superactivity), and is lowered by xanthine-oxidase inhibitors, uricosurics, and uricase.\"}, {\"source\": \"Hyperuricemia\", \"target\": \"Serum Uric Acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher serum uric acid tracks the hyperuricemic biochemical state that drives urate crystal supersaturation; reduction under xanthine oxidase inhibitors, URAT1 inhibitors, or uricase reports pharmacodynamic urate-lowering in gout.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"SLC2A9\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCG2\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC22A12\", \"target\": \"Hyperuricemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5108,14 +5455,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nephrolithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000787">HP:0000787</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kidney Stones, annotated with Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5148,14 +5502,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Joint swelling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001386">HP:0001386</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001386</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint Swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5186,14 +5547,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5276,14 +5644,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
+
+                        <span class="phenotype-term-label">Arthralgia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5349,13 +5726,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC2A9
 
 
-    <a href="https://bioregistry.io/hgnc:13446" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13446">hgnc:13446</a>
+    <a href="https://bioregistry.io/hgnc:13446" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:13446</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC2A9 (hgnc:13446). hgnc:13446 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5381,13 +5763,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCG2
 
 
-    <a href="https://bioregistry.io/hgnc:74" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:74">hgnc:74</a>
+    <a href="https://bioregistry.io/hgnc:74" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:74</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCG2 (hgnc:74). hgnc:74 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5413,13 +5800,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC22A12
 
 
-    <a href="https://bioregistry.io/hgnc:17989" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17989">hgnc:17989</a>
+    <a href="https://bioregistry.io/hgnc:17989" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:17989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC22A12 (hgnc:17989). hgnc:17989 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5792,25 +6184,66 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         mammalian meat food product
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/FOODON_00001006" target="_blank" class="curie-chip curie-chip-foodon" title="Open FOODON:00001006">FOODON:00001006</a>
+    <a href="http://purl.obolibrary.org/obo/FOODON_00001006" target="_blank" class="curie-chip curie-chip-foodon" aria-describedby="pill-tip-26">FOODON:00001006</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">FoodOn Food Ontology (FOODON)
+Relation: this environmental factor is carried by this food
+This environmental factor is carried by mammalian meat food product (FOODON:00001006). FOODON:00001006 is a food from the FoodOn Food Ontology.</span>
                     </span>
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Purine-rich mammalian meat raises urate burden</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15014182" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15014182" target="_blank">PMID:15014182</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Higher levels of meat and seafood consumption are associated with an increased risk of gout"</div>
+
+
+                <div class="evidence-explanation">12-year prospective cohort of 47,150 men; highest versus lowest quintile of meat intake carried a multivariate relative risk of 1.41. The same study found purine-rich vegetables were not associated with risk, so the annotation&#39;s purine framing is specific to animal sources.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5823,25 +6256,66 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         shellfish food product
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/FOODON_00001293" target="_blank" class="curie-chip curie-chip-foodon" title="Open FOODON:00001293">FOODON:00001293</a>
+    <a href="http://purl.obolibrary.org/obo/FOODON_00001293" target="_blank" class="curie-chip curie-chip-foodon" aria-describedby="pill-tip-27">FOODON:00001293</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">FoodOn Food Ontology (FOODON)
+Relation: this environmental factor is carried by this food
+This environmental factor is carried by shellfish food product (FOODON:00001293). FOODON:00001293 is a food from the FoodOn Food Ontology.</span>
                     </span>
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Purine-rich shellfish can precipitate hyperuricemia and flares</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15014182" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15014182" target="_blank">PMID:15014182</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Higher levels of meat and seafood consumption are associated with an increased risk of gout"</div>
+
+
+                <div class="evidence-explanation">Seafood intake carried a relative risk of 1.51 for incident gout. PARTIAL because the cohort measured incident gout rather than precipitation of flares in established disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5854,25 +6328,83 @@
 
 
 
+                    <span class="tag tag-env">
+                        beer intake
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0000071" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-28">XCO:0000071</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is beer intake, annotated with beer (XCO:0000071). XCO:0000071 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+
+
                     <span class="tag tag-bio">
                         beer beverage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/FOODON_00001260" target="_blank" class="curie-chip curie-chip-foodon" title="Open FOODON:00001260">FOODON:00001260</a>
+    <a href="http://purl.obolibrary.org/obo/FOODON_00001260" target="_blank" class="curie-chip curie-chip-foodon" aria-describedby="pill-tip-29">FOODON:00001260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">FoodOn Food Ontology (FOODON)
+Relation: this environmental factor is carried by this food
+This environmental factor is carried by beer beverage (FOODON:00001260). FOODON:00001260 is a food from the FoodOn Food Ontology.</span>
                     </span>
 
                 </div>
 
 
-                <div class="item-desc">Beer impairs urate excretion and contributes purine load</div>
 
 
 
+
+                <div class="item-desc">Beer or cider carries the strongest per-drink association with incident gout among the beverages compared</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39196557" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39196557" target="_blank">PMID:39196557</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"with beer or cider showing the strongest association per 1 pint per day"</div>
+
+
+                <div class="evidence-explanation">UK Biobank cohort of 401,128 participants; beer or cider had the strongest per-unit association with incident gout among the beverages compared (champagne/white wine, beer or cider, spirits), in both sexes. The source measures beer and cider as one category and does not separate them.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5882,10 +6414,46 @@
                 <div class="item-name">Fructose-Sweetened Soft Drink Intake</div>
 
 
+
+
+
+
                 <div class="item-desc">Fructose-containing soft drinks increase urate production</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31061018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31061018" target="_blank">PMID:31061018</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There is an adverse association of SSB and fruit juice intake with incident gout"</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of prospective cohorts (RR 2.08 for sugar-sweetened beverages); the association did not extend to whole fruit, which is why the exposure is scoped to soft drinks.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -5893,6 +6461,33 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-dehydration" data-dismech-node="Dehydration" data-dismech-type="environmental">
                 <div class="item-name">Dehydration</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        dehydration
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001602" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-30">XCO:0001602</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is dehydration (XCO:0001602). XCO:0001602 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
                 <div class="item-desc">Concentrates urate</div>
@@ -5908,10 +6503,46 @@
                 <div class="item-name">Diuretics</div>
 
 
+
+
+
+
                 <div class="item-desc">Reduce urate excretion</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22031222" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22031222" target="_blank">PMID:22031222</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thiazide and loop diuretics were associated with increased gout risk, an association mediated by a change in serum urate levels"</div>
+
+
+                <div class="evidence-explanation">Prospective cohort establishing both the gout risk and that it is mediated by a rise in serum urate, which is the mechanism this annotation records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -6411,6 +7042,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7009,22 +7643,28 @@
                 </details>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-hyperuricemia">Hyperuricemia</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Serum urate is the model&#39;s single state; it rises above the ~6.8 mg/dL solubility limit under reduced fractional excretion (ABCG2 loss, low f_exc) or increased purine load (HPRT1 loss, PRPS1 superactivity), and is lowered by xanthine-oxidase inhibitors, uricosurics, and uricase.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-hyperuricemia">Hyperuricemia</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Serum urate is the model&#39;s single state; it rises above the ~6.8 mg/dL solubility limit under reduced fractional excretion (ABCG2 loss, low f_exc) or increased purine load (HPRT1 loss, PRPS1 superactivity), and is lowered by xanthine-oxidase inhibitors, uricosurics, and uricase.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -7132,7 +7772,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Gout
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-05-12T00:25:12Z&#39;
 description: &gt;-
   Gout results from chronic hyperuricemia, driven by increased purine turnover or reduced renal urate excretion through transporters such as ABCG2, SLC2A9, and SLC22A12.
   When serum urate exceeds saturation, monosodium urate crystals deposit in joints and soft tissues.
@@ -7790,6 +8429,18 @@ environmental:
     term:
       id: FOODON:00001006
       label: mammalian meat food product
+  evidence:
+  - reference: PMID:15014182
+    reference_title: Purine-rich foods, dairy and protein intake, and the risk of gout
+      in men
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Higher levels of meat and seafood consumption are associated with an
+      increased risk of gout
+    explanation: 12-year prospective cohort of 47,150 men; highest versus lowest quintile
+      of meat intake carried a multivariate relative risk of 1.41. The same study
+      found purine-rich vegetables were not associated with risk, so the annotation&#39;s
+      purine framing is specific to animal sources.
 - name: Shellfish Intake
   notes: Purine-rich shellfish can precipitate hyperuricemia and flares
   food_source:
@@ -7797,19 +8448,76 @@ environmental:
     term:
       id: FOODON:00001293
       label: shellfish food product
+  evidence:
+  - reference: PMID:15014182
+    reference_title: Purine-rich foods, dairy and protein intake, and the risk of gout
+      in men
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: Higher levels of meat and seafood consumption are associated with an
+      increased risk of gout
+    explanation: Seafood intake carried a relative risk of 1.51 for incident gout.
+      PARTIAL because the cohort measured incident gout rather than precipitation
+      of flares in established disease.
 - name: Beer Intake
-  notes: Beer impairs urate excretion and contributes purine load
+  exposure_term:
+    preferred_term: beer intake
+    term:
+      id: XCO:0000071
+      label: beer
+  notes: Beer or cider carries the strongest per-drink association with incident
+    gout among the beverages compared
   food_source:
     preferred_term: beer beverage
     term:
       id: FOODON:00001260
       label: beer beverage
+  evidence:
+  - reference: PMID:39196557
+    reference_title: Consumption of Total and Specific Alcoholic Beverages and Long-Term
+      Risk of Gout Among Men and Women
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: with beer or cider showing the strongest association per 1 pint per day
+    explanation: UK Biobank cohort of 401,128 participants; beer or cider had the
+      strongest per-unit association with incident gout among the beverages compared
+      (champagne/white wine, beer or cider, spirits), in both sexes. The source
+      measures beer and cider as one category and does not separate them.
 - name: Fructose-Sweetened Soft Drink Intake
   notes: Fructose-containing soft drinks increase urate production
+  evidence:
+  - reference: PMID:31061018
+    reference_title: &#34;Important food sources of fructose-containing sugars and incident gout: a systematic review and meta-analysis of prospective cohort studies&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: There is an adverse association of SSB and fruit juice intake with incident
+      gout
+    explanation: Meta-analysis of prospective cohorts (RR 2.08 for sugar-sweetened
+      beverages); the association did not extend to whole fruit, which is why the
+      exposure is scoped to soft drinks.
 - name: Dehydration
+  exposure_term:
+    preferred_term: dehydration
+    term:
+      id: XCO:0001602
+      label: dehydration
   notes: Concentrates urate
+  review_notes: Left deliberately uncited. Targeted PubMed searches (fluid intake
+    and recurrent gout attacks; dehydration and serum urate; hydration status and
+    hyperuricemia) returned no study whose abstract states this claim directly. Per
+    the evidence SOP the claim is kept as a note rather than attached to an
+    approximately-relevant citation.
 - name: Diuretics
   notes: Reduce urate excretion
+  evidence:
+  - reference: PMID:22031222
+    reference_title: &#34;Diuretic use, increased serum urate levels, and risk of incident gout in a population-based study of adults with hypertension: the Atherosclerosis Risk in Communities cohort study&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Thiazide and loop diuretics were associated with increased gout risk,
+      an association mediated by a change in serum urate levels
+    explanation: Prospective cohort establishing both the gout risk and that it is
+      mediated by a rise in serum urate, which is the mechanism this annotation records.
 treatments:
 - name: NSAIDs
   description: First-line for acute flares (indomethacin, naproxen).
@@ -8579,7 +9287,7 @@ Gout is a sterile, crystal-driven inflammatory arthritis initiated by supersatur
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gout", "mondoId": "MONDO:0005393", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gout", "yamlRevision": "40e1cd9b529d"};
+        const OS_CONFIG = {"diseaseName": "Gout", "mondoId": "MONDO:0005393", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gout", "yamlRevision": "19fa69b0eb1e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8998,5 +9706,73 @@ Gout is a sterile, crystal-driven inflammatory arthritis initiated by supersatur
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

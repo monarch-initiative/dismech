@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3565,6 +3731,8 @@
                     </a>
                 </span>
 
+
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Diabetes%20mellitus"
@@ -3695,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3728,6 +3898,14 @@
 
 
 
+
+            <a class="stat-link" href="#pathograph">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">⬡</div>
+                <div class="stat-value">10</div>
+                <div class="stat-label">Pathograph</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#genetic">
@@ -3817,27 +3995,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
+
+
+
+
+                    <span class="tag tag-classification">ENDOCRINOLOGY METABOLISM</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -5574,16 +5829,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         glucose homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042593" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042593">GO:0042593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0042593</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal glucose homeostasis (GO:0042593). GO:0042593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5604,6 +5864,7 @@
 
 
                 </div>
+
 
 
 
@@ -5656,6 +5917,29 @@
 
         <!-- Causal Graph (Pathograph) -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
+
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Diabetes mellitus</title>
+                    <desc>Interactive directed graph showing how pathophysiology mechanisms, phenotypes, genetic factors and variants, experimental models, environmental triggers, and treatments relate through causal and linked edges.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained hyperglycemia is the shared, subtype-independent driver of diabetic tissue injury across every form of diabetes mellitus. Whatever the upstream route (autoimmune beta-cell destruction in type 1, insulin resistance with beta-cell secretory failure in type 2, undernutrition-associated beta-cell impairment in type 5, or a monogenic beta-cell defect), chronic hyperglycemia feeds one conserved cascade: hyperglycemia-induced oxidative and AGE-RAGE stress, endothelial dysfunction and vascular inflammation, micro- and macrovascular injury, and diabetic end-organ complications (kidney disease, retinopathy, neuropathy, atherosclerotic cardiovascular disease). That cascade is captured once in the diabetic_vascular_complications module, to which this node conforms; the per-type entries elaborate their own routes to hyperglycemia.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Diabetogenic pharmacotherapy exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to medications with diabetogenic effects can precipitate persistent or transient diabetes phenotypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early dietary exposures\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Early-life dietary exposures (e.g., infant feeding patterns and specific food antigens) are investigated as autoimmune-modulating factors.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Environmental determinants of diabetes susceptibility and progression\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Environmental contexts modify susceptibility and progression across diabetes subtypes rather than a single uniform etiologic pathway.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exogenous triggers of islet autoimmunity in type 1 diabetes pathways\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"In genetically predisposed individuals, exogenous exposures can initiate autoimmune processes targeting pancreatic beta cells.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"High-calorie diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Energy-dense dietary patterns promote positive energy balance, adiposity, and insulin resistance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune checkpoint inhibitor exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Immune checkpoint inhibitor therapy can trigger insulin-deficient diabetes with abrupt decompensation in some patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Obesogenic environment\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Environmental contexts favoring obesity (dietary excess, low activity, and social determinants) amplify diabetes susceptibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sedentary lifestyle\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Low physical activity patterns contribute to insulin resistance and cardiometabolic risk amplification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Viral infection exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Enteroviral and other viral exposures are implicated as triggers of islet autoimmunity in susceptible individuals.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Environmental determinants of diabetes susceptibility and progression\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"A meta-exposure rather than an exposure: it asserts that environmental context matters across subtypes without naming a context. Recorded as modulating for that reason, and graded partial on a sentence that reports what a panel of experts discussed. It is drawn because the claim it makes, that environment modifies trajectories across all subtypes, is the umbrella-level statement this entry exists to hold. This entry is the retained umbrella for diabetes mellitus and carries a single pathophysiology node, the shared hyperglycemia that every subtype converges on, so one target is the only shape available; the subtype-specific routes are modeled in the per-type entries and in the diabetic_vascular_complications module. Stated once here rather than repeated on all nine links, which lets each description carry its own reasoning.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Exogenous triggers of islet autoimmunity in type 1 diabetes pathways\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The autoimmune route to this node, kept deliberately general because the entry is the umbrella: the specific triggers are curated in Type_I_Diabetes, where the viral evidence is far deeper than anything here. Graded partial because the cited sentence says these triggers are thought to induce the autoimmune process, which is a belief about a mechanism rather than a measured effect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diabetogenic pharmacotherapy exposure\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The clearest causal exposure in this entry, because the drug produces the disease rather than raising the chance of it, and because stopping the drug often reverses it. That reversibility is the strongest causal design available anywhere in this entry, and the second item carries it along with its own limit, that persistence depends on treatment duration, agent and body mass.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune checkpoint inhibitor exposure\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A specific instance of diabetogenic pharmacotherapy that earns its own edge because the mechanism differs: checkpoint blockade releases the brakes on self-reactive T cells and the result is insulin deficiency, sometimes presenting abruptly in ketoacidosis, rather than the insulin resistance most diabetogenic drugs produce. Graded partial because the only evidence is a single case report.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Viral infection exposure\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded identically to the general islet-autoimmunity exposure and to the early-dietary one, because all three rest on the same sentence of the same paper, which names dietary factors and viruses together. None can be placed above the others on evidence held here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Early dietary exposures\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Recorded as modulating rather than predisposing, which separates it from the viral link despite their sharing a sentence. The exposure\u0027s own description and effect field both frame early feeding as modulating the risk of islet autoimmunity in susceptible populations rather than initiating it, and the randomized evidence on infant feeding curated in Type_I_Diabetes is negative.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Sedentary lifestyle\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Traverses the same adiposity to insulin-resistance route as the high-calorie link and so takes the same link type, even though its own sentence names no intermediate: the schema asks whether the field knows the intervening steps, not whether the quoted sentence recites them. The thinness of the evidence is carried by the partial grade on the item instead, which places sedentary lifestyle in the epidemiology of metabolic syndrome rather than following it to insulin resistance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"High-calorie diet\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The insulin-resistance route to this node, and the one exposure whose own sentence recites the intervening step: excess caloric intake driving hyperinsulinemia and the metabolic dysfunction of insulin resistance. That is why the item reads well, not why the link type is known; the other two adiposity exposures share the same route and now share the same link type. Graded partial because the sentence offers the step as a clinically valuable concept rather than a measurement.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Obesogenic environment\", \"target\": \"Chronic Hyperglycemia (shared diabetic complication cascade)\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The broadest of the three adiposity exposures and originally the thinnest-evidenced, resting on a screening recommendation alone. The route is the same well-mapped one the other two take, so the link type follows what the field knows rather than what any one sentence states. That recommendation alone would have left the edge asserting a mechanism no cited sentence described, so a second item was added that does describe it, naming excess body fat as the acquired cause of insulin resistance and insulin resistance as a route to type 2 diabetes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+
 
         <!-- Phenotypes -->
 
@@ -5703,14 +5987,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coronary artery atherosclerosis
+
+                        <span class="phenotype-term-label">Coronary artery atherosclerosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0001677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5764,14 +6057,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Stroke
+
+                        <span class="phenotype-term-label">Stroke</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001297">HP:0001297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0001297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5825,14 +6127,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral arterial stenosis
+
+                        <span class="phenotype-term-label">Peripheral arterial stenosis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004950" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004950">HP:0004950</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004950" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0004950</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral arterial stenosis (HP:0004950). HP:0004950 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5895,14 +6206,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperinsulinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000842" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000842">HP:0000842</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000842</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperinsulinemia (HP:0000842). HP:0000842 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,14 +6274,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diabetic ketoacidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001953" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001953">HP:0001953</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001953</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetic ketoacidosis (HP:0001953). HP:0001953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6048,14 +6373,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000488">HP:0000488</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000488</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6118,14 +6450,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Albuminuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012592" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012592">HP:0012592</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012592" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0012592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Albuminuria (HP:0012592). HP:0012592 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6179,14 +6518,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic kidney disease
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012622">HP:0012622</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0012622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6262,14 +6608,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000103">HP:0000103</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000103</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyuria (HP:0000103). HP:0000103 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6323,14 +6676,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glycosuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003076">HP:0003076</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003076</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6393,14 +6753,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperglycemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003074">HP:0003074</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003074</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6454,14 +6821,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glucose intolerance
+
+                        <span class="phenotype-term-label">Glucose intolerance</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001952">HP:0001952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glucose intolerance (HP:0001952). HP:0001952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6524,14 +6900,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral neuropathy
+
+                        <span class="phenotype-term-label">Peripheral neuropathy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0009830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6585,14 +6970,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polydipsia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001959">HP:0001959</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001959" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001959</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polydipsia (HP:0001959). HP:0001959 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6646,14 +7038,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002591">HP:0002591</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002591</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6716,14 +7115,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6786,14 +7192,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6847,14 +7260,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obesity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001513</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6952,13 +7372,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQA1
 
 
-    <a href="https://bioregistry.io/hgnc:4942" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4942">hgnc:4942</a>
+    <a href="https://bioregistry.io/hgnc:4942" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:4942</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQA1 (hgnc:4942). hgnc:4942 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7016,13 +7441,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQB1
 
 
-    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4944">hgnc:4944</a>
+    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:4944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7080,13 +7510,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: INS
 
 
-    <a href="https://bioregistry.io/hgnc:6081" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6081">hgnc:6081</a>
+    <a href="https://bioregistry.io/hgnc:6081" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:6081</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is INS (hgnc:6081). hgnc:6081 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7144,13 +7579,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PTPN22
 
 
-    <a href="https://bioregistry.io/hgnc:9652" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9652">hgnc:9652</a>
+    <a href="https://bioregistry.io/hgnc:9652" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9652</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7208,13 +7648,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IL2RA
 
 
-    <a href="https://bioregistry.io/hgnc:6008" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6008">hgnc:6008</a>
+    <a href="https://bioregistry.io/hgnc:6008" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6008</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IL2RA (hgnc:6008). hgnc:6008 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7272,13 +7717,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTLA4
 
 
-    <a href="https://bioregistry.io/hgnc:2505" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2505">hgnc:2505</a>
+    <a href="https://bioregistry.io/hgnc:2505" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:2505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTLA4 (hgnc:2505). hgnc:2505 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7336,13 +7786,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TCF7L2
 
 
-    <a href="https://bioregistry.io/hgnc:11641" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11641">hgnc:11641</a>
+    <a href="https://bioregistry.io/hgnc:11641" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11641</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TCF7L2 (hgnc:11641). hgnc:11641 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7400,13 +7855,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PPARG
 
 
-    <a href="https://bioregistry.io/hgnc:9236" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9236">hgnc:9236</a>
+    <a href="https://bioregistry.io/hgnc:9236" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:9236</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PPARG (hgnc:9236). hgnc:9236 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7464,13 +7924,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KCNJ11
 
 
-    <a href="https://bioregistry.io/hgnc:6257" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6257">hgnc:6257</a>
+    <a href="https://bioregistry.io/hgnc:6257" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:6257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7550,13 +8015,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC30A8
 
 
-    <a href="https://bioregistry.io/hgnc:20303" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20303">hgnc:20303</a>
+    <a href="https://bioregistry.io/hgnc:20303" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:20303</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC30A8 (hgnc:20303). hgnc:20303 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7614,13 +8084,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HNF1A
 
 
-    <a href="https://bioregistry.io/hgnc:11621" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11621">hgnc:11621</a>
+    <a href="https://bioregistry.io/hgnc:11621" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:11621</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HNF1A (hgnc:11621). hgnc:11621 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7722,13 +8197,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HNF4A
 
 
-    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5024">hgnc:5024</a>
+    <a href="https://bioregistry.io/hgnc:5024" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:5024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HNF4A (hgnc:5024). hgnc:5024 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7808,13 +8288,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HNF1B
 
 
-    <a href="https://bioregistry.io/hgnc:11630" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11630">hgnc:11630</a>
+    <a href="https://bioregistry.io/hgnc:11630" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:11630</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HNF1B (hgnc:11630). hgnc:11630 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7894,13 +8379,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCC8
 
 
-    <a href="https://bioregistry.io/hgnc:59" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:59">hgnc:59</a>
+    <a href="https://bioregistry.io/hgnc:59" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:59</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8002,13 +8492,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GCK
 
 
-    <a href="https://bioregistry.io/hgnc:4195" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4195">hgnc:4195</a>
+    <a href="https://bioregistry.io/hgnc:4195" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:4195</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GCK (hgnc:4195). hgnc:4195 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8112,13 +8607,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EIF2AK3
 
 
-    <a href="https://bioregistry.io/hgnc:3255" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3255">hgnc:3255</a>
+    <a href="https://bioregistry.io/hgnc:3255" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:3255</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EIF2AK3 (hgnc:3255). hgnc:3255 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8176,13 +8676,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: WFS1
 
 
-    <a href="https://bioregistry.io/hgnc:12762" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12762">hgnc:12762</a>
+    <a href="https://bioregistry.io/hgnc:12762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:12762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is WFS1 (hgnc:12762). hgnc:12762 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8240,13 +8745,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALMS1
 
 
-    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:428">hgnc:428</a>
+    <a href="https://bioregistry.io/hgnc:428" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:428</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALMS1 (hgnc:428). hgnc:428 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8304,13 +8814,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CISD2
 
 
-    <a href="https://bioregistry.io/hgnc:24212" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24212">hgnc:24212</a>
+    <a href="https://bioregistry.io/hgnc:24212" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:24212</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CISD2 (hgnc:24212). hgnc:24212 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8368,13 +8883,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC19A2
 
 
-    <a href="https://bioregistry.io/hgnc:10938" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10938">hgnc:10938</a>
+    <a href="https://bioregistry.io/hgnc:10938" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:10938</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC19A2 (hgnc:10938). hgnc:10938 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8441,7 +8961,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">insulin treatment</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">insulin treatment<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is insulin treatment, annotated with Injected Insulin Diabetes Therapy (NCIT:C179441). NCIT:C179441 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Injected Insulin Diabetes Therapy</span>
 
 
@@ -8472,16 +8997,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         insulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:145810">CHEBI:145810</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:145810</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8536,7 +9066,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -8567,16 +9102,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         metformin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6801" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6801">CHEBI:6801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:6801</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8631,7 +9171,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -8731,7 +9276,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">aerobic exercise therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">aerobic exercise therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is aerobic exercise therapy, annotated with Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -8831,7 +9381,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -8862,17 +9417,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         semaglutide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:167574">CHEBI:167574</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_167574" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:167574</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses semaglutide (CHEBI:167574). CHEBI:167574 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         liraglutide
@@ -8880,10 +9442,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71193" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71193">CHEBI:71193</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71193" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:71193</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses liraglutide (CHEBI:71193). CHEBI:71193 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8960,7 +9525,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8990,17 +9560,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         empagliflozin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_82720" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:82720">CHEBI:82720</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_82720" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:82720</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses empagliflozin (CHEBI:82720). CHEBI:82720 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         dapagliflozin
@@ -9008,11 +9585,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85078" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:85078">CHEBI:85078</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85078" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:85078</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dapagliflozin (CHEBI:85078). CHEBI:85078 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         canagliflozin
@@ -9020,10 +9602,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_73274" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:73274">CHEBI:73274</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_73274" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:73274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses canagliflozin (CHEBI:73274). CHEBI:73274 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9078,7 +9663,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -9109,16 +9699,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         tirzepatide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_194186" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:194186">CHEBI:194186</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_194186" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:194186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tirzepatide (CHEBI:194186). CHEBI:194186 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9173,7 +9768,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -9204,16 +9804,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         monoclonal antibody
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20401">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9381,6 +9986,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Environmental contexts modify susceptibility and progression across diabetes subtypes rather than a single uniform etiologic pathway.</div>
 
 
@@ -9419,10 +10028,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A meta-exposure rather than an exposure: it asserts that environmental context matters across subtypes without naming a context. Recorded as modulating for that reason, and graded partial on a sentence that reports what a panel of experts discussed. It is drawn because the claim it makes, that environment modifies trajectories across all subtypes, is the umbrella-level statement this entry exists to hold. This entry is the retained umbrella for diabetes mellitus and carries a single pathophysiology node, the shared hyperglycemia that every subtype converges on, so one target is the only shape available; the subtype-specific routes are modeled in the per-type entries and in the diabetic_vascular_complications module. Stated once here rather than repeated on all nine links, which lets each description carry its own reasoning.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27980006" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27980006" target="_blank">PMID:27980006</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"International experts in genetics, immunology, metabolism, endocrinology, and systems biology discussed genetic and environmental determinants of type 1 and type 2 diabetes risk and progression, as well as complications."</div>
+
+
+                <div class="evidence-explanation">Reports that international experts discussed genetic and environmental determinants of risk, progression and complications. It records that the topic was addressed rather than what was concluded.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-exogenous-triggers-of-islet-autoimmunity-in-type-1-diabetes-pathways" data-dismech-node="Exogenous triggers of islet autoimmunity in type 1 diabetes pathways" data-dismech-type="environmental">
                 <div class="item-name">Exogenous triggers of islet autoimmunity in type 1 diabetes pathways</div>
+
+
+
+
 
 
 
@@ -9464,10 +10129,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The autoimmune route to this node, kept deliberately general because the entry is the umbrella: the specific triggers are curated in Type_I_Diabetes, where the viral evidence is far deeper than anything here. Graded partial because the cited sentence says these triggers are thought to induce the autoimmune process, which is a belief about a mechanism rather than a measured effect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10522815" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10522815" target="_blank">PMID:10522815</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes."</div>
+
+
+                <div class="evidence-explanation">States that exogenous triggers such as certain dietary factors and viruses are thought to induce the autoimmune process leading to beta-cell destruction and clinical disease. Thought to is the operative phrase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-diabetogenic-pharmacotherapy-exposure" data-dismech-node="Diabetogenic pharmacotherapy exposure" data-dismech-type="environmental">
                 <div class="item-name">Diabetogenic pharmacotherapy exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        diabetogenic pharmacotherapy exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_2000057" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-57">ECTO:2000057</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is diabetogenic pharmacotherapy exposure, annotated with exposure to pharmacotherapy (ECTO:2000057). ECTO:2000057 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9531,10 +10275,111 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The clearest causal exposure in this entry, because the drug produces the disease rather than raising the chance of it, and because stopping the drug often reverses it. That reversibility is the strongest causal design available anywhere in this entry, and the second item carries it along with its own limit, that persistence depends on treatment duration, agent and body mass.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36106423" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36106423" target="_blank">PMID:36106423</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Drug-induced diabetes mellitus (DIDM) could be defined as a heterogenic group of diabetes caused by pharmacotherapy."</div>
+
+
+                <div class="evidence-explanation">Defines drug-induced diabetes as a heterogeneous group of diabetes caused by pharmacotherapy, which is an exposure producing the disease this node holds.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36106423" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36106423" target="_blank">PMID:36106423</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The DIDM is considered to be reversible after discontinuation of diabetogenic treatment, but there is a risk of persistence, which is related to the duration of treatment, prescribed medication, and body mass index."</div>
+
+
+                <div class="evidence-explanation">Records that the drug-induced form is considered reversible on stopping the treatment, with a persistence risk related to duration, agent and body mass index. Reversal on withdrawal, bounded by the authors themselves.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-immune-checkpoint-inhibitor-exposure" data-dismech-node="Immune checkpoint inhibitor exposure" data-dismech-type="environmental">
                 <div class="item-name">Immune checkpoint inhibitor exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        immune checkpoint inhibitor exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_9001737" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-58">ECTO:9001737</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is immune checkpoint inhibitor exposure, annotated with exposure to antineoplastic agent (ECTO:9001737). ECTO:9001737 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9576,6 +10421,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A specific instance of diabetogenic pharmacotherapy that earns its own edge because the mechanism differs: checkpoint blockade releases the brakes on self-reactive T cells and the result is insulin deficiency, sometimes presenting abruptly in ketoacidosis, rather than the insulin resistance most diabetogenic drugs produce. Graded partial because the only evidence is a single case report.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37960733" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37960733" target="_blank">PMID:37960733</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical manifestations of immune checkpoint inhibitor induced diabetes mellitus are variable, and in this case the patient presented with unique primary symptoms."</div>
+
+
+                <div class="evidence-explanation">Case report noting that the clinical manifestations of checkpoint-inhibitor-induced diabetes are variable. One patient, and a statement about variability rather than about risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-viral-infection-exposure" data-dismech-node="Viral infection exposure" data-dismech-type="environmental">
@@ -9583,21 +10480,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Viral infection exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:3000001">ECTO:3000001</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-59">ECTO:3000001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Viral infection exposure, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -9639,10 +10545,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded identically to the general islet-autoimmunity exposure and to the early-dietary one, because all three rest on the same sentence of the same paper, which names dietary factors and viruses together. None can be placed above the others on evidence held here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10522815" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10522815" target="_blank">PMID:10522815</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes."</div>
+
+
+                <div class="evidence-explanation">The same sentence, which names viruses among the exogenous triggers thought to induce the autoimmune process.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-early-dietary-exposures" data-dismech-node="Early dietary exposures" data-dismech-type="environmental">
                 <div class="item-name">Early dietary exposures</div>
+
+
+
+
 
 
 
@@ -9684,10 +10646,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Recorded as modulating rather than predisposing, which separates it from the viral link despite their sharing a sentence. The exposure&#39;s own description and effect field both frame early feeding as modulating the risk of islet autoimmunity in susceptible populations rather than initiating it, and the randomized evidence on infant feeding curated in Type_I_Diabetes is negative.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10522815" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10522815" target="_blank">PMID:10522815</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes."</div>
+
+
+                <div class="evidence-explanation">The same sentence, which names certain dietary factors among the exogenous triggers thought to induce the autoimmune process. It does not distinguish early from later dietary exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary lifestyle" data-dismech-type="environmental">
                 <div class="item-name">Sedentary lifestyle</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        sedentary lifestyle
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000004" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-60">ECTO:6000004</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is sedentary lifestyle, annotated with exposure to sedentary lifestyle (ECTO:6000004). ECTO:6000004 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9729,10 +10770,89 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Traverses the same adiposity to insulin-resistance route as the high-calorie link and so takes the same link type, even though its own sentence names no intermediate: the schema asks whether the field knows the intervening steps, not whether the quoted sentence recites them. The thinness of the evidence is carried by the partial grade on the item instead, which places sedentary lifestyle in the epidemiology of metabolic syndrome rather than following it to insulin resistance.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41632731" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41632731" target="_blank">PMID:41632731</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Type II DM remains the most prevalent subtype, as it is closely related to metabolic syndrome, whose prevalence is also rising with a sedentary lifestyle and Western diet."</div>
+
+
+                <div class="evidence-explanation">Notes that type 2 diabetes is closely related to metabolic syndrome, whose prevalence is rising with a sedentary lifestyle and Western diet. A statement about co-rising prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-high-calorie-diet" data-dismech-node="High-calorie diet" data-dismech-type="environmental">
                 <div class="item-name">High-calorie diet</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        high-calorie dietary pattern
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0000013" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-61">XCO:0000013</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is increased high-calorie dietary pattern, annotated with diet (XCO:0000013). XCO:0000013 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
 
 
 
@@ -9774,10 +10894,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The insulin-resistance route to this node, and the one exposure whose own sentence recites the intervening step: excess caloric intake driving hyperinsulinemia and the metabolic dysfunction of insulin resistance. That is why the item reads well, not why the link type is known; the other two adiposity exposures share the same route and now share the same link type. Graded partial because the sentence offers the step as a clinically valuable concept rather than a measurement.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29939616" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29939616" target="_blank">PMID:29939616</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This concept may be clinically valuable, suggesting that hyperinsulinemia associated with excess caloric intake may drive the metabolic dysfunction associated with insulin resistance."</div>
+
+
+                <div class="evidence-explanation">Suggests that hyperinsulinemia associated with excess caloric intake may drive the metabolic dysfunction of insulin resistance. A concept the authors put forward as clinically valuable.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-obesogenic-environment" data-dismech-node="Obesogenic environment" data-dismech-type="environmental">
                 <div class="item-name">Obesogenic environment</div>
+
+
+
+
 
 
 
@@ -9818,6 +10994,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Hyperglycemia (shared diabetic complication cascade)</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The broadest of the three adiposity exposures and originally the thinnest-evidenced, resting on a screening recommendation alone. The route is the same well-mapped one the other two take, so the link type follows what the field knows rather than what any one sentence states. That recommendation alone would have left the edge asserting a mechanism no cited sentence described, so a second item was added that does describe it, naming excess body fat as the acquired cause of insulin resistance and insulin resistance as a route to type 2 diabetes.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29939616" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29939616" target="_blank">PMID:29939616</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progression of insulin resistance can lead to metabolic syndrome, nonalcoholic fatty liver disease (NAFLD), and type 2 diabetes. Insulin resistance is primarily an acquired condition related to excess body fat"</div>
+
+
+                <div class="evidence-explanation">Names the intervening steps this link relies on and asserts their direction: excess body fat is the primary acquired cause of insulin resistance, and insulin resistance progresses to type 2 diabetes. It is what makes the route rather than the association the content of this edge.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34427594" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34427594" target="_blank">PMID:34427594</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The USPSTF recommends screening for prediabetes and type 2 diabetes in adults aged 35 to 70 years who have overweight or obesity."</div>
+
+
+                <div class="evidence-explanation">A task force recommendation to screen adults aged 35 to 70 with overweight or obesity. A screening rule, which implies risk without stating a mechanism or a magnitude.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10394,9 +11644,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         fecal sample
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-62">UBERON:0001988</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -10483,9 +11747,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         fecal sample
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-63">UBERON:0001988</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -10574,9 +11852,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         fecal sample
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-64">UBERON:0001988</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -10665,9 +11957,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         fecal sample
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-65">UBERON:0001988</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples fecal sample, annotated with feces (UBERON:0001988). UBERON:0001988 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -10760,16 +12066,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hyperglycemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003074">HP:0003074</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0003074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10828,17 +12139,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hyperglycemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003074">HP:0003074</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0003074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Obesity
@@ -10846,10 +12164,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001513">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001513</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10908,17 +12229,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hyperglycemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003074">HP:0003074</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0003074</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Coronary artery atherosclerosis
@@ -10926,10 +12254,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001677">HP:0001677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0001677</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Coronary artery atherosclerosis (HP:0001677). HP:0001677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10977,6 +12308,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
         <div class="card" id="models">
@@ -11010,6 +12344,8 @@
 
 
                 </div>
+
+
 
 
 
@@ -11091,6 +12427,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Predicts diabetes biomarkers and drug effects across multiple organs</div>
 
 
@@ -11156,6 +12494,8 @@
 
 
                 </div>
+
+
 
 
 
@@ -11235,6 +12575,8 @@
 
 
 
+
+
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">mSystems 2020 - enables personalized microbiome metabolic modeling from 16S/metagenomics data</div>
 
 
@@ -11290,7 +12632,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Diabetes mellitus
 creation_date: &#34;2026-02-21T15:39:12Z&#34;
-updated_date: &#34;2026-05-08T20:47:43Z&#34;
 category: Complex
 description: &gt;-
   Diabetes mellitus is a heterogeneous group of disorders characterized by
@@ -13138,6 +14479,34 @@ computational_models:
     explanation: This directly supports MICOM as a metagenome-scale community metabolic modeling framework.
 environmental:
 - name: Environmental determinants of diabetes susceptibility and progression
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A meta-exposure rather than an exposure: it asserts that environmental
+      context matters across subtypes without naming a context. Recorded as
+      modulating for that reason, and graded partial on a sentence that
+      reports what a panel of experts discussed. It is drawn because the claim
+      it makes, that environment modifies trajectories across all subtypes, is
+      the umbrella-level statement this entry exists to hold. This entry is
+      the retained umbrella for diabetes mellitus and carries a single
+      pathophysiology node, the shared hyperglycemia that every subtype
+      converges on, so one target is the only shape available; the
+      subtype-specific routes are modeled in the per-type entries and in the
+      diabetic_vascular_complications module. Stated once here rather than
+      repeated on all nine links, which lets each description carry its own
+      reasoning.
+    evidence:
+    - reference: PMID:27980006
+      reference_title: &#34;Differentiation of Diabetes by Pathophysiology, Natural History, and Prognosis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;International experts in genetics, immunology, metabolism, endocrinology, and systems biology discussed genetic and environmental determinants of type 1 and type 2 diabetes risk and progression, as well as complications.&#34;
+      explanation: &gt;-
+        Reports that international experts discussed genetic and environmental
+        determinants of risk, progression and complications. It records that
+        the topic was addressed rather than what was concluded.
   description: &gt;-
     Environmental contexts modify susceptibility and progression across diabetes
     subtypes rather than a single uniform etiologic pathway.
@@ -13150,6 +14519,28 @@ environmental:
     snippet: &#34;International experts in genetics, immunology, metabolism, endocrinology, and systems biology discussed genetic and environmental determinants of type 1 and type 2 diabetes risk and progression, as well as complications.&#34;
     explanation: This supports broad environmental contributions to diabetes susceptibility and progression.
 - name: Exogenous triggers of islet autoimmunity in type 1 diabetes pathways
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The autoimmune route to this node, kept deliberately general because the
+      entry is the umbrella: the specific triggers are curated in
+      Type_I_Diabetes, where the viral evidence is far deeper than anything
+      here. Graded partial because the cited sentence says these triggers are
+      thought to induce the autoimmune process, which is a belief about a
+      mechanism rather than a measured effect.
+    evidence:
+    - reference: PMID:10522815
+      reference_title: &#34;Environmental factors in the pathogenesis of type 1 diabetes mellitus.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes.&#34;
+      explanation: &gt;-
+        States that exogenous triggers such as certain dietary factors and
+        viruses are thought to induce the autoimmune process leading to
+        beta-cell destruction and clinical disease. Thought to is the
+        operative phrase.
   description: &gt;-
     In genetically predisposed individuals, exogenous exposures can initiate
     autoimmune processes targeting pancreatic beta cells.
@@ -13162,6 +14553,42 @@ environmental:
     snippet: &#34;Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes.&#34;
     explanation: This supports environmental exposure-triggered autoimmunity as a key risk relationship in type 1 diabetes biology.
 - name: Diabetogenic pharmacotherapy exposure
+  exposure_term:
+    preferred_term: diabetogenic pharmacotherapy exposure
+    term:
+      id: ECTO:2000057
+      label: exposure to pharmacotherapy
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The clearest causal exposure in this entry, because the drug produces
+      the disease rather than raising the chance of it, and because stopping
+      the drug often reverses it. That reversibility is the strongest causal
+      design available anywhere in this entry, and the second item carries it
+      along with its own limit, that persistence depends on treatment
+      duration, agent and body mass.
+    evidence:
+    - reference: PMID:36106423
+      reference_title: &#34;Atypical diabetes mellitus in children - when to suspect drug-induced diabetes. A case-based review of the literature.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Drug-induced diabetes mellitus (DIDM) could be defined as a heterogenic group of diabetes caused by pharmacotherapy.&#34;
+      explanation: &gt;-
+        Defines drug-induced diabetes as a heterogeneous group of diabetes
+        caused by pharmacotherapy, which is an exposure producing the disease
+        this node holds.
+    - reference: PMID:36106423
+      reference_title: &#34;Atypical diabetes mellitus in children - when to suspect drug-induced diabetes. A case-based review of the literature.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The DIDM is considered to be reversible after discontinuation of diabetogenic treatment, but there is a risk of persistence, which is related to the duration of treatment, prescribed medication, and body mass index.&#34;
+      explanation: &gt;-
+        Records that the drug-induced form is considered reversible on
+        stopping the treatment, with a persistence risk related to duration,
+        agent and body mass index. Reversal on withdrawal, bounded by the
+        authors themselves.
   description: Exposure to medications with diabetogenic effects can precipitate persistent or transient diabetes phenotypes.
   effect: Increases risk of treatment-associated hyperglycemia and overt diabetes in susceptible patients.
   evidence:
@@ -13178,6 +14605,32 @@ environmental:
     snippet: &#34;The DIDM is considered to be reversible after discontinuation of diabetogenic treatment, but there is a risk of persistence, which is related to the duration of treatment, prescribed medication, and body mass index.&#34;
     explanation: This adds context on heterogeneity and persistence risk in pharmacotherapy-associated diabetes.
 - name: Immune checkpoint inhibitor exposure
+  exposure_term:
+    preferred_term: immune checkpoint inhibitor exposure
+    term:
+      id: ECTO:9001737
+      label: exposure to antineoplastic agent
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A specific instance of diabetogenic pharmacotherapy that earns its own
+      edge because the mechanism differs: checkpoint blockade releases the
+      brakes on self-reactive T cells and the result is insulin deficiency,
+      sometimes presenting abruptly in ketoacidosis, rather than the insulin
+      resistance most diabetogenic drugs produce. Graded partial because the
+      only evidence is a single case report.
+    evidence:
+    - reference: PMID:37960733
+      reference_title: &#34;Sintilimab-related diabetes mellitus and psoriasis: A case report and literature review.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The clinical manifestations of immune checkpoint inhibitor induced diabetes mellitus are variable, and in this case the patient presented with unique primary symptoms.&#34;
+      explanation: &gt;-
+        Case report noting that the clinical manifestations of
+        checkpoint-inhibitor-induced diabetes are variable. One patient, and a
+        statement about variability rather than about risk.
   description: Immune checkpoint inhibitor therapy can trigger insulin-deficient diabetes with abrupt decompensation in some patients.
   effect: Can precipitate immune-related diabetes presentations, including ketoacidosis.
   evidence:
@@ -13188,6 +14641,24 @@ environmental:
     snippet: &#34;The clinical manifestations of immune checkpoint inhibitor induced diabetes mellitus are variable, and in this case the patient presented with unique primary symptoms.&#34;
     explanation: This case report supports checkpoint inhibitor exposure as a distinct treatment-associated diabetes trigger context.
 - name: Viral infection exposure
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded identically to the general islet-autoimmunity exposure and to the
+      early-dietary one, because all three rest on the same sentence of the
+      same paper, which names dietary factors and viruses together. None can
+      be placed above the others on evidence held here.
+    evidence:
+    - reference: PMID:10522815
+      reference_title: &#34;Environmental factors in the pathogenesis of type 1 diabetes mellitus.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes.&#34;
+      explanation: &gt;-
+        The same sentence, which names viruses among the exogenous triggers
+        thought to induce the autoimmune process.
   description: Enteroviral and other viral exposures are implicated as triggers of islet autoimmunity in susceptible individuals.
   effect: Increases risk of autoimmune beta-cell injury and progression to clinical type 1 diabetes.
   exposure_term:
@@ -13203,6 +14674,27 @@ environmental:
     snippet: &#34;Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes.&#34;
     explanation: This supports viral exposure as an environmental trigger linked to autoimmune diabetes onset.
 - name: Early dietary exposures
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Recorded as modulating rather than predisposing, which separates it from
+      the viral link despite their sharing a sentence. The exposure&#39;s own
+      description and effect field both frame early feeding as modulating the
+      risk of islet autoimmunity in susceptible populations rather than
+      initiating it, and the randomized evidence on infant feeding curated in
+      Type_I_Diabetes is negative.
+    evidence:
+    - reference: PMID:10522815
+      reference_title: &#34;Environmental factors in the pathogenesis of type 1 diabetes mellitus.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes.&#34;
+      explanation: &gt;-
+        The same sentence, which names certain dietary factors among the
+        exogenous triggers thought to induce the autoimmune process. It does
+        not distinguish early from later dietary exposure.
   description: Early-life dietary exposures (e.g., infant feeding patterns and specific food antigens) are investigated as autoimmune-modulating factors.
   effect: May modulate risk of islet autoimmunity in genetically susceptible populations.
   evidence:
@@ -13213,6 +14705,33 @@ environmental:
     snippet: &#34;Various exogenous triggers, such as certain dietary factors and viruses, are thought to induce the autoimmune process leading in some individuals to extensive beta-cell destruction and ultimately to the clinical manifestation of type 1 diabetes.&#34;
     explanation: This supports early dietary exposures as environmental modulators of autoimmune risk in susceptible individuals.
 - name: Sedentary lifestyle
+  exposure_term:
+    preferred_term: sedentary lifestyle
+    term:
+      id: ECTO:6000004
+      label: exposure to sedentary lifestyle
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Traverses the same adiposity to insulin-resistance route as the
+      high-calorie link and so takes the same link type, even though its own
+      sentence names no intermediate: the schema asks whether the field knows
+      the intervening steps, not whether the quoted sentence recites them. The
+      thinness of the evidence is carried by the partial grade on the item
+      instead, which places sedentary lifestyle in the epidemiology of
+      metabolic syndrome rather than following it to insulin resistance.
+    evidence:
+    - reference: PMID:41632731
+      reference_title: &#34;Diabetic Kidney Disease: From Pathophysiology To Treatment Perspectives.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Type II DM remains the most prevalent subtype, as it is closely related to metabolic syndrome, whose prevalence is also rising with a sedentary lifestyle and Western diet.&#34;
+      explanation: &gt;-
+        Notes that type 2 diabetes is closely related to metabolic syndrome,
+        whose prevalence is rising with a sedentary lifestyle and Western
+        diet. A statement about co-rising prevalence.
   description: Low physical activity patterns contribute to insulin resistance and cardiometabolic risk amplification.
   effect: Increases progression risk toward type 2 diabetes trajectories.
   evidence:
@@ -13223,6 +14742,34 @@ environmental:
     snippet: &#34;Type II DM remains the most prevalent subtype, as it is closely related to metabolic syndrome, whose prevalence is also rising with a sedentary lifestyle and Western diet.&#34;
     explanation: This supports sedentary lifestyle as an environmental contributor linked to type 2 diabetes epidemiology and progression.
 - name: High-calorie diet
+  exposure_term:
+    preferred_term: high-calorie dietary pattern
+    modifier: INCREASED
+    term:
+      id: XCO:0000013
+      label: diet
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The insulin-resistance route to this node, and the one exposure whose
+      own sentence recites the intervening step: excess caloric intake driving
+      hyperinsulinemia and the metabolic dysfunction of insulin resistance.
+      That is why the item reads well, not why the link type is known; the
+      other two adiposity exposures share the same route and now share the
+      same link type. Graded partial because the sentence offers the step as a
+      clinically valuable concept rather than a measurement.
+    evidence:
+    - reference: PMID:29939616
+      reference_title: &#34;Insulin Resistance.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This concept may be clinically valuable, suggesting that hyperinsulinemia associated with excess caloric intake may drive the metabolic dysfunction associated with insulin resistance.&#34;
+      explanation: &gt;-
+        Suggests that hyperinsulinemia associated with excess caloric intake
+        may drive the metabolic dysfunction of insulin resistance. A concept
+        the authors put forward as clinically valuable.
   description: Energy-dense dietary patterns promote positive energy balance, adiposity, and insulin resistance.
   effect: Accelerates progression from metabolic risk states to overt type 2 diabetes.
   evidence:
@@ -13233,6 +14780,40 @@ environmental:
     snippet: &#34;This concept may be clinically valuable, suggesting that hyperinsulinemia associated with excess caloric intake may drive the metabolic dysfunction associated with insulin resistance.&#34;
     explanation: This supports excess caloric intake as an environmental dietary driver of insulin-resistant diabetes pathways.
 - name: Obesogenic environment
+  influences_mechanisms:
+  - target: Chronic Hyperglycemia (shared diabetic complication cascade)
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The broadest of the three adiposity exposures and originally the
+      thinnest-evidenced, resting on a screening recommendation alone. The
+      route is the same well-mapped one the other two take, so the link type
+      follows what the field knows rather than what any one sentence states.
+      That recommendation alone would have left the edge asserting a mechanism
+      no cited sentence described, so a second item was added that does
+      describe it, naming excess body fat as the acquired cause of insulin
+      resistance and insulin resistance as a route to type 2 diabetes.
+    evidence:
+    - reference: PMID:29939616
+      reference_title: &#34;Insulin Resistance.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Progression of insulin resistance can lead to metabolic syndrome, nonalcoholic fatty liver disease (NAFLD), and type 2 diabetes. Insulin resistance is primarily an acquired condition related to excess body fat&#34;
+      explanation: &gt;-
+        Names the intervening steps this link relies on and asserts their
+        direction: excess body fat is the primary acquired cause of insulin
+        resistance, and insulin resistance progresses to type 2 diabetes. It
+        is what makes the route rather than the association the content of
+        this edge.
+    - reference: PMID:34427594
+      reference_title: &#34;Screening for Prediabetes and Type 2 Diabetes: US Preventive Services Task Force Recommendation Statement.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;The USPSTF recommends screening for prediabetes and type 2 diabetes in adults aged 35 to 70 years who have overweight or obesity.&#34;
+      explanation: &gt;-
+        A task force recommendation to screen adults aged 35 to 70 with
+        overweight or obesity. A screening rule, which implies risk without
+        stating a mechanism or a magnitude.
   description: Environmental contexts favoring obesity (dietary excess, low activity, and social determinants) amplify diabetes susceptibility.
   effect: Increases insulin resistance burden and long-term diabetes complication risk.
   evidence:
@@ -14727,7 +16308,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diabetes mellitus", "mondoId": "MONDO:0005015", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetes_mellitus", "yamlRevision": "54d7642eede1"};
+        const OS_CONFIG = {"diseaseName": "Diabetes mellitus", "mondoId": "MONDO:0005015", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetes_mellitus", "yamlRevision": "43b53d8e381b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15146,5 +16727,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

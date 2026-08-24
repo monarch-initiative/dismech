@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Chronic_Obstructive_Pulmonary_Disease"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3734,7 +3902,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3769,6 +3937,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3795,27 +3971,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">RESPIRATORY</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4160,16 +4413,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Epithelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000066">CL:0000066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Epithelial Cell (CL:0000066). CL:0000066 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4195,6 +4453,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         inflammatory response
@@ -4202,10 +4462,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4221,9 +4484,13 @@
 
 
 
-                    <span class="tag tag-bio">
+
+
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-3">
                         airway remodeling
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves airway remodeling.</span>
                     </span>
 
 
@@ -4246,24 +4513,34 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-5">
                         small airway
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small airway.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4367,17 +4644,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4398,11 +4682,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4423,10 +4712,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-lymphocyte, annotated with T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4453,17 +4745,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4484,10 +4783,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043312">GO:0043312</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0043312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4510,17 +4812,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         alveolus of lung
@@ -4528,13 +4837,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4625,16 +4938,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Smooth Muscle Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000192">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Smooth Muscle Cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4660,6 +4978,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         extracellular matrix organization
@@ -4667,10 +4987,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4686,9 +5009,13 @@
 
 
 
-                    <span class="tag tag-bio">
+
+
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-15">
                         fibrosis
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves fibrosis.</span>
                     </span>
 
 
@@ -4711,24 +5038,34 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-17">
                         small airway
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small airway.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4817,16 +5154,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Alveolar Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Alveolar Macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4853,17 +5195,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006508">GO:0006508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves proteolysis (GO:0006508). GO:0006508 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4884,10 +5233,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4910,17 +5262,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         alveolus of lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         lung parenchyma
@@ -4928,13 +5287,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0008946" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0008946">UBERON:0008946</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0008946" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0008946</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung parenchyma (UBERON:0008946). UBERON:0008946 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5025,17 +5388,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         airway epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves airway epithelial cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5056,10 +5426,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Alveolar Macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5086,17 +5459,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5117,11 +5497,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5142,10 +5527,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000422">GO:0000422</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0000422</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitophagy, annotated with autophagy of mitochondrion (GO:0000422). GO:0000422 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5168,17 +5556,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         alveolus of lung
@@ -5186,13 +5581,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5243,17 +5642,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         goblet cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000160">CL:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000160" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000160</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves goblet cell (CL:0000160). CL:0000160 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5274,10 +5680,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000158" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000158">CL:0000158</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000158" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0000158</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves club cell (CL:0000158). CL:0000158 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5304,17 +5713,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mucus secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070254" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070254">GO:0070254</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070254" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0070254</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mucus secretion (GO:0070254). GO:0070254 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5335,10 +5751,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003341" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003341">GO:0003341</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003341" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0003341</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cilium movement (GO:0003341). GO:0003341 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5361,24 +5780,34 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-35">
                         small airway
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small airway.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5397,17 +5826,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5428,10 +5864,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves airway epithelial cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5457,6 +5896,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         inflammatory response
@@ -5464,10 +5905,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5488,6 +5932,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         NLRP3 inflammasome complex
@@ -5495,10 +5941,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072559">GO:0072559</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0072559</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). GO:0072559 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5506,17 +5955,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bronchus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002185">UBERON:0002185</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0002185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:0002185 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         alveolus of lung
@@ -5524,13 +5980,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002299">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-41">UBERON:0002299</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5549,17 +6009,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         airway epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-42">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves airway epithelial cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5580,10 +6047,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5610,17 +6080,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cellular senescence
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090398">GO:0090398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0090398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cellular senescence (GO:0090398). GO:0090398 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5641,10 +6118,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5667,19 +6147,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5698,17 +6184,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neutrophil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000775">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000775</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5729,11 +6222,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002368">CL:0002368</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002368" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0002368</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Airway Epithelial Cell, annotated with respiratory tract epithelial cell (CL:0002368). CL:0002368 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5754,10 +6252,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000583">CL:0000583</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-49">CL:0000583</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Alveolar Macrophage (CL:0000583). CL:0000583 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5784,16 +6285,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SIRT1
 
 
-    <a href="https://bioregistry.io/hgnc:14929" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14929">hgnc:14929</a>
+    <a href="https://bioregistry.io/hgnc:14929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:14929</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SIRT1 (hgnc:14929). hgnc:14929 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5821,11 +6333,18 @@
         NFKB1
 
 
-    <a href="https://bioregistry.io/hgnc:7794" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7794">hgnc:7794</a>
+    <a href="https://bioregistry.io/hgnc:7794" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:7794</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NFKB1 (hgnc:7794). hgnc:7794 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5853,11 +6372,18 @@
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5885,11 +6411,18 @@
         NFE2L2
 
 
-    <a href="https://bioregistry.io/hgnc:7782" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7782">hgnc:7782</a>
+    <a href="https://bioregistry.io/hgnc:7782" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:7782</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NFE2L2 (hgnc:7782). hgnc:7782 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5917,11 +6450,18 @@
         FOXO3
 
 
-    <a href="https://bioregistry.io/hgnc:3821" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3821">hgnc:3821</a>
+    <a href="https://bioregistry.io/hgnc:3821" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:3821</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FOXO3 (hgnc:3821). hgnc:3821 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5949,10 +6489,13 @@
         TGFB1
 
 
-    <a href="https://bioregistry.io/hgnc:11766" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11766">hgnc:11766</a>
+    <a href="https://bioregistry.io/hgnc:11766" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:11766</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TGFB1 (hgnc:11766). hgnc:11766 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5980,17 +6523,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein deacetylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006476" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006476">GO:0006476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-56">GO:0006476</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein deacetylation (GO:0006476). GO:0006476 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6011,11 +6561,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-57">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6036,11 +6591,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006355">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-58">GO:0006355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves transcriptional regulation, annotated with regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6061,10 +6621,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050728" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050728">GO:0050728</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050728" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-59">GO:0050728</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves negative regulation of inflammatory response (GO:0050728). GO:0050728 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6081,6 +6644,7 @@
 
 
                 </div>
+
 
 
 
@@ -6243,7 +6807,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airflow Limitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obstruction of airflow due to inflammation, mucus build-up, and remodeling of the airways.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Epithelial Cell\"], \"biological_processes\": [\"inflammatory response\", \"airway remodeling\"], \"locations\": [\"bronchus\", \"small airway\"]}}, {\"id\": \"Alveolar Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Breakdown of alveolar walls, leading to reduced surface area for gas exchange and loss of lung elasticity.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Alveolar Macrophage\"], \"biological_processes\": [\"proteolysis\", \"extracellular matrix organization\"], \"locations\": [\"alveolus of lung\", \"lung parenchyma\"]}}, {\"id\": \"Cellular Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Senescent epithelial, fibroblast, and immune cells exhibit senescence-associated secretory phenotype (SASP), promoting chronic inflammation and remodeling.\", \"meta\": {\"cell_types\": [\"airway epithelial cell\", \"fibroblast\"], \"biological_processes\": [\"cellular senescence\", \"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent irritation from inhaled substances like cigarette smoke leads to airway and alveolar inflammation.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Neutrophil\", \"Macrophage\", \"T-lymphocyte\"], \"biological_processes\": [\"inflammatory response\", \"neutrophil degranulation\"], \"locations\": [\"bronchus\", \"alveolus of lung\"]}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Forced Expiratory Volume in 1 Second (FEV1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Reduced, with a low post-bronchodilator FEV1/FVC ratio confirming persistent airflow limitation; partially reversible or more slowly declining with bronchodilator and anti-inflammatory therapy.\", \"term_id\": \"NCIT:C38084\", \"term_label\": \"Forced Expiratory Volume in 1 Second\", \"readouts\": [{\"target\": \"Airflow Limitation\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-013\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-013\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Chronic obstructive pulmonary disease (COPD)\", \"patient_population\": \"Patients with COPD\", \"surrogate_endpoint\": \"Forced expiratory volume in 1 second (FEV1)\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Corticosteroid; Long-acting beta2-adrenergic agonist; Anticholinergic; Phosphodiesterase 4 inhibitor\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Chronic obstructive pulmonary disease (COPD); population: Patients with COPD; endpoint: Forced expiratory volume in 1 second (FEV1); approval context: traditional; drug mechanism: Corticosteroid; Long-acting beta2-adrenergic agonist; Anticholinergic; Phosphodiesterase 4 inhibitor.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Higher or less-declining percent-predicted FEV1 indicates reduced airflow limitation; treatment-induced improvement in FEV1 reports the pharmacodynamic response to bronchodilator and anti-inflammatory therapy and underpins the FDA surrogate-endpoint basis for traditional approval of COPD drugs.\"}]}}, {\"id\": \"Hypercapnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012416\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012418\"}}, {\"id\": \"NFE2L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Nrf2 transcription factor regulates antioxidant defense.\"}}, {\"id\": \"Oxidative Stress and Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cigarette smoke and pollutants trigger mitochondrial ROS production, impaired mitophagy, and reduced antioxidant defenses, amplifying inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"airway epithelial cell\", \"Alveolar Macrophage\"], \"biological_processes\": [\"response to oxidative stress\", \"mitochondrion organization\", \"mitophagy\"], \"locations\": [\"bronchus\", \"alveolus of lung\"]}}, {\"id\": \"Progressive Respiratory Impairment\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIRT1 (Sirtuin 1), an NAD+-dependent deacetylase, exerts protective effects in COPD by inhibiting pro-inflammatory signaling pathways (NF-\\u03baB, STAT3) while activating stress-response transcription factors (Nrf2, FOXO3) and suppressing pro-fibrotic TGF-\\u03b2/Smad signaling. In COPD, SIRT1 reduces neutrophilic inflammation, mitigates alveolar senescence, and helps restore protease/antiprotease balance. SIRT1 also mitigates oxidative stress and mitochondrial dysfunction.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neutrophil\", \"Airway Epithelial Cell\", \"Alveolar Macrophage\"], \"biological_processes\": [\"protein deacetylation\", \"response to oxidative stress\", \"transcriptional regulation\", \"negative regulation of inflammatory response\"], \"genes\": [\"SIRT1\", \"NFKB1\", \"STAT3\", \"NFE2L2\", \"FOXO3\", \"TGFB1\"], \"gene_terms\": [{\"label\": \"SIRT1\", \"id\": \"hgnc:14929\"}, {\"label\": \"NFKB1\", \"id\": \"hgnc:7794\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"NFE2L2\", \"id\": \"hgnc:7782\"}, {\"label\": \"FOXO3\", \"id\": \"hgnc:3821\"}, {\"label\": \"TGFB1\", \"id\": \"hgnc:11766\"}]}}], \"edges\": [{\"source\": \"Airflow Limitation\", \"target\": \"Progressive Respiratory Impairment\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Chronic airway inflammation and remodeling lead to progressive airflow obstruction and respiratory decline.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Chronic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1-mediated deacetylation inhibits NF-\\u03baB and STAT3 signaling, reducing neutrophilic recruitment and pro-inflammatory cytokine production.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Cellular Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses senescence-associated secretory phenotype (SASP) and promotes cell viability in epithelial and immune cells.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Alveolar Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses TGF-\\u03b2/Smad pro-fibrotic signaling and restores protease/antiprotease balance through Nrf2-mediated antioxidant responses.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Oxidative Stress and Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 activation of Nrf2 and FOXO3 enhances antioxidant defenses and mitochondrial homeostasis, reducing ROS-driven inflammasome activation.\"}, {\"source\": \"Dyspnea\", \"target\": \"Exercise Intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Respiratory Failure\", \"target\": \"Hypoxemia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Respiratory Failure\", \"target\": \"Hypercapnia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Airflow Limitation\", \"target\": \"Forced Expiratory Volume in 1 Second (FEV1)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher or less-declining percent-predicted FEV1 indicates reduced airflow limitation; treatment-induced improvement in FEV1 reports the pharmacodynamic response to bronchodilator and anti-inflammatory therapy and underpins the FDA surrogate-endpoint basis for traditional approval of COPD drugs.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"NFE2L2\", \"target\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Progressive Respiratory Impairment\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Air Pollution\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Airflow Limitation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Obstruction of airflow due to inflammation, mucus build-up, and remodeling of the airways.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Epithelial Cell\"], \"biological_processes\": [\"inflammatory response\", \"airway remodeling\"], \"locations\": [\"bronchus\", \"small airway\"]}}, {\"id\": \"Alveolar Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Breakdown of alveolar walls, leading to reduced surface area for gas exchange and loss of lung elasticity.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Alveolar Macrophage\"], \"biological_processes\": [\"proteolysis\", \"extracellular matrix organization\"], \"locations\": [\"alveolus of lung\", \"lung parenchyma\"]}}, {\"id\": \"Cellular Senescence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Senescent epithelial, fibroblast, and immune cells exhibit senescence-associated secretory phenotype (SASP), promoting chronic inflammation and remodeling.\", \"meta\": {\"cell_types\": [\"airway epithelial cell\", \"fibroblast\"], \"biological_processes\": [\"cellular senescence\", \"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent irritation from inhaled substances like cigarette smoke leads to airway and alveolar inflammation.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Neutrophil\", \"Macrophage\", \"T-lymphocyte\"], \"biological_processes\": [\"inflammatory response\", \"neutrophil degranulation\"], \"locations\": [\"bronchus\", \"alveolus of lung\"]}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Forced Expiratory Volume in 1 Second (FEV1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Reduced, with a low post-bronchodilator FEV1/FVC ratio confirming persistent airflow limitation; partially reversible or more slowly declining with bronchodilator and anti-inflammatory therapy.\", \"term_id\": \"NCIT:C38084\", \"term_label\": \"Forced Expiratory Volume in 1 Second\", \"readouts\": [{\"target\": \"Airflow Limitation\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-013\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-013\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Chronic obstructive pulmonary disease (COPD)\", \"patient_population\": \"Patients with COPD\", \"surrogate_endpoint\": \"Forced expiratory volume in 1 second (FEV1)\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Corticosteroid; Long-acting beta2-adrenergic agonist; Anticholinergic; Phosphodiesterase 4 inhibitor\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Chronic obstructive pulmonary disease (COPD); population: Patients with COPD; endpoint: Forced expiratory volume in 1 second (FEV1); approval context: traditional; drug mechanism: Corticosteroid; Long-acting beta2-adrenergic agonist; Anticholinergic; Phosphodiesterase 4 inhibitor.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Higher or less-declining percent-predicted FEV1 indicates reduced airflow limitation; treatment-induced improvement in FEV1 reports the pharmacodynamic response to bronchodilator and anti-inflammatory therapy and underpins the FDA surrogate-endpoint basis for traditional approval of COPD drugs.\"}]}}, {\"id\": \"Hypercapnia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012416\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012418\"}}, {\"id\": \"NFE2L2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Nrf2 transcription factor regulates antioxidant defense.\"}}, {\"id\": \"Occupational Dust and Chemicals\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Oxidative Stress and Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cigarette smoke and pollutants trigger mitochondrial ROS production, impaired mitophagy, and reduced antioxidant defenses, amplifying inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"airway epithelial cell\", \"Alveolar Macrophage\"], \"biological_processes\": [\"response to oxidative stress\", \"mitochondrion organization\", \"mitophagy\"], \"locations\": [\"bronchus\", \"alveolus of lung\"]}}, {\"id\": \"Progressive Respiratory Impairment\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Respiratory Failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002878\"}}, {\"id\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIRT1 (Sirtuin 1), an NAD+-dependent deacetylase, exerts protective effects in COPD by inhibiting pro-inflammatory signaling pathways (NF-\\u03baB, STAT3) while activating stress-response transcription factors (Nrf2, FOXO3) and suppressing pro-fibrotic TGF-\\u03b2/Smad signaling. In COPD, SIRT1 reduces neutrophilic inflammation, mitigates alveolar senescence, and helps restore protease/antiprotease balance. SIRT1 also mitigates oxidative stress and mitochondrial dysfunction.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neutrophil\", \"Airway Epithelial Cell\", \"Alveolar Macrophage\"], \"biological_processes\": [\"protein deacetylation\", \"response to oxidative stress\", \"transcriptional regulation\", \"negative regulation of inflammatory response\"], \"genes\": [\"SIRT1\", \"NFKB1\", \"STAT3\", \"NFE2L2\", \"FOXO3\", \"TGFB1\"], \"gene_terms\": [{\"label\": \"SIRT1\", \"id\": \"hgnc:14929\"}, {\"label\": \"NFKB1\", \"id\": \"hgnc:7794\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"NFE2L2\", \"id\": \"hgnc:7782\"}, {\"label\": \"FOXO3\", \"id\": \"hgnc:3821\"}, {\"label\": \"TGFB1\", \"id\": \"hgnc:11766\"}]}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}], \"edges\": [{\"source\": \"Airflow Limitation\", \"target\": \"Progressive Respiratory Impairment\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Chronic airway inflammation and remodeling lead to progressive airflow obstruction and respiratory decline.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Chronic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1-mediated deacetylation inhibits NF-\\u03baB and STAT3 signaling, reducing neutrophilic recruitment and pro-inflammatory cytokine production.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Cellular Senescence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses senescence-associated secretory phenotype (SASP) and promotes cell viability in epithelial and immune cells.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Alveolar Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 suppresses TGF-\\u03b2/Smad pro-fibrotic signaling and restores protease/antiprotease balance through Nrf2-mediated antioxidant responses.\"}, {\"source\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"target\": \"Oxidative Stress and Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SIRT1 activation of Nrf2 and FOXO3 enhances antioxidant defenses and mitochondrial homeostasis, reducing ROS-driven inflammasome activation.\"}, {\"source\": \"Dyspnea\", \"target\": \"Exercise Intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Respiratory Failure\", \"target\": \"Hypoxemia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Respiratory Failure\", \"target\": \"Hypercapnia\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Smoking\", \"target\": \"Chronic Inflammation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Inhaled smoke is the irritant this node names by name, and it meets the airway epithelium with nothing in between, which is what makes the link direct. Both items are graded partial because each reports risk of the disease rather than a measurement of airway inflammation, and the second is carried precisely because it limits the claim: most smokers never develop the disease, so the exposure is not sufficient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Air Pollution\", \"target\": \"Oxidative Stress and Mitochondrial Dysfunction\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Inhaled pollutants are named at this node alongside cigarette smoke as drivers of mitochondrial reactive oxygen species. Recorded as exacerbating rather than triggering because both cited studies measure effects on respiratory health rather than initiation, and the intermediates are left unknown because neither measures an oxidative or mitochondrial marker. Worth stating plainly, because the smoking link into the inflammation node was graded from node wording rather than from evidence: this node\u0027s own text uses the word trigger for pollutants, and would on its face have supported a triggering grade here too. It is not taken, because that verb describes what pollutants do to reactive oxygen species production once inhaled, not whether the exposure starts the disease, and on that question the entry\u0027s own note and both cited studies say the same thing, that pollution worsens established disease. The entry does hold a paper on oxidant and antioxidant balance, but its quotable sentence names oxidative stress without naming pollution, so it cannot carry an exposure-to-node claim and is not cited here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Occupational Dust and Chemicals\", \"target\": \"Chronic Inflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Workplace dusts, gases, and chemicals are an established route to the disease, but unlike cigarette smoke they are not named at this node and no cited sentence follows them as far as airway inflammation. Graded below the smoking link into this same node for that reason.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Airflow Limitation\", \"target\": \"Forced Expiratory Volume in 1 Second (FEV1)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher or less-declining percent-predicted FEV1 indicates reduced airflow limitation; treatment-induced improvement in FEV1 reports the pharmacodynamic response to bronchodilator and anti-inflammatory therapy and underpins the FDA surrogate-endpoint basis for traditional approval of COPD drugs.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"NFE2L2\", \"target\": \"SIRT1-Mediated NAD+ Signaling and Protective Deacetylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Progressive Respiratory Impairment\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6288,14 +6852,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Barrel-shaped chest
+
+                        <span class="phenotype-term-label">Barrel-shaped chest</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001552" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001552">HP:0001552</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001552</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Barrel Chest, annotated with Barrel-shaped chest (HP:0001552). HP:0001552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6398,14 +6971,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6504,14 +7084,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic cough
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034315">HP:0034315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0034315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic Cough (HP:0034315). HP:0034315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6585,14 +7172,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased sputum production
+
+                        <span class="phenotype-term-label">Increased sputum production</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033709" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033709">HP:0033709</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0033709</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sputum Production, annotated with Increased sputum production (HP:0033709). HP:0033709 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6666,14 +7262,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wheezing
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030828">HP:0030828</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0030828</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6767,14 +7370,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory Failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6855,14 +7465,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoxemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012418">HP:0012418</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0012418</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6884,14 +7501,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypercapnia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012416" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012416">HP:0012416</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0012416</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypercapnia (HP:0012416). HP:0012416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6922,14 +7546,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7021,14 +7652,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise Intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7059,14 +7697,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7388,7 +8033,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -7506,7 +8156,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">bronchodilator therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-72">bronchodilator therapy<span class="pill-tip" role="tooltip" id="pill-tip-72">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is bronchodilator therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7537,16 +8192,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bronchodilator
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C319" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C319">NCIT:C319</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C319" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-73">NCIT:C319</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bronchodilator (NCIT:C319). NCIT:C319 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7641,7 +8301,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">respiratory tract agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -7759,7 +8424,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-75">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7876,7 +8546,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Oxygen Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">Oxygen Therapy<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7991,7 +8666,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-77">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -8109,7 +8789,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8225,7 +8910,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-79">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -8343,7 +9033,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8388,7 +9083,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antibiotic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-81">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-81">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
@@ -8434,7 +9134,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">biologic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
@@ -8491,21 +9196,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Tobacco smoking exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000029">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-83">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Tobacco smoking exposure, annotated with exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Primary risk factor for development and progression.</div>
@@ -8587,6 +9301,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Inhaled smoke is the irritant this node names by name, and it meets the airway epithelium with nothing in between, which is what makes the link direct. Both items are graded partial because each reports risk of the disease rather than a measurement of airway inflammation, and the second is carried precisely because it limits the claim: most smokers never develop the disease, so the exposure is not sufficient.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28933915" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28933915" target="_blank">PMID:28933915</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The epithelial lining of the airway forms the first barrier against environmental insults, such as inhaled cigarette smoke, which is the primary risk factor for the development of chronic obstructive pulmonary disease (COPD)."</div>
+
+
+                <div class="evidence-explanation">Names inhaled cigarette smoke as the environmental insult the airway epithelium meets first, and as the primary risk factor for developing the disease. The epithelial barrier is where this node begins.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30810540" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30810540" target="_blank">PMID:30810540</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although cigarette smoking is the major risk factor, only 10-20% of smokers develop COPD."</div>
+
+
+                <div class="evidence-explanation">Records that only 10 to 20 percent of smokers develop the disease. Carried deliberately, because it bounds what this link can be read to claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-air-pollution" data-dismech-node="Air Pollution" data-dismech-type="environmental">
@@ -8594,21 +9382,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Air pollution exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:8000036">ECTO:8000036</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-84">ECTO:8000036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Exposure to pollutants can exacerbate symptoms.</div>
@@ -8690,6 +9487,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Oxidative Stress and Mitochondrial Dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Inhaled pollutants are named at this node alongside cigarette smoke as drivers of mitochondrial reactive oxygen species. Recorded as exacerbating rather than triggering because both cited studies measure effects on respiratory health rather than initiation, and the intermediates are left unknown because neither measures an oxidative or mitochondrial marker. Worth stating plainly, because the smoking link into the inflammation node was graded from node wording rather than from evidence: this node&#39;s own text uses the word trigger for pollutants, and would on its face have supported a triggering grade here too. It is not taken, because that verb describes what pollutants do to reactive oxygen species production once inhaled, not whether the exposure starts the disease, and on that question the entry&#39;s own note and both cited studies say the same thing, that pollution worsens established disease. The entry does hold a paper on oxidant and antioxidant balance, but its quotable sentence names oxidative stress without naming pollution, so it cannot carry an exposure-to-node claim and is not cited here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16916323" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16916323" target="_blank">PMID:16916323</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Evidence from epidemiological studies finding consistent associations between air pollution and various outcomes (respiratory symptoms, reduced lung function, chronic bronchitis and mortality), has suggested that outdoor air pollution is a contributing cause of morbidity and mortality."</div>
+
+
+                <div class="evidence-explanation">Epidemiological synthesis finding consistent associations between air pollution and respiratory symptoms, reduced lung function, chronic bronchitis, and mortality. It reaches health outcomes, not the oxidative step this node holds.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33542053" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33542053" target="_blank">PMID:33542053</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings suggest that, when considering total personal exposure to air pollutants, mainly the gaseous pollutants affect COPD patients&#39; health."</div>
+
+
+                <div class="evidence-explanation">Personal-exposure measurements in patients who already have the disease, which is the design that fits an exacerbating grade. It reports effects on patient health rather than on this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-occupational-dust-and-chemicals" data-dismech-node="Occupational Dust and Chemicals" data-dismech-type="environmental">
@@ -8697,21 +9568,30 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Occupational dust exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_7000001" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:7000001">ECTO:7000001</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-85">ECTO:7000001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Occupational dust exposure, annotated with exposure to dust (ECTO:7000001). ECTO:7000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
                 <div class="item-desc">Long-term exposure increases risk.</div>
@@ -8792,6 +9672,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Workplace dusts, gases, and chemicals are an established route to the disease, but unlike cigarette smoke they are not named at this node and no cited sentence follows them as far as airway inflammation. Graded below the smoking link into this same node for that reason.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11964759" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11964759" target="_blank">PMID:11964759</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"occupational exposure to dusts, chemicals and gases will be considered an established, or supported by good evidence, risk factor for chronic obstructive pulmonary disease"</div>
+
+
+                <div class="evidence-explanation">States that occupational exposure to dusts, chemicals, and gases is an established risk factor supported by good evidence. The sentence reaches the disease, not this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9153,11 +10085,132 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Integrative multi-omic analyses identify major axes of heterogeneity in chronic obstructive pulmonary disease and uncover their molecular contributors - ECLIPSE replication cohort
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE324136" target="_blank">geo:GSE324136</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Chronic Obstructive Pulmonary Disease (COPD) is a complex, heterogeneous disease. Traditional subtyping methods generally focus on either the clinical manifestations or the molecular endotypes of the disease, leading to classifications that only partially reflect disease heterogeneity. Here, we introduce a variational autoencoder-based subtyping pipeline that jointly embeds clinical and gene expression data into a single subject-level representation. We evaluate the framework in the COPDGene study, a large study of current and former smoking individuals with and without COPD.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=628</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Chronic Obstructive Pulmonary Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Multi-omics analyses of airway host-microbe interactions in chronic obstructive pulmonary disease identify potential therapeutic interventions
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006398" target="_blank">ega:EGAS00001006398</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The mechanistic role of the airway microbiome in chronic obstructive pulmonary disease (COPD) remains largely unexplored. We present a landscape of airway microbe-host interactions in COPD through an in-depth profiling of the sputum metagenome, metabolome, host transcriptome and proteome from 99 COPD patients and 36 healthy individuals in China.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Chronic Obstructive Pulmonary Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Airway Dysbiosis Accelerates Lung Function Decline in Chronic Obstructive Pulmonary Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006444" target="_blank">ega:EGAS00001006444</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This repository contains human sample derived microbiome full-length 16S rRNA sequencing data for sputum samples in COPD patients. The project goal is to understand the association of the lung microbiome with accelerated lung function decline in COPD patients.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Chronic Obstructive Pulmonary Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9176,7 +10229,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Chronic_Obstructive_Pulmonary_Disease
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-04-22T20:53:03Z&#39;
 description: &gt;-
   Chronic obstructive pulmonary disease is a progressive disorder of persistent,
   incompletely reversible airflow limitation caused by chronic inflammation of
@@ -10024,6 +11076,36 @@ genetic:
   notes: Reduced activity impairs response to oxidative stress in COPD.
 environmental:
 - name: Smoking
+  influences_mechanisms:
+  - target: Chronic Inflammation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Inhaled smoke is the irritant this node names by name, and it meets the
+      airway epithelium with nothing in between, which is what makes the link
+      direct. Both items are graded partial because each reports risk of the
+      disease rather than a measurement of airway inflammation, and the second
+      is carried precisely because it limits the claim: most smokers never
+      develop the disease, so the exposure is not sufficient.
+    evidence:
+    - reference: PMID:28933915
+      reference_title: &#34;Airway Epithelial Barrier Dysfunction in Chronic Obstructive Pulmonary Disease: Role of Cigarette Smoke Exposure.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;The epithelial lining of the airway forms the first barrier against environmental insults, such as inhaled cigarette smoke, which is the primary risk factor for the development of chronic obstructive pulmonary disease (COPD).&#34;
+      explanation: &gt;-
+        Names inhaled cigarette smoke as the environmental insult the airway
+        epithelium meets first, and as the primary risk factor for developing
+        the disease. The epithelial barrier is where this node begins.
+    - reference: PMID:30810540
+      reference_title: &#34;ROLE OF GENETIC SUSCEPTIBILITY IN NICOTINE ADDICTION AND CHRONIC OBSTRUCTIVE PULMONARY DISEASE.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Although cigarette smoking is the major risk factor, only 10-20% of smokers develop COPD.&#34;
+      explanation: &gt;-
+        Records that only 10 to 20 percent of smokers develop the disease.
+        Carried deliberately, because it bounds what this link can be read to
+        claim.
   notes: Primary risk factor for development and progression.
   evidence:
   - reference: PMID:30810540
@@ -10057,6 +11139,47 @@ environmental:
       id: ECTO:6000029
       label: exposure to tobacco smoking
 - name: Air Pollution
+  influences_mechanisms:
+  - target: Oxidative Stress and Mitochondrial Dysfunction
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Inhaled pollutants are named at this node alongside cigarette smoke as
+      drivers of mitochondrial reactive oxygen species. Recorded as
+      exacerbating rather than triggering because both cited studies measure
+      effects on respiratory health rather than initiation, and the
+      intermediates are left unknown because neither measures an oxidative or
+      mitochondrial marker. Worth stating plainly, because the smoking link
+      into the inflammation node was graded from node wording rather than from
+      evidence: this node&#39;s own text uses the word trigger for pollutants, and
+      would on its face have supported a triggering grade here too. It is not
+      taken, because that verb describes what pollutants do to reactive oxygen
+      species production once inhaled, not whether the exposure starts the
+      disease, and on that question the entry&#39;s own note and both cited
+      studies say the same thing, that pollution worsens established disease.
+      The entry does hold a paper on oxidant and antioxidant balance, but its
+      quotable sentence names oxidative stress without naming pollution, so it
+      cannot carry an exposure-to-node claim and is not cited here.
+    evidence:
+    - reference: PMID:16916323
+      reference_title: &#34;Epidemiology of chronic obstructive pulmonary disease: health effects of air pollution.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Evidence from epidemiological studies finding consistent associations between air pollution and various outcomes (respiratory symptoms, reduced lung function, chronic bronchitis and mortality), has suggested that outdoor air pollution is a contributing cause of morbidity and mortality.&#34;
+      explanation: &gt;-
+        Epidemiological synthesis finding consistent associations between air
+        pollution and respiratory symptoms, reduced lung function, chronic
+        bronchitis, and mortality. It reaches health outcomes, not the
+        oxidative step this node holds.
+    - reference: PMID:33542053
+      reference_title: &#34;Personal exposure to air pollution and respiratory health of COPD patients in London.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Our findings suggest that, when considering total personal exposure to air pollutants, mainly the gaseous pollutants affect COPD patients&#39; health.&#34;
+      explanation: &gt;-
+        Personal-exposure measurements in patients who already have the
+        disease, which is the design that fits an exacerbating grade. It
+        reports effects on patient health rather than on this node.
   notes: Exposure to pollutants can exacerbate symptoms.
   evidence:
   - reference: PMID:33542053
@@ -10090,6 +11213,25 @@ environmental:
       id: ECTO:8000036
       label: exposure to air pollution
 - name: Occupational Dust and Chemicals
+  influences_mechanisms:
+  - target: Chronic Inflammation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Workplace dusts, gases, and chemicals are an established route to the
+      disease, but unlike cigarette smoke they are not named at this node and
+      no cited sentence follows them as far as airway inflammation. Graded
+      below the smoking link into this same node for that reason.
+    evidence:
+    - reference: PMID:11964759
+      reference_title: &#34;Chronic obstructive lung diseases and occupational exposure.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;occupational exposure to dusts, chemicals and gases will be considered an established, or supported by good evidence, risk factor for chronic obstructive pulmonary disease&#34;
+      explanation: &gt;-
+        States that occupational exposure to dusts, chemicals, and gases is an
+        established risk factor supported by good evidence. The sentence
+        reaches the disease, not this node.
   notes: Long-term exposure increases risk.
   evidence:
   - reference: PMID:11964759
@@ -10435,6 +11577,36 @@ references:
 - reference: DOI:10.3390/ijms26052184
   title: &#39;Molecular Approaches to Treating Chronic Obstructive Pulmonary Disease: Current Perspectives and Future Directions&#39;
   findings: []
+datasets:
+- accession: geo:GSE324136
+  title: Integrative multi-omic analyses identify major axes of heterogeneity in chronic obstructive pulmonary disease and uncover their molecular contributors - ECLIPSE replication cohort
+  description: Chronic Obstructive Pulmonary Disease (COPD) is a complex, heterogeneous disease. Traditional subtyping methods generally focus on either the clinical manifestations or the molecular endotypes of the disease, leading to classifications that only partially reflect disease heterogeneity. Here, we introduce a variational autoencoder-based subtyping pipeline that jointly embeds clinical and gene expression data into a single subject-level representation. We evaluate the framework in the COPDGene study, a large study of current and former smoking individuals with and without COPD.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 628
+  notes: Identified by GEO DataSets index search for Chronic Obstructive Pulmonary Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001006398
+  title: Multi-omics analyses of airway host-microbe interactions in chronic obstructive pulmonary disease identify potential therapeutic interventions
+  description: The mechanistic role of the airway microbiome in chronic obstructive pulmonary disease (COPD) remains largely unexplored. We present a landscape of airway microbe-host interactions in COPD through an in-depth profiling of the sputum metagenome, metabolome, host transcriptome and proteome from 99 COPD patients and 36 healthy individuals in China.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Chronic Obstructive Pulmonary Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001006444
+  title: Airway Dysbiosis Accelerates Lung Function Decline in Chronic Obstructive Pulmonary Disease
+  description: This repository contains human sample derived microbiome full-length 16S rRNA sequencing data for sputum samples in COPD patients. The project goal is to understand the association of the lung microbiome with accelerated lung function decline in COPD patients.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Chronic Obstructive Pulmonary Disease&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -10879,7 +12051,7 @@ COPD is a heterogeneous chronic inflammatory lung disease characterized by persi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic_Obstructive_Pulmonary_Disease", "mondoId": "MONDO:0005002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Obstructive_Pulmonary_Disease", "yamlRevision": "f1aa59a7e240"};
+        const OS_CONFIG = {"diseaseName": "Chronic_Obstructive_Pulmonary_Disease", "mondoId": "MONDO:0005002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Obstructive_Pulmonary_Disease", "yamlRevision": "433484060d59"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11298,5 +12470,73 @@ COPD is a heterogeneous chronic inflammatory lung disease characterized by persi
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

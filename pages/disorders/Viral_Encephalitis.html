@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3737,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Viral%20Encephalitis"
@@ -3697,15 +3868,25 @@
 
 
 
+
+
         <div class="stats-bar">
 
+
+            <a class="stat-link" href="#definitions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📘</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Definitions</div>
+            </div>
+            </a>
 
 
 
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3726,7 +3907,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3761,6 +3942,14 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
 
 
@@ -3792,6 +3981,107 @@
 
 
         <!-- Definitions -->
+
+        <div class="card" id="definitions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #cffafe; color: #0e7490;">📘</div>
+                <h2 class="card-title">Definitions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box definition-box">
+                <div class="item-name">Confirmatory CSF PCR and adjunct radiological/electrophysiological workup</div>
+
+                <div class="item-desc">Definitive diagnosis rests on detection of viral nucleic acid by polymerase chain reaction (PCR) in cerebrospinal fluid, most importantly HSV DNA PCR for HSV encephalitis. Brain MRI (showing temporal/ frontotemporal and limbic signal change in HSV encephalitis) and EEG (showing periodic epileptiform discharges) are used alongside CSF PCR to support the diagnosis and assess severity, particularly while microbiological confirmation is pending.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">DIAGNOSTIC_CRITERIA</span>
+
+
+                    <span class="tag tag-parent">Clinical diagnostic workup of suspected viral encephalitis</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26833985" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26833985" target="_blank">PMID:26833985</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We retrospectively analyzed patients who were diagnosed with HSE by applying the polymerase chain reaction to cerebrospinal fluid and who received intravenous acyclovir at our hospital from 2000 to 2014."</div>
+
+
+                <div class="evidence-explanation">Documents CSF HSV PCR as the diagnostic test used to confirm herpes simplex encephalitis before treatment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37435162" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37435162" target="_blank">PMID:37435162</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prognostic factors for both VZV and HSV encephalitis are older age and comorbidity, as well as severity of disease and extent of magnetic resonance imaging (MRI) lesions on admission, and delay in treatment initiation for HSV encephalitis."</div>
+
+
+                <div class="evidence-explanation">Establishes MRI lesion assessment on admission as part of the clinical/radiological evaluation of suspected HSV/VZV encephalitis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Inheritance -->
@@ -3960,7 +4250,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-neuroinvasion" data-dismech-node="Viral Neuroinvasion" data-dismech-type="pathophysiology">
@@ -3972,16 +4262,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         brain microvascular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves brain microvascular endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4008,16 +4303,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         defense response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051607">GO:0051607</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0051607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4034,6 +4334,7 @@
 
 
                 </div>
+
 
 
 
@@ -4102,16 +4403,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4138,16 +4444,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         antiviral innate immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140374" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140374">GO:0140374</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140374" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0140374</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves antiviral innate immune response (GO:0140374). GO:0140374 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4164,6 +4475,7 @@
 
 
                 </div>
+
 
 
 
@@ -4240,16 +4552,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4276,16 +4593,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         type I interferon production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032606" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032606">GO:0032606</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032606" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0032606</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves type I interferon production (GO:0032606). GO:0032606 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4302,6 +4624,7 @@
 
 
                 </div>
+
 
 
 
@@ -4392,17 +4715,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4423,10 +4753,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000125">CL:0000125</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000125" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000125</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves glial cell (CL:0000125). CL:0000125 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4453,17 +4786,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4484,10 +4824,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050900">GO:0050900</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050900" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0050900</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves leukocyte migration (GO:0050900). GO:0050900 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4504,6 +4847,7 @@
 
 
                 </div>
+
 
 
 
@@ -4594,16 +4938,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cortical neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4630,16 +4979,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuronal apoptotic cell death
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neuronal apoptotic cell death, annotated with apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4656,6 +5010,7 @@
 
 
                 </div>
+
 
 
 
@@ -4691,6 +5046,14 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Post-HSE Anti-NMDAR Autoimmune Encephalitis</span>
+
+	                            <span class="crosslink-desc">Lytic neuronal injury and antigen release during acute HSV-1 infection can prime a secondary autoimmune response against neuronal surface antigens, most often the NMDA receptor, in a substantial minority of patients.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4719,6 +5082,135 @@
 
 
                 <div class="evidence-explanation">Links sustained neuroinflammation and CNS insults to permanent parenchymal damage and neurologic sequelae.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-hse-anti-nmdar-autoimmune-encephalitis" data-dismech-node="Post-HSE Anti-NMDAR Autoimmune Encephalitis" data-dismech-type="pathophysiology">
+                <div class="item-name">Post-HSE Anti-NMDAR Autoimmune Encephalitis</div>
+
+                <div class="item-desc">In roughly a quarter of patients, herpes simplex encephalitis (HSE) is followed by a distinct secondary autoimmune encephalitis mediated by antibodies against neuronal cell-surface and synaptic antigens, most commonly the NMDA receptor, arising weeks after the acute infection. This chronic complication is immunologically and clinically distinct from ongoing viral disease: it does not respond to antiviral therapy and instead requires immunotherapy (corticosteroids, plasma exchange, or rituximab). Presentation is age-dependent, with choreoathetosis and decreased consciousness predominating in young children and psychosis predominating in older children and adults.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        humoral immune response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0006959" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006959</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves humoral immune response (GO:0006959). GO:0006959 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Encephalopathy</span>
+
+	                            <span class="crosslink-desc">Post-HSE autoimmune encephalitis produces a second phase of neurological worsening (decreased consciousness, choreoathetosis, or new psychiatric symptoms) that can be mistaken for HSV relapse but reflects an antibody-mediated rather than infectious process.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30049614" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30049614" target="_blank">PMID:30049614</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"during follow-up, 14 (27%) patients developed autoimmune encephalitis and all 14 (100%) had neuronal antibodies (nine [64%] had NMDA receptor [NMDAR] antibodies and five [36%] had other antibodies) at or before onset of symptoms."</div>
+
+
+                <div class="evidence-explanation">Prospective cohort study directly quantifying the frequency of antibody-confirmed, predominantly anti-NMDAR autoimmune encephalitis following HSE.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27106239" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27106239" target="_blank">PMID:27106239</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"chronic complications, including the development of autoimmune encephalitis associated with antibodies to the N-methyl-D-aspartate receptor and other neuronal cell surface and synaptic epitopes."</div>
+
+
+                <div class="evidence-explanation">Review establishes anti-NMDAR autoimmune encephalitis as a recognized chronic complication of HSV-1 encephalitis distinct from the acute viral illness.</div>
 
 
 
@@ -4766,7 +5258,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Altered mental status / encephalopathy ranging from confusion and behavioral change to reduced consciousness and coma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Focal Neurologic Deficit\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Neuroinflammatory Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal infection elicits a host inflammatory response with microglial and astrocytic activation and a cytokine/chemokine surge (e.g., IL-6, IL-8, IL-1, TNF, CXCL1, CCL2). This neuroinflammation, together with T-cell-mediated immunity, both restricts viral entry into the CNS and contributes to immunopathology and blood-brain barrier breakdown.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"glial cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"]}}, {\"id\": \"Neuron-Intrinsic Interferon Defense\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS-resident neurons restrict neurotropic viruses through cell-intrinsic antiviral immunity, prominently the TLR3-dependent induction of type I and type III interferons and downstream interferon-stimulated genes, as well as interferon-independent intrinsic mechanisms. Inborn errors that disrupt these neuron-intrinsic pathways (see Genetic section) underlie a substantial fraction of childhood herpes simplex encephalitis by permitting unchecked HSV-1 replication in the brain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"type I interferon production\"]}}, {\"id\": \"Neuronal Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once in the CNS, neurotropic viruses replicate within neurons (and other CNS-resident cells), producing direct viral cytotoxicity. Cortical neurons underlie forebrain infection while brainstem neurons underlie brainstem infection, and cell-intrinsic antiviral immunity in these neurons is the critical determinant of whether infection is contained.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"antiviral innate immune response\"]}}, {\"id\": \"Parenchymal Injury and Cerebral Edema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Direct viral cytotoxicity, excitotoxicity, cytokine-mediated injury, and immune-mediated damage produce neuronal loss, gliosis, perivascular cuffing, demyelination, and cerebral edema. This tissue damage is the substrate for the clinical encephalopathy and is associated with the permanent neurologic sequelae seen in survivors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"neuronal apoptotic cell death\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a common presenting symptom of viral CNS infection and may occur acutely or as later spontaneous seizures (acquired epilepsy).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Viral Neuroinvasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurotropic viruses reach the central nervous system either by hematogenous spread across the blood-brain barrier or by retrograde axonal transport along peripheral nerves (e.g., trans-synaptic spread of HSV-1 from the trigeminal or olfactory pathways). This neuroinvasion establishes infection of brain parenchyma and is the initiating event of viral encephalitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"brain microvascular endothelial cell\"], \"biological_processes\": [\"defense response to virus\"]}}], \"edges\": [{\"source\": \"Viral Neuroinvasion\", \"target\": \"Neuronal Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Successful neuroinvasion delivers virus to CNS-resident neurons, where viral replication begins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Infection\", \"target\": \"Neuron-Intrinsic Interferon Defense\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected and bystander CNS-resident cells mount cell-intrinsic type I/III interferon responses to restrict viral replication.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Infection\", \"target\": \"Neuroinflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal infection triggers innate immune sensing and recruitment of an inflammatory response within the brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuron-Intrinsic Interferon Defense\", \"target\": \"Neuroinflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When neuron-intrinsic interferon defense fails to contain the virus (notably with inborn errors of the TLR3-interferon axis), unchecked neuronal viral replication amplifies innate immune sensing and the neuroinflammatory response.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuroinflammatory Response\", \"target\": \"Parenchymal Injury and Cerebral Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained neuroinflammation, blood-brain barrier breakdown, and immune cytotoxicity combine with direct viral injury to damage brain parenchyma and produce edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread parenchymal injury and edema disrupt cortical function, producing altered mental status and encephalopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parenchymal injury, inflammation, and blood-brain barrier disruption lower the seizure threshold and drive acute symptomatic seizures and epileptogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Focal Neurologic Deficit\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Focal parenchymal damage (e.g., temporal lobe involvement in HSV) produces focal neurologic signs such as aphasia and hemiparesis.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": [\"Focal Neurologic Deficit\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Altered mental status / encephalopathy ranging from confusion and behavioral change to reduced consciousness and coma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001298\"}}, {\"id\": \"Focal Neurologic Deficit\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Neuroinflammatory Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal infection elicits a host inflammatory response with microglial and astrocytic activation and a cytokine/chemokine surge (e.g., IL-6, IL-8, IL-1, TNF, CXCL1, CCL2). This neuroinflammation, together with T-cell-mediated immunity, both restricts viral entry into the CNS and contributes to immunopathology and blood-brain barrier breakdown.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"glial cell\"], \"biological_processes\": [\"inflammatory response\", \"leukocyte migration\"]}}, {\"id\": \"Neuron-Intrinsic Interferon Defense\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CNS-resident neurons restrict neurotropic viruses through cell-intrinsic antiviral immunity, prominently the TLR3-dependent induction of type I and type III interferons and downstream interferon-stimulated genes, as well as interferon-independent intrinsic mechanisms. Inborn errors that disrupt these neuron-intrinsic pathways (see Genetic section) underlie a substantial fraction of childhood herpes simplex encephalitis by permitting unchecked HSV-1 replication in the brain.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"type I interferon production\"]}}, {\"id\": \"Neuronal Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once in the CNS, neurotropic viruses replicate within neurons (and other CNS-resident cells), producing direct viral cytotoxicity. Cortical neurons underlie forebrain infection while brainstem neurons underlie brainstem infection, and cell-intrinsic antiviral immunity in these neurons is the critical determinant of whether infection is contained.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"antiviral innate immune response\"]}}, {\"id\": \"Parenchymal Injury and Cerebral Edema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Direct viral cytotoxicity, excitotoxicity, cytokine-mediated injury, and immune-mediated damage produce neuronal loss, gliosis, perivascular cuffing, demyelination, and cerebral edema. This tissue damage is the substrate for the clinical encephalopathy and is associated with the permanent neurologic sequelae seen in survivors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"neuronal apoptotic cell death\"]}}, {\"id\": \"Post-HSE Anti-NMDAR Autoimmune Encephalitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In roughly a quarter of patients, herpes simplex encephalitis (HSE) is followed by a distinct secondary autoimmune encephalitis mediated by antibodies against neuronal cell-surface and synaptic antigens, most commonly the NMDA receptor, arising weeks after the acute infection. This chronic complication is immunologically and clinically distinct from ongoing viral disease: it does not respond to antiviral therapy and instead requires immunotherapy (corticosteroids, plasma exchange, or rituximab). Presentation is age-dependent, with choreoathetosis and decreased consciousness predominating in young children and psychosis predominating in older children and adults.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"humoral immune response\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures are a common presenting symptom of viral CNS infection and may occur acutely or as later spontaneous seizures (acquired epilepsy).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Viral Neuroinvasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neurotropic viruses reach the central nervous system either by hematogenous spread across the blood-brain barrier or by retrograde axonal transport along peripheral nerves (e.g., trans-synaptic spread of HSV-1 from the trigeminal or olfactory pathways). This neuroinvasion establishes infection of brain parenchyma and is the initiating event of viral encephalitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"brain microvascular endothelial cell\"], \"biological_processes\": [\"defense response to virus\"]}}], \"edges\": [{\"source\": \"Viral Neuroinvasion\", \"target\": \"Neuronal Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Successful neuroinvasion delivers virus to CNS-resident neurons, where viral replication begins.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Infection\", \"target\": \"Neuron-Intrinsic Interferon Defense\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected and bystander CNS-resident cells mount cell-intrinsic type I/III interferon responses to restrict viral replication.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal Infection\", \"target\": \"Neuroinflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuronal infection triggers innate immune sensing and recruitment of an inflammatory response within the brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuron-Intrinsic Interferon Defense\", \"target\": \"Neuroinflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When neuron-intrinsic interferon defense fails to contain the virus (notably with inborn errors of the TLR3-interferon axis), unchecked neuronal viral replication amplifies innate immune sensing and the neuroinflammatory response.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Neuroinflammatory Response\", \"target\": \"Parenchymal Injury and Cerebral Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained neuroinflammation, blood-brain barrier breakdown, and immune cytotoxicity combine with direct viral injury to damage brain parenchyma and produce edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread parenchymal injury and edema disrupt cortical function, producing altered mental status and encephalopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parenchymal injury, inflammation, and blood-brain barrier disruption lower the seizure threshold and drive acute symptomatic seizures and epileptogenesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Focal Neurologic Deficit\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Focal parenchymal damage (e.g., temporal lobe involvement in HSV) produces focal neurologic signs such as aphasia and hemiparesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parenchymal Injury and Cerebral Edema\", \"target\": \"Post-HSE Anti-NMDAR Autoimmune Encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lytic neuronal injury and antigen release during acute HSV-1 infection can prime a secondary autoimmune response against neuronal surface antigens, most often the NMDA receptor, in a substantial minority of patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Post-HSE Anti-NMDAR Autoimmune Encephalitis\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Post-HSE autoimmune encephalitis produces a second phase of neurological worsening (decreased consciousness, choreoathetosis, or new psychiatric symptoms) that can be mistaken for HSV relapse but reflects an antibody-mediated rather than infectious process.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": [\"Focal Neurologic Deficit\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4809,14 +5301,21 @@
                         Infectious encephalitis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Infectious encephalitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002383">HP:0002383</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002383</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infectious encephalitis (HP:0002383), qualified as temporality acute. HP:0002383 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4895,14 +5394,21 @@
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4949,14 +5455,21 @@
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4976,14 +5489,21 @@
                         Encephalopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Encephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001298">HP:0001298</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001298</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Encephalopathy (HP:0001298), qualified as temporality acute. HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5053,14 +5573,21 @@
                         Seizure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5112,14 +5639,21 @@
                         Aphasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aphasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002381">HP:0002381</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002381</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5139,14 +5673,21 @@
                         Hemiparesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemiparesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001269">HP:0001269</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001269</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5166,14 +5707,21 @@
                         Memory impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Memory impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002354</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5256,14 +5804,21 @@
                         Reduced consciousness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced consciousness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004372">HP:0004372</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004372" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004372</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced consciousness (HP:0004372). HP:0004372 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5283,14 +5838,21 @@
                         CSF pleocytosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        CSF pleocytosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012229">HP:0012229</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012229" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012229</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CSF pleocytosis (HP:0012229). HP:0012229 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5310,14 +5872,21 @@
                         Increased CSF protein concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased CSF protein concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002922" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002922">HP:0002922</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002922" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002922</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased CSF protein concentration (HP:0002922). HP:0002922 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5381,13 +5950,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TLR3
 
 
-    <a href="https://bioregistry.io/hgnc:11849" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11849">hgnc:11849</a>
+    <a href="https://bioregistry.io/hgnc:11849" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11849</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TLR3 (hgnc:11849). hgnc:11849 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5451,13 +6025,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TICAM1
 
 
-    <a href="https://bioregistry.io/hgnc:18348" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18348">hgnc:18348</a>
+    <a href="https://bioregistry.io/hgnc:18348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:18348</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TICAM1 (hgnc:18348). hgnc:18348 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5521,13 +6100,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRAF3
 
 
-    <a href="https://bioregistry.io/hgnc:12033" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12033">hgnc:12033</a>
+    <a href="https://bioregistry.io/hgnc:12033" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:12033</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRAF3 (hgnc:12033). hgnc:12033 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5589,13 +6173,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBK1
 
 
-    <a href="https://bioregistry.io/hgnc:11584" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11584">hgnc:11584</a>
+    <a href="https://bioregistry.io/hgnc:11584" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11584</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBK1 (hgnc:11584). hgnc:11584 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5657,13 +6246,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IRF3
 
 
-    <a href="https://bioregistry.io/hgnc:6118" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6118">hgnc:6118</a>
+    <a href="https://bioregistry.io/hgnc:6118" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:6118</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IRF3 (hgnc:6118). hgnc:6118 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5725,13 +6319,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: UNC93B1
 
 
-    <a href="https://bioregistry.io/hgnc:13481" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13481">hgnc:13481</a>
+    <a href="https://bioregistry.io/hgnc:13481" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:13481</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is UNC93B1 (hgnc:13481). hgnc:13481 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5793,13 +6392,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IFNAR1
 
 
-    <a href="https://bioregistry.io/hgnc:5432" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5432">hgnc:5432</a>
+    <a href="https://bioregistry.io/hgnc:5432" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:5432</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFNAR1 (hgnc:5432). hgnc:5432 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5861,13 +6465,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RIPK3
 
 
-    <a href="https://bioregistry.io/hgnc:10021" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10021">hgnc:10021</a>
+    <a href="https://bioregistry.io/hgnc:10021" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:10021</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RIPK3 (hgnc:10021). hgnc:10021 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5925,6 +6534,9 @@
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5940,7 +6552,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antiviral agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">antiviral agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antiviral agent therapy, annotated with Antiviral Therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antiviral Therapy</span>
 
 
@@ -5971,16 +6588,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         aciclovir
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2453" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2453">CHEBI:2453</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2453" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:2453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aciclovir, annotated with acyclovir (CHEBI:2453). CHEBI:2453 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6035,7 +6657,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6135,7 +6762,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -6221,11 +6853,109 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Characterizing cerebrospinal fluid immunity in neurological manifestations of COVID-19
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE163005" target="_blank">geo:GSE163005</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Patients suffering from Coronavirus disease 2019 (COVID-19) can develop neurological sequelae, such as headache, neuroinflammatory or cerebrovascular disease. These conditions - here termed Neuro-COVID - are more frequent in patients with severe COVID-19. To understand the etiology of these neurological sequelae, we utilized single-cell sequencing and examined the immune cell profiles from the cerebrospinal fluid (CSF) of Neuro-COVID patients compared to patients with non-inflammatory and autoimmune neurological diseases or with viral encephalitis. The CSF of Neuro-COVID patients exhibited an expansion of dedifferentiated monocytes and of exhausted CD4+ T cells.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=38</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/33382973" target="_blank" style="color: var(--secondary);">PMID:33382973</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Viral Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    MAVS signaling of long-lived brain-resident myeloid cells is needed during viral encephalitis to adjust the transcriptome of CNS-infiltrating CD8+ T cells II
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301690" target="_blank">geo:GSE301690</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Neurotropic viruses like vesicular stomatitis virus (VSV) can infect the central nervous system (CNS) through the olfactory route. Following intranasal instillation, VSV moves along the axons of olfactory sensory neurons to the olfactory bulb. While within the olfactory bulb the spread of the virus is controlled by microglia activation and the recruitment of peripheral leukocytes, some of the underlying mechanisms remain unknown. To investigate these mechanisms, we used mice with conditional deletions of the mitochondrial antiviral-signaling protein (MAVS), an adaptor for RIG-I-like receptor (RLR)-signaling.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=17</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40619428" target="_blank" style="color: var(--secondary);">PMID:40619428</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Viral Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -6291,6 +7021,31 @@ has_subtypes:
   description: &gt;-
     Encephalitis caused by varicella-zoster virus, one of the most commonly
     diagnosed infectious causes of sporadic encephalitis alongside HSV.
+definitions:
+- name: Confirmatory CSF PCR and adjunct radiological/electrophysiological workup
+  definition_type: DIAGNOSTIC_CRITERIA
+  description: &gt;-
+    Definitive diagnosis rests on detection of viral nucleic acid by
+    polymerase chain reaction (PCR) in cerebrospinal fluid, most importantly
+    HSV DNA PCR for HSV encephalitis. Brain MRI (showing temporal/
+    frontotemporal and limbic signal change in HSV encephalitis) and EEG
+    (showing periodic epileptiform discharges) are used alongside CSF PCR to
+    support the diagnosis and assess severity, particularly while
+    microbiological confirmation is pending.
+  scope: Clinical diagnostic workup of suspected viral encephalitis
+  evidence:
+  - reference: PMID:26833985
+    reference_title: &#34;Prognostic Value of Initial Standard EEG and MRI in Patients with Herpes Simplex Encephalitis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We retrospectively analyzed patients who were diagnosed with HSE by applying the polymerase chain reaction to cerebrospinal fluid and who received intravenous acyclovir at our hospital from 2000 to 2014.&#34;
+    explanation: Documents CSF HSV PCR as the diagnostic test used to confirm herpes simplex encephalitis before treatment.
+  - reference: PMID:37435162
+    reference_title: &#34;Can we forecast poor outcome in herpes simplex and varicella zoster encephalitis? A narrative review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Prognostic factors for both VZV and HSV encephalitis are older age and comorbidity, as well as severity of disease and extent of magnetic resonance imaging (MRI) lesions on admission, and delay in treatment initiation for HSV encephalitis.&#34;
+    explanation: Establishes MRI lesion assessment on admission as part of the clinical/radiological evaluation of suspected HSV/VZV encephalitis.
 infectious_agent:
 - name: Herpes simplex virus type 1
   infectious_agent_term:
@@ -6564,6 +7319,51 @@ pathophysiology:
     description: &gt;-
       Focal parenchymal damage (e.g., temporal lobe involvement in HSV) produces
       focal neurologic signs such as aphasia and hemiparesis.
+    causal_link_type: DIRECT
+  - target: Post-HSE Anti-NMDAR Autoimmune Encephalitis
+    description: &gt;-
+      Lytic neuronal injury and antigen release during acute HSV-1 infection
+      can prime a secondary autoimmune response against neuronal surface
+      antigens, most often the NMDA receptor, in a substantial minority of
+      patients.
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+- name: Post-HSE Anti-NMDAR Autoimmune Encephalitis
+  description: &gt;-
+    In roughly a quarter of patients, herpes simplex encephalitis (HSE) is
+    followed by a distinct secondary autoimmune encephalitis mediated by
+    antibodies against neuronal cell-surface and synaptic antigens, most
+    commonly the NMDA receptor, arising weeks after the acute infection.
+    This chronic complication is immunologically and clinically distinct
+    from ongoing viral disease: it does not respond to antiviral therapy and
+    instead requires immunotherapy (corticosteroids, plasma exchange, or
+    rituximab). Presentation is age-dependent, with choreoathetosis and
+    decreased consciousness predominating in young children and psychosis
+    predominating in older children and adults.
+  biological_processes:
+  - preferred_term: humoral immune response
+    term:
+      id: GO:0006959
+      label: humoral immune response
+  evidence:
+  - reference: PMID:30049614
+    reference_title: &#34;Frequency, symptoms, risk factors, and outcomes of autoimmune encephalitis after herpes simplex encephalitis: a prospective observational study and retrospective analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;during follow-up, 14 (27%) patients developed autoimmune encephalitis and all 14 (100%) had neuronal antibodies (nine [64%] had NMDA receptor [NMDAR] antibodies and five [36%] had other antibodies) at or before onset of symptoms.&#34;
+    explanation: Prospective cohort study directly quantifying the frequency of antibody-confirmed, predominantly anti-NMDAR autoimmune encephalitis following HSE.
+  - reference: PMID:27106239
+    reference_title: &#34;Herpes Simplex Virus-1 Encephalitis in Adults: Pathophysiology, Diagnosis, and Management.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;chronic complications, including the development of autoimmune encephalitis associated with antibodies to the N-methyl-D-aspartate receptor and other neuronal cell surface and synaptic epitopes.&#34;
+    explanation: Review establishes anti-NMDAR autoimmune encephalitis as a recognized chronic complication of HSV-1 encephalitis distinct from the acute viral illness.
+  downstream:
+  - target: Encephalopathy
+    description: &gt;-
+      Post-HSE autoimmune encephalitis produces a second phase of
+      neurological worsening (decreased consciousness, choreoathetosis, or
+      new psychiatric symptoms) that can be mistaken for HSV relapse but
+      reflects an antibody-mediated rather than infectious process.
     causal_link_type: DIRECT
 phenotypes:
 - name: Infectious encephalitis
@@ -6940,6 +7740,31 @@ references:
   title: &#34;The immunobiology of herpes simplex virus encephalitis and post-viral autoimmunity.&#34;
 - reference: PMID:37073800
   title: &#34;Advances in viral encephalitis: Viral transmission, host immunity, and experimental animal models.&#34;
+datasets:
+- accession: geo:GSE163005
+  title: Characterizing cerebrospinal fluid immunity in neurological manifestations of COVID-19
+  description: Patients suffering from Coronavirus disease 2019 (COVID-19) can develop neurological sequelae, such as headache, neuroinflammatory or cerebrovascular disease. These conditions - here termed Neuro-COVID - are more frequent in patients with severe COVID-19. To understand the etiology of these neurological sequelae, we utilized single-cell sequencing and examined the immune cell profiles from the cerebrospinal fluid (CSF) of Neuro-COVID patients compared to patients with non-inflammatory and autoimmune neurological diseases or with viral encephalitis. The CSF of Neuro-COVID patients exhibited an expansion of dedifferentiated monocytes and of exhausted CD4+ T cells.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 38
+  publication: PMID:33382973
+  notes: Identified by GEO DataSets index search for Viral Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE301690
+  title: MAVS signaling of long-lived brain-resident myeloid cells is needed during viral encephalitis to adjust the transcriptome of CNS-infiltrating CD8+ T cells II
+  description: Neurotropic viruses like vesicular stomatitis virus (VSV) can infect the central nervous system (CNS) through the olfactory route. Following intranasal instillation, VSV moves along the axons of olfactory sensory neurons to the olfactory bulb. While within the olfactory bulb the spread of the virus is controlled by microglia activation and the recruitment of peripheral leukocytes, some of the underlying mechanisms remain unknown. To investigate these mechanisms, we used mice with conditional deletions of the mitochondrial antiviral-signaling protein (MAVS), an adaptor for RIG-I-like receptor (RLR)-signaling.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 17
+  publication: PMID:40619428
+  notes: Identified by GEO DataSets index search for Viral Encephalitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7547,7 +8372,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Viral Encephalitis", "mondoId": "MONDO:0006009", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Viral_Encephalitis", "yamlRevision": "26481e543fdc"};
+        const OS_CONFIG = {"diseaseName": "Viral Encephalitis", "mondoId": "MONDO:0006009", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Viral_Encephalitis", "yamlRevision": "b30f7f7b83d8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7966,5 +8791,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

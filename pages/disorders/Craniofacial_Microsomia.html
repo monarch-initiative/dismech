@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Craniofacial%20Microsomia"
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3750,7 +3918,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">28</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3827,6 +3995,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3836,9 +4074,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 34 &#34;Dysostoses with predominant craniofacial involvement&#34;; listed as &#34;Hemifacial microsomia&#34;.">dysostoses with predominant craniofacial involvement</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4900,16 +5154,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000333">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4936,16 +5195,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neural crest cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014032">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0014032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4972,19 +5236,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pharyngeal arch
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002539">UBERON:0002539</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002539</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON:0002539 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5094,16 +5364,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5130,16 +5405,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Blood vessel development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001568" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001568">GO:0001568</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001568" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001568</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Blood vessel development (GO:0001568). GO:0001568 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5160,6 +5440,7 @@
 
 
                 </div>
+
 
 
 
@@ -5281,16 +5562,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neural crest cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5311,6 +5597,7 @@
 
 
                 </div>
+
 
 
 
@@ -5430,16 +5717,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Embryonic cranial skeleton morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048701">GO:0048701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0048701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Embryonic cranial skeleton morphogenesis (GO:0048701). GO:0048701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5459,16 +5751,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000398">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0000398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5489,6 +5786,7 @@
 
 
                 </div>
+
 
 
 
@@ -5601,17 +5899,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5632,10 +5937,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5662,16 +5970,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Embryonic skeletal system morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048704" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048704">GO:0048704</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048704" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0048704</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Embryonic skeletal system morphogenesis (GO:0048704). GO:0048704 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5698,19 +6011,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pharyngeal arch
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002539">UBERON:0002539</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0002539</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON:0002539 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5820,17 +6139,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Osteoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000062">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5851,10 +6177,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5881,16 +6210,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Face morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060325">GO:0060325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0060325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Face morphogenesis (GO:0060325). GO:0060325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5910,16 +6244,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Embryonic cranial skeleton morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048701">GO:0048701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0048701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Embryonic cranial skeleton morphogenesis (GO:0048701). GO:0048701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5940,6 +6279,7 @@
 
 
                 </div>
+
 
 
 
@@ -6217,6 +6557,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6316,7 +6657,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe mandibular ramus and condylar deficiency retropositions the tongue base and narrows the pharyngeal airway, producing upper airway obstruction and obstructive sleep apnoea, together with dysphagia and aspiration risk. Risk tracks the severity of the mandibular and orbital OMENS components and is greatest in bilateral disease; the most severely affected infants require tracheostomy or early mandibular distraction. This is the principal functional, as opposed to aesthetic, consequence of the arch-derivative bundle and drives the timing of surgical intervention.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arch derivatives are built by a shared, serially reused neural-crest programme, so the malformation recurs across arch elements as a bundle: the mandibular ramus and condyle, the external and middle ear, the facial nerve and its target musculature, the orbit, and the overlying soft tissue are affected together. This bundle is precisely what the OMENS classification scores (Orbit, Mandible, Ear, Nerve, Soft tissue), with OMENS-plus adding extracraniofacial anomalies. The decisive contrast with Treacher Collins syndrome is laterality and aetiology rather than the element set: a single germline ribosomopathy affects both sides equally and symmetrically, whereas the regionally restricted, stochastic insult of craniofacial microsomia produces a predominantly unilateral, asymmetric deficiency, bilateral in a minority and then still asymmetric in degree. Both disorders nevertheless conform to the same module node, which is the point: the serially homologous craniofacial bundle is a property of the shared arch programme, not of any one aetiology.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Osteoblast\", \"Chondrocyte\"], \"biological_processes\": [\"Face morphogenesis\", \"Embryonic cranial skeleton morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Cardiac Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Circulatory-system anomalies are the second commonest extracraniofacial finding, present in 21% of a 991-patient multicentre cohort. In that cohort the lesions most often recorded were septal defects, patent ductus arteriosus, and valve anomalies; an over-representation of conotruncal lesions is sometimes asserted in the wider literature, but no cited source here supports that specificity, so it is not claimed. The overall frequency justifies routine electrocardiography and echocardiography in at-risk patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Central Nervous System Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural central nervous system anomalies are the third commonest extracraniofacial finding, present in 11% of a 991-patient multicentre cohort. Hydrocephaly, ventriculomegaly, intracranial cysts, and Chiari malformation predominate. Spinal cord anomalies such as spina bifida and tethered cord almost always co-occur with vertebral anomalies, which is part of the rationale for combining neurological assessment with spine imaging in the screening protocol.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002011\"}}, {\"id\": \"Cleft Lip and Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orofacial clefting of the lip and/or palate, distinct from the lateral (macrostomia) cleft, occurs in a minority and reflects the same first-arch mesenchymal deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000202\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment resulting from external auditory canal stenosis or atresia and from malformation of the middle-ear ossicles, the malleus and incus being first- and second-arch derivatives. Sensorineural and mixed loss also occur but are less common.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whatever the upstream insult, the shared effector step is a regional shortfall of neural-crest-derived skeletogenic mesenchyme in the first and second pharyngeal arches on the affected side. Because this mesenchyme is the common precursor of the mandible and Meckel cartilage, the malleus and incus, the external ear, and the associated muscles and soft tissue, its regional depletion produces a coordinated deficiency across all of these developmentally related elements rather than an isolated bone defect. Deficiency of the masticatory musculature is itself part of the mechanism, contributing to mandibular underdevelopment through reduced functional loading rather than merely accompanying it.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural crest cell\", \"Chondrocyte\"], \"biological_processes\": [\"Embryonic skeletal system morphogenesis\"], \"role\": \"central_effector\", \"locations\": [\"pharyngeal arch\"]}}, {\"id\": \"Epibulbar Dermoid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epibulbar (limbal) dermoid or lipodermoid, a benign choristoma at the corneoscleral junction, is the ocular hallmark of the Goldenhar variant of the oculo-auriculo-vertebral spectrum.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Goldenhar\"], \"term_id\": \"HP:0001140\"}}, {\"id\": \"External Auditory Canal Atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atresia or stenosis of the external auditory canal accompanying microtia on the affected side, from failure of canalisation of the first branchial cleft.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000413\"}}, {\"id\": \"Facial Asymmetry\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asymmetry of the facial skeleton and soft tissue, usually unilateral, is the defining clinical feature of craniofacial microsomia and follows from maxillary and/or mandibular hypoplasia on the affected side. In a 991-patient multicentre cohort 83% of cases were unilateral and 12% bilateral.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000324\"}}, {\"id\": \"Facial Nerve Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of facial musculature from hypoplasia or an aberrant course of the facial nerve, the second-arch cranial nerve; scored as the N component of OMENS. Most individuals in scored cohorts have a normal facial nerve, so this is a minority finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Heterogeneous Insult to First and Second Pharyngeal Arch Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An aetiologically heterogeneous insult during roughly the first six weeks of gestation compromises the cranial neural crest cells that populate the first (mandibular) and second (hyoid) pharyngeal arches, or the vascular and mesenchymal environment those cells depend on. Unlike the single-gene craniofacial dysostoses, no one lesion accounts for most cases: vascular disruption, teratogenic and maternal-metabolic exposure, polygenic susceptibility, and a minority of monogenic or copy-number variants all converge on the same arch territory. The unilateral, asymmetric expression of the resulting phenotype reflects a stochastic, regionally restricted insult rather than a systemic genetic programme failure. This is the disorder-specific substitution at the module trigger node: where Treacher Collins syndrome substitutes a germline ribosome-biogenesis defect, craniofacial microsomia substitutes a multifactorial, regionally restricted insult, while the SF3B2 subset substitutes a spliceosome defect closely analogous to the EFTUD2/SF3B4 mandibulofacial dysostoses the module already covers.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cranial neural crest cell\"], \"biological_processes\": [\"Neural crest cell development\"], \"role\": \"trigger\", \"locations\": [\"pharyngeal arch\"]}}, {\"id\": \"Limb Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper and/or lower limb anomalies occur in 18.2% of a 688-patient multicentre cohort (upper 13.4%, lower 7.8%); radial ray hypoplasia is the classic pattern and defines the oculo-auriculo-vertebral spectrum with radial defects variant. Limb anomalies co-segregate strongly with other extracraniofacial anomalies rather than with facial severity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0040064\"}}, {\"id\": \"Macrostomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral facial (Tessier 7) cleft widening the oral commissure toward the ear, from failure of fusion of the maxillary and mandibular processes of the first arch. No `frequency` band is asserted: the available evidence lists lateral oral clefting among the recognised features of the spectrum but gives no quantitative estimate, and per the frequency-evidence guidelines an unsupported band is worse than none.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000154\"}}, {\"id\": \"Mandibular Condyle Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or aplasia of the mandibular condyle and temporomandibular joint, the structural basis of the Pruzansky-Kaban mandibular grading; most individuals in referral cohorts have a mildly hypoplastic ramus-condyle unit with a functioning joint.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007628\"}}, {\"id\": \"Mandibular Distraction Osteogenesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gradual lengthening of the hypoplastic mandibular ramus by distraction osteogenesis, to relieve airway obstruction in infancy and to improve facial symmetry and occlusion later in childhood. It directly targets the mandibular (M) component of the arch-derivative bundle and its airway consequence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mandibular Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia of the mandibular ramus on the affected side, ranging from mild shortening to complete absence of the ramus, graded by the Pruzansky-Kaban classification within the OMENS mandible score.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced globe size, part of the orbital (O) component of OMENS and a feature of the more severely affected end of the spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Microtia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformation or hypoplasia of the external ear, ranging from a mildly small auricle to anotia, on the side of the affected arch derivatives; isolated microtia is the mildest expression of the whole spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008551\"}}, {\"id\": \"Monogenic and Copy-Number Contributions in a Minority of Cases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of individuals with craniofacial microsomia carry a defined genetic cause. Two genes are well supported. SF3B2 haploinsufficiency, a component of the U2 small nuclear ribonucleoprotein complex, shows a highly significant loss-of-function burden in sequenced kindreds and disrupts cranial neural crest precursor formation in Xenopus; this places craniofacial microsomia alongside the EFTUD2 and SF3B4 spliceosomopathies as a neural-crest spliceosome disorder. Pathogenic variants in FOXI3, a forkhead transcription factor regulating ectodermal and neural crest development, are found in roughly 1%-3% of unselected cases and are substantially enriched among familial cases. Rare variants in MYT1 have been reported in several unrelated individuals but remain presumptive. Pathogenic copy-number variants and chromosomal rearrangements account for additional cases without a single recurrent lesion. This genetic minority sits inside an overwhelmingly sporadic condition, which is why recurrence-risk counselling differs sharply from that of the monogenic craniofacial dysostoses.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Embryonic cranial skeleton morphogenesis\", \"mRNA splicing, via spliceosome\"], \"role\": \"mechanism\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper airway obstruction and obstructive sleep apnoea from mandibular retrusion and tongue-base retroposition; risk rises steeply with the severity of mandibular involvement and with bilateral disease, and severe cases require tracheostomy or early mandibular distraction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Preauricular Skin Tags\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accessory cartilaginous or skin tags anterior to the auricle, frequently multiple and arranged along a line from the tragus toward the oral commissure. With microtia these form the minimum diagnostic criteria for the spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000384\"}}, {\"id\": \"Radial Ray Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radial ray hypoplasia is the classic and, in some series, the exclusive limb pattern of the spectrum, and defines the oculo-auriculo-vertebral spectrum with radial defects variant. It is curated separately from the broader limb phenotype because only the radial-ray-specific figure supports a radius-specific term.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002984\"}}, {\"id\": \"Soft Tissue Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deficiency of the masticatory muscles, parotid gland, subcutaneous fat, and overlying skin on the affected side, scored as the S component of OMENS. In scored cohorts most affected individuals have mild rather than severe soft-tissue hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011799\"}}, {\"id\": \"Stapedial Artery Haemorrhage and Vascular Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The classic pathogenic model proposes a focal haemorrhage from the developing stapedial artery, the transient embryonic vessel supplying the first and second pharyngeal arch territory. An expanding haematoma destroys or displaces differentiating arch mesenchyme, and the extent and timing of the bleed determine which arch derivatives are lost and how severely, explaining the unilateral distribution and the wide severity range of the phenotype. Contemporary systematic review finds the supporting evidence indirect but consistent, and places vascular disruption within a broader multifactorial framework rather than treating it as a sufficient explanation. Notably, the craniofacial microsomia GWAS loci are enriched for vasculogenesis as well as neural crest genes, so the vascular and neural-crest arms are convergent rather than competing.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Blood vessel development\"], \"role\": \"mechanism\"}}, {\"id\": \"Teratogenic and Maternal-Environmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Teratogenic and maternal-metabolic exposures during arch morphogenesis reproduce or predispose to the phenotype. Maternal pregestational and gestational diabetes is the best-replicated risk factor, and vasoactive medication exposure, multiple gestation, higher parity, and second-trimester vaginal bleeding have all been associated with craniofacial microsomia. Retinoic acid and thalidomide embryopathy are the classic pharmacological phenocopies, both acting on cranial neural crest survival and on the embryonic vasculature, but a documented exposure is absent in the great majority of cases and these agents should not be equated with idiopathic craniofacial microsomia. These exposures act on the same neural-crest and vascular substrate as the vascular-disruption model rather than through a separate pathway.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Neural crest cell migration\"], \"role\": \"mechanism\"}}, {\"id\": \"Urogenital Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urogenital malformations occur in 11% of a 991-patient multicentre cohort and warrant renal ultrasonography in at-risk patients. The 11% denominator covers urogenital anomalies as a whole, not any single lesion: renal aplasia, undescended testis, and hydronephrosis were the commonest findings. The phenotype is therefore bound at the genitourinary-system level so that the term matches the breadth of the frequency it carries.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000119\"}}, {\"id\": \"Vertebral Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral segmentation defects, most often cervical, including hemivertebrae and fusions. Vertebral anomalies are the single commonest extracraniofacial finding, present in 28% of a 991-patient multicentre cohort, and constitute the vertebral component of the oculo-auriculo-vertebral spectrum and of OMENS-plus.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003422\"}}], \"edges\": [{\"source\": \"Heterogeneous Insult to First and Second Pharyngeal Arch Development\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss or misdirection of the cranial neural crest population depletes the skeletogenic mesenchyme that would otherwise form the arch skeleton.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stapedial Artery Haemorrhage and Vascular Disruption\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Haematoma expansion within the arch territory destroys differentiating mesenchyme and interrupts its perfusion, leaving a regional shortfall of skeletogenic precursor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Teratogenic and Maternal-Environmental Disruption\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Teratogen- and hyperglycaemia-induced impairment of cranial neural crest migration and survival reduces the skeletogenic mesenchyme delivered to the arches.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Monogenic and Copy-Number Contributions in a Minority of Cases\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SF3B2 haploinsufficiency and FOXI3 dosage deficiency disrupt formation of the cranial neural crest precursors that supply arch mesenchyme, a step demonstrated experimentally for SF3B2.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"target\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced skeletogenic mesenchyme on the affected side yields hypoplastic arch derivatives across the whole set of elements it would have built.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Facial Asymmetry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient arch derivatives on one side produce clinical facial asymmetry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Mandibular Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoplasia of the neural-crest-derived mandibular skeleton on the affected side.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Mandibular Condyle Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The condyle and temporomandibular joint are the most severely affected mandibular elements, and grade the Pruzansky-Kaban mandibular score.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Microtia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficiency of the first- and second-arch hillocks of His that form the auricle produces microtia or anotia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Preauricular Skin Tags\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accessory cartilage-bearing tags arise in the first branchial groove region.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"External Auditory Canal Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of canalisation of the first branchial cleft gives aural atresia or stenosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ossicular malformation (the malleus and incus are first- and second-arch derivatives) together with canal atresia impairs sound conduction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Facial Nerve Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The facial nerve is the second-arch cranial nerve, and its hypoplasia or aberrant course accompanies second-arch deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Soft Tissue Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Masticatory muscle, parotid, and subcutaneous deficiency follows from the same regional mesenchymal shortfall.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orbital involvement at the severe end of the spectrum includes reduced globe size, the O component of OMENS.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Epibulbar Dermoid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular choristoma of neural-crest-derived periocular mesenchyme, the hallmark of the Goldenhar variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Macrostomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fusion of the maxillary and mandibular processes of the first arch widens the oral commissure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Cleft Lip and Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clefting of the lip and/or palate arises from the same first-arch mesenchymal deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Vertebral Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extracraniofacial vertebral segmentation defects are the commonest OMENS-plus anomaly, presumably reflecting a broader neural-crest and paraxial-mesoderm insult whose intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Central Nervous System Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural central nervous system anomalies occur as part of the OMENS-plus burden; the spinal cord component travels with the vertebral anomalies, but the intermediates linking the arch insult to hydrocephaly, ventriculomegaly, and Chiari malformation are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Cardiac Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital heart defects, dependent in part on cardiac neural crest, are the second commonest OMENS-plus anomaly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Urogenital Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urogenital malformations occur as part of the OMENS-plus burden.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Limb Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper and lower limb anomalies occur as OMENS-plus anomalies by mechanisms that are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Radial Ray Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Radial ray hypoplasia is the classic limb pattern of the spectrum and defines the oculo-auriculo-vertebral spectrum with radial defects variant; its mechanistic link to the arch insult is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe mandibular deficiency mechanically narrows the pharyngeal airway, the principal functional consequence of the arch-derivative bundle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retropositioned mandible and tongue base narrow the pharyngeal airway during sleep.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mandibular Distraction Osteogenesis\", \"target\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe mandibular ramus and condylar deficiency retropositions the tongue base and narrows the pharyngeal airway, producing upper airway obstruction and obstructive sleep apnoea, together with dysphagia and aspiration risk. Risk tracks the severity of the mandibular and orbital OMENS components and is greatest in bilateral disease; the most severely affected infants require tracheostomy or early mandibular distraction. This is the principal functional, as opposed to aesthetic, consequence of the arch-derivative bundle and drives the timing of surgical intervention.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arch derivatives are built by a shared, serially reused neural-crest programme, so the malformation recurs across arch elements as a bundle: the mandibular ramus and condyle, the external and middle ear, the facial nerve and its target musculature, the orbit, and the overlying soft tissue are affected together. This bundle is precisely what the OMENS classification scores (Orbit, Mandible, Ear, Nerve, Soft tissue), with OMENS-plus adding extracraniofacial anomalies. The decisive contrast with Treacher Collins syndrome is laterality and aetiology rather than the element set: a single germline ribosomopathy affects both sides equally and symmetrically, whereas the regionally restricted, stochastic insult of craniofacial microsomia produces a predominantly unilateral, asymmetric deficiency, bilateral in a minority and then still asymmetric in degree. Both disorders nevertheless conform to the same module node, which is the point: the serially homologous craniofacial bundle is a property of the shared arch programme, not of any one aetiology.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Osteoblast\", \"Chondrocyte\"], \"biological_processes\": [\"Face morphogenesis\", \"Embryonic cranial skeleton morphogenesis\"], \"role\": \"consequence\"}}, {\"id\": \"Cardiac Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Circulatory-system anomalies are the second commonest extracraniofacial finding, present in 21% of a 991-patient multicentre cohort. In that cohort the lesions most often recorded were septal defects, patent ductus arteriosus, and valve anomalies; an over-representation of conotruncal lesions is sometimes asserted in the wider literature, but no cited source here supports that specificity, so it is not claimed. The overall frequency justifies routine electrocardiography and echocardiography in at-risk patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Central Nervous System Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural central nervous system anomalies are the third commonest extracraniofacial finding, present in 11% of a 991-patient multicentre cohort. Hydrocephaly, ventriculomegaly, intracranial cysts, and Chiari malformation predominate. Spinal cord anomalies such as spina bifida and tethered cord almost always co-occur with vertebral anomalies, which is part of the rationale for combining neurological assessment with spine imaging in the screening protocol.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002011\"}}, {\"id\": \"Cleft Lip and Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Orofacial clefting of the lip and/or palate, distinct from the lateral (macrostomia) cleft, occurs in a minority and reflects the same first-arch mesenchymal deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000202\"}}, {\"id\": \"Conductive Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive hearing impairment resulting from external auditory canal stenosis or atresia and from malformation of the middle-ear ossicles, the malleus and incus being first- and second-arch derivatives. Sensorineural and mixed loss also occur but are less common.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Whatever the upstream insult, the shared effector step is a regional shortfall of neural-crest-derived skeletogenic mesenchyme in the first and second pharyngeal arches on the affected side. Because this mesenchyme is the common precursor of the mandible and Meckel cartilage, the malleus and incus, the external ear, and the associated muscles and soft tissue, its regional depletion produces a coordinated deficiency across all of these developmentally related elements rather than an isolated bone defect. Deficiency of the masticatory musculature is itself part of the mechanism, contributing to mandibular underdevelopment through reduced functional loading rather than merely accompanying it.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural crest cell\", \"Chondrocyte\"], \"biological_processes\": [\"Embryonic skeletal system morphogenesis\"], \"role\": \"central_effector\", \"locations\": [\"pharyngeal arch\"]}}, {\"id\": \"Epibulbar Dermoid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epibulbar (limbal) dermoid or lipodermoid, a benign choristoma at the corneoscleral junction, is the ocular hallmark of the Goldenhar variant of the oculo-auriculo-vertebral spectrum.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Goldenhar\"], \"term_id\": \"HP:0001140\"}}, {\"id\": \"External Auditory Canal Atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atresia or stenosis of the external auditory canal accompanying microtia on the affected side, from failure of canalisation of the first branchial cleft.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000413\"}}, {\"id\": \"Facial Asymmetry\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asymmetry of the facial skeleton and soft tissue, usually unilateral, is the defining clinical feature of craniofacial microsomia and follows from maxillary and/or mandibular hypoplasia on the affected side. In a 991-patient multicentre cohort 83% of cases were unilateral and 12% bilateral.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000324\"}}, {\"id\": \"Facial Nerve Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of facial musculature from hypoplasia or an aberrant course of the facial nerve, the second-arch cranial nerve; scored as the N component of OMENS. Most individuals in scored cohorts have a normal facial nerve, so this is a minority finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Heterogeneous Insult to First and Second Pharyngeal Arch Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An aetiologically heterogeneous insult during roughly the first six weeks of gestation compromises the cranial neural crest cells that populate the first (mandibular) and second (hyoid) pharyngeal arches, or the vascular and mesenchymal environment those cells depend on. Unlike the single-gene craniofacial dysostoses, no one lesion accounts for most cases: vascular disruption, teratogenic and maternal-metabolic exposure, polygenic susceptibility, and a minority of monogenic or copy-number variants all converge on the same arch territory. The unilateral, asymmetric expression of the resulting phenotype reflects a stochastic, regionally restricted insult rather than a systemic genetic programme failure. This is the disorder-specific substitution at the module trigger node: where Treacher Collins syndrome substitutes a germline ribosome-biogenesis defect, craniofacial microsomia substitutes a multifactorial, regionally restricted insult, while the SF3B2 subset substitutes a spliceosome defect closely analogous to the EFTUD2/SF3B4 mandibulofacial dysostoses the module already covers.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cranial neural crest cell\"], \"biological_processes\": [\"Neural crest cell development\"], \"role\": \"trigger\", \"locations\": [\"pharyngeal arch\"]}}, {\"id\": \"Higher Parity\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Higher maternal parity was associated with roughly double the odds of craniofacial microsomia in case-control data. In the same study, maternal vitamin A and/or liver consumption was associated with lower rather than higher risk, which does not support a simple dietary-retinoid model of causation despite the retinoic-acid embryopathy phenocopy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Limb Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper and/or lower limb anomalies occur in 18.2% of a 688-patient multicentre cohort (upper 13.4%, lower 7.8%); radial ray hypoplasia is the classic pattern and defines the oculo-auriculo-vertebral spectrum with radial defects variant. Limb anomalies co-segregate strongly with other extracraniofacial anomalies rather than with facial severity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0040064\"}}, {\"id\": \"Macrostomia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral facial (Tessier 7) cleft widening the oral commissure toward the ear, from failure of fusion of the maxillary and mandibular processes of the first arch. No `frequency` band is asserted: the available evidence lists lateral oral clefting among the recognised features of the spectrum but gives no quantitative estimate, and per the frequency-evidence guidelines an unsupported band is worse than none.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000154\"}}, {\"id\": \"Mandibular Condyle Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia or aplasia of the mandibular condyle and temporomandibular joint, the structural basis of the Pruzansky-Kaban mandibular grading; most individuals in referral cohorts have a mildly hypoplastic ramus-condyle unit with a functioning joint.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007628\"}}, {\"id\": \"Mandibular Distraction Osteogenesis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gradual lengthening of the hypoplastic mandibular ramus by distraction osteogenesis, to relieve airway obstruction in infancy and to improve facial symmetry and occlusion later in childhood. It directly targets the mandibular (M) component of the arch-derivative bundle and its airway consequence.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mandibular Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia of the mandibular ramus on the affected side, ranging from mild shortening to complete absence of the ramus, graded by the Pruzansky-Kaban classification within the OMENS mandible score.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Maternal Diabetes Mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Pregestational and gestational maternal diabetes is the best-replicated environmental risk factor for craniofacial microsomia, with roughly four-fold increased odds in case-control data. The proposed mechanism is hyperglycaemia-mediated interference with cephalic neural crest cell migration, which places this exposure squarely on the shared effector pathway rather than on a separate one.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced globe size, part of the orbital (O) component of OMENS and a feature of the more severely affected end of the spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Microtia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformation or hypoplasia of the external ear, ranging from a mildly small auricle to anotia, on the side of the affected arch derivatives; isolated microtia is the mildest expression of the whole spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008551\"}}, {\"id\": \"Monogenic and Copy-Number Contributions in a Minority of Cases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of individuals with craniofacial microsomia carry a defined genetic cause. Two genes are well supported. SF3B2 haploinsufficiency, a component of the U2 small nuclear ribonucleoprotein complex, shows a highly significant loss-of-function burden in sequenced kindreds and disrupts cranial neural crest precursor formation in Xenopus; this places craniofacial microsomia alongside the EFTUD2 and SF3B4 spliceosomopathies as a neural-crest spliceosome disorder. Pathogenic variants in FOXI3, a forkhead transcription factor regulating ectodermal and neural crest development, are found in roughly 1%-3% of unselected cases and are substantially enriched among familial cases. Rare variants in MYT1 have been reported in several unrelated individuals but remain presumptive. Pathogenic copy-number variants and chromosomal rearrangements account for additional cases without a single recurrent lesion. This genetic minority sits inside an overwhelmingly sporadic condition, which is why recurrence-risk counselling differs sharply from that of the monogenic craniofacial dysostoses.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Embryonic cranial skeleton morphogenesis\", \"mRNA splicing, via spliceosome\"], \"role\": \"mechanism\"}}, {\"id\": \"Obstructive Sleep Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper airway obstruction and obstructive sleep apnoea from mandibular retrusion and tongue-base retroposition; risk rises steeply with the severity of mandibular involvement and with bilateral disease, and severe cases require tracheostomy or early mandibular distraction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002870\"}}, {\"id\": \"Preauricular Skin Tags\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accessory cartilaginous or skin tags anterior to the auricle, frequently multiple and arranged along a line from the tragus toward the oral commissure. With microtia these form the minimum diagnostic criteria for the spectrum.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000384\"}}, {\"id\": \"Radial Ray Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radial ray hypoplasia is the classic and, in some series, the exclusive limb pattern of the spectrum, and defines the oculo-auriculo-vertebral spectrum with radial defects variant. It is curated separately from the broader limb phenotype because only the radial-ray-specific figure supports a radius-specific term.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002984\"}}, {\"id\": \"Soft Tissue Deficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Deficiency of the masticatory muscles, parotid gland, subcutaneous fat, and overlying skin on the affected side, scored as the S component of OMENS. In scored cohorts most affected individuals have mild rather than severe soft-tissue hypoplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011799\"}}, {\"id\": \"Stapedial Artery Haemorrhage and Vascular Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The classic pathogenic model proposes a focal haemorrhage from the developing stapedial artery, the transient embryonic vessel supplying the first and second pharyngeal arch territory. An expanding haematoma destroys or displaces differentiating arch mesenchyme, and the extent and timing of the bleed determine which arch derivatives are lost and how severely, explaining the unilateral distribution and the wide severity range of the phenotype. Contemporary systematic review finds the supporting evidence indirect but consistent, and places vascular disruption within a broader multifactorial framework rather than treating it as a sufficient explanation. Notably, the craniofacial microsomia GWAS loci are enriched for vasculogenesis as well as neural crest genes, so the vascular and neural-crest arms are convergent rather than competing.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Endothelial cell\"], \"biological_processes\": [\"Blood vessel development\"], \"role\": \"mechanism\"}}, {\"id\": \"Teratogenic and Maternal-Environmental Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Teratogenic and maternal-metabolic exposures during arch morphogenesis reproduce or predispose to the phenotype. Maternal pregestational and gestational diabetes is the best-replicated risk factor, and vasoactive medication exposure, multiple gestation, higher parity, and second-trimester vaginal bleeding have all been associated with craniofacial microsomia. Retinoic acid and thalidomide embryopathy are the classic pharmacological phenocopies, both acting on cranial neural crest survival and on the embryonic vasculature, but a documented exposure is absent in the great majority of cases and these agents should not be equated with idiopathic craniofacial microsomia. These exposures act on the same neural-crest and vascular substrate as the vascular-disruption model rather than through a separate pathway.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Neural crest cell migration\"], \"role\": \"mechanism\"}}, {\"id\": \"Urogenital Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urogenital malformations occur in 11% of a 991-patient multicentre cohort and warrant renal ultrasonography in at-risk patients. The 11% denominator covers urogenital anomalies as a whole, not any single lesion: renal aplasia, undescended testis, and hydronephrosis were the commonest findings. The phenotype is therefore bound at the genitourinary-system level so that the term matches the breadth of the frequency it carries.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000119\"}}, {\"id\": \"Vasoactive Medication Exposure and Perfusion-Related Maternal Factors\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposures and conditions that plausibly perturb embryonic perfusion have been associated with craniofacial microsomia, including vasoactive medication use, multiple gestation, and second-trimester vaginal bleeding. Affected infants also show an increased prevalence of single umbilical artery and growth restriction, further implicating vascular supply.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vertebral Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral segmentation defects, most often cervical, including hemivertebrae and fusions. Vertebral anomalies are the single commonest extracraniofacial finding, present in 28% of a 991-patient multicentre cohort, and constitute the vertebral component of the oculo-auriculo-vertebral spectrum and of OMENS-plus.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003422\"}}], \"edges\": [{\"source\": \"Heterogeneous Insult to First and Second Pharyngeal Arch Development\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss or misdirection of the cranial neural crest population depletes the skeletogenic mesenchyme that would otherwise form the arch skeleton.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stapedial Artery Haemorrhage and Vascular Disruption\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Haematoma expansion within the arch territory destroys differentiating mesenchyme and interrupts its perfusion, leaving a regional shortfall of skeletogenic precursor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Teratogenic and Maternal-Environmental Disruption\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Teratogen- and hyperglycaemia-induced impairment of cranial neural crest migration and survival reduces the skeletogenic mesenchyme delivered to the arches.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Monogenic and Copy-Number Contributions in a Minority of Cases\", \"target\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SF3B2 haploinsufficiency and FOXI3 dosage deficiency disrupt formation of the cranial neural crest precursors that supply arch mesenchyme, a step demonstrated experimentally for SF3B2.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Deficient Neural-Crest-Derived Skeletogenic Mesenchyme in the First and Second Arches\", \"target\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced skeletogenic mesenchyme on the affected side yields hypoplastic arch derivatives across the whole set of elements it would have built.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Facial Asymmetry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient arch derivatives on one side produce clinical facial asymmetry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Mandibular Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoplasia of the neural-crest-derived mandibular skeleton on the affected side.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Mandibular Condyle Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The condyle and temporomandibular joint are the most severely affected mandibular elements, and grade the Pruzansky-Kaban mandibular score.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Microtia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficiency of the first- and second-arch hillocks of His that form the auricle produces microtia or anotia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Preauricular Skin Tags\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accessory cartilage-bearing tags arise in the first branchial groove region.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"External Auditory Canal Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of canalisation of the first branchial cleft gives aural atresia or stenosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Conductive Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ossicular malformation (the malleus and incus are first- and second-arch derivatives) together with canal atresia impairs sound conduction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Facial Nerve Weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The facial nerve is the second-arch cranial nerve, and its hypoplasia or aberrant course accompanies second-arch deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Soft Tissue Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Masticatory muscle, parotid, and subcutaneous deficiency follows from the same regional mesenchymal shortfall.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Orbital involvement at the severe end of the spectrum includes reduced globe size, the O component of OMENS.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Epibulbar Dermoid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular choristoma of neural-crest-derived periocular mesenchyme, the hallmark of the Goldenhar variant.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Macrostomia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fusion of the maxillary and mandibular processes of the first arch widens the oral commissure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Cleft Lip and Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Clefting of the lip and/or palate arises from the same first-arch mesenchymal deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Vertebral Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extracraniofacial vertebral segmentation defects are the commonest OMENS-plus anomaly, presumably reflecting a broader neural-crest and paraxial-mesoderm insult whose intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Central Nervous System Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Structural central nervous system anomalies occur as part of the OMENS-plus burden; the spinal cord component travels with the vertebral anomalies, but the intermediates linking the arch insult to hydrocephaly, ventriculomegaly, and Chiari malformation are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Cardiac Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital heart defects, dependent in part on cardiac neural crest, are the second commonest OMENS-plus anomaly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Urogenital Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Urogenital malformations occur as part of the OMENS-plus burden.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Limb Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Upper and lower limb anomalies occur as OMENS-plus anomalies by mechanisms that are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Radial Ray Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Radial ray hypoplasia is the classic limb pattern of the spectrum and defines the oculo-auriculo-vertebral spectrum with radial defects variant; its mechanistic link to the arch insult is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Asymmetric Hypoplasia of First- and Second-Arch Derivatives\", \"target\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe mandibular deficiency mechanically narrows the pharyngeal airway, the principal functional consequence of the arch-derivative bundle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"target\": \"Obstructive Sleep Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retropositioned mandible and tongue base narrow the pharyngeal airway during sleep.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal Diabetes Mellitus\", \"target\": \"Teratogenic and Maternal-Environmental Disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal diabetes is the best-replicated maternal-metabolic risk factor for this malformation, which is why this entry carries a node dedicated to teratogenic and maternal-environmental disruption for it to act on.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vasoactive Medication Exposure and Perfusion-Related Maternal Factors\", \"target\": \"Stapedial Artery Haemorrhage and Vascular Disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Targets the vascular-disruption arm rather than the general teratogen node, because the proposed action of these exposures is specifically on embryonic perfusion, which is what that arm models.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Higher Parity\", \"target\": \"Teratogenic and Maternal-Environmental Disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Parity is a maternal-context risk marker rather than an exposure with a route of action; no mediating step is proposed by the cited source.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mandibular Distraction Osteogenesis\", \"target\": \"Airway and Feeding Compromise from Mandibular Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6369,14 +6710,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6461,14 +6811,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
+
+                        <span class="phenotype-term-label">Conductive hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6544,14 +6903,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atresia of the external auditory canal
+
+                        <span class="phenotype-term-label">Atresia of the external auditory canal</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000413" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000413">HP:0000413</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000413" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000413</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atresia of the external auditory canal (HP:0000413). HP:0000413 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6612,14 +6980,23 @@
                         Epibulbar Dermoid
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limbal dermoid
+
+                        <span class="phenotype-term-label">Limbal dermoid</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001140" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001140">HP:0001140</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001140</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epibulbar dermoid, annotated with Limbal dermoid (HP:0001140). HP:0001140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6695,14 +7072,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6765,14 +7149,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the genitourinary system
+
+                        <span class="phenotype-term-label">Abnormality of the genitourinary system</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000119">HP:0000119</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000119</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Urogenital malformation (renal aplasia, undescended testis, hydronephrosis), annotated with Abnormality of the genitourinary system (HP:0000119). HP:0000119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6857,14 +7250,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial asymmetry
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000324">HP:0000324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,14 +7318,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micrognathia
+
+                        <span class="phenotype-term-label">Micrognathia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6979,14 +7388,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial palsy
+
+                        <span class="phenotype-term-label">Facial palsy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010628">HP:0010628</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010628</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial palsy (HP:0010628). HP:0010628 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7038,14 +7456,23 @@
                         Macrostomia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Wide mouth
+
+                        <span class="phenotype-term-label">Wide mouth</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000154">HP:0000154</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000154</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macrostomia, annotated with Wide mouth (HP:0000154). HP:0000154 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7099,14 +7526,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Orofacial cleft
+
+                        <span class="phenotype-term-label">Orofacial cleft</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000202">HP:0000202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft lip and/or palate, annotated with Orofacial cleft (HP:0000202). HP:0000202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7169,14 +7605,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the radius
+
+                        <span class="phenotype-term-label">Hypoplasia of the radius</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002984" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002984">HP:0002984</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002984" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002984</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Radial ray hypoplasia, annotated with Hypoplasia of the radius (HP:0002984). HP:0002984 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7239,14 +7684,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obstructive sleep apnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002870">HP:0002870</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002870</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obstructive sleep apnea (HP:0002870). HP:0002870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7309,14 +7761,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mandibular condyle hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007628" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007628">HP:0007628</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007628" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007628</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mandibular condyle hypoplasia (HP:0007628). HP:0007628 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7370,14 +7829,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microtia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008551">HP:0008551</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0008551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microtia (HP:0008551). HP:0008551 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7453,14 +7919,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Preauricular skin tag
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000384" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000384">HP:0000384</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000384</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Preauricular skin tag (HP:0000384). HP:0000384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7536,14 +8009,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of facial soft tissue
+
+                        <span class="phenotype-term-label">Abnormality of facial soft tissue</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011799" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011799">HP:0011799</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011799" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0011799</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial soft tissue deficiency, annotated with Abnormality of facial soft tissue (HP:0011799). HP:0011799 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7597,14 +8079,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertebral segmentation defect
+
+                        <span class="phenotype-term-label">Vertebral segmentation defect</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003422" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003422">HP:0003422</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003422" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003422</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertebral segmentation defect (HP:0003422). HP:0003422 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7658,14 +8149,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Morphological central nervous system abnormality
+
+                        <span class="phenotype-term-label">Morphological central nervous system abnormality</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002011">HP:0002011</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002011</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Structural central nervous system anomaly, annotated with Morphological central nervous system abnormality (HP:0002011). HP:0002011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7763,14 +8263,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of limbs
+
+                        <span class="phenotype-term-label">Abnormality of limbs</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040064" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040064">HP:0040064</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0040064</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upper and/or lower limb anomaly, annotated with Abnormality of limbs (HP:0040064). HP:0040064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7888,13 +8397,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SF3B2
 
 
-    <a href="https://bioregistry.io/hgnc:10769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10769">hgnc:10769</a>
+    <a href="https://bioregistry.io/hgnc:10769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:10769</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SF3B2 (hgnc:10769). hgnc:10769 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7996,13 +8510,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FOXI3
 
 
-    <a href="https://bioregistry.io/hgnc:35123" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:35123">hgnc:35123</a>
+    <a href="https://bioregistry.io/hgnc:35123" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:35123</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FOXI3 (hgnc:35123). hgnc:35123 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8106,13 +8625,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYT1
 
 
-    <a href="https://bioregistry.io/hgnc:7622" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7622">hgnc:7622</a>
+    <a href="https://bioregistry.io/hgnc:7622" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:7622</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYT1 (hgnc:7622). hgnc:7622 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8192,13 +8716,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EDNRB
 
 
-    <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3180">hgnc:3180</a>
+    <a href="https://bioregistry.io/hgnc:3180" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:3180</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EDNRB (hgnc:3180). hgnc:3180 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8291,7 +8820,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">multidisciplinary craniofacial team care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">multidisciplinary craniofacial team care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is multidisciplinary craniofacial team care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8393,7 +8927,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">mandibular distraction osteogenesis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">mandibular distraction osteogenesis<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mandibular distraction osteogenesis, annotated with Osteotomy (NCIT:C51903). NCIT:C51903 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Osteotomy</span>
 
 
@@ -8491,7 +9030,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">staged auricular reconstruction</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">staged auricular reconstruction<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is staged auricular reconstruction, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8571,7 +9115,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">aural rehabilitation and hearing amplification</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">aural rehabilitation and hearing amplification<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is aural rehabilitation and hearing amplification, annotated with Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
 
 
@@ -8651,7 +9200,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Screening</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">extracraniofacial anomaly screening</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">extracraniofacial anomaly screening<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is extracraniofacial anomaly screening, annotated with Diagnostic Procedure (NCIT:C18020). NCIT:C18020 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Diagnostic Procedure</span>
 
 
@@ -8753,7 +9307,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -8833,7 +9392,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">autologous fat grafting (lipofilling)</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">autologous fat grafting (lipofilling)<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is autologous fat grafting (lipofilling), annotated with Autologous Fat Graft (NCIT:C126279). NCIT:C126279 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Autologous Fat Graft</span>
 
 
@@ -8944,6 +9508,10 @@
 
 
 
+
+
+
+
                 <div class="item-desc">Pregestational and gestational maternal diabetes is the best-replicated environmental risk factor for craniofacial microsomia, with roughly four-fold increased odds in case-control data. The proposed mechanism is hyperglycaemia-mediated interference with cephalic neural crest cell migration, which places this exposure squarely on the shared effector pathway rather than on a separate one.</div>
 
 
@@ -9004,10 +9572,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Teratogenic and Maternal-Environmental Disruption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Maternal diabetes is the best-replicated maternal-metabolic risk factor for this malformation, which is why this entry carries a node dedicated to teratogenic and maternal-environmental disruption for it to act on.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30927385" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927385" target="_blank">PMID:30927385</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found a statistically significant association between diabetes mellitus (DM) and CFM (OR 4.01, 95% CI 1.6-10.5)."</div>
+
+
+                <div class="evidence-explanation">Reports a statistically significant fourfold association between maternal diabetes mellitus and craniofacial microsomia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-vasoactive-medication-exposure-and-perfusion-related-maternal-factors" data-dismech-node="Vasoactive Medication Exposure and Perfusion-Related Maternal Factors" data-dismech-type="environmental">
                 <div class="item-name">Vasoactive Medication Exposure and Perfusion-Related Maternal Factors</div>
+
+
+
+
 
 
 
@@ -9071,10 +9695,66 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Stapedial Artery Haemorrhage and Vascular Disruption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Targets the vascular-disruption arm rather than the general teratogen node, because the proposed action of these exposures is specifically on embryonic perfusion, which is what that arm models.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42322171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42322171" target="_blank">PMID:42322171</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidemiological studies identified associations between HFM and maternal factors potentially affecting embryonic perfusion, including vasoactive medication exposure, maternal diabetes, multiple gestations, and second-trimester vaginal bleeding."</div>
+
+
+                <div class="evidence-explanation">Identifies epidemiological associations between the malformation and maternal factors potentially affecting embryonic perfusion, the vascular route this node represents.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-higher-parity" data-dismech-node="Higher Parity" data-dismech-type="environmental">
                 <div class="item-name">Higher Parity</div>
+
+
+
+
 
 
 
@@ -9137,6 +9817,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Teratogenic and Maternal-Environmental Disruption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Parity is a maternal-context risk marker rather than an exposure with a route of action; no mediating step is proposed by the cited source.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30927385" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30927385" target="_blank">PMID:30927385</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Higher parity was also associated with increased risk for CFM (OR 2.0, 95% CI 1.0-4.0)."</div>
+
+
+                <div class="evidence-explanation">Reports higher parity as associated with roughly doubled risk of craniofacial microsomia, a maternal risk marker.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9266,17 +9998,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Facial soft tissue deficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011799" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011799">HP:0011799</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011799" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0011799</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Facial soft tissue deficiency, annotated with Abnormality of facial soft tissue (HP:0011799). HP:0011799 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Facial asymmetry
@@ -9284,10 +10023,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000324">HP:0000324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000324</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Facial asymmetry (HP:0000324). HP:0000324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9346,16 +10088,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Facial soft tissue deficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011799" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011799">HP:0011799</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011799" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0011799</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Facial soft tissue deficiency, annotated with Abnormality of facial soft tissue (HP:0011799). HP:0011799 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9401,6 +10148,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10918,6 +11668,23 @@ genetic:
       susceptibility claim.
 environmental:
 - name: Maternal Diabetes Mellitus
+  influences_mechanisms:
+  - target: Teratogenic and Maternal-Environmental Disruption
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Maternal diabetes is the best-replicated maternal-metabolic risk factor
+      for this malformation, which is why this entry carries a node dedicated
+      to teratogenic and maternal-environmental disruption for it to act on.
+    evidence:
+    - reference: PMID:30927385
+      reference_title: &#34;Evaluation of prenatal diabetes mellitus and other risk factors for craniofacial microsomia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We found a statistically significant association between diabetes mellitus (DM) and CFM (OR 4.01, 95% CI 1.6-10.5).&#34;
+      explanation: &gt;-
+        Reports a statistically significant fourfold association between
+        maternal diabetes mellitus and craniofacial microsomia.
   description: &gt;-
     Pregestational and gestational maternal diabetes is the best-replicated
     environmental risk factor for craniofacial microsomia, with roughly four-fold
@@ -10941,6 +11708,24 @@ environmental:
       Independent registry-based replication of the maternal diabetes
       association, here for gestational diabetes specifically.
 - name: Vasoactive Medication Exposure and Perfusion-Related Maternal Factors
+  influences_mechanisms:
+  - target: Stapedial Artery Haemorrhage and Vascular Disruption
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Targets the vascular-disruption arm rather than the general teratogen
+      node, because the proposed action of these exposures is specifically on
+      embryonic perfusion, which is what that arm models.
+    evidence:
+    - reference: PMID:42322171
+      reference_title: &#34;Vascular Mechanisms in the Etiology of Hemifacial Microsomia: A Systematic Review of Epidemiological, Clinical, and Genetic Evidence.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Epidemiological studies identified associations between HFM and maternal factors potentially affecting embryonic perfusion, including vasoactive medication exposure, maternal diabetes, multiple gestations, and second-trimester vaginal bleeding.&#34;
+      explanation: &gt;-
+        Identifies epidemiological associations between the malformation and
+        maternal factors potentially affecting embryonic perfusion, the
+        vascular route this node represents.
   description: &gt;-
     Exposures and conditions that plausibly perturb embryonic perfusion have been
     associated with craniofacial microsomia, including vasoactive medication use,
@@ -10965,6 +11750,22 @@ environmental:
       Provides independent population-level markers of impaired fetoplacental
       perfusion in affected infants.
 - name: Higher Parity
+  influences_mechanisms:
+  - target: Teratogenic and Maternal-Environmental Disruption
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Parity is a maternal-context risk marker rather than an exposure with a
+      route of action; no mediating step is proposed by the cited source.
+    evidence:
+    - reference: PMID:30927385
+      reference_title: &#34;Evaluation of prenatal diabetes mellitus and other risk factors for craniofacial microsomia.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Higher parity was also associated with increased risk for CFM (OR 2.0, 95% CI 1.0-4.0).&#34;
+      explanation: &gt;-
+        Reports higher parity as associated with roughly doubled risk of
+        craniofacial microsomia, a maternal risk marker.
   description: &gt;-
     Higher maternal parity was associated with roughly double the odds of
     craniofacial microsomia in case-control data. In the same study, maternal
@@ -11914,7 +12715,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Craniofacial Microsomia", "mondoId": "MONDO:0015397", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Craniofacial_Microsomia", "yamlRevision": "a48765751d92"};
+        const OS_CONFIG = {"diseaseName": "Craniofacial Microsomia", "mondoId": "MONDO:0015397", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Craniofacial_Microsomia", "yamlRevision": "483a77dd9a09"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12333,5 +13134,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
