@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-source-defect-claims check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -943,6 +943,40 @@ check-not4curation *args:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Adjudicate free-text claims that a *cited source* is defective (#9226) --
+# "the cached abstract is truncated", "that record has no abstract", "the
+# abstract does not mention X". Every other gate here checks a SNIPPET against
+# the cache; nothing checked PROSE, so a false claim of this shape validated
+# cleanly indefinitely (it survived two fix rounds across three sites on #9207,
+# and four sites in Tetralogy_of_Fallot.yaml before that).
+#
+# Report-only by design, and it ADJUDICATES rather than pattern-matches: claims
+# of this shape are usually true and load-bearing, so a keyword gate would push
+# curators to delete accurate provenance to get a build green. A claim the cache
+# agrees with is CONFIRMED, a correction note narrating an old false claim is
+# NARRATED, and only a claim the cache demonstrably disagrees with is reported.
+# Offline, no OAK, no network (~19s over kb/).
+[group('QC')]
+check-source-defect-claims *files:
+    uv run python scripts/check_source_defect_claims.py "$@"
+
+# Every source-defect claim with its verdict, including the confirmed and
+# narrated ones the gate stays quiet about (triage view).
+[group('QC')]
+list-source-defect-claims *files:
+    uv run python scripts/check_source_defect_claims.py --all "$@"
+
+# The snippet half of #9226: a quote cut inside a word IS a substring of the
+# cached text, so it verifies -- which is exactly what hid the four mid-word
+# snippets on #9207 until a reviewer read the cache. Advisory sibling of
+# `count-verified-snippets`; strict matches only (a relaxed match strips all
+# spaces, so every one is flanked by word characters by construction).
+[group('QC')]
+check-snippet-boundaries *files:
+    uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} \
+        --config {{ref_validator_config}} --check-boundaries \
+        {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/comorbidities/*.yaml" } else { files } }}
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').

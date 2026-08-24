@@ -2093,12 +2093,13 @@ just count-verified-snippets kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
 #   Snippets checked: 376/376 verified against cached references
 ```
 
-**Five more gates belong in this loop, because CI runs them ungated (#9137).**
-The three checks above are the ones CI runs *on your changed files*; these five
+**Six more gates belong in this loop, because CI runs them ungated (#9137).**
+The three checks above are the ones CI runs *on your changed files*; these six
 run on **every** PR with no path filter at all (`.github/workflows/main.yaml`),
 precisely because the PRs that trip them are curation PRs touching only `kb/`,
 which no `src/tests` filter would catch. A curator who runs only the documented
-loop can therefore finish every check and still push work that fails CI:
+loop can therefore finish every check and still push work that fails CI (the
+last is report-only and cannot fail it — it prints for a human to read):
 
 ```bash
 just check-folded-hyphens                              # whole KB + src/, ~8s
@@ -2106,9 +2107,10 @@ just check-snippet-length                              # whole KB, ~1min
 just check-title-snippets                              # whole KB, ~2.5min
 just check-environmental-evidence                      # whole KB, ~1min
 just check-duplicate-keys kb/disorders/MyDisease.yaml  # or bare: kb/ + schema + conf, ~18s
+just check-source-defect-claims                        # whole KB, ~19s (report-only)
 ```
 
-All five are offline — no reference fetching, no OAK, no network — which is why
+All six are offline — no reference fetching, no OAK, no network — which is why
 they belong in the per-edit loop rather than the pre-PR sweep. They are not all
 *fast*, though: only `check-duplicate-keys` takes file arguments, so the other
 four re-scan the whole KB every run (and the ratchets scan it twice, once at
@@ -2125,6 +2127,7 @@ five are invisible to `validate` / `validate-terms` / `count-verified-snippets`:
 | `check-title-snippets` | A snippet that is the cited paper's *title*, or a contiguous fragment of it, rather than its finding — see §6 below (#8374). |
 | `check-environmental-evidence` | An `environmental:` entry with no entry-level `evidence:` block, which is an uncited causation claim (#8296). Evidence on that entry's `influences_mechanisms` links is a **different** claim — "this exposure acts on this node", not "this exposure is real" — and does not satisfy this gate. |
 | `check-duplicate-keys` | A repeated mapping key: kept silently by PyYAML's safe loaders, fatal to the ruamel-backed reference validator. See "Duplicate YAML Keys" below (#8623). |
+| `check-source-defect-claims` | A **prose** claim that a cited source is defective — "that record has no abstract", "the abstract does not mention X" — which the cache contradicts. Report-only; see "Claims About a Cited Source" below (#9226). |
 
 **Grandfathering, and the trap in it.** Four of the five ratchet against a
 baseline so the pre-existing backlog need not be cleaned up first — but they do
@@ -2145,7 +2148,9 @@ not source that baseline the same way, and the difference decides whether
   for more care, not less — a hyphen split is a corrupted term in rendered prose.
   Regenerate it only when you have deliberately changed the backlog (e.g. fixed
   entries), never to admit a split you just introduced.
-- `check-duplicate-keys` has no baseline at all. Every finding is new.
+- `check-duplicate-keys` and `check-source-defect-claims` have no baseline at
+  all. The former treats every finding as new; the latter never fails, so it has
+  nothing to grandfather.
 
 **Triage views.** Each ratchet has a `list-*` sibling printing every finding,
 baselined or not — `just list-short-snippets`, `just list-title-snippets`,
@@ -2395,13 +2400,13 @@ just validate-disorders kb/disorders/MyDisease.yaml
    so a PMID you forgot to fetch shows up as `not cached locally` rather than
    passing quietly
 4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
-5. Run the five ungated CI gates — `just check-folded-hyphens`,
+5. Run the six ungated CI gates — `just check-folded-hyphens`,
    `just check-snippet-length`, `just check-title-snippets`,
-   `just check-environmental-evidence`, and `just check-duplicate-keys
-   kb/disorders/YourFile.yaml`. They are offline, they run on every PR whatever
-   it touches, and none of the checks above can see what they catch (see
-   "Validation Workflow" for what each one means and why a new finding cannot be
-   baselined away)
+   `just check-environmental-evidence`, `just check-duplicate-keys
+   kb/disorders/YourFile.yaml`, and `just check-source-defect-claims`. They are
+   offline, they run on every PR whatever it touches, and none of the checks
+   above can see what they catch (see "Validation Workflow" for what each one
+   means and why a new finding cannot be baselined away)
 6. Run `just validate-disorders <every changed file>` once before opening the PR
    (see "Validation Workflow" for why this is the end-of-run check)
 
@@ -2528,6 +2533,115 @@ This is a **stopgap**. The check belongs upstream in `linkml-term-validator`,
 next to the existence and label checks it already performs — every LinkML
 knowledge base consuming RGD ontologies has the same gap. It lives here because
 the validator is a pinned external dependency.
+
+## Claims About a Cited Source (dismech#9226)
+
+Every other gate here checks a **snippet against the cache**. Nothing checked
+**prose against the cache** — so a sentence asserting that a source is
+*defective* validated cleanly no matter what the cached file actually held:
+
+```yaml
+explanation: >-
+  Original PYROXD1 gene-discovery report; the cached PubMed record carries no
+  abstract body, so the snippet is the article title.
+```
+
+`references_cache/PMID_27745833.md` has a full abstract. Nothing noticed, because
+nothing was looking. On #9207 one such claim ("the cached abstract is truncated
+mid-word") survived **two fix rounds across three sites** — each fix searched
+for the surface last seen, and the next site contained neither string. The same
+defect had already happened in `Tetralogy_of_Fallot.yaml`, where four such
+claims were false; its correction note records the root cause as *a fixed-width
+extraction window used during curation*.
+
+**That root cause is the rule worth remembering:**
+
+> A claim that a source is defective is a claim about a **file**, not about the
+> excerpt you were shown. Verify it against the whole file.
+
+```bash
+just check-source-defect-claims                        # whole KB, ~19s, offline
+just check-source-defect-claims kb/disorders/Asthma.yaml
+just list-source-defect-claims                          # every claim + verdict
+```
+
+**It adjudicates; it is not a keyword blacklist.** This matters more than the
+check itself. Claims of this shape are usually **true and load-bearing**:
+`Acute_Annular_Outer_Retinopathy` downgrades three evidence items to `PARTIAL`
+because `PMID:18195232` really has no abstract; `Cri-du-Chat_Syndrome` and
+`DTYMK-Related_Neurodegeneration` explain that a snippet legitimately begins
+mid-word because the cached PDF breaks a word across a line (#8048). Flagging
+those would be worse than no check at all — it would train curators to delete
+accurate provenance to get a build green. So each claim is resolved to its
+reference and checked against the cached body, and gets one of four verdicts:
+
+| Verdict | Meaning |
+|---|---|
+| `CONTRADICTED` | The cache demonstrably disagrees. **The finding.** |
+| `CONFIRMED` | The cache agrees. Counted, never printed as a problem. |
+| `NARRATED` | The sentence *reports* such a claim rather than asserting one — a correction note, or an account of an earlier revision. Never adjudicated. |
+| `UNDETERMINED` | Not mechanically decidable. Listed under `--all`, never a failure. |
+
+**Report-only. It never fails the build**, in `just qc` or in CI — it prints for
+a human to read. (`--strict` exists for direct CLI use.)
+
+**Three claim classes, and what each costs when false:**
+
+- **`no-abstract`** — "that record has no abstract". Adjudicated by asking
+  whether the cached record carries abstract prose. Note this deliberately does
+  **not** trust the frontmatter `content_type`: PubMed emits a citation stub for
+  a record that never had an abstract, and the fetcher types it `abstract_only`
+  exactly like a record that has one, so `PMID:18195232` is `abstract_only` with
+  no abstract. The test strips MEDLINE scaffolding (citation line, authors,
+  affiliations, DOI/PMID footer, COI statement) block-wise and counts what is
+  left.
+- **`negative-existence`** — "the abstract does not mention X". The most
+  consequential class, because it is used to **justify omitting or downgrading
+  evidence**: a false one silently suppresses real curation.
+  `DENND5A-Related_Developmental_and_Epileptic_Encephalopathy` discarded
+  `PMID:27431290` on the grounds that its abstract "does not mention DENND5A" —
+  the abstract names DENND5A as one of three novel candidate genes. Adjudicated
+  only when the object is specific enough to search unambiguously; "does not
+  specify the mouse allele" is a claim about *which* allele and stays
+  UNDETERMINED rather than risking a wrong contradiction.
+- **`defective-text`** — truncation / mid-word / garbled. **Always UNDETERMINED**:
+  no exact test exists, so these are reported for a glance, never adjudicated.
+  Bare `truncat` is *not* a trigger — it matches ~1,600 lines of correct
+  genetics prose (`truncating variant`, `truncated protein`), so a defect word
+  counts only when it co-occurs with a word naming our stored text.
+
+**Writing a claim so it can be checked.** Name the reference in the sentence, or
+put the claim in the evidence item it is about. Resolution takes the nearest id
+named *before* the claim (an anaphoric "That reference…" reaches back a
+sentence), then the enclosing evidence item's own `reference:`, then the
+enclosing `evidence:` block. An id named *after* the claim is treated as a
+contrast, not the subject — "…does not name SETD5, which rests on PMID:X" is
+about the item's own reference, not about `PMID:X`.
+
+### The snippet half: quotes cut mid-word
+
+The other half of #9207 was four snippets stopping at `movement d`. A mid-word
+fragment **is** a substring of the cached text, so it verifies — which is
+exactly what made the error invisible, and it is where the false belief about
+the source came from.
+
+```bash
+just check-snippet-boundaries                          # kb/, advisory
+just check-snippet-boundaries kb/disorders/Asthma.yaml
+```
+
+An advisory sibling of `count-verified-snippets` (same cache layer, same
+normalization — deliberately *not* a second cache-resolution implementation, per
+#7684). It applies to strict matches only: `normalize_relaxed` strips all
+spaces, so under relaxed matching every match is flanked by word characters by
+construction and the check would fire on 100% of them — which are precisely the
+#8048 ligature/hyphenation cases the legitimate "begins mid-word" notes are
+about. A **digit** flank is also exempt: `…hearing loss and microcephaly20-26`
+is a superscript citation marker fused in by extraction, not a cut word.
+
+Repo-wide backlog at introduction: **126 of 129,528 snippets** across 60 files
+(0.1%) — small enough to need no baseline. Typical finding:
+`'Bisphosphonate treatment in individuals with significant skeletal dis'`.
 
 ## Duplicate YAML Keys (dismech#8623)
 
