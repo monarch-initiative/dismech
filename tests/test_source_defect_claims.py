@@ -21,11 +21,13 @@ from dismech.reference_snippet_audit import (
 from scripts.check_source_defect_claims import (
     ANAPHORA_WINDOW,
     ClaimKind,
+    UsageError,
     Verdict,
     abstract_prose,
     adjudicate_all,
     ambiguous_antecedent,
     antecedent_reference,
+    expand_paths,
     find_claims_in_text,
     inline_references,
     is_narration,
@@ -444,6 +446,38 @@ def test_gate_is_report_only():
     from scripts.check_source_defect_claims import main
 
     assert main([str(ROOT / "kb" / "disorders" / "Tetralogy_of_Fallot.yaml")]) == 0
+
+
+def test_a_directory_argument_is_expanded_not_swallowed(tmp_path):
+    """A path nothing read must never report as a clean run.
+
+    The `*files` recipe signature invites `just check-source-defect-claims
+    kb/disorders`. Before expand_paths() that argument reached scan(), raised
+    IsADirectoryError into its deliberately broad except, and printed
+    "0 found ... OK" with exit 0 -- the exact shape of quiet failure this tool
+    exists to argue against.
+    """
+    (tmp_path / "a.yaml").write_text("notes: That record has no abstract.\n")
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "nested" / "b.yaml").write_text("notes: irrelevant\n")
+    assert expand_paths([tmp_path]) == [
+        tmp_path / "a.yaml",
+        tmp_path / "nested" / "b.yaml",
+    ]
+
+
+def test_a_missing_path_is_a_usage_error_not_a_clean_run(tmp_path):
+    """Report-only means the verdicts never fail, not that a typo looks clean."""
+    with pytest.raises(UsageError):
+        expand_paths([tmp_path / "does_not_exist.yaml"])
+
+
+def test_missing_path_exits_nonzero():
+    from scripts.check_source_defect_claims import main
+
+    with pytest.raises(SystemExit) as excinfo:
+        main([str(ROOT / "kb" / "definitely_not_here.yaml")])
+    assert excinfo.value.code != 0
 
 
 def test_scan_walks_prose_fields_only():

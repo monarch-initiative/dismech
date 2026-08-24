@@ -957,6 +957,36 @@ def default_paths() -> list[Path]:
     return sorted(SCAN_DIR.rglob("*.yaml"))
 
 
+class UsageError(Exception):
+    """A path argument that cannot be scanned, as opposed to a finding."""
+
+
+def expand_paths(paths) -> list[Path]:
+    """Resolve CLI path arguments to YAML files, refusing what cannot be scanned.
+
+    A directory expands to the YAML files under it. The `*files` recipe
+    signature invites `just check-source-defect-claims kb/disorders`, and
+    without this that argument reached :func:`scan`, raised
+    ``IsADirectoryError`` into its deliberately broad except, and printed one
+    stderr warning followed by ``0 found ... OK`` with exit 0 -- a clean-looking
+    pass over a path nothing had read. That is the exact shape of quiet failure
+    this tool exists to argue against, so it must not be one of its own.
+
+    A missing path is a usage error, not a finding: report-only means the
+    *verdicts* never fail the build, not that a mistyped argument should look
+    like a clean run.
+    """
+    resolved: list[Path] = []
+    for path in paths:
+        if path.is_dir():
+            resolved.extend(sorted(path.rglob("*.yaml")))
+        elif path.exists():
+            resolved.append(path)
+        else:
+            raise UsageError(f"no such file or directory: {path}")
+    return resolved
+
+
 def adjudicate_all(claims, cache_dir: Path | None = None) -> list[Finding]:
     if cache_dir is None:
         cache_dir = load_cache_dir(DEFAULT_CONFIG)
@@ -994,7 +1024,10 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    paths = args.files or default_paths()
+    try:
+        paths = expand_paths(args.files) if args.files else default_paths()
+    except UsageError as exc:
+        parser.error(str(exc))
     claims = scan(paths)
     findings = adjudicate_all(claims, cache_dir=args.cache_dir)
 
