@@ -91,7 +91,7 @@ just --list
 - Descriptor classes (PhenotypeDescriptor, CellTypeDescriptor, TreatmentDescriptor) bind entities to ontology terms
 
 ### Knowledge Base (`kb/disorders/`)
-- One YAML file per disorder (`ls kb/disorders/*.yaml | wc -l` for the current count)
+- One YAML file per disorder (55 total)
 - Each file validates against the `Disease` class in the schema
 - Evidence items require PMID references
 - Ontology term bindings for phenotypes, cell types, biological processes, and treatments
@@ -1886,7 +1886,7 @@ Key MorPhiC anchor genes: ISL1, EOMES, GCM1, NKX2-1. Data available under CC BY 
 ## Testing
 
 Tests are in `tests/test_data.py`:
-- Schema validation for every disorder file (parametrized over `kb/disorders/`)
+- Schema validation for all 56 disorder files
 - Required field checks
 - Evidence reference validation
 - Unique name verification
