@@ -64,6 +64,14 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # (issue #8402). A global for the same reason: it depends only on the two
     # strings, never on which page is being rendered.
     env.globals["label_restates_title"] = label_restates_title
+    # Whether a curated free-text identifier is CURIE-shaped, so it can be
+    # rendered as a resolver chip instead of dead text (issue #8044). Also
+    # depends only on its argument.
+    env.globals["is_curie"] = is_curie
+    # Whether a reference (PMID/DOI) is a preprint, so the UI can flag it as not
+    # peer-reviewed. A global for the same reason: it depends only on the
+    # reference identifier, never on which page is being rendered.
+    env.globals["is_preprint"] = _reference_is_preprint
     return env
 
 
@@ -167,6 +175,26 @@ def _load_prefix_map() -> dict:
         for prefix, base in prefixes.items()
         if isinstance(prefix, str) and isinstance(base, str)
     }
+
+
+_CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]*:[^\s]+$")
+
+
+def is_curie(value: object) -> bool:
+    """Whether a string is CURIE-shaped, so it is worth handing to a resolver.
+
+    Used for identifiers curated as free text -- an ``ExternalAssertion``'s
+    ``external_id`` is ``ORPHA:558`` on one record and an opaque ClinGen
+    ``assertion_<uuid>-<timestamp>`` on the next, and only the former should
+    become a resolver link.
+
+    Shape is all this can promise. ``curie_to_url`` never fails: a prefix the
+    schema map does not carry (``ORPHA``, ``OMIM`` and ``CGGV`` are all absent)
+    falls through to ``https://bioregistry.io/{curie}``, which resolves for a
+    registered prefix and 404s otherwise. That is the same treatment these
+    identifiers already get as evidence references elsewhere on the page.
+    """
+    return bool(value) and bool(_CURIE_RE.match(str(value)))
 
 
 def curie_to_url(curie: str) -> str:
@@ -466,6 +494,29 @@ def _annotate_variant_anchors(disorder: dict) -> None:
             continue
         variant["_anchor_id"] = _claim_anchor_id(
             _make_anchor_id("variant", str(name)), used
+        )
+
+
+def _annotate_external_assertion_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to disease-level external assertions (issue #8044).
+
+    These are not pathograph nodes -- ``dismech.graph`` emits none -- so the
+    cards carry no ``data-dismech-node`` pair; the anchor exists so the section
+    can be deep-linked and so future cross-references have a target. IDs are
+    de-duplicated because two registry records may slugify to the same value.
+    """
+    assertions = disorder.get("external_assertions") or []
+    if not isinstance(assertions, list):
+        return
+    used: set[str] = set()
+    for assertion in assertions:
+        if not isinstance(assertion, dict):
+            continue
+        name = assertion.get("name") or assertion.get("external_id")
+        if not name:
+            continue
+        assertion["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("external-assertion", str(name)), used
         )
 
 
@@ -1997,6 +2048,7 @@ def render_disorder(
     _annotate_model_links(disorder)
     _annotate_card_anchors(disorder)
     _annotate_variant_anchors(disorder)
+    _annotate_external_assertion_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
@@ -2619,6 +2671,62 @@ def _curie_url(curie: str | None) -> str | None:
     if upper in _OBO_CURIE_PREFIXES:
         return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
     return f"https://bioregistry.io/{prefix}:{local}"
+
+
+# Preprint-server DOI patterns. Each is unambiguous: a bioRxiv/medRxiv work
+# carries the dated `YYYY.MM.DD.` local part (Cold Spring Harbor *journal* DOIs
+# under 10.1101 never do), and the other prefixes are single-purpose preprint
+# servers. Used to flag "not peer-reviewed" in the UI even when a reference cache
+# file predates the fetcher writing an `is_preprint` flag.
+_PREPRINT_DOI_RE = re.compile(
+    r"""^10\.(
+        (1101|64898)/\d{4}\.\d{2}\.\d{2}\.   # bioRxiv / medRxiv (dated)
+        | 21203/                              # Research Square
+        | 20944/preprints                     # Preprints.org
+        | 2139/ssrn                           # SSRN
+    )
+    | ^10\.48550/arxiv                        # arXiv
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Anchor to the repo root, not the process CWD: render is imported and called
+# from many working directories, and a CWD-relative path would silently drop
+# every preprint badge (the OSError below would swallow the miss). Mirrors the
+# `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
+_REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
+
+
+@lru_cache(maxsize=4096)
+def _reference_is_preprint(reference: str | None) -> bool:
+    """Whether a reference CURIE denotes a preprint (not peer-reviewed).
+
+    Two signals, in order of cost. First, a DOI whose shape is a known
+    preprint-server pattern (no I/O). Second, the reference's cache file
+    frontmatter, which the fetcher stamps with ``is_preprint``/
+    ``peer_review_status`` for records it fetched — the authoritative signal for
+    anything the pattern misses (e.g. a preprint indexed only under a PMID).
+    """
+    if not reference or ":" not in reference:
+        return False
+    prefix, local = reference.split(":", 1)
+    prefix, local = prefix.strip(), local.strip()
+    if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
+        return True
+    cache_path = _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    try:
+        with cache_path.open(encoding="utf-8") as handle:
+            if handle.readline().strip() != "---":
+                return False
+            for line in handle:
+                stripped = line.strip()
+                if stripped == "---":
+                    break
+                if stripped in ("is_preprint: true", "peer_review_status: preprint"):
+                    return True
+    except OSError:
+        return False
+    return False
 
 
 def _external_link(href: str, label: str) -> str:
