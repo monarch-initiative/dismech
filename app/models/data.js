@@ -2188,6 +2188,104 @@ window.searchData = [
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
   },
   {
+    "model_key": "Brugada_syndrome--computational-model-spatially-heterogeneous-sodium-channel-myocardial-ring-model--1",
+    "name": "Spatially heterogeneous sodium-channel myocardial ring model",
+    "description": "A one-dimensional ring of 600 human epicardial ventricular myocytes using the same modified O'Hara-Rudy ionic model, segmented cell membranes, gap junctions, and ephaptic coupling as the companion strand model. Two ring regions are assigned different, markedly reduced lateral-membrane sodium conductances to test whether spatial heterogeneity converts phase-2 reentry into intermittent or persistent circulating reentrant excitation.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "C source, Autotools build files, and positional text input",
+    "model_software": "C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)",
+    "base_model": "Modified O'Hara-Rudy dynamic 2011 human ventricular model with ten Tusscher-Panfilov fast INa and experimental IKr",
+    "model_id": "1D_EFring_mORD2",
+    "repository_url": "https://github.com/92tsumoto/BrS-P2R-ring-ORd2011model-withTNNP_INa-FT_IKr/tree/0a6aece22925ca48430d775589547bbfbf9e0ff0",
+    "repository_host": "GitHub",
+    "publication": "PMID:33203944",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Brugada syndrome",
+    "disease_id": "MONDO:0015263",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [
+      "Regional lateral-membrane sodium conductance fractions",
+      "Action-potential propagation pattern"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Malignant Ventricular Tachyarrhythmia"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Reentry occurred mainly when region B lateral sodium conductance was below 5% of control and region A was between 5% and 10%, underscoring dependence on an extreme imposed spatial gradient."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:33203944"
+    ],
+    "num_evidence": 1,
+    "notes": "The repository is pinned at commit 0a6aece22925ca48430d775589547bbfbf9e0ff0 and has no release, CI, container, dependency lock, or sample input. COPYING declares GPL-3.0, but src/pardiso_mat.c carries an Intel Confidential notice that restricts use, copying, and distribution; the effective reuse and redistribution status is therefore ambiguous. The checked-in build targets legacy Intel C Compiler, MKL/PARDISO, and OpenMP paths and flags and did not compile unmodified during curator testing on ARM macOS. The fixed-step explicit-Euler simulation uses a 1-microsecond step for 30 beats, nominally 30 million steps. The repository supplies no paper-figure parameter manifest, golden output, analysis script, or automated test. It emits voltage and current traces but does not directly label phase-2 reentry, reentrant arrhythmia, or the published phase diagram; an auxiliary cleft-potential output also omits the closing ring junction. The article is CC BY 4.0. This is a hypothesis-driven mechanism model, not an allele-specific, anatomically personalized, or clinically predictive ventricular simulation.",
+    "creation_date": "2026-04-14T00:00:00Z",
+    "page_url": "../../pages/disorders/Brugada_syndrome.html#computational-model-spatially-heterogeneous-sodium-channel-myocardial-ring-model",
+    "source_file": "kb/disorders/Brugada_Syndrome.yaml"
+  },
+  {
+    "model_key": "Brugada_syndrome--computational-model-subcellular-sodium-channel-myocardial-strand-model--0",
+    "name": "Subcellular sodium-channel myocardial strand model",
+    "description": "A one-dimensional strand of 300 human epicardial ventricular myocytes for studying how subcellular sodium-channel distribution changes action-potential morphology and propagation. Each cell is divided into lateral and pre- and post-junctional membrane segments, represented by a modified O'Hara-Rudy dynamic model with ten Tusscher-Panfilov fast sodium current and an experimentally based rapid delayed-rectifier potassium current. Cells are coupled through gap junctions and ephaptic interactions. The disease-like manipulation reduces lateral-membrane sodium conductance while retaining junctional sodium conductance.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "C source, Autotools build files, and positional text input",
+    "model_software": "C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)",
+    "base_model": "Modified O'Hara-Rudy dynamic 2011 human ventricular model with ten Tusscher-Panfilov fast INa and experimental IKr",
+    "model_id": "1D_EF_mORD2",
+    "repository_url": "https://github.com/92tsumoto/BrS-P2R-strand-ORd2011model-withTNNP_INa-FT_IKr/tree/90962d4c159d5b12133d99cb0818c84c6746a013",
+    "repository_host": "GitHub",
+    "publication": "PMID:33203944",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Brugada syndrome",
+    "disease_id": "MONDO:0015263",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [
+      "Lateral-membrane sodium conductance fraction",
+      "Action-potential membrane voltage",
+      "Conduction velocity"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Depolarization Reserve",
+      "RVOT Conduction Slowing"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "In the homogeneous-conductance comparison, reducing lateral-membrane sodium conductance from 100% to 0% lowers conduction velocity from 71.4 to 25.0 cm/s."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:33203944"
+    ],
+    "num_evidence": 1,
+    "notes": "The repository is pinned at commit 90962d4c159d5b12133d99cb0818c84c6746a013 and has no release, CI, container, or dependency lock. COPYING declares GPL-3.0, but src/pardiso_mat.c carries an Intel Confidential notice that restricts use, copying, and distribution; the effective reuse and redistribution status is therefore ambiguous. The checked-in build targets legacy Intel C Compiler, MKL/PARDISO, and OpenMP paths and flags. It did not compile unmodified during curator testing on ARM macOS. The fixed-step explicit-Euler simulation uses a 1-microsecond step for 30 beats. Its only sample input is stale: for the supplied one-dataset, 43-state configuration, the parser reads 83 numeric fields whereas check_test/in supplies 82, shifting later values and preventing a faithful run. No paper-scenario manifest, expected outputs, or automated tests are supplied. The code emits voltage and ionic traces plus activation times but does not directly calculate CV; nai_data.out and ki_data.out are also mislabeled relative to their written state indices. The article is CC BY 4.0. The model was compared qualitatively with prior mouse and human electrophysiology, but it was not fitted to or independently validated in a Brugada patient cohort.",
+    "creation_date": "2026-04-14T00:00:00Z",
+    "page_url": "../../pages/disorders/Brugada_syndrome.html#computational-model-subcellular-sodium-channel-myocardial-strand-model",
+    "source_file": "kb/disorders/Brugada_Syndrome.yaml"
+  },
+  {
     "model_key": "Type_2_Diabetes_Mellitus--computational-model-topp-beta-cell-mass-insulin-glucose-model--0",
     "name": "Topp Beta-Cell Mass / Insulin / Glucose Model",
     "description": "Minimal three-ODE dynamical model of the glucose regulatory system (Topp et al. 2000): plasma glucose, plasma insulin, and beta-cell mass, with fast glucose/insulin dynamics on a slow beta-cell-mass manifold. For normal parameters the system is bistable - a physiological steady state (euglycemia) and a pathological, insulinopenic steady state (beta-cell-mass collapse and severe hyperglycemia) separated by a saddle. This makes it the reference dynamical substrate for type 2 diabetes: reduced insulin sensitivity, impaired secretion, or hepatic glucose overproduction decompensates the at-risk state to overt diabetes, and it is wired for perturbation analysis (see the model config sidecar) so that both risk genes and glucose-lowering treatments can be simulated as parameter changes.",
@@ -2727,10 +2825,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 55,
-  "total_source_entries": 21,
+  "total_models": 57,
+  "total_source_entries": 22,
   "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 25
+  "total_with_repository": 27
 };
 window.dispatchEvent(new Event('searchDataReady'));
