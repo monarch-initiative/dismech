@@ -934,6 +934,33 @@ check-term-cache-integrity:
 check-not4curation *args:
     uv run python scripts/not4curation_audit.py "$@"
 
+# Apply the candidate node-class tree across kb/ (the executable half of the
+# pathograph node-classification design). `--format summary` reports coverage;
+# `tsv` emits per-node assignments; `debundle` lists nodes whose own GO
+# annotations span two classes -- each one a node making two claims; and
+# `conformance` compares every conforms_to edge's two sides, which is an
+# INDEPENDENT check on the classes because conforming pairs are curated as
+# "same kind of thing" by an unrelated process. Conformance is gated on both
+# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
+# in multiplies the mismatch rate several times over; pass --include-low to see
+# the rest, or `--format conformance-gates` for the current rate under each gate.
+# Design artifact -- nothing in kb/ or the schema depends on it.
+[group('QC')]
+node-class-scan *args:
+    uv run python -m dismech.node_class_scan {{args}}
+
+# Parse and check the compact pathograph node-class tree
+# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
+# -- nothing in kb/ or the schema depends on it -- but its leaves are real
+# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
+# worse than no tree because it still looks grounded. Bare invocation checks the
+# grammar only (instant); --verify-kb also resolves every cited leaf against
+# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
+# `text` being a stable round-trip of the compact form.
+[group('QC')]
+node-classes *args:
+    uv run python -m dismech.node_classes {{args}}
+
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
 # renderer here, while the ruamel-based reference validator rejects the file
@@ -1980,6 +2007,19 @@ fetch-reference +identifiers:
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
 
+# Backfill missing publication titles on KB references and evidence items
+# (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).
+# Titles are read verbatim from references_cache/ frontmatter — nothing is
+# fabricated, and references with no cached title are reported, not guessed.
+# Fetch any missing cache entry first with `just fetch-reference <ID>`.
+#   just backfill-reference-titles                 # all of kb/
+#   just backfill-reference-titles --dry-run       # preview without writing
+#   just backfill-reference-titles --check         # exit 1 if any title is missing
+#   just backfill-reference-titles kb/disorders/Asthma.yaml
+[group('Curation')]
+backfill-reference-titles *args="":
+    uv run python scripts/backfill_reference_titles.py {{args}}
+
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
 #   just cohd-signal --concept-a 436672 --concept-b 80502
@@ -2100,6 +2140,21 @@ icees-rebuild *args="":
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
 
+# Refresh STRchive loci JSON (pinned by data/strchive/MANIFEST.yaml)
+[group('Research')]
+strchive-refresh:
+    uv run python -m dismech.structured_sources.cli refresh strchive
+
+# Rebuild every references_cache/STRCHIVE_*.md from the current STRchive snapshot.
+# Use --id STRCHIVE:<locus> (e.g. STRCHIVE:SCA3_ATXN3) to limit to one locus.
+[group('Research')]
+strchive-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild strchive {{args}}
+
+# List the first N STRchive tandem-repeat locus identifiers
+[group('Research')]
+strchive-list limit="20":
+    uv run python -m dismech.structured_sources.cli list strchive --limit {{limit}}
 # Fetch WHO ICTRP trial registration record(s) into references_cache/.
 # Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
 # so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.

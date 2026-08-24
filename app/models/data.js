@@ -850,6 +850,116 @@ window.searchData = [
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
+    "model_key": "Multiple_Sclerosis--computational-model-lesion-aware-personalized-whole-brain-conduction-delay-model--2",
+    "name": "Lesion-Aware Personalized Whole-Brain Conduction-Delay Model",
+    "description": "Direct successor to the Virtual Multiple Sclerosis Patient model. It retains each participant's 84-region DTI connectome and noisy Stuart-Landau dynamics but augments distance-derived edge delays based on a shared whole-brain velocity with an additive tract-specific term derived from the fraction of each tract intersecting the participant's FLAIR lesion mask. Simulation-based inference estimates the patient-specific strength of the lesion-to-delay relationship.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Format not recorded",
+    "model_software": "Custom Stuart-Landau simulator with the SBI toolbox",
+    "base_model": "Virtual Multiple Sclerosis Patient whole-brain model (PMID:38974971)",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:40317832",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Multiple Sclerosis",
+    "disease_id": "MONDO:0005301",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder"
+    ],
+    "variables": [
+      "Tract lesion fraction",
+      "Lesion-to-delay weight",
+      "Edge-specific conduction delay",
+      "Global coupling strength",
+      "Alpha peak amplitude"
+    ],
+    "variable_ids": [
+      "l_jk",
+      "gamma",
+      "tau_jk",
+      "G",
+      "peak_amplitude"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Demyelination"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The inferred lesion-to-delay weight correlated inversely with alpha peak power (r=-0.83), whereas total lesion load did not correlate with alpha peak power or the inferred weight.",
+      "Adding the inferred lesion-effect parameter to the cross-sectional EDSS model yielded leave-one-out R2=0.29882 and adjusted R2=0.018348, but its coefficient was not statistically significant (p=0.1784)."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:40317832"
+    ],
+    "num_evidence": 1,
+    "notes": "A curator search on 2026-08-20 identified no paper-specific code repository or executable model archive, and the clinical inputs are available only on request. Curator inspection found that the open VBI package contains generic Stuart-Landau and SBI components but not this paper's lesion-specific gamma-by-tract formulation, so it is not cited as the model artifact. The article is CC BY 4.0, which licenses the paper rather than an unreleased implementation. Synthetic parameter recovery had slope 0.8 and showed boundary bias. The clinical analysis reuses the small cross-sectional source cohort from the 2024 model; the gamma term was not a statistically significant EDSS predictor, and longitudinal validation is still needed.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-lesion-aware-personalized-whole-brain-conduction-delay-model",
+    "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
+    "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-m4rl-glioblastoma-tumor-microenvironment-treatment-model--2",
+    "name": "M4RL Glioblastoma Tumor-Microenvironment Treatment Model",
+    "description": "Multiscale framework combining a spatial agent-based model of tumor cells, tumor-associated macrophages, cytokines, and intracellular ERK/AKT signaling with a Fokker-Planck physics-informed neural-network surrogate and A3C reinforcement learning to optimize CSF1R- and IGF1R-inhibitor scheduling.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "C++/Python/CSV/PyTorch checkpoint (.pth)",
+    "model_software": "C++ multiscale agent-based model; Python/PyTorch PINN and A3C",
+    "base_model": "",
+    "model_id": "GitHub:SunXQlab/M4RL@3f64a2cbeb6797cd281c19d70a838282996f62b2",
+    "repository_url": "https://github.com/SunXQlab/M4RL",
+    "repository_host": "GitHub",
+    "publication": "PMID:40779623",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Glioblastoma, IDH-Wildtype",
+    "disease_id": "MONDO:0850335",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "variables": [
+      "Tumor-cell density",
+      "Predicted population survival probability"
+    ],
+    "variable_ids": [
+      "c_T",
+      "survival_probability"
+    ],
+    "variable_terms": [
+      "cell population proliferation"
+    ],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "M2-Like Tumor-Associated Macrophage Polarization",
+      "Uncontrolled Cell Proliferation"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "The selected four-week-interval policy combined continuous CSF1R inhibition ending after week 20 with continuous IGF1R inhibition beginning at week 5."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:40779623"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit 3f64a2cbeb6797cd281c19d70a838282996f62b2. The three core multiscale agent-based targets compiled after explicitly selecting C++11, and all four Python scripts passed syntax compilation. The spatial-transcriptomic C++ target did not compile because OpenMP was not declared, and no dependency manifest or license file was present.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-m4rl-glioblastoma-tumor-microenvironment-treatment-model",
+    "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-machine-learning-drug-repurposing-drexml--2",
     "name": "Machine Learning Drug Repurposing (drexml)",
     "description": "Machine learning framework using multi-output regression and mechanistic signal transduction models to identify drug targets capable of regulating FA-related cell functionalities. The drexml tool predicts potential therapeutic targets by mapping external proteins to signaling circuits that trigger FA-related phenotypes, identifying over 20 potential drug targets and successfully predicting previously validated repurposed drugs.",
@@ -1823,6 +1933,60 @@ window.searchData = [
     "source_file": "kb/disorders/CKD-Mineral_Bone_Disorder.yaml"
   },
   {
+    "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-phillips-coupled-sleep-wake-and-circadian-chronotype-model--2",
+    "name": "Phillips Coupled Sleep-Wake and Circadian Chronotype Model",
+    "description": "Physiological model coupling a neuronal sleep-wake switch, homeostatic sleep pressure, and a circadian pacemaker. Parameter sweeps separate chronotypes driven by sleep-homeostatic kinetics from those driven by intrinsic circadian period and provide a syndrome-level explanation for familial advanced and delayed sleep-phase disorders.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Coupled physiological differential-equation model",
+    "model_software": "Software not recorded",
+    "base_model": "Phillips-Robinson sleep-wake switch coupled to a circadian pacemaker",
+    "model_id": "PMID:20484693#coupled-sleep-wake-circadian-model",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:20484693",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Advanced Sleep Phase Syndrome",
+    "disease_id": "MONDO:0015609",
+    "category": "Mendelian",
+    "parents": [
+      "Circadian Rhythm Sleep Disorder",
+      "Sleep Disorder"
+    ],
+    "variables": [
+      "Intrinsic circadian period",
+      "Homeostatic sleep-pressure kinetics",
+      "Chronotype"
+    ],
+    "variable_ids": [
+      "intrinsic circadian period",
+      "homeostatic clearance and production rates",
+      "chronotype"
+    ],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Shortened Intrinsic Circadian Period",
+      "Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "The model distinguishes extreme chronotype caused by homeostatic kinetics from chronotype in which circadian phase markers track changes in intrinsic circadian period."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:20484693"
+    ],
+    "num_evidence": 1,
+    "notes": "No exact public code or standard model archive was identified. The model is curated from the paper and is retained as a low-fidelity syndrome-level bridge, not as a patient-specific model or a representation of a known ASPS allele.",
+    "creation_date": "2026-08-01T00:00:00Z",
+    "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-phillips-coupled-sleep-wake-and-circadian-chronotype-model",
+    "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
     "model_key": "Phenylketonuria--computational-model-recon3d-with-pah-knockout--1",
     "name": "Recon3D with PAH knockout",
     "description": "Human genome-scale metabolic model simulating phenylalanine hydroxylase deficiency",
@@ -1914,6 +2078,212 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-repair-fanc-high-content-screening-platform",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
+  },
+  {
+    "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-revised-per2-circadian-phosphoswitch-model--1",
+    "name": "Revised PER2 Circadian Phosphoswitch Model",
+    "description": "Mechanistic mammalian circadian-clock ODE model embedding competing PER2 phosphorylation fates in the transcription-translation feedback loop. Its FASP-like condition reduces both modeled priming-phosphorylation rates to 10% of their wild-type values, while the 2018 revision explicitly represents CK1epsilon and CK1delta isoform binding, phosphorylation, and carboxyl-terminal-tail regulation.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Mathematica Notebook (.nb)",
+    "model_software": "Wolfram Mathematica",
+    "base_model": "Kim-Forger mammalian circadian clock with the 2015 Zhou-Kim PER2 phosphoswitch",
+    "model_id": "GitHub:Mathbiomed/Phosphoswitch_Clock@493a69d40c224b93d975d890277a4d71797aee2c#Math_Model_Code2.nb",
+    "repository_url": "https://github.com/Mathbiomed/Phosphoswitch_Clock/tree/493a69d40c224b93d975d890277a4d71797aee2c",
+    "repository_host": "GitHub",
+    "publication": "PMID:29784789",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Advanced Sleep Phase Syndrome",
+    "disease_id": "MONDO:0015609",
+    "category": "Mendelian",
+    "parents": [
+      "Circadian Rhythm Sleep Disorder",
+      "Sleep Disorder"
+    ],
+    "variables": [
+      "First CK1 priming-phosphorylation rate",
+      "Second CK1 priming-phosphorylation rate",
+      "PER2 abundance",
+      "Free-running circadian period"
+    ],
+    "variable_ids": [
+      "kr1",
+      "kr2",
+      "PER2",
+      "period"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "PER2 S662-Site Hypophosphorylation",
+      "Shortened Intrinsic Circadian Period"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "The revised model reproduces the shortened period of FASP humans and mice, the longer period of CK1delta-knockout mice, and negligible period change in CK1epsilon-knockout mice."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:29784789"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit 493a69d40c224b93d975d890277a4d71797aee2c. The repository is linked from the Biomedical Mathematics Group's software catalog and contains the 2015 Simple_Model_Final_Sub.nb and 2018 Math_Model_Code2.nb Mathematica notebooks, but no license or environment manifest. The paper's prose names the two FASP rates kp1/kp2, whereas its parameter table and the archived notebook use kr1/kr2. A smoke test that independently transcribed the published equations and used SciPy BDF integration produced a 23.937-h wild-type period and a 20.012-h period after reducing kr1/kr2 by 90%; direct notebook execution requires proprietary Wolfram software and was not available in the verification environment.",
+    "creation_date": "2026-08-01T00:00:00Z",
+    "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-revised-per2-circadian-phosphoswitch-model",
+    "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
+    "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin--1",
+    "name": "Serial-MRI High-Grade Glioma Data-Assimilation Digital Twin",
+    "description": "Patient-specific two-species reaction-diffusion model of enhancing and non-enhancing tumor regions. The platform repeatedly assimilates quantitative MRI-derived cell-density maps during chemoradiotherapy to update spatial tumor forecasts, and also evaluates longer forecasts initialized from two visits with patient-specific and cohort-derived parameters.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Reaction-diffusion PDE/MRI data-assimilation pipeline",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "PMID:40730976#two-species-data-assimilation",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:40730976",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Glioblastoma, IDH-Wildtype",
+    "disease_id": "MONDO:0850335",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "variables": [
+      "Enhancing tumor-cell fraction",
+      "Non-enhancing tumor-cell fraction",
+      "Total tumor cell count"
+    ],
+    "variable_ids": [
+      "Phi_E",
+      "Phi_N",
+      "total_tumor_cell_count"
+    ],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Uncontrolled Cell Proliferation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Weekly data assimilation yielded a median total-cell-count concordance of 0.91 and median tumor-volume error of -2.6%; less frequently updated forecasts had lower concordance."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:40730976"
+    ],
+    "num_evidence": 1,
+    "notes": "No exact source-code repository was identified for this published model. TumorTwin is a related framework from the same modeling group but is curated separately above and must not be treated as the implementation of this study.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin",
+    "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
+  },
+  {
+    "model_key": "Brugada_syndrome--computational-model-spatially-heterogeneous-sodium-channel-myocardial-ring-model--1",
+    "name": "Spatially heterogeneous sodium-channel myocardial ring model",
+    "description": "A one-dimensional ring of 600 human epicardial ventricular myocytes using the same modified O'Hara-Rudy ionic model, segmented cell membranes, gap junctions, and ephaptic coupling as the companion strand model. Two ring regions are assigned different, markedly reduced lateral-membrane sodium conductances to test whether spatial heterogeneity converts phase-2 reentry into intermittent or persistent circulating reentrant excitation.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "C source, Autotools build files, and positional text input",
+    "model_software": "C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)",
+    "base_model": "Modified O'Hara-Rudy dynamic 2011 human ventricular model with ten Tusscher-Panfilov fast INa and experimental IKr",
+    "model_id": "1D_EFring_mORD2",
+    "repository_url": "https://github.com/92tsumoto/BrS-P2R-ring-ORd2011model-withTNNP_INa-FT_IKr/tree/0a6aece22925ca48430d775589547bbfbf9e0ff0",
+    "repository_host": "GitHub",
+    "publication": "PMID:33203944",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Brugada syndrome",
+    "disease_id": "MONDO:0015263",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [
+      "Regional lateral-membrane sodium conductance fractions",
+      "Action-potential propagation pattern"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Malignant Ventricular Tachyarrhythmia"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Reentry occurred mainly when region B lateral sodium conductance was below 5% of control and region A was between 5% and 10%, underscoring dependence on an extreme imposed spatial gradient."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:33203944"
+    ],
+    "num_evidence": 1,
+    "notes": "The repository is pinned at commit 0a6aece22925ca48430d775589547bbfbf9e0ff0 and has no release, CI, container, dependency lock, or sample input. COPYING declares GPL-3.0, but src/pardiso_mat.c carries an Intel Confidential notice that restricts use, copying, and distribution; the effective reuse and redistribution status is therefore ambiguous. The checked-in build targets legacy Intel C Compiler, MKL/PARDISO, and OpenMP paths and flags and did not compile unmodified during curator testing on ARM macOS. The fixed-step explicit-Euler simulation uses a 1-microsecond step for 30 beats, nominally 30 million steps. The repository supplies no paper-figure parameter manifest, golden output, analysis script, or automated test. It emits voltage and current traces but does not directly label phase-2 reentry, reentrant arrhythmia, or the published phase diagram; an auxiliary cleft-potential output also omits the closing ring junction. The article is CC BY 4.0. This is a hypothesis-driven mechanism model, not an allele-specific, anatomically personalized, or clinically predictive ventricular simulation.",
+    "creation_date": "2026-04-14T00:00:00Z",
+    "page_url": "../../pages/disorders/Brugada_syndrome.html#computational-model-spatially-heterogeneous-sodium-channel-myocardial-ring-model",
+    "source_file": "kb/disorders/Brugada_Syndrome.yaml"
+  },
+  {
+    "model_key": "Brugada_syndrome--computational-model-subcellular-sodium-channel-myocardial-strand-model--0",
+    "name": "Subcellular sodium-channel myocardial strand model",
+    "description": "A one-dimensional strand of 300 human epicardial ventricular myocytes for studying how subcellular sodium-channel distribution changes action-potential morphology and propagation. Each cell is divided into lateral and pre- and post-junctional membrane segments, represented by a modified O'Hara-Rudy dynamic model with ten Tusscher-Panfilov fast sodium current and an experimentally based rapid delayed-rectifier potassium current. Cells are coupled through gap junctions and ephaptic interactions. The disease-like manipulation reduces lateral-membrane sodium conductance while retaining junctional sodium conductance.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "C source, Autotools build files, and positional text input",
+    "model_software": "C/Autotools; Intel C Compiler, Intel MKL/PARDISO, and Intel OpenMP (original configuration)",
+    "base_model": "Modified O'Hara-Rudy dynamic 2011 human ventricular model with ten Tusscher-Panfilov fast INa and experimental IKr",
+    "model_id": "1D_EF_mORD2",
+    "repository_url": "https://github.com/92tsumoto/BrS-P2R-strand-ORd2011model-withTNNP_INa-FT_IKr/tree/90962d4c159d5b12133d99cb0818c84c6746a013",
+    "repository_host": "GitHub",
+    "publication": "PMID:33203944",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Brugada syndrome",
+    "disease_id": "MONDO:0015263",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [
+      "Lateral-membrane sodium conductance fraction",
+      "Action-potential membrane voltage",
+      "Conduction velocity"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Depolarization Reserve",
+      "RVOT Conduction Slowing"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "In the homogeneous-conductance comparison, reducing lateral-membrane sodium conductance from 100% to 0% lowers conduction velocity from 71.4 to 25.0 cm/s."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:33203944"
+    ],
+    "num_evidence": 1,
+    "notes": "The repository is pinned at commit 90962d4c159d5b12133d99cb0818c84c6746a013 and has no release, CI, container, or dependency lock. COPYING declares GPL-3.0, but src/pardiso_mat.c carries an Intel Confidential notice that restricts use, copying, and distribution; the effective reuse and redistribution status is therefore ambiguous. The checked-in build targets legacy Intel C Compiler, MKL/PARDISO, and OpenMP paths and flags. It did not compile unmodified during curator testing on ARM macOS. The fixed-step explicit-Euler simulation uses a 1-microsecond step for 30 beats. Its only sample input is stale: for the supplied one-dataset, 43-state configuration, the parser reads 83 numeric fields whereas check_test/in supplies 82, shifting later values and preventing a faithful run. No paper-scenario manifest, expected outputs, or automated tests are supplied. The code emits voltage and ionic traces plus activation times but does not directly calculate CV; nai_data.out and ki_data.out are also mislabeled relative to their written state indices. The article is CC BY 4.0. The model was compared qualitatively with prior mouse and human electrophysiology, but it was not fitted to or independently validated in a Brugada patient cohort.",
+    "creation_date": "2026-04-14T00:00:00Z",
+    "page_url": "../../pages/disorders/Brugada_syndrome.html#computational-model-subcellular-sodium-channel-myocardial-strand-model",
+    "source_file": "kb/disorders/Brugada_Syndrome.yaml"
   },
   {
     "model_key": "Type_2_Diabetes_Mellitus--computational-model-topp-beta-cell-mass-insulin-glucose-model--0",
@@ -2048,6 +2418,289 @@ window.searchData = [
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
+    "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-tumortwin-high-grade-glioma-digital-twin--0",
+    "name": "TumorTwin High-Grade Glioma Digital Twin",
+    "description": "Modular, differentiable Python framework for image-guided, patient-specific oncology digital twins. Its high-grade glioma demonstration calibrates an invasion, logistic-growth, chemotherapy, and radiotherapy model to longitudinal quantitative MRI-derived tumor-cell-density observations and forecasts spatial tumor growth and treatment response.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Python/Jupyter Notebook/NIfTI",
+    "model_software": "TumorTwin (Python/PyTorch)",
+    "base_model": "",
+    "model_id": "GitHub:OncologyModelingGroup/TumorTwin@bedf90a6d47ba48cf5cdb25901967d84730061d1",
+    "repository_url": "https://github.com/OncologyModelingGroup/TumorTwin",
+    "repository_host": "GitHub",
+    "publication": "PMID:42116079",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Glioblastoma, IDH-Wildtype",
+    "disease_id": "MONDO:0850335",
+    "category": "",
+    "parents": [
+      "diffuse glioma"
+    ],
+    "variables": [
+      "Normalized tumor cell density",
+      "Total tumor cell count"
+    ],
+    "variable_ids": [
+      "N",
+      "TTC"
+    ],
+    "variable_terms": [
+      "cell population proliferation"
+    ],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Uncontrolled Cell Proliferation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The package demonstrates end-to-end digital-twin calibration and prediction with a synthetic high-grade glioma growth and radiotherapy-response dataset."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:42116079"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit bedf90a6d47ba48cf5cdb25901967d84730061d1. The package uses the UT Austin Research License, which permits academic, research, experimental, and personal use but excludes commercial use and redistribution. At this revision, a Python 3.11 wheel installed and core imports plus the focused cellularity-estimation test passed, but the full upstream test suite failed during collection because of stale module imports.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-tumortwin-high-grade-glioma-digital-twin",
+    "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
+  },
+  {
+    "model_key": "Multiple_Sclerosis--computational-model-uiss-ms-agent-based-treatment-simulator--0",
+    "name": "UISS-MS Agent-Based Treatment Simulator",
+    "description": "Multiscale, multi-compartment agent-based model of relapsing-remitting multiple sclerosis. Its physiology layer represents innate and adaptive immune agents; its MS disease layer represents antigen presentation, Th1/Th17 and B-cell responses, blood-brain-barrier migration, CNS inflammation, and oligodendrocyte loss; and its treatment layers simulate cladribine and ocrelizumab. Retrospective virtual cohorts were selected to match aggregate CLARITY and OPERA trial characteristics and outcomes.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "Format not recorded",
+    "model_software": "Universal Immune System Simulator (UISS)",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:37266405",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Multiple Sclerosis",
+    "disease_id": "MONDO:0005301",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder"
+    ],
+    "variables": [
+      "Activated Th1-cell population",
+      "Activated Th17-cell population",
+      "Oligodendrocyte count",
+      "MRI-detectable lesion event",
+      "Annualized relapse rate",
+      "Absolute lymphocyte count"
+    ],
+    "variable_ids": [
+      "Th1",
+      "Th17",
+      "ODC",
+      "ARR",
+      "ALC"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Th1/Th17-Mediated Neuroinflammation",
+      "Demyelination",
+      "Inflammatory Lesions"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "In the OPERA simulations, predicted annualized relapse rates were 0.193 for ocrelizumab versus 0.16 observed and 0.349 for interferon beta-1a versus 0.29 observed; the predicted relative reduction was 45.7% versus 50% in the clinical trial.",
+      "Retrospective virtual cohorts reproduced the reported directions of cladribine and ocrelizumab treatment outcomes."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:37266405"
+    ],
+    "num_evidence": 1,
+    "notes": "A curator search on 2026-08-20 identified no public UISS-MS source repository, executable archive, or software license. The article is open access, but that does not license the simulator. Although the authors describe a digital-twin use case, this study had only population-level demographic inputs: thousands of immune repertoires were generated and subsets were selected to match aggregate trial behavior. It therefore does not validate one-to-one patient twins or prospective individual counterfactuals. The CLARITY cohort was used in selection/calibration before the extension analysis, and formal VVUQ and regulatory credibility assessment remained future work.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-uiss-ms-agent-based-treatment-simulator",
+    "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
+    "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-vanselow-per2-multisite-phosphorylation-oscillator--0",
+    "name": "Vanselow PER2 Multisite-Phosphorylation Oscillator",
+    "description": "Five-variable ordinary differential equation extension of a Goodwin oscillator that separates PER2 into unphosphorylated, singly phosphorylated, doubly phosphorylated, and nuclear species. The FASPS perturbation reduces the second phosphorylation rate, representing loss of the human PER2 S662 priming site, and tests how competing phosphorylation routes change clock period.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Five-variable ordinary differential equation system",
+    "model_software": "MATLAB",
+    "base_model": "Goodwin oscillator",
+    "model_id": "PMID:16983144#PER2-multisite-phosphorylation-ODE",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:16983144",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Advanced Sleep Phase Syndrome",
+    "disease_id": "MONDO:0015609",
+    "category": "Mendelian",
+    "parents": [
+      "Circadian Rhythm Sleep Disorder",
+      "Sleep Disorder"
+    ],
+    "variables": [
+      "PER2 mRNA abundance",
+      "Doubly phosphorylated PER2 abundance",
+      "Second-site phosphorylation rate",
+      "Nuclear PER2 abundance",
+      "Free-running circadian period"
+    ],
+    "variable_ids": [
+      "x",
+      "y12",
+      "q12",
+      "z",
+      "period"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "PER2 S662-Site Hypophosphorylation",
+      "Shortened Intrinsic Circadian Period"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "The model predicts that different PER2 phosphorylation perturbations can drive circadian period in opposite directions."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:16983144"
+    ],
+    "num_evidence": 1,
+    "notes": "The equations and parameters are published in the article and supplement; no maintained standalone source-code repository was identified. The paper reports MATLAB for numerical calculation. This is a conceptual molecular oscillator, not a patient-specific or treatment-planning model.",
+    "creation_date": "2026-08-01T00:00:00Z",
+    "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-vanselow-per2-multisite-phosphorylation-oscillator",
+    "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
+    "model_key": "Multiple_Sclerosis--computational-model-virtual-multiple-sclerosis-patient-whole-brain-model--1",
+    "name": "Virtual Multiple Sclerosis Patient Whole-Brain Model",
+    "description": "Subject-specific delayed whole-brain model that couples 84 noisy Stuart-Landau oscillators according to each participant's DTI-derived connectome. Simulation-based Bayesian inference uses source-reconstructed MEG alpha-spectrum features to estimate a global coupling parameter and one average whole-brain conduction velocity for each participant.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Python/C++ source and Jupyter notebooks",
+    "model_software": "Python, C++/SWIG, Jupyter, PyTorch sbi",
+    "base_model": "Delayed Stuart-Landau subject-specific whole-brain network",
+    "model_id": "",
+    "repository_url": "https://github.com/ins-amu/virtual_ms/tree/67cb165d2631f73cfae79643accf7bae3e7b4ef1",
+    "repository_host": "GitHub",
+    "publication": "PMID:38974971",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Multiple Sclerosis",
+    "disease_id": "MONDO:0005301",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder"
+    ],
+    "variables": [
+      "Global coupling strength",
+      "Average whole-brain conduction velocity",
+      "Alpha peak frequency",
+      "Alpha peak amplitude",
+      "Total alpha power"
+    ],
+    "variable_ids": [
+      "G",
+      "V",
+      "peak_frequency",
+      "peak_amplitude",
+      "total_alpha_power"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Demyelination"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Inferred average conduction velocity was lower in the 18-person MS group than in 20 controls, while global coupling did not differ.",
+      "Inferred conduction velocities were stronger predictors of clinical disability than structural damage in this cohort."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:38974971"
+    ],
+    "num_evidence": 1,
+    "notes": "Curator inspection on 2026-08-20 used repository commit 67cb165d2631f73cfae79643accf7bae3e7b4ef1 (also tagged v1.0). No LICENSE file or license grant was present; an MIT classifier in setup.py is not sufficient to license the code. The repository contains the delayed Stuart-Landau forward solver and an SBI demonstration, but not the clinical connectomes, MEG inputs, trained posterior, or complete 38-subject analysis. In the curator's smoke test, the default install failed to build the SWIG extension; after a manual build and dependency repairs, a synthetic three-node forward simulation produced finite time series and an alpha-band PSD. Curator comparison also found material paper/code differences in simulation duration, noise scale, priors, alpha band, and feature count. Reproducing the clinical findings therefore requires restricted data and missing workflow components. The paper reports a patent application and calls for larger multicenter replication.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-virtual-multiple-sclerosis-patient-whole-brain-model",
+    "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
+    "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-wearable-light-circadian-phase-particle-filter-model--3",
+    "name": "Wearable-Light Circadian Phase Particle-Filter Model",
+    "description": "Human physiological circadian model that drives the St. Hilaire light-response process and modified van der Pol pacemaker with each participant's ambulatory wrist-light time series. A particle ensemble spans unknown starting phases and produces a posterior distribution of predicted dim-light melatonin onset (DLMO).",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "MATLAB/R scripts",
+    "model_software": "MATLAB with R functional principal-component analysis",
+    "base_model": "St. Hilaire 2007 modification of the Jewett-Forger-Kronauer human circadian pacemaker model",
+    "model_id": "GitHub:Lara-Weed/circadian-wearable-init@f953b2c6d4351ff93544248189d6c71ed580938d",
+    "repository_url": "https://github.com/Lara-Weed/circadian-wearable-init/tree/f953b2c6d4351ff93544248189d6c71ed580938d",
+    "repository_host": "GitHub",
+    "publication": "PMID:41342262",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Advanced Sleep Phase Syndrome",
+    "disease_id": "MONDO:0015609",
+    "category": "Mendelian",
+    "parents": [
+      "Circadian Rhythm Sleep Disorder",
+      "Sleep Disorder"
+    ],
+    "variables": [
+      "Wrist-measured illuminance",
+      "Circadian pacemaker state",
+      "Predicted dim-light melatonin onset",
+      "DLMO prediction error"
+    ],
+    "variable_ids": [
+      "I_all",
+      "x",
+      "DLMO",
+      "RMSE"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Fourteen-day phase estimates showed Lin concordance of 0.93 in the regular schedule cohort and 0.89 in shift workers when all 1,440 starting-phase particles were used.",
+      "Longer recordings improved accuracy for regular schedules but did not consistently improve accuracy in shift workers with irregular light diets."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:41342262"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit f953b2c6d4351ff93544248189d6c71ed580938d. It contains MATLAB/R analysis and ODE code but no license, dependency manifest, or participant data. Several scripts contain author-local absolute paths, so the published workflow is not runnable end to end without manual path repair and restricted input data. The model is classified as PHYSIOLOGICAL rather than DIGITAL_TWIN because it assimilates individual light histories and state uncertainty but does not fit individual model parameters or validate counterfactual treatment response.",
+    "creation_date": "2026-08-01T00:00:00Z",
+    "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-wearable-light-circadian-phase-particle-filter-model",
+    "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
     "model_key": "Parkinson's_Disease--computational-model-whole-dopaminergic-neuron-sbml-model--1",
     "name": "Whole Dopaminergic Neuron SBML Model",
     "description": "Large-scale Systems Biology Markup Language (SBML) model of dopaminergic neuron containing 139 reactions and 111 metabolites. Captures dopamine synthesis, vesicular storage, release, reuptake, and degradation alongside mitochondrial function and oxidative stress.\n",
@@ -2172,10 +2825,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 45,
-  "total_source_entries": 18,
-  "total_model_types": 7,
+  "total_models": 57,
+  "total_source_entries": 22,
+  "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 20
+  "total_with_repository": 27
 };
 window.dispatchEvent(new Event('searchDataReady'));
