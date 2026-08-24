@@ -250,17 +250,20 @@ def iter_entity_refs(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
                 if isinstance(value, str):
                     yield child, value
                     continue
-                if isinstance(value, list) and all(
-                    isinstance(item, str) for item in value
-                ):
+                if isinstance(value, list):
+                    # Yield the strings *and* walk anything else, in one pass:
+                    # a mixed list must not lose either half.
                     for i, item in enumerate(value):
-                        yield f"{child}[{i}]", item
+                        if isinstance(item, str):
+                            yield f"{child}[{i}]", item
+                        else:
+                            yield from iter_entity_refs(item, f"{child}[{i}]")
                     continue
-                # Every ref slot holds a string or a list of strings today.
-                # If one ever nests objects -- `target` is the likeliest, being
-                # shared with ModelMechanismLink and target_mechanisms -- keep
-                # walking rather than silently stopping, so references
-                # underneath it are still found.
+                # A ref slot holding an object. None does today, but `target`
+                # is the likeliest to start -- it is shared with
+                # ModelMechanismLink and target_mechanisms -- so keep walking
+                # rather than silently stopping, and references underneath it
+                # are still found.
             yield from iter_entity_refs(value, child)
     elif isinstance(node, list):
         for i, item in enumerate(node):

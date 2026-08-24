@@ -187,6 +187,39 @@ def test_section_keys_point_at_real_disease_slots():
         assert key_slots, kind
 
 
+def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
+    """A ref slot holding objects, or a mix, loses neither half (#9385 review).
+
+    Every ref slot holds a string or a list of strings today, so this is
+    forward-looking — but the two ways of getting it wrong are both silent.
+    Stopping at the slot drops references nested underneath it; recursing past
+    the whole list drops the plain strings beside them.
+    """
+    doc = {
+        "discussions": [
+            {
+                "attaches_to": [
+                    "pathophysiology#Node A",
+                    {"target": "phenotype#Pheno A"},
+                    "genetic#GENE1",
+                ]
+            }
+        ],
+        "experiments": [{"target": {"nested": {"target": "treatments#Drug A"}}}],
+    }
+    found = dict(iter_entity_refs(doc))
+
+    # The strings beside the object survive...
+    assert found["discussions[0].attaches_to[0]"] == "pathophysiology#Node A"
+    assert found["discussions[0].attaches_to[2]"] == "genetic#GENE1"
+    # ...and so does the reference inside it.
+    assert found["discussions[0].attaches_to[1].target"] == "phenotype#Pheno A"
+    # An object directly under a ref slot is walked rather than stopped at.
+    assert (
+        found["experiments[0].target.nested.target"] == "treatments#Drug A"
+    )
+
+
 def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
     """Guard the renderer's ordering dependency (#9193 review, suggestion 5).
 
@@ -195,9 +228,15 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
     missing link rather than an error. This runs the same passes
     `render_disorder` does, in the same order, over the two entries the issue
     named as exercising the awkward prefixes, and checks two things: every href
-    the index emits is an id the rendered page actually carries, and between
-    them the sections fed by each annotate pass are all represented. Dropping or
-    reordering a pass fails here rather than quietly losing links on the page.
+    the index emits is an id the rendered page actually carries — which catches
+    breakage from *any* of the passes on these fixtures — and that the seven ref
+    kinds listed below are actually exercised rather than silently absent.
+    Dropping or reordering a pass fails here rather than quietly losing links.
+
+    The kind list is not one-per-pass: `_annotate_variant_anchors`,
+    `_annotate_external_assertion_anchors` and `_annotate_model_links` are
+    covered only by the href-resolves assertion, because these two fixtures
+    carry no `variant#`, `external_assertions#` or model references to name.
     """
     # HPAH carries inheritance/clinical_trials/genetic; Gorlin carries the
     # hypotheses. Neither has all of them, which is the point of using both.
@@ -227,7 +266,9 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
             assert href.lstrip("#") in ids, f"{src.stem}: {ref} -> {href} not on page"
             seen_kinds.add(ref.split("#", 1)[0])
 
-    # One section per annotate pass, plus the two the index handles itself.
+    # Kinds these two fixtures do carry, spanning the card-anchor and
+    # ref-target passes, the hypothesis pass, and the two the index
+    # resolves inline.
     for kind in (
         "pathophysiology",  # inline fallback in the index
         "disease",  # virtual whole-entry anchor, also inline
