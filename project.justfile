@@ -934,6 +934,33 @@ check-term-cache-integrity:
 check-not4curation *args:
     uv run python scripts/not4curation_audit.py "$@"
 
+# Apply the candidate node-class tree across kb/ (the executable half of the
+# pathograph node-classification design). `--format summary` reports coverage;
+# `tsv` emits per-node assignments; `debundle` lists nodes whose own GO
+# annotations span two classes -- each one a node making two claims; and
+# `conformance` compares every conforms_to edge's two sides, which is an
+# INDEPENDENT check on the classes because conforming pairs are curated as
+# "same kind of thing" by an unrelated process. Conformance is gated on both
+# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
+# in multiplies the mismatch rate several times over; pass --include-low to see
+# the rest, or `--format conformance-gates` for the current rate under each gate.
+# Design artifact -- nothing in kb/ or the schema depends on it.
+[group('QC')]
+node-class-scan *args:
+    uv run python -m dismech.node_class_scan {{args}}
+
+# Parse and check the compact pathograph node-class tree
+# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
+# -- nothing in kb/ or the schema depends on it -- but its leaves are real
+# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
+# worse than no tree because it still looks grounded. Bare invocation checks the
+# grammar only (instant); --verify-kb also resolves every cited leaf against
+# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
+# `text` being a stable round-trip of the compact form.
+[group('QC')]
+node-classes *args:
+    uv run python -m dismech.node_classes {{args}}
+
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
 # renderer here, while the ruamel-based reference validator rejects the file
