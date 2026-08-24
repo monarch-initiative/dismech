@@ -5,8 +5,11 @@ Quake SR, Rabadan R, Rowan C, Sims P, Tavazoie S, Tsang JS, Zhang M, Califano A.
 *Fifteen challenges for generative AI applications to cell biology.* Cell 189, September 17,
 2026. [doi:10.1016/j.cell.2026.07.004](https://doi.org/10.1016/j.cell.2026.07.004) (CC BY).
 
-**Written:** 2026-08-18. All dismech counts are computed directly from `kb/` at the commit
-this report was written; the script is in the [appendix](#appendix-reproducing-the-numbers).
+**Written:** 2026-08-18. All dismech counts are computed directly from `kb/` at the commit this
+report was written, `3608c511c0`; the script is in the [appendix](#appendix-reproducing-the-numbers).
+Reproduce them against that commit (`git archive 3608c511c0 kb | tar -x -C /tmp/anchor`), not
+against a later tree — `kb/` grows daily, so a fresh recount re-anchors one figure to a different
+snapshot than its ~58 neighbours.
 
 ---
 
@@ -138,12 +141,12 @@ human biology" is a first-class distinction in the schema, not a caveat in prose
 | Feature | Count |
 |---|---|
 | Nodes tagged `biological_scale` | 4,007 of 12,566 (32%) — MOLECULAR 1,164 / CELLULAR 1,049 / TISSUE 995 / ORGANISM 799 |
-| Cell-type (CL) annotations on nodes | 8,463 |
+| Cell-type (CL) annotations on nodes | 8,463 across 6,509 of 12,566 nodes |
 | Biological-process (GO) annotations on nodes | 12,396 |
 | Molecular-function (GO) annotations on nodes | 766 |
-| Phenotype entries (HP-bound) | 23,586 |
+| Phenotype entries (HP-bound) | 23,586 in disorders (23,615 including modules and comorbidities) |
 | Genetic entries | 4,905 |
-| Biochemical markers | 1,924 (44 with LOINC reference ranges) |
+| Biochemical markers | 1,924 (39 with reference ranges, 25 of them LOINC-coded) |
 | Environmental exposures | 925, with 546 `influences_mechanisms` edges into the graph |
 | Datasets | 1,690 |
 | Computable definitions / phenotype algorithms | 287 |
@@ -168,7 +171,7 @@ CELL_THERAPY 90, PROTEIN_REPLACEMENT 69, VACCINE 43, PEPTIDE 39.
 | Readouts on those links | 106 |
 
 Link `relationship` distribution: RECAPITULATES 100, PARTIALLY_RECAPITULATES 44, PERTURBS 16,
-MEASURES 15, **FAILS_TO_RECAPITULATE 11**, RESCUES 9, unset 254. *The 58% unset rate is a real
+MEASURES 15, **FAILS_TO_RECAPITULATE 11**, RESCUES 9, unset 254. *The 57% unset rate is a real
 curation gap and is discussed in §6.*
 
 | `discussions` kind | Count | | `mechanistic_hypotheses` status | Count |
@@ -177,7 +180,7 @@ curation gap and is discussed in §6.*
 | **HUMAN_MODEL_MISMATCH** | **342** | | CANONICAL | 252 |
 | CONTROVERSY | 126 | | ALTERNATIVE | 99 |
 | OPEN_QUESTION | 92 | | DEPRECATED | 13 |
-| INTERPRETATION | 66 | | *(657 blocks total)* | |
+| INTERPRETATION | 66 | | *(657 blocks total; 3 untyped)* | |
 | EMERGING_HYPOTHESIS | 20 | | | |
 | CURATION_TODO | 18 | | | |
 
@@ -198,7 +201,7 @@ claim it.
 |---|---|---|---|
 | 1 | Regulatory & signaling interactions *(molecular)* | None | No molecular-interaction resolution. GO molecular-function tags (766) are annotations, not interaction predictions. |
 | 2 | Epigenetic interactions *(molecular)* | None | Not modeled. |
-| 3 | Cell-cell interactions *(molecular)* | Partial | 8,463 CL-typed nodes and multicellular modules (`immune_checkpoint_blockade`, `granuloma_formation`, `tumor_promoting_inflammation`, `atherogenesis`) encode which cell types act on which. No ligand-receptor layer. |
+| 3 | Cell-cell interactions *(molecular)* | Partial | 8,463 CL annotations across 6,509 nodes, and multicellular modules (`immune_checkpoint_blockade`, `granuloma_formation`, `tumor_promoting_inflammation`, `atherogenesis`) encode which cell types act on which. No ligand-receptor layer. |
 | 4 | Synthetic mechanisms *(function)* | None | Out of scope. |
 | 5 | Genome → biochemical function *(function)* | Partial | 4,905 genetic entries with `functional_impact_category` (LOF / partial-LOF / GOF / dominant-negative / hypermorphic / neomorphic) — a labeled variant-consequence set matching the hypomorph/hypermorph/neomorph typing the challenge describes. It is a label set, not a sequence-to-function predictor. |
 | 6 | **Drug mechanism of action** *(function)* | **Strong** | 2,664 evidence-backed drug→mechanism-node links across 8,499 treatments, at the cell-context-specific granularity the challenge demands. The `target_mechanisms` pattern in modules generalizes a drug mechanism across every conforming disease — e.g. senolytics against `cellular_senescence#Senescent Cell Accumulation`, echinocandins against Fks glucan synthase, six distinct antibacterial target modules. |
@@ -206,7 +209,7 @@ claim it.
 | 8 | Cell state reprogramming *(cellular)* | Partial | Cell-state transitions appear as nodes (EMT, epithelioid transformation, T-cell exhaustion, SMC phenotypic switching), but with no perturbation-response data attached. |
 | 9 | Synthetic circuit design *(cellular)* | None | Out of scope. |
 | 10 | **Systems-level mechanisms** *(cellular)* | **Strong** | 23,810 causal edges spanning four biological scales and multiple cell types is the native representation. The immunosuppressive-microenvironment example in the paper (M2/TREM2+ TAMs, myCAFs, N2 TANs, HELIOS+ Tregs acting in concert) is the exact shape of a dismech module. |
-| 11 | Complex biomarker identification *(translation)* | Partial | 1,924 biochemical markers attached to the mechanism node they read out, 44 with LOINC-coded reference ranges and interpretation bands; 106 model readouts. Small, and not multi-omics. |
+| 11 | Complex biomarker identification *(translation)* | Partial | 1,924 biochemical markers attached to the mechanism node they read out, 25 with LOINC-coded reference ranges and interpretation bands; 106 model readouts. Small, and not multi-omics. |
 | 12 | **Drug toxicity** *(translation)* | **Strong** | Toxicity-as-mechanism modules (`myelosuppression`, `drug_induced_liver_injury`, `drug_induced_nephrotoxicity`, `drug_hypersensitivity_scar`, plus `cardiomyopathy_maladaptive_remodeling` and `cardiac_ion_channel_repolarization` doubling as toxicity targets) model *why* two drugs against the same target diverge in toxicity — the paper's doxorubicin-vs-etoposide example. HLA-gated `drug_hypersensitivity_scar` encodes host-genetic susceptibility to an immune-mediated adverse reaction, the class of failure TGN1412 exemplifies. |
 | 13 | Drug efficacy *(translation)* | Partial | Subtype-stratified mechanism means the Herceptin/15% problem is structurally represented (a treatment targets a node that only a subtype instantiates), and 966 curated trials carry registry-validated evidence. No response/non-response outcome data — which the paper says does not exist publicly anyway. |
 | 14 | Organismal responses / immune setpoint *(translation)* | None | Individual-level immune state is not modeled. dismech is disease-level, not person-level. |
@@ -305,7 +308,7 @@ is available because curation is ongoing.
    currently tiny (4 committed model runs, 45 computational-model entries).
 3. **Uneven depth.** 2,000 disorder entries range from flagship multi-module conformers to thin
    stubs. Any benchmark needs an explicit depth filter, not a uniform sample.
-4. **Model links are under-typed.** 254 of 449 `modeled_mechanisms` links (58%) have no
+4. **Model links are under-typed.** 254 of 449 `modeled_mechanisms` links (57%) have no
    `relationship` value, so the structured recapitulation signal is weaker than the raw model
    count suggests. This is the single highest-value curation backfill for B2.
 5. **`biological_scale` coverage is 32%.** The multi-scale claim in §2 is real but partial;
