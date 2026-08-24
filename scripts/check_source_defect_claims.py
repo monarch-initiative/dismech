@@ -566,17 +566,25 @@ def resolve_references(
     if antecedent is not None:
         return (antecedent,)
 
+    # Rival ids, none near enough to pick. Falling through to the enclosing
+    # scope would invent a subject, so resolve to nothing instead. Calling the
+    # predicate rather than restating it keeps the tested condition and the
+    # enforced one the same thing.
+    if ambiguous_antecedent(text, offset):
+        return ()
+
     # Only ids BEFORE the claim are candidate subjects. One named after it is a
     # contrast ("...which rests on PMID:X"), and letting that stand in as the
     # subject is what contradicted a true claim in
     # SETD5_Haploinsufficiency_Syndrome.yaml.
     preceding = inline_references(text[:offset])
-    if len(preceding) > 1:
-        # Rival ids, none near enough to pick: see ambiguous_antecedent().
-        # Falling through to the enclosing scope would invent a subject.
-        return ()
     if len(preceding) == 1:
         # Unambiguous however far back it sits -- no rival to confuse it with.
+        # Note this deliberately outranks the sibling `reference:` below: prose
+        # that names a paper is talking about that paper, and the enclosing
+        # mapping's own reference is the weaker signal. Across the whole KB this
+        # tier only ever produces NARRATED/UNDETERMINED outcomes, never a
+        # contradiction, so the ordering is safe as well as principled.
         return preceding
 
     for node in reversed(ancestors):
