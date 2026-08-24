@@ -854,17 +854,19 @@ def test_entity_ref_foreign_keys(filepath):
         return
 
     errors = []
-    for path, ref in iter_entity_refs(data):
-        parsed = parse_entity_ref(ref)
+    for site in iter_entity_refs(data):
+        parsed = parse_entity_ref(site.ref)
         if parsed is None:
-            if path.rsplit(".", 1)[-1].split("[")[0] == "attaches_to":
+            if site.slot == "attaches_to":
                 errors.append(
-                    f"{path}={ref!r} is a bare name, not a <kind>#<name> "
-                    f"entity reference"
+                    f"{site.path}={site.ref!r} is a bare name, not a "
+                    f"<kind>#<name> entity reference"
                 )
             continue
-        if resolve_entity_ref(data, ref) is False:
-            errors.append(f"{path}={ref!r} does not resolve to a {parsed.kind}")
+        if resolve_entity_ref(data, site.ref) is False:
+            errors.append(
+                f"{site.path}={site.ref!r} does not resolve to a {parsed.kind}"
+            )
 
     assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
 

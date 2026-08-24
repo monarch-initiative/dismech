@@ -68,12 +68,27 @@ __all__ = [
     "SECTION_KEYS",
     "SINGLETON_SECTIONS",
     "EntityRef",
+    "EntityRefSite",
     "entity_ref_index",
     "iter_entity_refs",
     "parse_entity_ref",
     "resolve_entity_ref",
     "section_items",
 ]
+
+
+class EntityRefSite(NamedTuple):
+    """Where a reference was found: its dotted ``path``, the ``slot`` holding
+    it, and the raw ``ref`` value.
+
+    ``slot`` is carried explicitly so callers can key on it without parsing it
+    back out of ``path`` — a gate that recovers the slot by string surgery
+    stops firing silently the day the path format changes.
+    """
+
+    path: str
+    slot: str
+    ref: str
 
 
 class EntityRef(NamedTuple):
@@ -273,26 +288,27 @@ def entity_ref_index(data: dict) -> dict[str, list[Any]]:
     return index
 
 
-def iter_entity_refs(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
-    """Walk a loaded entry, yielding ``(path, ref)`` for every reference slot.
+def iter_entity_refs(node: Any, path: str = "") -> Iterator[EntityRefSite]:
+    """Walk a loaded entry, yielding an :class:`EntityRefSite` per reference slot.
 
     ``path`` is a dotted/indexed location such as
     ``discussions[2].attaches_to[0]``, for error messages that point straight
-    at the offending line's neighbourhood.
+    at the offending line's neighbourhood; ``slot`` is the ref-bearing slot
+    name, carried separately so callers never have to parse it back out.
     """
     if isinstance(node, dict):
         for key, value in node.items():
             child = f"{path}.{key}" if path else str(key)
             if key in REF_SLOTS:
                 if isinstance(value, str):
-                    yield child, value
+                    yield EntityRefSite(child, key, value)
                     continue
                 if isinstance(value, list):
                     # Yield the strings *and* walk anything else, in one pass:
                     # a mixed list must not lose either half.
                     for i, item in enumerate(value):
                         if isinstance(item, str):
-                            yield f"{child}[{i}]", item
+                            yield EntityRefSite(f"{child}[{i}]", key, item)
                         else:
                             yield from iter_entity_refs(item, f"{child}[{i}]")
                     continue
