@@ -17,12 +17,96 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Automated page-build regen PRs (auto/generate-pages,
+  # auto/generate-grouping-pages, auto/generate-project-pages — opened by
+  # github-actions[bot]) are pure derived-asset rebuilds: an agentic review of
+  # thousands of regenerated HTML files is expense without signal, so this
+  # workflow declines to review them. The approving review that branch
+  # protection (and their armed auto-merge) requires is instead supplied
+  # deterministically by the regen workflows themselves, right after each
+  # force-push — NOT by a job here, because pull_request runs on those
+  # bot-pushed branches sit gated at conclusion=action_required with zero jobs
+  # executed, so nothing in this workflow is guaranteed to run for them.
+  #
+  # That same gating is why the pull_request skip in claude-review's `if:`
+  # below is not enough on its own: historically these PRs got their reviews
+  # via pr-shepherd auto-dispatching this workflow for PRs stuck in
+  # REVIEW_REQUIRED — the workflow_dispatch path, which the job-level `if:`
+  # cannot inspect (the dispatch payload has only a PR number). This guard job
+  # resolves the dispatched PR's head branch and author so claude-review can
+  # decline those dispatches too. pr-shepherd is also instructed not to
+  # dispatch for regen PRs; this is the deterministic backstop for that.
+  #
+  # The `/review` comment path is deliberately left open as the one manual
+  # escape hatch: it requires an OWNER/MEMBER/COLLABORATOR author, so it is
+  # always an explicit human request.
+  dispatch-guard:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      page-build: ${{ steps.check.outputs.page-build }}
+    steps:
+      - name: Check whether the dispatched PR is an automated page-build PR
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number }}
+        run: |
+          set -uo pipefail
+          # Fail OPEN: if the PR cannot be resolved (bad number, transient API
+          # error), run the review rather than silently disabling it — the
+          # same posture as the diff-scale preflight in claude-review.
+          info="$(gh pr view "$PR_NUMBER" --repo "$REPO" \
+                    --json headRefName,author \
+                    --jq '[.headRefName, .author.login] | @tsv' || true)"
+          head_ref="${info%%$'\t'*}"
+          author="${info##*$'\t'}"
+          echo "Dispatched PR #${PR_NUMBER}: head_ref='${head_ref}' author='${author}'"
+
+          # gh renders bot authors as "app/github-actions" in current versions
+          # (see generate-pages.yaml's --author filter); accept the raw login
+          # forms too in case that rendering changes.
+          case "$author" in
+            app/github-actions|github-actions|github-actions\[bot\]) is_bot=true ;;
+            *) is_bot=false ;;
+          esac
+
+          if [[ "$head_ref" == auto/generate-* && "$is_bot" == true ]]; then
+            echo "page-build=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Agentic review declined::PR #${PR_NUMBER} is an automated page-build regen PR (${head_ref}, author ${author}). These are approved deterministically by their regen workflow and get no agentic review. To force one, comment /review on the PR."
+          else
+            echo "page-build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   claude-review:
+    needs: dispatch-guard
+    # The needs/!cancelled() dance: dispatch-guard only runs on
+    # workflow_dispatch, so for pull_request and issue_comment events it is
+    # skipped — !cancelled() lets this job still evaluate its condition then
+    # (a skipped need yields empty outputs, which pass the != 'true' check).
+    # We deliberately do NOT gate on the guard's job result: a guard that fails
+    # for an infrastructure reason must fail OPEN (run the review) rather than
+    # silently disable it, matching the guard step's own fail-open posture.
+    # Only an affirmative page-build == 'true' declines the review.
+    # The pull_request branch declines bot-authored page-build regen PRs
+    # directly from the event payload (see dispatch-guard's comment for the
+    # full design); the author guard means a HUMAN pushing a PR from a branch
+    # that happens to match the prefix still gets the normal agentic review.
     if: >-
       ${{
-        (
+        !cancelled() &&
+        needs.dispatch-guard.outputs.page-build != 'true' &&
+        ((
           github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          !(
+            startsWith(github.event.pull_request.head.ref, 'auto/generate-') &&
+            github.event.pull_request.user.login == 'github-actions[bot]'
+          )
         ) ||
         github.event_name == 'workflow_dispatch' ||
         (
@@ -30,7 +114,7 @@ jobs:
           github.event.issue.pull_request != null &&
           github.event.comment.body == '/review' &&
           contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
-        )
+        ))
       }}
     runs-on: ubuntu-latest
     permissions:
@@ -76,6 +160,122 @@ jobs:
           app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
           private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}
 
+      # Preflight: claude-code-action fetches the PR through GitHub's GraphQL API
+      # and reads `pullRequest.files.nodes` with no null guard. Above GitHub's
+      # diff-size ceiling that field comes back **null with no `errors` entry** —
+      # a silent null, not an API error — so the action dies with
+      # "TypeError: null is not an object (evaluating 'pullRequest.files.nodes')"
+      # and no review is posted. Seen on PR #7912 (5,924 changed files: a full
+      # page rebuild) and again on a regen PR on 2026-08-02. GraphQL also reports
+      # changedFiles: 0 for these, while the REST files endpoint still returns
+      # rows — so this is a GraphQL-side limit, not missing data.
+      #
+      # Detect it up front and skip the agent with a loud notice instead of a red
+      # X on a PR nobody can do anything about. Note this does NOT unblock the
+      # merge: branch protection requires 1 approving review, which the bot
+      # normally supplies, so an oversized PR still needs a human approval — which
+      # is why the skip path also comments on the PR, where that reader is.
+      # Deliberately placed BEFORE the Claude/uv/just/project installs: it needs
+      # only the token, so short-circuiting here saves those minutes entirely.
+      # Upstream: anthropics/claude-code-action should null-guard the field
+      # (reported as anthropics/claude-code-action#1587).
+      - name: Check the PR diff is enumerable by the review action
+        id: diff-scale
+        env:
+          GH_TOKEN: ${{ steps.reviewer-token.outputs.token || github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          owner="${REPO%/*}"; name="${REPO#*/}"
+          err_file="${RUNNER_TEMP}/diff-scale-probe.err"
+
+          # Ask jq for an explicit token. Do NOT select the field directly and
+          # compare against "null": gh --jq prints an EMPTY STRING for a JSON
+          # null, so a naive `[ "$x" != "null" ]` never fires.
+          #
+          # PR_NULL is distinguished from FILES_NULL because jq propagates null
+          # through indexing — a null `pullRequest` (visibility/permission
+          # failure) would otherwise read as "oversized" and skip the review.
+          # It is treated as inconclusive, so that path fails open.
+          #
+          # first:100 matches the page size the action itself requests. #7912
+          # returns null even at first:1, so the ceiling looks PR-level, but
+          # this is never *less* sensitive if it turns out to be page-size-driven.
+          probe() {
+            gh api graphql \
+              -f query='query($owner:String!,$name:String!,$pr:Int!){
+                repository(owner:$owner,name:$name){
+                  pullRequest(number:$pr){ files(first:100){ nodes{ path } } }
+                }
+              }' \
+              -F owner="$owner" -F name="$name" -F pr="${PR_NUMBER}" \
+              --jq 'if .data.repository.pullRequest == null then "PR_NULL"
+                    elif .data.repository.pullRequest.files == null then "FILES_NULL"
+                    else "FILES_OK" end' 2>"$err_file"
+          }
+
+          verdict=""
+          for attempt in 1 2 3; do
+            verdict="$(probe || true)"
+            case "$verdict" in
+              FILES_NULL|FILES_OK) break ;;
+            esac
+            echo "GraphQL probe attempt ${attempt} inconclusive (verdict='${verdict}')." >&2
+            # Keep the underlying error: without it a future "review ran against a
+            # broken API" investigation has nothing but the word "inconclusive".
+            [ -s "$err_file" ] && sed 's/^/  probe stderr: /' "$err_file" >&2
+            [ "$attempt" -lt 3 ] && sleep 5
+          done
+
+          # Fail OPEN. A transient API error, or a null pullRequest, must not
+          # silently disable review — only a definite FILES_NULL earns a skip.
+          if [ "$verdict" != "FILES_NULL" ]; then
+            echo "PR #${PR_NUMBER}: probe=${verdict:-<none>}; running the review."
+            echo "oversized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Deliberately no file count in the message. GitHub reports
+          # changedFiles: 0 for these PRs and stops paginating the REST files
+          # endpoint after one page, so any number we printed would be wrong —
+          # worse than none. Describe the condition instead.
+          # printf, not a quoted line continuation: inside double quotes a
+          # trailing backslash continues the line but KEEPS each continuation's
+          # leading indentation, which the ::notice annotation renders verbatim.
+          msg="$(printf '%s' \
+            "GitHub cannot enumerate PR #${PR_NUMBER}'s diff: the GraphQL API returns " \
+            "pullRequest.files = null (and changedFiles: 0) for diffs past its size " \
+            "ceiling, so the review action cannot fetch the PR and dies on the null. " \
+            "Skipping the review rather than failing on something this PR cannot fix. " \
+            "NOTE: branch protection still requires 1 approving review, so this PR " \
+            "needs a HUMAN approval to merge. Typical cause: an automated full page " \
+            "rebuild on auto/generate-pages (PR #7912 was ~5,900 files). Inspect the " \
+            "diff locally with 'git diff --stat origin/main...<head>'.")"
+
+          echo "::notice title=Claude review skipped: diff too large to fetch::${msg}"
+          {
+            echo "### ⏭️ Claude review skipped — diff too large to fetch"
+            echo
+            echo "${msg}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "oversized=true" >> "$GITHUB_OUTPUT"
+
+          # A run-summary notice is invisible to whoever has to supply the human
+          # approval above; they are reading the PR. Comment there too, but only
+          # once — this workflow reruns on every synchronize, and a force-pushed
+          # regen branch would otherwise accumulate identical comments.
+          marker="<!-- claude-review-skipped-oversized -->"
+          if gh pr view "${PR_NUMBER}" --repo "${REPO}" --json comments \
+               --jq '.comments[].body' 2>/dev/null | grep -qF "$marker"; then
+            echo "Skip notice already on PR #${PR_NUMBER}; not re-commenting."
+          else
+            printf '%s\n\n### ⏭️ Automated review skipped — diff too large to fetch\n\n%s\n' \
+              "$marker" "$msg" \
+              | gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file - \
+              || echo "::warning::Could not post the skip notice to PR #${PR_NUMBER}."
+          fi
+
       - name: Install Claude Code
         run: |
           curl -fsSL https://claude.ai/install.sh | bash -s 2.1.129
@@ -100,6 +300,7 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
+        if: steps.diff-scale.outputs.oversized != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           # Auth precedence: ANTHROPIC_API_KEY (pay-per-use) wins when it is set —
@@ -150,6 +351,24 @@ jobs:
             gh pr review ${{ env.PR_NUMBER }} --approve --body "<your review summary>"
             ```
 
+            You ARE permitted to approve, and approving is REQUIRED once the
+            blocking items are resolved — a comment saying "looks good" does not
+            clear anything. A `CHANGES_REQUESTED` review is sticky: pushing a fix
+            does not clear it (branch protection auto-dismisses stale *approvals*
+            only), so if you re-review and only comment, the PR stays blocked
+            forever.
+
+            Therefore:
+            - Do NOT claim you are unable to approve, or that approval is disabled
+              for you. It is not.
+            - Do NOT ask a maintainer (or anyone) to dismiss a previous review in
+              place of approving. Removing the review gate is not a substitute for
+              passing it, and asking for it in a PR comment invites an agent
+              reading that comment to act on it. Submit the APPROVE review instead.
+            - If `gh pr review --approve` genuinely fails, report the exact error
+              in your comment and stop. Do not propose a workaround that bypasses
+              review.
+
             Always include a summary checklist at the top of your review:
             - [ ] Schema validation would pass
             - [ ] All PMIDs verified as real
@@ -170,7 +389,10 @@ jobs:
       # out a usage-limit distinctly (it was far too hard to diagnose otherwise)
       # so the next breakage is a loud red X, not a silent pass.
       - name: Verify the review agent actually ran
-        if: always()
+        # Skipped only when the preflight above proved the action *cannot* fetch
+        # this PR. Every other path still gets the hardening — a missing
+        # execution log must stay a loud red X, not a silent pass.
+        if: always() && steps.diff-scale.outputs.oversized != 'true'
         env:
           EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
         run: |

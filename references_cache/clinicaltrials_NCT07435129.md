@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT07435129"
+reference_id: clinicaltrials:NCT07435129
 title: "A Phase 2, Randomized, Double-Blind, Placebo-Controlled, Multicenter, 52-Week Study Evaluating the Efficacy and Safety of Apitegromab in Participants With Facioscapulohumeral Muscular Dystrophy (FORGE)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2, Randomized, Double-Blind, Placebo-Controlled, Multicenter, 52-Week Study Evaluating the Efficacy and Safety of Apitegromab in Participants With Facioscapulohumeral Muscular Dystrophy (FORGE)

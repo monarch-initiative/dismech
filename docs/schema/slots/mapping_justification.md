@@ -22,10 +22,10 @@ Alias: mapping_justification
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [TermMapping](../classes/TermMapping.md) | Mapping from this disease entry to an external term or code |  no  |
-| [ICD10CMMapping](../classes/ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
 | [ICD11FMapping](../classes/ICD11FMapping.md) | ICD-11 Foundation diagnosis code mapping |  no  |
+| [TermMapping](../classes/TermMapping.md) | Mapping from this disease entry to an external term or code |  no  |
 | [MondoMapping](../classes/MondoMapping.md) | MONDO disease ontology mapping |  no  |
+| [ICD10CMMapping](../classes/ICD10CMMapping.md) | ICD-10-CM diagnosis code mapping |  no  |
 | [NCITMapping](../classes/NCITMapping.md) | NCIT disease, subtype, or disease/finding ontology mapping for cancer entries |  no  |
 
 

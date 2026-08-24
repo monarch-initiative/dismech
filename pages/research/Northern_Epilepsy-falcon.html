@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Northern Epilepsy · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Northern Epilepsy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Northern Epilepsy</h1>
+                
+                <p class="report-subtitle">Northern Epilepsy (CLN8 Disease): Disease-Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0012391" target="_blank" rel="noopener noreferrer">MONDO:0012391</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Northern Epilepsy (CLN8 Disease): Disease-Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p>Northern epilepsy is a rare, autosomal-recessive, childhood-onset neurodegenerative epilepsy belonging to the neuronal ceroid lipofuscinosis (NCL/Batten disease) spectrum. It is the comparatively attenuated Finnish founder phenotype of <strong>CLN8 disease</strong>, historically called <strong>progressive epilepsy with mental retardation (EPMR)</strong>. The defining Finnish allele is <strong>CLN8 p.Arg24Gly</strong>; homozygosity produces a protracted course characterized principally by epilepsy and progressive cognitive decline, generally <strong>without the early visual failure or prominent myoclonus</strong> typical of more severe CLN8-associated variant late-infantile NCL. Other biallelic CLN8 variants can produce substantially earlier and more severe disease, so findings from “CLN8 disease” generally must not automatically be assigned to Northern epilepsy specifically. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<p>The evidence base remains small and is dominated by historical Finnish cohorts, mutation reviews, broader CLN8/NCL studies, and model systems. There were few Northern-epilepsy-specific publications in 2023–2024. Current research instead emphasizes lysosomal-enzyme trafficking, autophagy, lipid biology, zebrafish and mouse models, and longitudinal NCL registries.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>domain</th>
+<th>evidence-backed finding</th>
+<th>suggested ontology/identifier</th>
+<th>evidence strength or caveat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identity / synonyms</td>
+<td>Northern epilepsy is the Finnish founder, attenuated CLN8 disease phenotype historically termed progressive epilepsy with mental retardation (EPMR); it is classified within neuronal ceroid lipofuscinoses (NCL/Batten disease).</td>
+<td>CLN8 disease; NCL; “Northern epilepsy”; “progressive epilepsy with mental retardation (EPMR)”; MONDO verification-needed; OMIM verification-needed; Orphanet verification-needed (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, NCT04613089 chunk 1, NCT01873924 chunk 1)</td>
+<td>Strong disease-level evidence from mutation review and active NCL registries; exact external IDs not confirmed in retrieved context.</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>CLN8 is the causal gene; it maps to 8p23 and encodes a 286-aa membrane protein with five predicted transmembrane domains.</td>
+<td>HGNC: CLN8; NCBI Gene verification-needed; chromosome 8p23 (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong for gene assignment; protein function historically incomplete in older reviews.</td>
+</tr>
+<tr>
+<td>Founder pathogenic variant</td>
+<td>The Finnish EPMR/Northern epilepsy founder mutation is CLN8 p.Arg24Gly; the corresponding coding change is described as a founder mutation causing CLN8 disease, EPMR, in Finnish patients.</td>
+<td>CLN8 p.Arg24Gly; cDNA nomenclature verification-needed (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong for founder effect and amino-acid change; exact HGVS c. notation for p.Arg24Gly was not confirmed in retrieved context and should be verified.</td>
+</tr>
+<tr>
+<td>Other CLN8 variants / allelic heterogeneity</td>
+<td>Most other CLN8 variants are private and usually associate with a more severe late-infantile variant NCL phenotype rather than Northern epilepsy.</td>
+<td>Allelic heterogeneity; variant late-infantile NCL due to CLN8 (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong review evidence; phenotype can vary with residual function.</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Northern epilepsy / CLN8 disease is autosomal recessive.</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> Autosomal recessive inheritance; inheritance ontology verification-needed (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, NCT04613089 chunk 1)</td>
+<td>Strong, but penetrance estimates were not retrieved.</td>
+</tr>
+<tr>
+<td>Population genetics / geography</td>
+<td>The p.Arg24Gly Northern epilepsy variant is described as confined to Finnish patients/founder population in review literature.</td>
+<td>Finnish founder effect; population-specific pathogenic variant (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, <a href="#ref-zarybnicky2021modelingrarehuman-pages-14-15">zarybnicky2021modelingrarehuman pages 14-15</a>)</td>
+<td>Strong qualitative evidence; exact carrier frequency/prevalence not retrieved in available context.</td>
+</tr>
+<tr>
+<td>Core phenotype</td>
+<td>Homozygosity for p.Arg24Gly causes a protracted phenotype not associated with myoclonus or visual failure, distinguishing Northern epilepsy from more severe CLN8-NCL forms.</td>
+<td>HPO suggestions: Seizure (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>), Intellectual disability / cognitive decline (verification-needed exact term), no myoclonus / no visual failure as distinguishing features (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong genotype-phenotype correlation in review; exact HPO mappings for all features should be verified.</td>
+</tr>
+<tr>
+<td>Temporal course</td>
+<td>Disease course is protracted/attenuated relative to classic late-infantile NCL; CLN8 disease generally shows progressive neurologic decline over time.</td>
+<td>Childhood onset verification-needed; progressive course; chronic neurodegeneration (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, NCT04613089 chunk 1)</td>
+<td>Moderate for Northern epilepsy-specific timing in retrieved context; stronger for general CLN8 progression than exact age windows here.</td>
+</tr>
+<tr>
+<td>Neurologic phenotypes</td>
+<td>NCL registries track progression across motor, language, cognition, seizures, vision, and behavior; these domains are relevant to CLN8 disease follow-up.</td>
+<td>HPO suggestions: developmental regression, cognitive impairment, ataxia, seizures, behavioral abnormality, visual impairment (verification-needed exact terms) (NCT04613089 chunk 1, NCT01873924 chunk 1)</td>
+<td>Strong for registry-assessed domains across NCL; Northern epilepsy-specific frequencies not retrieved.</td>
+</tr>
+<tr>
+<td>Visual phenotype</td>
+<td>General CLN8 disease tables report retinopathy/visual decline around 4–6 years and absent ERG, but the Finnish p.Arg24Gly EPMR phenotype specifically is noted to lack visual failure.</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> Visual impairment verification-needed; ERG abnormality verification-needed (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>, <a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Important caveat: ophthalmic findings in broad CLN8 disease should not be overgeneralized to Northern epilepsy founder cases.</td>
+</tr>
+<tr>
+<td>EEG / electrophysiology</td>
+<td>In broader CLN8 disease, reported EEG findings include slow background, high-amplitude components, and epileptiform discharges.</td>
+<td>EEG abnormality; epileptiform discharges; LOINC verification-needed (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</td>
+<td>Moderate; evidence applies to CLN8 disease broadly, not necessarily all Northern epilepsy cases.</td>
+</tr>
+<tr>
+<td>MRI / imaging</td>
+<td>In broader CLN8 disease, neuroradiologic findings include cerebellar atrophy, corpus callosum thinning, and white-matter hyperintensity.</td>
+<td>UBERON: cerebellum / corpus callosum / cerebral white matter verification-needed (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</td>
+<td>Moderate; likely reflects more severe CLN8 spectrum as well as founder disease evolution.</td>
+</tr>
+<tr>
+<td>Microscopic / storage pathology</td>
+<td>Broader CLN8 disease is associated with NCL storage material profiles including GRODs/CLPs/FPPs in review tables.</td>
+<td>NCL storage material; pathology terminology verification-needed (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</td>
+<td>Moderate and subtype-broad; Northern epilepsy-specific biopsy use is now limited due to molecular testing.</td>
+</tr>
+<tr>
+<td>Molecular function (established)</td>
+<td>CLN8 is an ER/ERGIC resident protein with a C-terminal ER retrieval signal and cycles between ER and ERGIC.</td>
+<td>GO suggestions: endoplasmic reticulum; ER-Golgi intermediate compartment; protein retrieval / vesicle-mediated transport (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong for localization and trafficking role.</td>
+</tr>
+<tr>
+<td>Mechanism / pathophysiology</td>
+<td>CLN8 participates in lysosomal enzyme trafficking from ER to Golgi; autophagy reviews state CLN8 is an ER-to-Golgi cargo receptor required for lysosomal biogenesis, and CLN8 deficiency impairs autophagy-related processes and lipid homeostasis.</td>
+<td>GO suggestions: lysosomal enzyme trafficking, lysosome biogenesis, autophagy, vesicle-mediated transport; CL terms: neuron, astrocyte, microglial cell verification-needed (<a href="#ref-kim2022autophagyinthe-pages-14-15">kim2022autophagyinthe pages 14-15</a>, <a href="#ref-raote2023sortingandexport-pages-14-15">raote2023sortingandexport pages 14-15</a>, <a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong convergent mechanistic evidence from reviews, but much is derived from model systems rather than founder-patient tissue.</td>
+</tr>
+<tr>
+<td>Emerging mechanistic update</td>
+<td>A newer biochemical study proposes that CLN8 is a lysophosphatidylglycerol acyltransferase involved in bis(monoacylglycero)phosphate biosynthesis, linking CLN8 directly to lysosomal membrane lipid homeostasis.</td>
+<td>BMP/bis(monoacylglycero)phosphate pathway; lipid remodeling; CHEBI verification-needed (<a href="#ref-sheokand2025tramlag1cln8familyproteins-pages-2-3">sheokand2025tramlag1cln8familyproteins pages 2-3</a>)</td>
+<td>Emerging and potentially important, but based on 2025 evidence and not yet disease-knowledge-base consensus for Northern epilepsy specifically.</td>
+</tr>
+<tr>
+<td>Anatomy / cell types</td>
+<td>Primary system affected is the nervous system; relevant compartments include neurons and glia, with CLN8-related pathology/research implicating astrocytes, microglia, and demyelination in NCL models.</td>
+<td>UBERON: brain, cerebellum, corpus callosum, white matter verification-needed; CL: neuron, astrocyte, microglial cell, oligodendrocyte verification-needed (<a href="#ref-takahashi2022glialdysfunctionand-pages-7-8">takahashi2022glialdysfunctionand pages 7-8</a>, zhang2025neuronalceroidlipofuscinosis—concepts pages 16-17, <a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</td>
+<td>Moderate; much cell-type evidence comes from broader NCL literature and mouse models.</td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td>Current practice is molecular diagnosis; NCL reviews emphasize genetic testing and enzyme activity assays as standard for NCLs, while CLN8 specifically is a non-enzyme gene so molecular confirmation is central.</td>
+<td>Molecular diagnosis; WES/WGS/gene panel; GTR verification-needed (<a href="#ref-kaminiow2022recentinsightinto-pages-12-13">kaminiow2022recentinsightinto pages 12-13</a>, NCT04613089 chunk 1)</td>
+<td>Strong for molecular testing emphasis; no CLN8-specific enzyme assay exists.</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>Different CLN8 alleles can cause either Northern epilepsy/EPMR or more severe late-infantile CLN8-NCL; other NCL subtypes and pediatric neurodegenerative epilepsies are key differentials.</td>
+<td>NCL differential set; epilepsy-neuroregression differential (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, NCT04613089 chunk 1)</td>
+<td>Moderate; exact differential algorithm not retrieved.</td>
+</tr>
+<tr>
+<td>Treatment / management</td>
+<td>No curative CLN8-specific therapy was identified in retrieved context; care is mainly symptomatic/supportive, including antiseizure management and longitudinal multidisciplinary follow-up.</td>
+<td>MAXO suggestions: antiseizure medication therapy, supportive care, rehabilitation, ophthalmologic monitoring, genetic counseling (verification-needed exact terms) (NCT04613089 chunk 1, NCT01873924 chunk 1, <a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</td>
+<td>Strong for absence of approved CLN8-specific disease-modifying therapy in retrieved sources; exact ASM response in Northern epilepsy not retrieved.</td>
+</tr>
+<tr>
+<td>Prevention / counseling</td>
+<td>Because disease is autosomal recessive and founder-enriched, genetic counseling, carrier testing in at-risk families, prenatal diagnosis, and preimplantation testing are relevant.</td>
+<td>Carrier screening; prenatal diagnosis; preimplantation genetic testing; MAXO/GENO verification-needed (<a href="#ref-kaminiow2022recentinsightinto-pages-12-13">kaminiow2022recentinsightinto pages 12-13</a>, <a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</td>
+<td>Strong conceptually; programmatic population screening data not retrieved.</td>
+</tr>
+<tr>
+<td>Natural history studies / real-world implementation</td>
+<td>Active registries currently enrolling CLN8/NCL patients include the international DEM-CHILD natural history database and the University of Rochester Batten disease longitudinal study.</td>
+<td>ClinicalTrials.gov NCT04613089; NCT01873924 (NCT04613089 chunk 1, NCT01873924 chunk 1)</td>
+<td>Strong and current for real-world longitudinal data capture, biomaterials, outcome measures, and trial readiness.</td>
+</tr>
+<tr>
+<td>Outcome measures used in practice/research</td>
+<td>Longitudinal NCL studies track motor, seizure, behavioral, functional, cognitive, vision, retinal thickness, MRI, EEG, and QoL-related domains; UBDRS is used in Batten disease natural history work.</td>
+<td>UBDRS; OCT; fundus autofluorescence; MRI; EEG (NCT04613089 chunk 1, NCT01873924 chunk 1)</td>
+<td>Strong for NCL/Batten implementation; not Northern epilepsy-specific validation.</td>
+</tr>
+<tr>
+<td>Animal models</td>
+<td>A naturally occurring mouse model exists: the motor neuron degeneration (mnd) mouse carries a homozygous 1-bp insertion in Cln8 and is a classic CLN8 disease model.</td>
+<td>Mouse model: Cln8 mnd; MGI verification-needed (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, <a href="#ref-zarybnicky2021modelingrarehuman-pages-14-15">zarybnicky2021modelingrarehuman pages 14-15</a>)</td>
+<td>Strong and historically important, but model reflects broader CLN8 pathology rather than exact Finnish founder phenotype.</td>
+</tr>
+<tr>
+<td>Translational relevance of models</td>
+<td>Mouse and other CLN8 models are used to study neurodegeneration, lysosomal dysfunction, glial pathology, myelination abnormalities, and therapeutic strategies.</td>
+<td>Preclinical model systems; iPSC/cellular models verification-needed (<a href="#ref-takahashi2022glialdysfunctionand-pages-7-8">takahashi2022glialdysfunctionand pages 7-8</a>, <a href="#ref-zarybnicky2021modelingrarehuman-pages-14-15">zarybnicky2021modelingrarehuman pages 14-15</a>, <a href="#ref-kim2022autophagyinthe-pages-14-15">kim2022autophagyinthe pages 14-15</a>)</td>
+<td>Moderate to strong for CLN8/NCL research utility; exact Northern epilepsy knock-in founder models were not confirmed here.</td>
+</tr>
+<tr>
+<td>Major evidence gaps</td>
+<td>Exact MONDO/OMIM/Orphanet IDs, prevalence/incidence, carrier frequency, sex ratio, penetrance, founder variant c.HGVS, Northern epilepsy-specific survival/life expectancy, validated QoL data, and controlled treatment-response data were not confirmed in available context.</td>
+<td>All listed as verification-needed (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>, NCT04613089 chunk 1, NCT01873924 chunk 1)</td>
+<td>Important caveat for knowledge-base curation: several core epidemiology/prognosis fields require direct lookup in OMIM/Orphanet/PubMed primary cohorts.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses the most reusable evidence-backed facts for a knowledge-base entry on Northern epilepsy, emphasizing what is established versus what still needs direct identifier or cohort verification. It highlights the Finnish founder CLN8 phenotype, mechanistic consensus, current registry infrastructure, and major data gaps.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and nomenclature</h3>
+<p>Northern epilepsy is an inherited progressive epilepsy–dementia syndrome and the mild Finnish founder form of <strong>neuronal ceroid lipofuscinosis type 8</strong>. Synonyms include:</p>
+<ul>
+<li>Northern epilepsy</li>
+<li>Progressive epilepsy with mental retardation (<strong>EPMR</strong>; historical terminology)</li>
+<li>Finnish variant of CLN8 disease</li>
+<li>CLN8 disease, EPMR phenotype</li>
+<li>Progressive epilepsy with intellectual disability, a preferred non-stigmatizing rendering</li>
+</ul>
+<p>The disorder is part of the broader NCL/Batten disease family—rare inherited neurodegenerative lysosomal-storage disorders characterized pathologically by intracellular autofluorescent ceroid-lipofuscin accumulation. The key genotype–phenotype review states directly: <strong>“The missense p.Arg24Gly that causes CLN8 disease, EPMR, in Finnish patients represents a founder mutation.”</strong> (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<h3>Identifiers</h3>
+<ul>
+<li><strong>OMIM:</strong> commonly indexed under <em>Progressive epilepsy with mental retardation</em>, <strong>OMIM 610003</strong>; CLN8 gene <strong>OMIM 607837</strong>. These IDs should be checked against the live OMIM record before production ingestion.</li>
+<li><strong>Orphanet:</strong> represented within CLN8-related neuronal ceroid lipofuscinosis; the precise Northern-epilepsy-specific ORPHA identifier was not independently verified in the retrieved corpus.</li>
+<li><strong>MeSH:</strong> <em>Neuronal Ceroid-Lipofuscinoses</em>, <strong>D009472</strong>, confirmed in the ClinicalTrials.gov ontology output. (NCT01873924 chunk 1)</li>
+<li><strong>MONDO:</strong> a distinct Northern-epilepsy MONDO identifier was not verified. If no separate term is available, map provisionally to CLN8 disease/NCL8 and retain “Northern epilepsy” as the phenotype-specific label.</li>
+<li><strong>ICD-10/ICD-11:</strong> no uniquely specific code was identified. Coding generally falls under neuronal ceroid lipofuscinosis/other specified degenerative nervous-system or metabolic disease, with epilepsy and intellectual disability coded secondarily.</li>
+</ul>
+<h3>Evidence granularity</h3>
+<p>Most facts derive from <strong>aggregated disease-level resources, published pedigrees/cohorts, and research registries</strong>, not individual EHR records. The DEM-CHILD registry combines medical records, questionnaires, routine examinations, and biospecimens; the Rochester study prospectively collects clinical, neuropsychological, functional, medication, imaging, and quality-of-life data. (NCT04613089 chunk 1, NCT01873924 chunk 1)</p>
+<h2>2. Etiology</h2>
+<h3>Causal factor</h3>
+<p>Northern epilepsy is caused by <strong>biallelic germline pathogenic variants in CLN8</strong>, with the Finnish phenotype principally associated with homozygous <strong>p.Arg24Gly</strong>. CLN8 maps to <strong>8p23</strong>, and the reference transcript used in the mutation review was NM_018941.3. CLN8 encodes a 286-amino-acid multipass membrane protein. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<h3>Genetic risk</h3>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive.</li>
+<li><strong>Highest-risk genotype:</strong> homozygous Finnish founder p.Arg24Gly.</li>
+<li><strong>Family history/consanguinity:</strong> affected siblings and parental relatedness increase prior probability, as for other recessive diseases, but Finnish founder enrichment can produce disease without known consanguinity.</li>
+<li><strong>Allelic heterogeneity:</strong> most non-founder CLN8 mutations are private and usually cause a more severe variant late-infantile NCL phenotype. Truncating/deletion alleles tend to reduce residual function, although a simple domain-based severity rule is unsupported. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</li>
+</ul>
+<p>The exact nucleotide HGVS corresponding to p.Arg24Gly should be confirmed against the current MANE transcript before clinical reporting; the retrieved evidence securely established the protein change but not its current transcript-normalized c.HGVS.</p>
+<h3>Environmental, infectious, and lifestyle risks</h3>
+<p>No toxin, infection, diet, smoking behavior, occupational exposure, or other environmental factor is known to cause Northern epilepsy. These factors may affect seizure threshold or general health but are not established etiologic modifiers. No replicated gene–environment interaction was found.</p>
+<h3>Protective factors</h3>
+<p>No validated genetic protective allele, diet, supplement, or environmental exposure has been shown to prevent disease in genetically affected individuals. Avoiding sleep deprivation and medication nonadherence may reduce individual seizure risk but does not prevent CLN8 neurodegeneration.</p>
+<h2>3. Phenotypes</h2>
+<h3>Founder-phenotype distinction</h3>
+<p>The strongest genotype-specific statement is that homozygous p.Arg24Gly causes a <strong>protracted EPMR course “not associated with myoclonus or visual failure.”</strong> This distinction is critical because generalized CLN8 tables report early retinal degeneration, absent electroretinograms, cerebellar atrophy, and severe regression largely reflecting the broader and often more severe CLN8 spectrum. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<h3>Principal manifestations</h3>
+<ol>
+<li><strong>Epileptic seizures</strong> — childhood onset, episodic but chronic; generalized tonic-clonic and other generalized seizure types have been reported historically. Suggested HPO: <strong>Seizure (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>)</strong>, <strong>Generalized tonic-clonic seizure (<a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" rel="noopener noreferrer">HP:0002069</a>)</strong>.</li>
+<li><strong>Progressive cognitive decline/intellectual disability</strong> — normal or near-normal early development followed by worsening learning, memory, and adaptive functioning. Suggested HPO: <strong>Progressive intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0006887" target="_blank" rel="noopener noreferrer">HP:0006887</a>)</strong>, <strong>Cognitive impairment (<a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a>)</strong>.</li>
+<li><strong>Behavioral or psychiatric change</strong> — may accompany cognitive decline, although Northern-epilepsy-specific frequencies are unavailable. Suggested HPO: <strong>Behavioral abnormality (<a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a>)</strong>.</li>
+<li><strong>Motor deterioration/ataxia</strong> — later and generally milder than in severe CLN8-NCL; longitudinal NCL programs explicitly monitor motor function, ataxia, movement disorder, language, and function. Suggested HPO: <strong>Ataxia (<a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a>)</strong>, <strong>Motor deterioration (<a href="http://purl.obolibrary.org/obo/HP_0002333" target="_blank" rel="noopener noreferrer">HP:0002333</a>)</strong>. (NCT04613089 chunk 1)</li>
+<li><strong>Visual disease</strong> — early visual failure is generally absent in classic Finnish Northern epilepsy. By contrast, broader CLN8 disease may show retinopathy, decline at approximately 4–6 years, and absent ERG. Suggested HPO for the broader allelic disorder: <strong>Retinal dystrophy (<a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" rel="noopener noreferrer">HP:0000556</a>)</strong> and <strong>Abnormal electroretinogram (<a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a>)</strong>. (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>, <a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</li>
+<li><strong>Myoclonus</strong> — not characteristic of p.Arg24Gly Northern epilepsy, helping distinguish it from progressive myoclonus epilepsies and severe NCL.</li>
+</ol>
+<h3>Imaging, EEG, and pathology</h3>
+<p>In broad CLN8 disease, MRI findings include cerebellar atrophy, corpus-callosum thinning, and white-matter hyperintensity; EEG can show background slowing, high-amplitude activity, and epileptiform discharges. Storage material may show granular osmiophilic deposits, curvilinear profiles, and fingerprint profiles. These findings have only moderate specificity for Northern epilepsy and should be annotated as <strong>CLN8-spectrum</strong>, not obligate founder-phenotype findings. (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</p>
+<p>Suggested anatomy/HPO terms include <strong>Cerebellar atrophy (<a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" rel="noopener noreferrer">HP:0001272</a>)</strong>, <strong>Thin corpus callosum (<a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" rel="noopener noreferrer">HP:0033725</a>)</strong>, <strong>White-matter abnormality (<a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" rel="noopener noreferrer">HP:0002500</a>)</strong>, and <strong>EEG with epileptiform discharges (<a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" rel="noopener noreferrer">HP:0011182</a>)</strong>.</p>
+<h3>Quality of life</h3>
+<p>No Northern-epilepsy-specific EQ-5D, SF-36, or PROMIS dataset was retrieved. Nonetheless, progressive cognitive, seizure, behavioral, and motor disability causes increasing dependence and caregiver burden. Broader NCL reviews describe progressive social exclusion and dependence on caregivers and facilities. (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Gene and protein</h3>
+<ul>
+<li><strong>Gene:</strong> CLN8; chromosome 8p23.</li>
+<li><strong>Protein:</strong> CLN8, 286 amino acids; a multipass ER/ER–Golgi intermediate compartment protein.</li>
+<li><strong>Localization signal:</strong> C-terminal <strong>KKPR</strong> ER-retrieval motif, residues 283–286.</li>
+<li><strong>Protein family:</strong> TRAM–LAG1–CLN8/TLC-domain family. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</li>
+</ul>
+<h3>Variants</h3>
+<p>The founder p.Arg24Gly is a <strong>germline missense</strong> pathogenic variant. By 2012, 25 CLN8 mutations—20 missense and five deletions—had been compiled; the contemporary number is higher. A Finnish compound heterozygote carrying p.Arg24Gly plus p.Gly237Arg reportedly had an even more protracted phenotype. More disruptive alleles, including frameshift or large intragenic deletion variants, usually produce severe variant late-infantile CLN8 disease. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<p>No disease-causing somatic CLN8 mechanism, recurrent chromosomal rearrangement, repeat expansion, or mitochondrial-DNA defect is established. A somatic cancer panel is therefore inappropriate.</p>
+<h3>Population frequency and classification</h3>
+<p>The founder mutation is enriched in Finland and described as confined to Finnish patients in the reviewed literature. Exact current gnomAD allele frequency, Finnish carrier frequency, and ClinVar assertion counts were not available in the retrieved evidence and should be populated by direct live-database query. The disease mechanism and recessive segregation strongly support pathogenicity, but any laboratory report should use current ACMG/AMP evidence and transcript nomenclature.</p>
+<h3>Modifiers and epigenetics</h3>
+<p>No validated modifier gene or Northern-epilepsy-specific epigenetic signature is known. Variation among families and siblings suggests that background genetic variation can modify NCL phenotypes, but specific modifiers remain unproven. (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</p>
+<h2>5. Environmental information</h2>
+<p>Northern epilepsy is a monogenic disorder. No causal toxin, radiation exposure, pollutant, occupation, infectious agent, smoking, alcohol, exercise, or nutritional pattern has been demonstrated. Fever, illness, sleep loss, or missed medication may provoke seizures in an affected person, but these are generic seizure precipitants rather than causes of CLN8 disease. Zoonotic transmission and person-to-person transmission are not applicable.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<p><strong>Upstream:</strong> biallelic CLN8 dysfunction → impaired CLN8 activity in the ER/ERGIC.</p>
+<p><strong>Intermediate:</strong> defective recruitment/export of soluble lysosomal proteins from ER to Golgi, disturbed lysosomal biogenesis, altered lysosomal enzyme abundance/localization, disturbed membrane-lipid homeostasis, and impaired autophagic flux. CLN8 is described as an ER-to-Golgi cargo receptor required for lysosomal biogenesis; CLN8 deficiency in mice also alters phospholipid synthesis and mitochondria-associated ER membrane composition. (<a href="#ref-kim2022autophagyinthe-pages-14-15">kim2022autophagyinthe pages 14-15</a>, <a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<p><strong>Downstream:</strong> lysosomal degradation failure → accumulation of autofluorescent ceroid-lipofuscin and other undegraded material → neuronal dysfunction, synaptic and axonal pathology, glial activation/dysfunction, demyelination, and selective neuron loss → seizures, cognitive decline, motor dysfunction, and—under more severe CLN8 genotypes—retinal degeneration.</p>
+<p>This chain is biologically plausible and supported mainly by cellular and animal evidence; the relative contributions of enzyme trafficking, autophagy, and lipid remodeling in p.Arg24Gly human brain remain unresolved.</p>
+<h3>Recent mechanistic development</h3>
+<p>A 2025 biochemical study—not a 2023–2024 source, but the newest major mechanistic advance—reported that CLN8 is a <strong>lysophosphatidylglycerol acyltransferase</strong> involved in synthesis of bis(monoacylglycero)phosphate, a lysosomal phospholipid. This potentially unifies the older trafficking and lipid-homeostasis observations, but it requires independent replication and direct disease-model validation before being considered settled Northern-epilepsy biology. (<a href="#ref-sheokand2025tramlag1cln8familyproteins-pages-2-3">sheokand2025tramlag1cln8familyproteins pages 2-3</a>)</p>
+<h3>Cell types, structures, and ontologies</h3>
+<ul>
+<li><strong>Cells:</strong> neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>), astrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a></strong>), microglial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a></strong>), oligodendrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a></strong>), retinal photoreceptor where severe alleles affect vision.</li>
+<li><strong>GO biological processes:</strong> lysosomal transport (<strong><a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" rel="noopener noreferrer">GO:0007041</a></strong>), ER-to-Golgi vesicle-mediated transport (<strong><a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" rel="noopener noreferrer">GO:0006888</a></strong>), autophagy (<strong><a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a></strong>), lysosome organization (<strong><a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" rel="noopener noreferrer">GO:0007040</a></strong>), lipid metabolic process (<strong><a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" rel="noopener noreferrer">GO:0006629</a></strong>), neuron death (<strong><a href="http://purl.obolibrary.org/obo/GO_0070997" target="_blank" rel="noopener noreferrer">GO:0070997</a></strong>).</li>
+<li><strong>GO cellular components:</strong> endoplasmic-reticulum membrane (<strong><a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a></strong>), ER–Golgi intermediate compartment (<strong><a href="http://purl.obolibrary.org/obo/GO_0005793" target="_blank" rel="noopener noreferrer">GO:0005793</a></strong>), lysosome (<strong><a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a></strong>), autophagosome (<strong><a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" rel="noopener noreferrer">GO:0005776</a></strong>).</li>
+</ul>
+<p>Glial pathology is increasingly regarded as active rather than incidental in NCLs. Reviews argue that effective therapies may need to target glia as well as neurons, although direct CLN8 founder-patient evidence remains limited. (<a href="#ref-takahashi2022glialdysfunctionand-pages-7-8">takahashi2022glialdysfunctionand pages 7-8</a>)</p>
+<h3>Molecular profiling and advanced technologies</h3>
+<p>No replicated Northern-epilepsy-specific single-cell atlas, spatial-transcriptomic signature, clinical proteomic biomarker, metabolomic signature, methylation episignature, or multi-omics diagnostic classifier was found. Most molecular-profiling evidence is preclinical. Thus, these are research tools, not clinical diagnostics.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The primary organ is the <strong>brain</strong>, especially cerebral cortex and cerebellar/thalamocortical networks relevant to cognition, seizures, and motor control. In broader CLN8 disease, cerebellum, corpus callosum, and cerebral white matter show imaging abnormalities. Retina and visual pathways are major targets in severe CLN8 disease but usually not early defining targets in Finnish p.Arg24Gly Northern epilepsy. (<a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>, <a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<p>Suggested UBERON mappings: brain (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a></strong>), cerebral cortex (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a></strong>), cerebellum (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a></strong>), corpus callosum (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a></strong>), cerebral white matter (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" rel="noopener noreferrer">UBERON:0002437</a></strong>), retina (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a></strong>). Disease is bilateral/diffuse rather than characteristically lateralized.</p>
+<p>At the subcellular level, the ER, ERGIC, Golgi-associated secretory route, lysosome, autophagosome, and mitochondria-associated membranes are implicated.</p>
+<h2>8. Temporal development</h2>
+<p>Northern epilepsy typically begins in childhood, with epilepsy followed by slowly progressive cognitive impairment. Its course is chronic and lifelong, with episodic seizures superimposed on progressive neurodegeneration. It is substantially slower than variant late-infantile CLN8-NCL. The founder-genotype review calls it a <strong>“protracted clinical course.”</strong> (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<p>A practical staging framework is:</p>
+<ol>
+<li><strong>Presymptomatic/early childhood:</strong> apparently normal or near-normal development.</li>
+<li><strong>Early symptomatic:</strong> recurrent seizures and emerging learning problems.</li>
+<li><strong>Intermediate:</strong> progressive cognitive and behavioral decline with increasing support needs; motor findings may emerge.</li>
+<li><strong>Advanced:</strong> substantial intellectual and functional disability, persistent epilepsy, and greater motor dependence.</li>
+</ol>
+<p>No universally validated Northern-epilepsy staging scale or quantitative progression rate was identified. Remission of the underlying disease is not expected; seizure remission can occur with therapy but does not imply halted neurodegeneration. Early molecular diagnosis is the principal window for counseling and potential future trial enrollment.</p>
+<h2>9. Inheritance and population</h2>
+<h3>Population genetics</h3>
+<p>Northern epilepsy is part of the Finnish disease heritage and is especially associated with northern Finland. The founder effect, rather than an environmental regional exposure, explains geographic clustering. Precise contemporary prevalence, annual incidence, sex ratio, and carrier frequency were not verified in the retrieved sources; old estimates should not be imported without checking Finnish registry or Orphanet updates.</p>
+<h3>Counseling parameters</h3>
+<ul>
+<li><strong>Autosomal recessive:</strong> when both parents are heterozygous carriers, each pregnancy has a 25% probability of an affected child, 50% of a carrier child, and 25% of an unaffected non-carrier child.</li>
+<li><strong>Penetrance:</strong> apparently high for individuals with biallelic pathogenic founder genotypes, but no formal age-stratified penetrance estimate was retrieved.</li>
+<li><strong>Expressivity:</strong> variable, especially across different CLN8 alleles.</li>
+<li><strong>Anticipation:</strong> not established.</li>
+<li><strong>Germline mosaicism:</strong> not a recognized major mechanism, although it cannot be excluded theoretically.</li>
+<li><strong>Consanguinity:</strong> increases recessive-disease risk but is not necessary in a founder population.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<h3>Recommended approach</h3>
+<ol>
+<li>Recognize childhood epilepsy plus progressive cognitive/behavioral decline, especially with Finnish ancestry or affected siblings.</li>
+<li>Obtain <strong>EEG</strong>, developmental/neuropsychological assessment, neurologic examination, and brain MRI.</li>
+<li>Perform molecular testing—preferably an epilepsy/neurodegeneration/NCL panel containing <strong>CLN8</strong>, or WES/WGS with deletion/duplication analysis.</li>
+<li>Confirm candidate variants by orthogonal testing and parental segregation.</li>
+<li>In a family with known p.Arg24Gly, targeted single-variant testing is efficient for diagnosis, cascade testing, prenatal diagnosis, and preimplantation testing.</li>
+</ol>
+<p>CLN8 does not encode a conventional soluble lysosomal enzyme, so there is no CLN8-specific enzyme-replacement diagnostic assay. Molecular confirmation is central. Current NCL practice treats genetic testing as standard, including prenatal testing using fetal DNA when familial variants are known. (<a href="#ref-kaminiow2022recentinsightinto-pages-12-13">kaminiow2022recentinsightinto pages 12-13</a>)</p>
+<h3>Ancillary tests</h3>
+<ul>
+<li><strong>EEG:</strong> epileptiform discharges and background slowing may support progressive encephalopathy but are nonspecific.</li>
+<li><strong>MRI:</strong> may eventually show cerebral/cerebellar atrophy or white-matter abnormalities.</li>
+<li><strong>Ophthalmology/ERG/OCT:</strong> useful to distinguish severe CLN8-NCL and other NCLs; early profound retinal disease argues against classic Northern epilepsy.</li>
+<li><strong>Skin/conjunctival biopsy with electron microscopy:</strong> historically demonstrated NCL storage profiles but is now secondary to molecular testing.</li>
+<li><strong>Routine blood/CSF:</strong> no validated diagnostic biochemical biomarker.</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>Key alternatives include other NCLs (CLN2, CLN3, CLN5, CLN6, MFSD8/CLN7), progressive myoclonus epilepsies, mitochondrial disease, leukodystrophies, Rett-related disorders, Lafora disease, Unverricht–Lundborg disease, and other developmental-and-epileptic encephalopathies. Early visual loss, myoclonus, age at onset, enzyme assays for enzyme-deficient NCLs, MRI pattern, and molecular testing distinguish these conditions.</p>
+<p>CMA, karyotype, FISH, mtDNA analysis, and repeat-expansion assays are not first-line tests when Northern epilepsy is specifically suspected, but may be appropriate in an unresolved broader neurodevelopmental work-up. WGS may detect intronic or structural CLN8 variants missed by routine panels/WES.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Northern epilepsy is progressive and disabling, but generally more slowly progressive than severe CLN8-NCL. The founder phenotype lacks the characteristic early blindness and myoclonus, which contributes to its milder clinical profile. Reliable five-year survival, median life expectancy, disease-specific mortality, and standardized functional-outcome statistics were not found. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<p>Major morbidity includes recurrent seizures, cognitive deterioration, behavioral symptoms, loss of educational and occupational independence, and later motor impairment. Potential complications include antiseizure-medication adverse effects, injuries, aspiration or immobility complications in advanced disease, and caregiver burden. No validated molecular prognostic biomarker exists beyond broad genotype–phenotype correlation.</p>
+<p>The major prognostic factor is genotype: <strong>p.Arg24Gly homozygosity predicts the protracted Northern-epilepsy phenotype</strong>, whereas most other biallelic CLN8 variants predict earlier, more severe multisystem neurologic decline. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</p>
+<h2>12. Treatment</h2>
+<h3>Current management</h3>
+<p>There is no approved CLN8-specific cure, enzyme replacement, gene therapy, RNA therapy, or disease-modifying drug. Management is individualized and multidisciplinary:</p>
+<ul>
+<li>Antiseizure medication selected by seizure type; suggested MAXO: <strong>antiseizure pharmacotherapy</strong>.</li>
+<li>Rescue treatment and seizure-safety planning where indicated.</li>
+<li>Neuropsychological, educational, behavioral, and psychiatric support.</li>
+<li>Physical, occupational, and speech/language therapy as deficits develop.</li>
+<li>Nutritional, swallowing, mobility, and palliative support in advanced disease.</li>
+<li>Regular neurologic, ophthalmologic, functional, and caregiver assessment.</li>
+<li>Clinical genetics consultation and family cascade testing.</li>
+</ul>
+<p>Exact Northern-epilepsy medication response rates and comparative adverse-event data were not retrieved. Cerliponase alfa/Brineura is approved for <strong>TPP1-deficient CLN2</strong>, not CLN8, and should not be extrapolated to Northern epilepsy.</p>
+<h3>Trials and real-world implementation</h3>
+<p>No CLN8-specific interventional trial was identified. Two observational programs currently include CLN8:</p>
+<ul>
+<li><strong>NCT04613089</strong>, international DEM-CHILD database, first posted November 3, 2020; planned enrollment 500. It captures motor, language, cognition, seizures, vision, behavior, MRI, EEG, ophthalmology, and biospecimens over as long as 30 years. <a href="https://clinicaltrials.gov/study/NCT04613089">ClinicalTrials.gov</a> (NCT04613089 chunk 1)</li>
+<li><strong>NCT01873924</strong>, University of Rochester Batten study, first posted June 10, 2013; planned enrollment 500. It uses the Unified Batten Disease Rating Scale and longitudinal neuropsychological, adaptive-function, quality-of-life, retinal, and vision assessments. <a href="https://clinicaltrials.gov/study/NCT01873924">ClinicalTrials.gov</a> (NCT01873924 chunk 1)</li>
+</ul>
+<p>These registries are the most concrete current real-world implementations for trial readiness, natural-history controls, outcome validation, and sample access.</p>
+<h2>13. Prevention</h2>
+<p>Primary lifestyle prevention is impossible because the disorder is inherited. Relevant prevention is reproductive and complication-focused:</p>
+<ul>
+<li><strong>Carrier and cascade testing</strong> in relatives of a molecularly confirmed proband.</li>
+<li><strong>Preconception genetic counseling</strong>.</li>
+<li><strong>Prenatal diagnosis</strong> by chorionic-villus sampling or amniocentesis when familial variants are known.</li>
+<li><strong>Preimplantation genetic testing for monogenic disease</strong>.</li>
+<li>Early diagnosis of affected siblings before major decline, facilitating surveillance and future trial access. NCL reviews confirm that prenatal and preimplantation diagnosis are available when molecular diagnoses are established. (<a href="#ref-kaminiow2022recentinsightinto-pages-12-13">kaminiow2022recentinsightinto pages 12-13</a>)</li>
+<li>Tertiary prevention: seizure control, injury prevention, vaccination and ordinary infection prevention, mobility maintenance, swallowing surveillance, and psychosocial support.</li>
+</ul>
+<p>No vaccine, chemoprophylaxis, newborn-screening program, or population-wide Northern-epilepsy screening recommendation was identified.</p>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring veterinary disorder specifically equivalent to the human Finnish p.Arg24Gly Northern-epilepsy phenotype was found. CLN8 orthologs are evolutionarily conserved, and naturally occurring CLN8-associated neurodegeneration exists in mice.</p>
+<ul>
+<li><strong>Mouse:</strong> <em>Mus musculus</em>, NCBI Taxonomy <strong>10090</strong>. The naturally occurring <strong>motor neuron degeneration (mnd)</strong> mouse carries a homozygous one-base insertion, <strong>Cln8 c.267_268insC</strong>, and is a classic CLN8 disease model. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</li>
+<li>The model develops storage pathology, neurodegeneration, motor abnormalities, and altered lipid/autophagy biology, but it does not exactly model the Finnish p.Arg24Gly phenotype.</li>
+<li>No zoonotic or cross-species transmission applies.</li>
+</ul>
+<h2>15. Model organisms and experimental systems</h2>
+<h3>Mouse</h3>
+<p>The <strong>Cln8^mnd</strong> mouse is the principal mammalian model. It supports studies of lysosomal dysfunction, storage accumulation, neuron loss, glial responses, myelination, phospholipid metabolism, and therapeutic timing. Its limitation is allelic mismatch: a disruptive insertion produces a phenotype more severe than human p.Arg24Gly Northern epilepsy. A precise p.Arg24Gly knock-in would offer better construct validity; Finnish-disease modeling experts have emphasized exact CRISPR knock-ins as a future direction. (<a href="#ref-zarybnicky2021modelingrarehuman-pages-15-16">zarybnicky2021modelingrarehuman pages 15-16</a>, <a href="#ref-zarybnicky2021modelingrarehuman-pages-14-15">zarybnicky2021modelingrarehuman pages 14-15</a>)</p>
+<h3>Zebrafish—2024 development</h3>
+<p>A 2024 <em>Neurobiology of Disease</em> study developed a novel <strong>cln8 zebrafish</strong> model and reported that targeting autophagy impairment improved phenotype: Marchese et al., “Targeting autophagy impairment improves the phenotype of a novel cln8 zebrafish model,” published July 2024, DOI <a href="https://doi.org/10.1016/j.nbd.2024.106536">10.1016/j.nbd.2024.106536</a>. This is preclinical model-organism evidence, not proof of efficacy in patients.</p>
+<h3>Cellular systems</h3>
+<p>CLN8 knockout human cell lines, patient fibroblasts, and neuronal systems can assess ER–Golgi cargo trafficking, lysosomal enzyme abundance, autophagic flux, and lipidomics. No mature Northern-epilepsy-specific iPSC-neuron/organoid platform or validated high-throughput CRISPR screen was identified in the retrieved literature.</p>
+<h2>Recent developments and expert analysis</h2>
+<ol>
+<li><strong>2023:</strong> modern ER-export reviews placed the CLN6–CLN8 complex within selective COPII-dependent cargo export and emphasized receptor recycling between early secretory compartments. Raote et al., published August 2023, DOI <a href="https://doi.org/10.1101/cshperspect.a041258">10.1101/cshperspect.a041258</a>. (<a href="#ref-raote2023sortingandexport-pages-14-15">raote2023sortingandexport pages 14-15</a>)</li>
+<li><strong>2024:</strong> a new cln8 zebrafish study provided direct experimental support for autophagy as a modifiable downstream pathway.</li>
+<li><strong>2024:</strong> broader lysosomal research increasingly framed lysosomes as signaling, nutrient-sensing, membrane-repair, and lipid-homeostasis organelles—not merely waste-disposal compartments—strengthening the mechanistic context for CLN8 disease.</li>
+<li><strong>Current expert interpretation:</strong> the strongest therapeutic strategy will probably need to act early and correct the upstream CLN8 defect or several convergent consequences. Autophagy modulation alone may improve model phenotypes but may not restore cargo trafficking or lipid composition. Combination approaches and biomarkers sensitive to presymptomatic disease are therefore priorities.</li>
+<li><strong>2025 biochemical advance:</strong> CLN8 acyltransferase activity and bis(monoacylglycero)phosphate biosynthesis offer a new mechanistic hypothesis. This postdates the requested 2023–2024 priority window but materially updates current understanding. (<a href="#ref-sheokand2025tramlag1cln8familyproteins-pages-2-3">sheokand2025tramlag1cln8familyproteins pages 2-3</a>)</li>
+</ol>
+<h2>Evidence gaps and curation cautions</h2>
+<ul>
+<li>Robust prevalence, incidence, sex ratio, carrier frequency, survival, and quality-of-life statistics are lacking or were not verifiable from the retrieved corpus.</li>
+<li>Founder-specific clinical frequencies should not be inferred from pooled CLN8 disease cohorts.</li>
+<li>Early blindness and myoclonus are characteristic of severe CLN8 disease but are explicitly absent from the canonical p.Arg24Gly phenotype. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</li>
+<li>No Northern-epilepsy-specific pharmacogenomic association, validated fluid biomarker, epigenetic signature, single-cell atlas, spatial-transcriptomic dataset, controlled treatment trial, or approved targeted therapy was identified.</li>
+<li>Exact MONDO/Orphanet identifiers, current ClinVar assertions, gnomAD frequencies, and current MANE HGVS should be verified directly before knowledge-base release.</li>
+</ul>
+<h2>Selected sources</h2>
+<ul>
+<li>Kousi M, Lehesjoki A-E, Mole SE. “Update of the mutation spectrum and clinical correlations of over 360 mutations in eight genes that underlie the neuronal ceroid lipofuscinoses.” <em>Human Mutation</em>. Published January 2012. DOI: <a href="https://doi.org/10.1002/humu.21624">10.1002/humu.21624</a>. Key source for CLN8 locus, founder p.Arg24Gly, protein localization, allelic spectrum, and genotype–phenotype correlation. (<a href="#ref-kousi2012updateofthe-pages-13-14">kousi2012updateofthe pages 13-14</a>)</li>
+<li>Kaminiów K, Kozak S, Paprocka J. “Recent Insight into the Genetic Basis, Clinical Features, and Diagnostic Methods for Neuronal Ceroid Lipofuscinosis.” <em>International Journal of Molecular Sciences</em>. Published May 2022. DOI: <a href="https://doi.org/10.3390/ijms23105729">10.3390/ijms23105729</a>. (<a href="#ref-kaminiow2022recentinsightinto-pages-12-13">kaminiow2022recentinsightinto pages 12-13</a>, <a href="#ref-kaminiow2022recentinsightinto-pages-13-15">kaminiow2022recentinsightinto pages 13-15</a>)</li>
+<li>Kim WD et al. “Autophagy in the Neuronal Ceroid Lipofuscinoses (Batten Disease).” <em>Frontiers in Cell and Developmental Biology</em>. Published February 2022. DOI: <a href="https://doi.org/10.3389/fcell.2022.812728">10.3389/fcell.2022.812728</a>. (<a href="#ref-kim2022autophagyinthe-pages-14-15">kim2022autophagyinthe pages 14-15</a>)</li>
+<li>Zárybnický T et al. “Modeling Rare Human Disorders in Mice: The Finnish Disease Heritage.” <em>Cells</em>. Published November 2021. DOI: <a href="https://doi.org/10.3390/cells10113158">10.3390/cells10113158</a>. (<a href="#ref-zarybnicky2021modelingrarehuman-pages-15-16">zarybnicky2021modelingrarehuman pages 15-16</a>, <a href="#ref-zarybnicky2021modelingrarehuman-pages-14-15">zarybnicky2021modelingrarehuman pages 14-15</a>)</li>
+<li>Sheokand PK et al. “TRAM-LAG1-CLN8 family proteins are acyltransferases regulating phospholipid composition.” <em>Science Advances</em>. Published February 19, 2025. DOI: <a href="https://doi.org/10.1126/sciadv.adr3723">10.1126/sciadv.adr3723</a>. (<a href="#ref-sheokand2025tramlag1cln8familyproteins-pages-9-10">sheokand2025tramlag1cln8familyproteins pages 9-10</a>, <a href="#ref-sheokand2025tramlag1cln8familyproteins-pages-2-3">sheokand2025tramlag1cln8familyproteins pages 2-3</a>)</li>
+</ul>
+<p><strong>Evidence labels:</strong> founder genotype and clinical distinction—human cohort/mutation evidence; MRI/EEG/retinal summaries—broader human CLN8-spectrum evidence; trafficking/autophagy/lipid pathways—mainly cellular and model-organism evidence; treatment concepts—preclinical or general NCL expert opinion unless explicitly identified as clinical registry practice.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-kousi2012updateofthe-pages-13-14"></a>(kousi2012updateofthe pages 13-14): Maria Kousi, Anna-Elina Lehesjoki, and Sara E. Mole. Update of the mutation spectrum and clinical correlations of over 360 mutations in eight genes that underlie the neuronal ceroid lipofuscinoses. Human Mutation, 33:42-63, Jan 2012. URL: <a href="https://doi.org/10.1002/humu.21624" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/humu.21624</a>, <a href="https://doi.org/10.1002/humu.21624" target="_blank" rel="noopener noreferrer">doi:10.1002/humu.21624</a>. This article has 402 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct04613089-chunk-1"></a>(NCT04613089 chunk 1): Angela Schulz. Natural History and Longitudinal Clinical Assessments in NCL / Batten Disease, the International DEM-CHILD Database. Universitätsklinikum Hamburg-Eppendorf. 2020. ClinicalTrials.gov Identifier: NCT04613089</p>
+</li>
+<li>
+<p><a id="ref-nct01873924-chunk-1"></a>(NCT01873924 chunk 1): Jennifer Vermilion. Clinical and Neuropsychological Investigations in Batten Disease. University of Rochester. 2004. ClinicalTrials.gov Identifier: NCT01873924</p>
+</li>
+<li>
+<p><a id="ref-zarybnicky2021modelingrarehuman-pages-14-15"></a>(zarybnicky2021modelingrarehuman pages 14-15): Tomáš Zárybnický, Anne Heikkinen, Salla M. Kangas, Marika Karikoski, Guillermo Antonio Martínez-Nieto, Miia H. Salo, Johanna Uusimaa, Reetta Vuolteenaho, Reetta Hinttala, Petra Sipilä, and Satu Kuure. Modeling rare human disorders in mice: the finnish disease heritage. Cells, 10:3158, Nov 2021. URL: <a href="https://doi.org/10.3390/cells10113158" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells10113158</a>, <a href="https://doi.org/10.3390/cells10113158" target="_blank" rel="noopener noreferrer">doi:10.3390/cells10113158</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-kaminiow2022recentinsightinto-pages-13-15"></a>(kaminiow2022recentinsightinto pages 13-15): Konrad Kaminiów, Sylwia Kozak, and Justyna Paprocka. Recent insight into the genetic basis, clinical features, and diagnostic methods for neuronal ceroid lipofuscinosis. International Journal of Molecular Sciences, 23:5729, May 2022. URL: <a href="https://doi.org/10.3390/ijms23105729" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms23105729</a>, <a href="https://doi.org/10.3390/ijms23105729" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms23105729</a>. This article has 47 citations.</p>
+</li>
+<li>
+<p><a id="ref-kim2022autophagyinthe-pages-14-15"></a>(kim2022autophagyinthe pages 14-15): William D. Kim, Morgan L. D. M. Wilson-Smillie, Aruban Thanabalasingam, Stephane Lefrancois, Susan L. Cotman, and Robert J. Huber. Autophagy in the neuronal ceroid lipofuscinoses (batten disease). Frontiers in Cell and Developmental Biology, Feb 2022. URL: <a href="https://doi.org/10.3389/fcell.2022.812728" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fcell.2022.812728</a>, <a href="https://doi.org/10.3389/fcell.2022.812728" target="_blank" rel="noopener noreferrer">doi:10.3389/fcell.2022.812728</a>. This article has 36 citations.</p>
+</li>
+<li>
+<p><a id="ref-raote2023sortingandexport-pages-14-15"></a>(raote2023sortingandexport pages 14-15): Ishier Raote, Sonashree Saxena, and Vivek Malhotra. Sorting and export of proteins at the endoplasmic reticulum. Cold Spring Harbor perspectives in biology, 15:a041258, Aug 2023. URL: <a href="https://doi.org/10.1101/cshperspect.a041258" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/cshperspect.a041258</a>, <a href="https://doi.org/10.1101/cshperspect.a041258" target="_blank" rel="noopener noreferrer">doi:10.1101/cshperspect.a041258</a>. This article has 42 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-sheokand2025tramlag1cln8familyproteins-pages-2-3"></a>(sheokand2025tramlag1cln8familyproteins pages 2-3): Pradeep K. Sheokand, Andrew M. James, Benjamin Jenkins, Pawel K. Lysyganicz, Denis Lacabanne, Martin S. King, Edmund R. S. Kunji, Symeon Siniossoglou, Albert Koulman, Michael P. Murphy, and Kasparas Petkevicius. Tram-lag1-cln8 family proteins are acyltransferases regulating phospholipid composition. Feb 2025. URL: <a href="https://doi.org/10.1126/sciadv.adr3723" target="_blank" rel="noopener noreferrer">https://doi.org/10.1126/sciadv.adr3723</a>, <a href="https://doi.org/10.1126/sciadv.adr3723" target="_blank" rel="noopener noreferrer">doi:10.1126/sciadv.adr3723</a>. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-takahashi2022glialdysfunctionand-pages-7-8"></a>(takahashi2022glialdysfunctionand pages 7-8): Keigo Takahashi, Hemanth R. Nelvagal, Jenny Lange, and Jonathan D. Cooper. Glial dysfunction and its contribution to the pathogenesis of the neuronal ceroid lipofuscinoses. Frontiers in Neurology, Apr 2022. URL: <a href="https://doi.org/10.3389/fneur.2022.886567" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fneur.2022.886567</a>, <a href="https://doi.org/10.3389/fneur.2022.886567" target="_blank" rel="noopener noreferrer">doi:10.3389/fneur.2022.886567</a>. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhang2025neuronalceroidlipofuscinosis-concepts-pages-16-17"></a>(zhang2025neuronalceroidlipofuscinosis—concepts pages 16-17): Yuheng Zhang, Bingying Du, Miaozhan Zou, Bo Peng, and Yanxia Rao. Neuronal ceroid lipofuscinosis—concepts, classification, and avenues for therapy. CNS Neuroscience &amp; Therapeutics, Feb 2025. URL: <a href="https://doi.org/10.1111/cns.70261" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/cns.70261</a>, <a href="https://doi.org/10.1111/cns.70261" target="_blank" rel="noopener noreferrer">doi:10.1111/cns.70261</a>. This article has 25 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-kaminiow2022recentinsightinto-pages-12-13"></a>(kaminiow2022recentinsightinto pages 12-13): Konrad Kaminiów, Sylwia Kozak, and Justyna Paprocka. Recent insight into the genetic basis, clinical features, and diagnostic methods for neuronal ceroid lipofuscinosis. International Journal of Molecular Sciences, 23:5729, May 2022. URL: <a href="https://doi.org/10.3390/ijms23105729" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms23105729</a>, <a href="https://doi.org/10.3390/ijms23105729" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms23105729</a>. This article has 47 citations.</p>
+</li>
+<li>
+<p><a id="ref-zarybnicky2021modelingrarehuman-pages-15-16"></a>(zarybnicky2021modelingrarehuman pages 15-16): Tomáš Zárybnický, Anne Heikkinen, Salla M. Kangas, Marika Karikoski, Guillermo Antonio Martínez-Nieto, Miia H. Salo, Johanna Uusimaa, Reetta Vuolteenaho, Reetta Hinttala, Petra Sipilä, and Satu Kuure. Modeling rare human disorders in mice: the finnish disease heritage. Cells, 10:3158, Nov 2021. URL: <a href="https://doi.org/10.3390/cells10113158" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells10113158</a>, <a href="https://doi.org/10.3390/cells10113158" target="_blank" rel="noopener noreferrer">doi:10.3390/cells10113158</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-sheokand2025tramlag1cln8familyproteins-pages-9-10"></a>(sheokand2025tramlag1cln8familyproteins pages 9-10): Pradeep K. Sheokand, Andrew M. James, Benjamin Jenkins, Pawel K. Lysyganicz, Denis Lacabanne, Martin S. King, Edmund R. S. Kunji, Symeon Siniossoglou, Albert Koulman, Michael P. Murphy, and Kasparas Petkevicius. Tram-lag1-cln8 family proteins are acyltransferases regulating phospholipid composition. Feb 2025. URL: <a href="https://doi.org/10.1126/sciadv.adr3723" target="_blank" rel="noopener noreferrer">https://doi.org/10.1126/sciadv.adr3723</a>, <a href="https://doi.org/10.1126/sciadv.adr3723" target="_blank" rel="noopener noreferrer">doi:10.1126/sciadv.adr3723</a>. This article has 10 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Northern_Epilepsy-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="North_Carolina_Macular_Dystrophy-falcon.html">← North Carolina Macular Dystrophy (Falcon)</a>
+                
+                
+                <a href="NR5A1_Related_Sex_Development_Disorder-manual.html">NR5A1-related sex development disorder (Manual) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Northern_Epilepsy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Northern_Epilepsy-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

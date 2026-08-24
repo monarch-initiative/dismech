@@ -17,13 +17,14 @@ Alias: context
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
-| [Stage](../classes/Stage.md) |  |  no  |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
 | [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |  |  no  |
 | [HistopathologyFinding](../classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |  yes  |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
 | [Treatment](../classes/Treatment.md) |  |  no  |
-| [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
+| [ImagingFinding](../classes/ImagingFinding.md) | A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc |  yes  |
 
 
 
@@ -37,7 +38,7 @@ Alias: context
 | Property | Value |
 | --- | --- |
 | Range | [String](../types/String.md) |
-| Domain Of | [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [Stage](../classes/Stage.md), [AgentLifeCycle](../classes/AgentLifeCycle.md), [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md), [Treatment](../classes/Treatment.md) |
+| Domain Of | [Phenotype](../classes/Phenotype.md), [Biochemical](../classes/Biochemical.md), [HistopathologyFinding](../classes/HistopathologyFinding.md), [ImagingFinding](../classes/ImagingFinding.md), [Stage](../classes/Stage.md), [AgentLifeCycle](../classes/AgentLifeCycle.md), [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md), [Treatment](../classes/Treatment.md) |
 
 ### Cardinality and Requirements
 
@@ -98,6 +99,7 @@ domain_of:
 - Phenotype
 - Biochemical
 - HistopathologyFinding
+- ImagingFinding
 - Stage
 - AgentLifeCycle
 - AgentLifeCycleStage

@@ -249,6 +249,62 @@ def test_mondo_id_match_falls_back_to_file_when_label_differs(tmp_path: Path) ->
     assert results[0].score < 0
 
 
+def test_coverage_index_only_counts_exact_and_narrow_mondo_mappings(
+    tmp_path: Path,
+) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    _write_yaml(
+        kb_dir / "Mapped_Disease.yaml",
+        {
+            "name": "Mapped Disease",
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "root disease"}},
+            "has_subtypes": [
+                {
+                    "name": "Subtype",
+                    "subtype_term": {
+                        "term": {"id": "MONDO:0000002", "label": "subtype"}
+                    },
+                }
+            ],
+            "mappings": {
+                "mondo_mappings": [
+                    {
+                        "term": {"id": "MONDO:0000003", "label": "exact match"},
+                        "mapping_predicate": "skos:exactMatch",
+                    },
+                    {
+                        "term": {"id": "MONDO:0000004", "label": "narrow match"},
+                        "mapping_predicate": "skos:narrowMatch",
+                    },
+                    {
+                        "term": {"id": "MONDO:0000005", "label": "broad match"},
+                        "mapping_predicate": "skos:broadMatch",
+                    },
+                    {
+                        "term": {"id": "MONDO:0000006", "label": "close match"},
+                        "mapping_predicate": "skos:closeMatch",
+                    },
+                    {
+                        "term": {"id": "MONDO:0000007", "label": "related match"},
+                        "mapping_predicate": "skos:relatedMatch",
+                    },
+                    {"term": {"id": "MONDO:0000008", "label": "missing predicate"}},
+                ]
+            },
+        },
+    )
+
+    coverage = build_coverage_index(kb_dir)
+
+    assert coverage.curated_ids == {
+        "MONDO:0000001",
+        "MONDO:0000002",
+        "MONDO:0000003",
+        "MONDO:0000004",
+    }
+
+
 def test_config_override_changes_weighted_score(tmp_path: Path) -> None:
     kb_dir = _build_kb_dir(tmp_path)
     candidate_path = tmp_path / "candidates.tsv"

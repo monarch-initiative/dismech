@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1857,32 +2019,32 @@ Circulating tumor DNA and other liquid biopsy approaches are emerging as non-inv
 - <strong>Indication:</strong> First-line systemic therapy for advanced progressive RAI-refractory DTC, including FTC
 - <strong>Efficacy:</strong> Real-world data showed <strong>disease control rate 97.7%</strong>, <strong>median PFS 21.8 months</strong>, first objective response at <strong>3.8 months</strong> (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)
 - <strong>Adverse Events:</strong> <strong>100% of patients</strong> experienced adverse events; <strong>grade 3-4 AEs in 23.2%</strong>; most common AE was fatigue/asthenia; dose reduction from median starting dose of 20 mg to sustainable dose of 10 mg was common (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
 <p><strong>Sorafenib:</strong>
 - <strong>Mechanism:</strong> Inhibitor of VEGFR, PDGFR, RAF kinases
 - <strong>Indication:</strong> First-line alternative to lenvatinib for advanced progressive RAI-refractory DTC
 - <strong>Efficacy:</strong> Established efficacy from DECISION trial; improves PFS versus placebo
 - <strong>Adverse Events:</strong> Hand-foot skin reaction, diarrhea, fatigue, hypertension, weight loss
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
 <p><strong>Cabozantinib:</strong>
 - <strong>Mechanism:</strong> Inhibitor of VEGFR, MET, AXL, RET
 - <strong>Indication:</strong> Second-line therapy for RAI-refractory DTC after progression on VEGFR-targeted MKIs
 - <strong>Efficacy:</strong> Recognized as standard second-line treatment option (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
 <h3>Advanced Therapeutics</h3>
 <p><strong>Targeted Therapies for Molecular Alterations:</strong></p>
 <p><strong>RET Inhibitors (Selpercatinib, Pralsetinib):</strong>
 - <strong>Indication:</strong> RET fusion-positive advanced thyroid cancer (rare in FTC)
 - <strong>Efficacy:</strong> High objective response rates (78.9-100% in small cohorts) (<a href="#ref-capdevila2022moleculardiagnosisand-pages-3-4">capdevila2022moleculardiagnosisand pages 3-4</a>)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
 <p><strong>NTRK Inhibitors (Larotrectinib, Entrectinib):</strong>
 - <strong>Indication:</strong> NTRK fusion-positive thyroid cancer (rare; NTRK fusions reported in 2.5-25.9% of thyroid cancers overall)
 - <strong>Efficacy:</strong> <strong>ORR 71%</strong> in thyroid cancer cohort with larotrectinib; <strong>86% response rate in DTC</strong> (<a href="#ref-capdevila2022moleculardiagnosisand-pages-3-4">capdevila2022moleculardiagnosisand pages 3-4</a>)
 - <strong>Safety:</strong> Favorable profile; grade 3 AE rate 7% with larotrectinib (<a href="#ref-capdevila2022moleculardiagnosisand-pages-3-4">capdevila2022moleculardiagnosisand pages 3-4</a>)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
 <p><strong>BRAF/MEK Inhibitors (Dabrafenib + Trametinib):</strong>
 - <strong>Indication:</strong> BRAF V600E-mutated thyroid cancers (rare in FTC; more relevant to PTC and ATC)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a> (tyrosine kinase inhibitor therapy)</p>
 <p><strong>Redifferentiation Therapy:</strong>
 - <strong>Concept:</strong> Use of targeted agents (e.g., MEK inhibitors) to restore iodine uptake in dedifferentiated tumors, followed by RAI therapy
 - <strong>Status:</strong> Investigational; <strong>promising but not excellent results</strong> reported (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)</p>
@@ -1890,21 +2052,21 @@ Circulating tumor DNA and other liquid biopsy approaches are emerging as non-inv
 <p><strong>Immune Checkpoint Inhibitors (ICIs):</strong>
 - <strong>Status:</strong> Under investigation, particularly in combination with tyrosine kinase inhibitors
 - <strong>Evidence:</strong> Described as <strong>promising</strong> but not yet established standard therapy for FTC (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)
-- <strong>Suggested MAXO term:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0001481" target="_blank" rel="noopener noreferrer">MAXO:0001481</a> (immune checkpoint inhibitor therapy)</p>
+- <strong>Suggested MAXO term:</strong> <a href="https://bioregistry.io/MAXO:0001481" target="_blank" rel="noopener noreferrer">MAXO:0001481</a> (immune checkpoint inhibitor therapy)</p>
 <h3>Surgical Interventions</h3>
 <p><strong>Lobectomy (Hemithyroidectomy):</strong>
 - <strong>Indication:</strong> Selected localized, lower-risk differentiated thyroid carcinoma when disease is intrathyroidal and limited
 - <strong>Efficacy:</strong> <strong>Not associated with increased risk of death</strong> compared with more extensive surgery in appropriately selected patients (<a href="#ref-zhang2023riskfactorsfor-pages-1-2">zhang2023riskfactorsfor pages 1-2</a>)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000136" target="_blank" rel="noopener noreferrer">MAXO:0000136</a> (lobectomy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000136" target="_blank" rel="noopener noreferrer">MAXO:0000136</a> (lobectomy)</p>
 <p><strong>Total Thyroidectomy:</strong>
 - <strong>Indication:</strong> Standard approach for most FTC cases, particularly with bilateral disease, larger tumors, invasive features, or when postoperative radioiodine therapy is planned
 - <strong>Efficacy:</strong> Part of standard curative approach achieving <strong>10-year survival &gt;90%</strong> in localized disease (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)
 - <strong>Complications:</strong> Hypoparathyroidism, recurrent laryngeal nerve injury
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000137" target="_blank" rel="noopener noreferrer">MAXO:0000137</a> (thyroidectomy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000137" target="_blank" rel="noopener noreferrer">MAXO:0000137</a> (thyroidectomy)</p>
 <p><strong>Completion Thyroidectomy:</strong>
 - <strong>Indication:</strong> Post-lobectomy high-risk pathology revealing invasive FTC, larger tumor, or features warranting RAI
 - <strong>Rationale:</strong> <strong>Non-radical resection</strong> associated with increased mortality risk (<a href="#ref-zhang2023riskfactorsfor-pages-1-2">zhang2023riskfactorsfor pages 1-2</a>)
-- <strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000137" target="_blank" rel="noopener noreferrer">MAXO:0000137</a> (thyroidectomy)</p>
+- <strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000137" target="_blank" rel="noopener noreferrer">MAXO:0000137</a> (thyroidectomy)</p>
 <h3>Radioactive Iodine (RAI) Therapy</h3>
 <p><strong>Indication:</strong>
 - Adjuvant or therapeutic use after thyroidectomy in iodine-avid differentiated thyroid carcinoma
@@ -1914,7 +2076,7 @@ Circulating tumor DNA and other liquid biopsy approaches are emerging as non-inv
 - However, approximately <strong>5-15% of DTC patients</strong> develop RAI-refractory disease with poorer prognosis (<a href="#ref-vico2025systemictherapeuticoptions-pages-1-2">vico2025systemictherapeuticoptions pages 1-2</a>)</p>
 <p><strong>Limitations:</strong>
 - Ineffective once tumors lose iodine avidity; repeated ineffective RAI should be avoided in true RAI-refractory disease</p>
-<p><strong>MAXO term suggestion:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000116" target="_blank" rel="noopener noreferrer">MAXO:0000116</a> (radioactive iodine therapy)</p>
+<p><strong>MAXO term suggestion:</strong> <a href="https://bioregistry.io/MAXO:0000116" target="_blank" rel="noopener noreferrer">MAXO:0000116</a> (radioactive iodine therapy)</p>
 <h3>Supportive Care</h3>
 <p><strong>Active Surveillance:</strong>
 - <strong>Indication:</strong> Indolent, asymptomatic, low-burden RAI-refractory or metastatic DTC with slow tumor growth
@@ -2040,11 +2202,11 @@ Specific limitations of FTC models, including differences in tumor microenvironm
 </ul>
 <h3>Medical Action Ontology (MAXO) Suggestions</h3>
 <ul>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000137" target="_blank" rel="noopener noreferrer">MAXO:0000137</a>: thyroidectomy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000136" target="_blank" rel="noopener noreferrer">MAXO:0000136</a>: lobectomy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000116" target="_blank" rel="noopener noreferrer">MAXO:0000116</a>: radioactive iodine therapy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a>: tyrosine kinase inhibitor therapy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0001481" target="_blank" rel="noopener noreferrer">MAXO:0001481</a>: immune checkpoint inhibitor therapy</li>
+<li><a href="https://bioregistry.io/MAXO:0000137" target="_blank" rel="noopener noreferrer">MAXO:0000137</a>: thyroidectomy</li>
+<li><a href="https://bioregistry.io/MAXO:0000136" target="_blank" rel="noopener noreferrer">MAXO:0000136</a>: lobectomy</li>
+<li><a href="https://bioregistry.io/MAXO:0000116" target="_blank" rel="noopener noreferrer">MAXO:0000116</a>: radioactive iodine therapy</li>
+<li><a href="https://bioregistry.io/MAXO:0000605" target="_blank" rel="noopener noreferrer">MAXO:0000605</a>: tyrosine kinase inhibitor therapy</li>
+<li><a href="https://bioregistry.io/MAXO:0001481" target="_blank" rel="noopener noreferrer">MAXO:0001481</a>: immune checkpoint inhibitor therapy</li>
 </ul>
 <hr />
 <h2>EVIDENCE SUMMARY</h2>
@@ -2116,7 +2278,7 @@ Specific limitations of FTC models, including differences in tumor microenvironm
 
             <nav class="report-nav" aria-label="Report navigation">
                 
-                <a href="Thymoma-manual.html">← Thymoma (Manual)</a>
+                <a href="Thymus_Neoplasm-perplexity.html">← Thymus Neoplasm (Perplexity)</a>
                 
                 
                 <a href="TNF_Receptor-Associated_Periodic_Syndrome-claude_code.html">TNF Receptor-Associated Periodic Syndrome (Claude Code) →</a>

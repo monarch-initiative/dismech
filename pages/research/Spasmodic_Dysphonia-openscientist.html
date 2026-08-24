@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1338,7 +1500,7 @@ DOWNSTREAM (Clinical Manifestation)
 <hr />
 <h2>12. Treatment</h2>
 <h3>Pharmacotherapy: Botulinum Toxin A (Standard of Care)</h3>
-<p><strong><a href="http://purl.obolibrary.org/obo/MAXO_0009016" target="_blank" rel="noopener noreferrer">MAXO:0009016</a></strong> (Botulinum toxin type A therapy); <strong><a href="http://purl.obolibrary.org/obo/CHEBI_3160" target="_blank" rel="noopener noreferrer">CHEBI:3160</a></strong></p>
+<p><strong><a href="https://bioregistry.io/MAXO:0009016" target="_blank" rel="noopener noreferrer">MAXO:0009016</a></strong> (Botulinum toxin type A therapy); <strong><a href="http://purl.obolibrary.org/obo/CHEBI_3160" target="_blank" rel="noopener noreferrer">CHEBI:3160</a></strong></p>
 <p>BtxA injection is the mainstay treatment. "A positive effect of bilateral botulinum toxin injections was found for the objective voice outcome, subjective voice outcome, and quality of life. The duration of the beneficial effect ranged from 15 to 18 weeks." (<a href="https://pubmed.ncbi.nlm.nih.gov/27803079/">PMID: 27803079</a>)</p>
 <details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
 <thead>
@@ -1389,7 +1551,7 @@ DOWNSTREAM (Clinical Manifestation)
 <p>Long-term serial injections show: "Translaryngeal airflow, jitter, and shimmer improved significantly after serial BT treatments and showed sustained improvement over time." (<a href="https://pubmed.ncbi.nlm.nih.gov/11296047/">PMID: 11296047</a>)</p>
 <p>For <strong>abductor SD</strong>, BtxA into posterior cricoarytenoid muscles achieves improvement in ~70% but with shorter efficacy. Bilateral vocal fold medialization is an alternative showing significant VHI and V-RQOL improvement (<a href="https://pubmed.ncbi.nlm.nih.gov/29132808/">PMID: 29132808</a>).</p>
 <h3>Surgical Interventions</h3>
-<p><strong><a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a></strong> (Surgical procedure)</p>
+<p><strong><a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a></strong> (Surgical procedure)</p>
 <details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
 <thead>
 <tr>
@@ -1446,8 +1608,8 @@ DOWNSTREAM (Clinical Manifestation)
 </table></div></details>
 <h3>Supportive and Rehabilitative</h3>
 <ul>
-<li><strong>Voice therapy</strong> (<a href="http://purl.obolibrary.org/obo/MAXO_0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a>): Adjunct to BtxA or surgery; focus on compensatory strategies, breath management, relaxation techniques</li>
-<li><strong>Psychological support</strong> (<a href="http://purl.obolibrary.org/obo/MAXO_0000016" target="_blank" rel="noopener noreferrer">MAXO:0000016</a>): Critical given depression as strongest QoL predictor. Compassion focused therapy proposed (<a href="https://pubmed.ncbi.nlm.nih.gov/40952370/">PMID: 40952370</a>)</li>
+<li><strong>Voice therapy</strong> (<a href="https://bioregistry.io/MAXO:0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a>): Adjunct to BtxA or surgery; focus on compensatory strategies, breath management, relaxation techniques</li>
+<li><strong>Psychological support</strong> (<a href="https://bioregistry.io/MAXO:0000016" target="_blank" rel="noopener noreferrer">MAXO:0000016</a>): Critical given depression as strongest QoL predictor. Compassion focused therapy proposed (<a href="https://pubmed.ncbi.nlm.nih.gov/40952370/">PMID: 40952370</a>)</li>
 </ul>
 <h3>Experimental and Emerging Therapies</h3>
 <ul>
@@ -1474,32 +1636,32 @@ DOWNSTREAM (Clinical Manifestation)
 <tbody>
 <tr>
 <td>Botulinum toxin type A therapy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0009016" target="_blank" rel="noopener noreferrer">MAXO:0009016</a></td>
+<td><a href="https://bioregistry.io/MAXO:0009016" target="_blank" rel="noopener noreferrer">MAXO:0009016</a></td>
 <td>Standard of care</td>
 </tr>
 <tr>
 <td>Surgical denervation</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000475" target="_blank" rel="noopener noreferrer">MAXO:0000475</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000475" target="_blank" rel="noopener noreferrer">MAXO:0000475</a></td>
 <td>Strong evidence</td>
 </tr>
 <tr>
 <td>Deep brain stimulation</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000943" target="_blank" rel="noopener noreferrer">MAXO:0000943</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000943" target="_blank" rel="noopener noreferrer">MAXO:0000943</a></td>
 <td>Case reports (DYT-TUBB4A)</td>
 </tr>
 <tr>
 <td>Speech therapy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a></td>
 <td>Adjunct</td>
 </tr>
 <tr>
 <td>Laryngoscopy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0001189" target="_blank" rel="noopener noreferrer">MAXO:0001189</a></td>
+<td><a href="https://bioregistry.io/MAXO:0001189" target="_blank" rel="noopener noreferrer">MAXO:0001189</a></td>
 <td>Diagnostic standard</td>
 </tr>
 <tr>
 <td>Electromyography</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0035091" target="_blank" rel="noopener noreferrer">MAXO:0035091</a></td>
+<td><a href="https://bioregistry.io/MAXO:0035091" target="_blank" rel="noopener noreferrer">MAXO:0035091</a></td>
 <td>Diagnostic/guidance</td>
 </tr>
 </tbody>
@@ -1958,14 +2120,14 @@ LEVEL 4: CLINICAL MANIFESTATION
 </ul>
 <h3>MAXO Terms (Treatment)</h3>
 <ul>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0009016" target="_blank" rel="noopener noreferrer">MAXO:0009016</a> -- Botulinum toxin type A therapy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> -- Surgical procedure</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000475" target="_blank" rel="noopener noreferrer">MAXO:0000475</a> -- Surgical denervation</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000943" target="_blank" rel="noopener noreferrer">MAXO:0000943</a> -- Deep brain stimulation</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a> -- Speech therapy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0000016" target="_blank" rel="noopener noreferrer">MAXO:0000016</a> -- Psychotherapy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0001189" target="_blank" rel="noopener noreferrer">MAXO:0001189</a> -- Laryngoscopy</li>
-<li><a href="http://purl.obolibrary.org/obo/MAXO_0035091" target="_blank" rel="noopener noreferrer">MAXO:0035091</a> -- Electromyography</li>
+<li><a href="https://bioregistry.io/MAXO:0009016" target="_blank" rel="noopener noreferrer">MAXO:0009016</a> -- Botulinum toxin type A therapy</li>
+<li><a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> -- Surgical procedure</li>
+<li><a href="https://bioregistry.io/MAXO:0000475" target="_blank" rel="noopener noreferrer">MAXO:0000475</a> -- Surgical denervation</li>
+<li><a href="https://bioregistry.io/MAXO:0000943" target="_blank" rel="noopener noreferrer">MAXO:0000943</a> -- Deep brain stimulation</li>
+<li><a href="https://bioregistry.io/MAXO:0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a> -- Speech therapy</li>
+<li><a href="https://bioregistry.io/MAXO:0000016" target="_blank" rel="noopener noreferrer">MAXO:0000016</a> -- Psychotherapy</li>
+<li><a href="https://bioregistry.io/MAXO:0001189" target="_blank" rel="noopener noreferrer">MAXO:0001189</a> -- Laryngoscopy</li>
+<li><a href="https://bioregistry.io/MAXO:0035091" target="_blank" rel="noopener noreferrer">MAXO:0035091</a> -- Electromyography</li>
 </ul>
 <hr />
 <p><em>Report generated from 5 iterations of autonomous scientific investigation, reviewing 109 papers and confirming 11 findings. Investigation completed 2026-06-03.</em></p>

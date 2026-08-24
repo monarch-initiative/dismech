@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -256,6 +375,61 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -316,7 +490,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -354,6 +527,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         /* Mechanistic hypotheses */
         .hypothesis-box {
             background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
@@ -361,6 +552,8 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
+        /* Keep curator-written paragraph breaks in hypothesis descriptions. */
+        .hypothesis-box .item-desc { white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -380,6 +573,57 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .evidence-support {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .support-SUPPORT { background: #d1fae5; color: #065f46; }
+        .support-PARTIAL { background: #fef3c7; color: #92400e; }
+        .support-REFUTE { background: #fee2e2; color: #991b1b; }
+        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
+        .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
             font-size: 0.82rem;
@@ -524,8 +768,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -555,6 +807,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -678,6 +959,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -689,6 +1011,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -859,19 +1184,39 @@
                 .text(label);
 
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
         });
 
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -1007,8 +1352,26 @@
                 html.push(readoutHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1021,6 +1384,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -1086,11 +1455,55 @@
 </head>
 <body>
     
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
 
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     
 
     
 
+    
+
+    
     
     <nav class="site-nav">
         <div class="nav-inner">
@@ -1127,7 +1540,7 @@
             <div class="header-meta">
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">cardiomyopathy_maladaptive_remodeling</span>
-                <span class="badge badge-count">6 disorders</span>
+                <span class="badge badge-count">29 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1158,16 +1571,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-cell">
                         Cardiomyocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Cardiomyocyte (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1179,16 +1597,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-cell">
                         Cardiac Fibroblast
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002548</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Cardiac Fibroblast (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1213,16 +1636,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Sarcomere Organization
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045214">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0045214</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Sarcomere Organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1235,6 +1663,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Muscle Contraction
@@ -1242,10 +1672,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006936">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006936</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Muscle Contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1259,16 +1692,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Response to Angiotensin
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_1990776" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990776">GO:1990776</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990776" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:1990776</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Response to Angiotensin (GO:1990776). GO:1990776 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1281,6 +1719,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Cardiac Muscle Hypertrophy
@@ -1288,10 +1728,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0003300</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Cardiac Muscle Hypertrophy (GO:0003300). GO:0003300 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1304,6 +1747,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Cardiac Muscle Hypertrophy in Response to Stress
@@ -1311,10 +1756,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0014898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014898">GO:0014898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0014898</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Cardiac Muscle Hypertrophy in Response to Stress (GO:0014898). GO:0014898 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1327,6 +1775,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Extracellular Matrix Organization
@@ -1334,10 +1784,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030198</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1350,6 +1803,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Cardiomyocyte Apoptosis
@@ -1357,10 +1812,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0010659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010659">GO:0010659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0010659</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Cardiomyocyte Apoptosis (GO:0010659). GO:0010659 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1374,16 +1832,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Heart Contraction
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0060047</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves decreased Heart Contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1397,16 +1860,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Heart Contraction
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0060047</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Heart Contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1439,11 +1907,13 @@
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">29</span>
             </div>
             
             <div class="crosslink-list">
@@ -1457,6 +1927,41 @@
                         
                         
                         Fibrofatty myocardial replacement → Ventricular Remodeling
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cardiac_Sarcoidosis.html">Cardiac Sarcoidosis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Progressive Ventricular Dysfunction and Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.html">Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiomyocyte and Skeletal Muscle Energy Deficit → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy and Ventricular Remodeling → Ventricular Remodeling
                         
                         
                     </span>
@@ -1487,6 +1992,146 @@
                         
                         
                         Myocardial Fibrosis → Ventricular Remodeling
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        LMNA Variant and Nuclear Lamina Assembly Defect → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Loss and Myocardial Fibrosis → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Dilation and Systolic Dysfunction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Progressive Heart Failure and End-Stage Disease → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Alpha-Actinin-2 Z-Disc Dysfunction → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Neurohormonal Activation
+                        
+                        
+                        , 
+                        
+                        Adverse Ventricular Remodeling → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Dilation and Systolic Dysfunction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Heart Failure and Sudden Cardiac Death → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1B.html">Dilated Cardiomyopathy 1B</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Impaired Myocardial Contractility → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Dilation and Systolic Dysfunction → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac Troponin C Variant and Thin-Filament Regulatory Defect → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Neurohormonal Activation
+                        
+                        
+                        , 
+                        
+                        Adverse Ventricular Remodeling → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Dilation and Systolic Dysfunction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Heart Failure, Ventricular Arrhythmia and Sudden Cardiac Death → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_2A.html">Dilated Cardiomyopathy 2A</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Biallelic TNNI3 Loss of Function → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Dilation and Systolic Failure → Progressive Contractile Dysfunction
                         
                         
                     </span>
@@ -1534,6 +2179,301 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_2.html">Hypertrophic Cardiomyopathy 2</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac Troponin T Thin Filament Regulatory Defect → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy with Disarray and Fibrosis, Often Disproportionately Mild → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Diastolic Dysfunction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Progressive Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_20.html">Hypertrophic Cardiomyopathy 20</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac Z-Disc Destabilization Under Mechanical Load → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis → Ventricular Remodeling
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_21.html">Hypertrophic Cardiomyopathy 21</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Ventricular Dilation and End-Stage Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_25.html">Hypertrophic Cardiomyopathy 25</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Telethonin Z-Disc Titin-Capping and Stretch-Sensor Perturbation → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Ventricular Remodeling with Sigmoidal Septal Geometry → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Hypertrophy with Diastolic Dysfunction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Progressive Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_26.html">Hypertrophic Cardiomyopathy 26</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Filamin C Z-Disc Cross-Linking Defect → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy and Adverse Ventricular Remodeling → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Impaired Diastolic Relaxation and Myocardial Stiffening → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Heart Failure and Sudden Cardiac Death → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_3.html">Hypertrophic Cardiomyopathy 3</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Alpha-Tropomyosin Thin Filament Regulatory Defect → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy with Myofiber Disarray and Interstitial Fibrosis → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Diastolic Dysfunction and Left Ventricular Outflow Tract Obstruction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Progressive Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_4.html">Hypertrophic Cardiomyopathy 4</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        MYBPC3 Truncating Variant and Premature Termination Codon Generation → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Ventricular Hypertrophy, Disarray and Fibrosis → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Diastolic Dysfunction, Heart Failure and Arrhythmic Risk → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_7.html">Hypertrophic Cardiomyopathy 7</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiac Troponin I Inhibitory Dysfunction → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy, Myocyte Disarray and Interstitial Fibrosis → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Left Ventricular Hypertrophy with Diastolic Dysfunction → Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Heart Failure and Sudden Cardiac Death → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hypertrophic_Cardiomyopathy_8.html">Hypertrophic Cardiomyopathy 8</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        MYL3 Essential Light Chain Variant — Altered Lever-Arm and Actin Contact → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Cardiomyocyte Hypertrophy, Myocardial Stiffness and Fibrosis → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Diastolic Dysfunction and Restrictive Physiology → Progressive Contractile Dysfunction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Left_Ventricular_Noncompaction_10.html">Left Ventricular Noncompaction 10</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        MYBPC3 Loss-of-Function Variant and cMyBP-C Depletion → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Neonatal Structural Cardiac Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Left_Ventricular_Noncompaction_8.html">Left Ventricular Noncompaction 8</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Left Ventricular Dilation and Systolic Dysfunction → Ventricular Remodeling
+                        
+                        
+                        , 
+                        
+                        Congestive Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/MRPL44_Deficiency.html">MRPL44 Deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiomyocyte Bioenergetic Failure and Mitochondrial Proliferation → Primary Cardiomyocyte Insult
+                        
+                        
+                        , 
+                        
+                        Progressive Heart Failure → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Myocardial_Infarction.html">Myocardial Infarction</a>
                     
                     <span class="crosslink-desc">
@@ -1542,6 +2482,71 @@
                         
                         
                         Cardiac Fibrosis and Ventricular Remodeling → Ventricular Remodeling
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Myofibrillar_Myopathy.html">Myofibrillar Myopathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiomyocyte Z-Disc Aggregate Pathology → Primary Cardiomyocyte Insult
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Naxos_disease.html">Naxos disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Fibrofatty myocardial replacement → Ventricular Remodeling
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/PRKAG2_Cardiac_Syndrome.html">PRKAG2 Cardiac Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Progressive Contractile Dysfunction
+                        
+                        
+                        , 
+                        
+                        Advanced Heart Failure and End-Stage Cardiomyopathy → Structural Cardiac Impairment and Heart Failure
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Taurine_transporter_deficiency.html">Taurine transporter deficiency</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cardiomyocyte Atrophy and Ventricular Remodeling → Ventricular Remodeling
                         
                         
                     </span>
@@ -1599,16 +2604,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Cardiomyocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000746</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1626,16 +2636,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Sarcomere Organization
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045214">GO:0045214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0045214</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Sarcomere Organization (GO:0045214). GO:0045214 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1649,16 +2664,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Muscle Contraction
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006936">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006936</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Muscle Contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1683,9 +2703,121 @@
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.html">Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte and Skeletal Muscle Energy Deficit</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                            
+                            <span class="crosslink-desc">as LMNA Variant and Nuclear Lamina Assembly Defect</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                            
+                            <span class="crosslink-desc">as Alpha-Actinin-2 Z-Disc Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                            
+                            <span class="crosslink-desc">as Cardiac Troponin C Variant and Thin-Filament Regulatory Defect</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_2A.html">Dilated Cardiomyopathy 2A</a>
+                            
+                            <span class="crosslink-desc">as Biallelic TNNI3 Loss of Function</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/DSP_Cardiomyopathy.html">DSP Cardiomyopathy</a>
                             
                             <span class="crosslink-desc">as Desmoplakin Haploinsufficiency — Desmosomal Disruption</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_2.html">Hypertrophic Cardiomyopathy 2</a>
+                            
+                            <span class="crosslink-desc">as Cardiac Troponin T Thin Filament Regulatory Defect</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_20.html">Hypertrophic Cardiomyopathy 20</a>
+                            
+                            <span class="crosslink-desc">as Cardiac Z-Disc Destabilization Under Mechanical Load</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_25.html">Hypertrophic Cardiomyopathy 25</a>
+                            
+                            <span class="crosslink-desc">as Telethonin Z-Disc Titin-Capping and Stretch-Sensor Perturbation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_26.html">Hypertrophic Cardiomyopathy 26</a>
+                            
+                            <span class="crosslink-desc">as Filamin C Z-Disc Cross-Linking Defect</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_3.html">Hypertrophic Cardiomyopathy 3</a>
+                            
+                            <span class="crosslink-desc">as Alpha-Tropomyosin Thin Filament Regulatory Defect</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_4.html">Hypertrophic Cardiomyopathy 4</a>
+                            
+                            <span class="crosslink-desc">as MYBPC3 Truncating Variant and Premature Termination Codon Generation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_7.html">Hypertrophic Cardiomyopathy 7</a>
+                            
+                            <span class="crosslink-desc">as Cardiac Troponin I Inhibitory Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_8.html">Hypertrophic Cardiomyopathy 8</a>
+                            
+                            <span class="crosslink-desc">as MYL3 Essential Light Chain Variant — Altered Lever-Arm and Actin Contact</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Left_Ventricular_Noncompaction_10.html">Left Ventricular Noncompaction 10</a>
+                            
+                            <span class="crosslink-desc">as MYBPC3 Loss-of-Function Variant and cMyBP-C Depletion</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MRPL44_Deficiency.html">MRPL44 Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Bioenergetic Failure and Mitochondrial Proliferation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Myofibrillar_Myopathy.html">Myofibrillar Myopathy</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Z-Disc Aggregate Pathology</span>
                             
                         </div>
                         
@@ -1724,16 +2856,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Response to Angiotensin
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_1990776" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990776">GO:1990776</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990776" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:1990776</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Response to Angiotensin (GO:1990776). GO:1990776 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1747,16 +2884,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Cardiac Muscle Hypertrophy
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0003300</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cardiac Muscle Hypertrophy (GO:0003300). GO:0003300 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1775,6 +2917,23 @@
 
                 
 
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
 
                 
@@ -1806,16 +2965,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Cardiac Fibroblast
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002548</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac Fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1833,16 +2997,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Cardiac Muscle Hypertrophy in Response to Stress
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0014898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014898">GO:0014898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0014898</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cardiac Muscle Hypertrophy in Response to Stress (GO:0014898). GO:0014898 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1856,16 +3025,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Extracellular Matrix Organization
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular Matrix Organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1879,16 +3053,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Cardiomyocyte Apoptosis
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0010659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010659">GO:0010659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0010659</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cardiomyocyte Apoptosis, annotated with cardiac muscle cell apoptotic process (GO:0010659). GO:0010659 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1920,6 +3099,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.html">Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy and Ventricular Remodeling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Chagas_disease.html">Chagas disease</a>
                             
                             <span class="crosslink-desc">as Ventricular remodeling and dilated cardiomyopathy</span>
@@ -1930,6 +3116,27 @@
                             <a href="../disorders/Dilated_Cardiomyopathy.html">Dilated Cardiomyopathy</a>
                             
                             <span class="crosslink-desc">as Myocardial Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Loss and Myocardial Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                            
+                            <span class="crosslink-desc">as Adverse Ventricular Remodeling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                            
+                            <span class="crosslink-desc">as Adverse Ventricular Remodeling</span>
                             
                         </div>
                         
@@ -1955,9 +3162,86 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_2.html">Hypertrophic Cardiomyopathy 2</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy with Disarray and Fibrosis, Often Disproportionately Mild</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_20.html">Hypertrophic Cardiomyopathy 20</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_25.html">Hypertrophic Cardiomyopathy 25</a>
+                            
+                            <span class="crosslink-desc">as Ventricular Remodeling with Sigmoidal Septal Geometry</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_26.html">Hypertrophic Cardiomyopathy 26</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy and Adverse Ventricular Remodeling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_3.html">Hypertrophic Cardiomyopathy 3</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy with Myofiber Disarray and Interstitial Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_4.html">Hypertrophic Cardiomyopathy 4</a>
+                            
+                            <span class="crosslink-desc">as Ventricular Hypertrophy, Disarray and Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_7.html">Hypertrophic Cardiomyopathy 7</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy, Myocyte Disarray and Interstitial Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_8.html">Hypertrophic Cardiomyopathy 8</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Hypertrophy, Myocardial Stiffness and Fibrosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Left_Ventricular_Noncompaction_8.html">Left Ventricular Noncompaction 8</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Myocardial_Infarction.html">Myocardial Infarction</a>
                             
                             <span class="crosslink-desc">as Cardiac Fibrosis and Ventricular Remodeling</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Naxos_disease.html">Naxos disease</a>
+                            
+                            <span class="crosslink-desc">as Fibrofatty myocardial replacement</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Taurine_transporter_deficiency.html">Taurine transporter deficiency</a>
+                            
+                            <span class="crosslink-desc">as Cardiomyocyte Atrophy and Ventricular Remodeling</span>
                             
                         </div>
                         
@@ -1994,16 +3278,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Cardiomyocyte
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000746</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2021,16 +3310,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Heart Contraction
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0060047</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Heart Contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2049,6 +3343,95 @@
 
                 
 
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1B.html">Dilated Cardiomyopathy 1B</a>
+                            
+                            <span class="crosslink-desc">as Impaired Myocardial Contractility</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_2A.html">Dilated Cardiomyopathy 2A</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_2.html">Hypertrophic Cardiomyopathy 2</a>
+                            
+                            <span class="crosslink-desc">as Diastolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_25.html">Hypertrophic Cardiomyopathy 25</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Hypertrophy with Diastolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_26.html">Hypertrophic Cardiomyopathy 26</a>
+                            
+                            <span class="crosslink-desc">as Impaired Diastolic Relaxation and Myocardial Stiffening</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_3.html">Hypertrophic Cardiomyopathy 3</a>
+                            
+                            <span class="crosslink-desc">as Diastolic Dysfunction and Left Ventricular Outflow Tract Obstruction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_7.html">Hypertrophic Cardiomyopathy 7</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Hypertrophy with Diastolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_8.html">Hypertrophic Cardiomyopathy 8</a>
+                            
+                            <span class="crosslink-desc">as Diastolic Dysfunction and Restrictive Physiology</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/PRKAG2_Cardiac_Syndrome.html">PRKAG2 Cardiac Syndrome</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
 
                 
@@ -2082,16 +3465,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Heart Contraction
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0060047</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Heart Contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2111,6 +3499,125 @@
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cardiac_Sarcoidosis.html">Cardiac Sarcoidosis</a>
+                            
+                            <span class="crosslink-desc">as Progressive Ventricular Dysfunction and Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                            
+                            <span class="crosslink-desc">as Progressive Heart Failure and End-Stage Disease</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1AA.html">Dilated Cardiomyopathy 1AA</a>
+                            
+                            <span class="crosslink-desc">as Heart Failure and Sudden Cardiac Death</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1B.html">Dilated Cardiomyopathy 1B</a>
+                            
+                            <span class="crosslink-desc">as Left Ventricular Dilation and Systolic Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1Z.html">Dilated Cardiomyopathy 1Z</a>
+                            
+                            <span class="crosslink-desc">as Heart Failure, Ventricular Arrhythmia and Sudden Cardiac Death</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_2.html">Hypertrophic Cardiomyopathy 2</a>
+                            
+                            <span class="crosslink-desc">as Progressive Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_21.html">Hypertrophic Cardiomyopathy 21</a>
+                            
+                            <span class="crosslink-desc">as Ventricular Dilation and End-Stage Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_25.html">Hypertrophic Cardiomyopathy 25</a>
+                            
+                            <span class="crosslink-desc">as Progressive Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_26.html">Hypertrophic Cardiomyopathy 26</a>
+                            
+                            <span class="crosslink-desc">as Heart Failure and Sudden Cardiac Death</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_3.html">Hypertrophic Cardiomyopathy 3</a>
+                            
+                            <span class="crosslink-desc">as Progressive Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_4.html">Hypertrophic Cardiomyopathy 4</a>
+                            
+                            <span class="crosslink-desc">as Diastolic Dysfunction, Heart Failure and Arrhythmic Risk</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hypertrophic_Cardiomyopathy_7.html">Hypertrophic Cardiomyopathy 7</a>
+                            
+                            <span class="crosslink-desc">as Heart Failure and Sudden Cardiac Death</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Left_Ventricular_Noncompaction_10.html">Left Ventricular Noncompaction 10</a>
+                            
+                            <span class="crosslink-desc">as Neonatal Structural Cardiac Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Left_Ventricular_Noncompaction_8.html">Left Ventricular Noncompaction 8</a>
+                            
+                            <span class="crosslink-desc">as Congestive Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MRPL44_Deficiency.html">MRPL44 Deficiency</a>
+                            
+                            <span class="crosslink-desc">as Progressive Heart Failure</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/PRKAG2_Cardiac_Syndrome.html">PRKAG2 Cardiac Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Advanced Heart Failure and End-Stage Cardiomyopathy</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
             </div>
@@ -2126,6 +3633,11 @@
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/modules/cardiomyopathy_maladaptive_remodeling.yaml" target="_blank">View source on GitHub</a>
             </p>
+            
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
     <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
@@ -2143,5 +3655,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

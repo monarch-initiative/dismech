@@ -50,6 +50,15 @@ biological_processes:
 | `ABNORMAL` | Qualitatively abnormal | Protein misfolding |
 | `DYSREGULATED` | Regulation impaired (may be either direction) | BBB permeability |
 | `ABSENT` | Not occurring/present | Missing ganglion cells |
+| `GAIN_OF_FUNCTION` | Constitutive or aberrant activation, whatever the mechanism | Viral oncoprotein driving a pathway |
+| `LOSS_OF_FUNCTION` | Reduction or abolition of normal function, whatever the mechanism | Epigenetic silencing, protein sequestration |
+
+`INCREASED`/`DECREASED` are the default for *quantitative* claims — a normally regulated
+process running above or below its normal level — and are PATO-bound.
+`GAIN_OF_FUNCTION`/`LOSS_OF_FUNCTION` are for a *qualitative* change in regulatory control
+and are unbound. For that boundary, and for when to reach for
+`GeneticContext.functional_impact_category` instead, see **"Gain/Loss of Function: which
+slot?"** in `CLAUDE.md`.
 
 **Examples from the knowledge base:**
 

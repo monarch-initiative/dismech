@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import csv
+import os
 import re
+import subprocess
 from pathlib import Path
 
 from linkml_term_validator.plugins import BindingValidationPlugin
 
 from dismech.enum_cache import (
+    canonical_curie_rows,
     current_enum_caches,
     main,
     repair_enum_cache_dir,
+    scan_cache_order,
     scan_enum_cache_dir,
 )
 
@@ -142,6 +146,130 @@ def test_enum_cache_offline_scan_skips_membership_but_keeps_structural_checks(
     assert "not valid for current enum" not in formatted
 
 
+def test_enum_cache_ordering_is_warning_until_strict_cutover(
+    tmp_path: Path, monkeypatch
+) -> None:
+    schema_path = tmp_path / "schema.yaml"
+    cache_dir = tmp_path / "cache"
+    (cache_dir / "enums").mkdir(parents=True)
+    _write_toy_schema(schema_path)
+
+    monkeypatch.setattr(
+        BindingValidationPlugin,
+        "is_value_in_enum",
+        lambda *args: (_ for _ in ()).throw(
+            AssertionError("offline scan must not call is_value_in_enum")
+        ),
+    )
+
+    current = next(
+        iter(current_enum_caches(schema_path, cache_dir, oak_config=None).values())
+    )
+    _write_curie_csv(current.path, ["TEST:0000", "TEST:0002", "TEST:0001"])
+
+    findings = scan_enum_cache_dir(
+        schema_path, cache_dir, oak_config=None, offline=True
+    )
+    order = [f for f in findings if "canonical order" in f.reason]
+    assert len(order) == 1
+    assert order[0].is_warning
+    assert "sorted through row 2" in order[0].reason
+    assert "out-of-order tail 1" in order[0].reason
+
+    assert (
+        main(
+            [
+                "--schema",
+                str(schema_path),
+                "--cache-dir",
+                str(cache_dir),
+                "--offline",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "--schema",
+                str(schema_path),
+                "--cache-dir",
+                str(cache_dir),
+                "--offline",
+                "--strict-order",
+            ]
+        )
+        == 1
+    )
+
+
+def test_cache_order_audit_covers_enum_and_term_caches(tmp_path: Path) -> None:
+    cache_dir = tmp_path / "cache"
+    enum_dir = cache_dir / "enums"
+    term_dir = cache_dir / "mondo"
+    enum_dir.mkdir(parents=True)
+    term_dir.mkdir(parents=True)
+    _write_curie_csv(enum_dir / "example.csv", ["TEST:2", "TEST:1"])
+    (term_dir / "terms.csv").write_text(
+        "curie,label,retrieved_at\nTEST:2,two,2026-01-01\nTEST:1,one,2026-01-01\n",
+        encoding="utf-8",
+    )
+
+    findings = scan_cache_order(cache_dir)
+    assert [f.path for f in findings] == [
+        enum_dir / "example.csv",
+        term_dir / "terms.csv",
+    ]
+    assert all(f.sorted_through == 1 for f in findings)
+    assert all(f.tail_size == 1 for f in findings)
+    assert main(["--cache-dir", str(cache_dir), "--check-order"]) == 0
+    assert (
+        main(
+            [
+                "--cache-dir",
+                str(cache_dir),
+                "--check-order",
+                "--strict-order",
+            ]
+        )
+        == 1
+    )
+
+
+def test_cache_order_audit_reports_malformed_headers_without_failing(
+    tmp_path: Path, capsys
+) -> None:
+    cache_dir = tmp_path / "cache"
+    empty_term_dir = cache_dir / "empty"
+    malformed_term_dir = cache_dir / "malformed"
+    empty_term_dir.mkdir(parents=True)
+    malformed_term_dir.mkdir(parents=True)
+    (empty_term_dir / "terms.csv").write_text("", encoding="utf-8")
+    (malformed_term_dir / "terms.csv").write_text(
+        "id,label\nTEST:1,one\n", encoding="utf-8"
+    )
+
+    findings = scan_cache_order(cache_dir)
+    assert len(findings) == 2
+    assert all("expected first CSV column" in finding.format() for finding in findings)
+
+    assert main(["--cache-dir", str(cache_dir), "--check-order"]) == 0
+    assert (
+        main(
+            [
+                "--cache-dir",
+                str(cache_dir),
+                "--check-order",
+                "--strict-order",
+            ]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    assert "[WARNING]" in captured.err
+    assert "Traceback" not in captured.err
+
+
 def test_default_validate_recipes_do_not_run_online_check_enum_cache() -> None:
     """Default validation must not depend on the online enum cache audit, which
     re-derives every dynamic enum from OAK and can pull multi-GB DBs (#5150)."""
@@ -243,6 +371,28 @@ def test_normalize_cache_uses_repo_local_temp_files() -> None:
     assert "/tmp/_sorted_enum.csv" not in justfile
     assert "${TMPDIR:-/tmp}" not in justfile
     assert "mktemp -d tmp/dismech_enum_cache.XXXXXX" in justfile
+    assert "LC_ALL=C sort -u" in justfile
+
+
+def test_shell_and_python_enum_cache_sorting_agree() -> None:
+    """The shell normalizer must match Python codepoint ordering exactly."""
+
+    root_dir = Path(__file__).parent.parent
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+
+    for path in sorted((root_dir / "cache" / "enums").glob("*.csv")):
+        rows = path.read_text(encoding="utf-8").splitlines()[1:]
+        shell = subprocess.run(
+            ["sort", "-u"],
+            input="".join(f"{row}\n" for row in rows),
+            text=True,
+            capture_output=True,
+            check=True,
+            env=env,
+        ).stdout
+        python = "".join(f"{row}\n" for row in canonical_curie_rows(rows))
+        assert shell == python, f"shell/Python ordering differs for {path}"
 
 
 def test_validate_terms_all_skips_history_files() -> None:
@@ -265,9 +415,13 @@ def test_stale_only_scan_is_warning_not_error(tmp_path: Path) -> None:
         "curie\nGOOD:1\n", encoding="utf-8"
     )
 
-    findings = scan_enum_cache_dir(schema_path, cache_dir, oak_config=None, offline=True)
+    findings = scan_enum_cache_dir(
+        schema_path, cache_dir, oak_config=None, offline=True
+    )
     assert findings, "expected at least one stale finding"
-    assert all(f.is_warning for f in findings), "stale-only findings must all be warnings"
+    assert all(f.is_warning for f in findings), (
+        "stale-only findings must all be warnings"
+    )
 
     # main() must exit 0 (warning-only path)
     rc = main(
@@ -289,9 +443,7 @@ def test_error_findings_still_fail(tmp_path: Path, monkeypatch) -> None:
     (cache_dir / "enums").mkdir(parents=True)
     _write_toy_schema(schema_path)
 
-    monkeypatch.setattr(
-        BindingValidationPlugin, "is_value_in_enum", lambda *a: False
-    )
+    monkeypatch.setattr(BindingValidationPlugin, "is_value_in_enum", lambda *a: False)
 
     expected = current_enum_caches(schema_path, cache_dir, oak_config=None)
     current_cache = next(iter(expected.values()))
@@ -320,15 +472,15 @@ def test_mixed_warnings_and_errors_fail(tmp_path: Path, monkeypatch) -> None:
     enum_dir.mkdir(parents=True)
     _write_toy_schema(schema_path)
 
-    monkeypatch.setattr(
-        BindingValidationPlugin, "is_value_in_enum", lambda *a: False
-    )
+    monkeypatch.setattr(BindingValidationPlugin, "is_value_in_enum", lambda *a: False)
 
     expected = current_enum_caches(schema_path, cache_dir, oak_config=None)
     current_cache = next(iter(expected.values()))
     _write_curie_csv(current_cache.path, ["BAD:1"])
     # Also add a stale file
-    (enum_dir / "oldterm_deadbeef0000.csv").write_text("curie\nGOOD:1\n", encoding="utf-8")
+    (enum_dir / "oldterm_deadbeef0000.csv").write_text(
+        "curie\nGOOD:1\n", encoding="utf-8"
+    )
 
     findings = scan_enum_cache_dir(schema_path, cache_dir, oak_config=None)
     warnings = [f for f in findings if f.is_warning]

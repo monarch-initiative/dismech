@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fountain Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Fountain Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Fountain Syndrome</h1>
+                
+                <p class="report-subtitle">Fountain Syndrome — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009241" target="_blank" rel="noopener noreferrer">MONDO:0009241</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">12 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Fountain Syndrome — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Fountain Syndrome (classic)
+<strong>OMIM:</strong> 229120 · <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:2001" target="_blank" rel="noopener noreferrer">ORPHA:2001</a> · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a>
+<strong>Category:</strong> Mendelian (autosomal recessive)
+<strong>Report date:</strong> 2026-07-31</p>
+<hr />
+<h2>Summary</h2>
+<p>Classic <strong>Fountain syndrome</strong> (OMIM 229120; <a href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a>; Orphanet <a href="https://bioregistry.io/ORPHA:2001" target="_blank" rel="noopener noreferrer">ORPHA:2001</a>) is an <strong>ultra-rare autosomal recessive</strong> multiple-congenital-anomaly/intellectual-disability syndrome first delineated by Fountain in 1974 (4 affected siblings) and confirmed by Fryns et al. in 1987 and Van Buggenhout et al. in 1996. It is defined by a <strong>clinical tetrad</strong>: (1) moderate-to-severe intellectual disability, (2) congenital sensorineural deafness arising from an anatomical inner-ear anomaly, (3) skeletal abnormalities (broad, stubby hands and feet; hyperkyphosis), and (4) a coarse face with subcutaneous soft-tissue swelling of the cheeks and lips (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>). Accessory features that become more evident with advancing age include early-onset generalized epilepsy, short stature, macrocephaly (large head circumference), broad plump hands, and remarkable behavior.</p>
+<p>Critically, the <strong>molecular basis of classic Fountain syndrome remains unknown</strong>. Fewer than ~10 patients have been reported worldwide across three publications, all pre-dating the genomic era; no causal gene, locus, chromosomal abnormality, biomarker, animal model, or targeted therapy has ever been identified. Diagnosis is therefore purely <strong>clinical</strong>, and management is entirely <strong>symptomatic/supportive</strong> (hearing rehabilitation, antiepileptic drugs, special education, orthopedic and behavioral support). The disorder is chronic and lifelong but <strong>non-degenerative</strong>, with survival into adulthood documented.</p>
+<p>A central and recurring point of confusion is that classic Fountain syndrome must <strong>not</strong> be conflated with <strong>Hao-Fountain syndrome (HAFOUS, OMIM #616863)</strong> — a distinct, <em>autosomal dominant</em> neurodevelopmental disorder caused by heterozygous pathogenic variants in <strong>USP7</strong>. The two share only the eponym "Fountain" and are etiologically, genetically, and mechanistically separate entities. Nearly all modern molecular literature bearing the "Fountain" name refers to HAFOUS/USP7, not to the classic recessive syndrome that is the subject of this report. This report characterizes classic Fountain syndrome and explicitly demarcates it from HAFOUS throughout.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Classic Fountain syndrome is an autosomal recessive clinical tetrad</h3>
+<p>Classic Fountain syndrome is defined by four cardinal features segregating as an autosomal recessive trait. Fryns et al. (1987) described 3 males (2 brothers plus 1 isolated patient) who replicated the phenotype of the 4 siblings in Fountain's original 1974 report, and Van Buggenhout et al. (1996) reviewed all reported cases and formalized the diagnostic definition. Across all reports the consistent cardinal features are: <strong>moderate-to-severe intellectual disability</strong>, <strong>congenital sensorineural deafness</strong> due to an inner-ear anomaly, <strong>skeletal abnormalities</strong> (broad, stubby hands and feet; hyperkyphosis), and a <strong>coarse face</strong> with subcutaneous swelling of the cheeks and lips. Segregation in affected sibships with unaffected parents is consistent with recessive inheritance.</p>
+<blockquote>
+<p><em>"the same manifestations that were present in the 4 sibs reported by Fountain [1974]: skeletal abnormalities with broad, stubby hands and feet and hyperkyphosis, and a peculiar 'coarse' face with swelling of the subcutaneous tissue, particularly of cheeks and lips"</em> — Fryns et al. 1987 (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>)</p>
+<p><em>"an autosomal recessive entity with mental retardation, deafness, skeletal abnormalities and coarse face with full lips as cardinal features"</em> — Van Buggenhout et al. 1996 (<a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>)</p>
+</blockquote>
+<p>The deafness is specifically noted to be <em>"congenital deafness due to an anatomical inner ear anomaly"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>), establishing it as sensorineural and structural (cochlear/labyrinthine) in origin rather than conductive.</p>
+<h3>Finding 2 — Accessory features and age-dependent expressivity</h3>
+<p>Van Buggenhout et al. (1996) followed 5 patients (including 3 previously reported) and proposed a set of accessory findings that broaden the phenotype beyond the cardinal tetrad: <strong>epilepsy</strong> (early-onset generalized seizures), <strong>short stature</strong>, <strong>large head circumference (macrocephaly)</strong>, <strong>broad plump hands</strong>, and <strong>remarkable behavior</strong>. Importantly, they emphasized that the phenotype becomes <strong>more evident with advancing age</strong>, i.e., the syndrome shows age-dependent expressivity.</p>
+<blockquote>
+<p><em>"We propose that epilepsy, short stature, large head circumference, broad, plump hands and the remarkable behavior are important accessory findings of this syndrome. The clinical features of this syndrome become more evident with advancing age."</em> — Van Buggenhout et al. 1996 (<a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>)</p>
+</blockquote>
+<p>The epilepsy component was independently corroborated by Fryns et al. (1987):</p>
+<blockquote>
+<p><em>"early-onset, generalized seizures can be added to the symptom complex of this autosomal recessive trait"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>)</p>
+</blockquote>
+<h3>Finding 3 — Distinction from Hao-Fountain syndrome (HAFOUS, USP7)</h3>
+<p><strong>Hao-Fountain syndrome (HAFOUS, OMIM #616863)</strong> is a separate, <strong>autosomal DOMINANT</strong> neurodevelopmental disorder caused by heterozygous pathogenic variants or deletions in <strong>USP7</strong> (ubiquitin-specific protease 7). HAFOUS features developmental delay, intellectual disability, speech delay, autism/behavioral abnormalities, seizures, hypogonadism, and mild dysmorphism — but it does <strong>not</strong> feature the coarse face with subcutaneous soft-tissue swelling, the structural inner-ear sensorineural deafness, or the recessive inheritance that define classic Fountain syndrome (OMIM 229120). The two disorders share the eponym "Fountain" but are etiologically and mechanistically distinct.</p>
+<blockquote>
+<p><em>"Hao-Fountain syndrome (HAFOUS, OMIM: #616863) is a neurodevelopmental disorder caused by pathogenic variants in the gene USP7"</em> — Wimmer et al. 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/38221796/">PMID: 38221796</a>)</p>
+<p><em>"Mutation or deletion of the deubiquitinase USP7 causes Hao-Fountain syndrome (HAFOUS), which is characterized by speech delay, intellectual disability, and aggressive behavior"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/39862434/">PMID: 39862434</a>)</p>
+</blockquote>
+<p>This distinction is the single most important interpretive caveat for any knowledge-base entry: modern molecular papers naming "Fountain" almost universally refer to HAFOUS/USP7, not to the classic recessive syndrome.</p>
+<h3>Finding 4 — Ultra-rare with unknown molecular etiology and no identified causal gene</h3>
+<p>Fewer than ~10 patients have been reported worldwide since Fountain's original 1974 report (4 affected sibs): Fryns et al. 1987 (3 patients) and Van Buggenhout et al. 1996 (5 patients, including 3 previously reported). Segregation in multiple affected sibs of unaffected parents indicates autosomal recessive inheritance, but <strong>no causal gene, locus, or chromosomal abnormality has ever been mapped or published</strong> for classic Fountain syndrome. It is catalogued as OMIM 229120, Orphanet <a href="https://bioregistry.io/ORPHA:2001" target="_blank" rel="noopener noreferrer">ORPHA:2001</a>, and <a href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a>. Orphanet lists prevalence as &lt;1/1,000,000 ("prevalence unknown").</p>
+<blockquote>
+<p><em>"We present five patients with the clinical diagnosis of Fountain's syndrome"</em> — Van Buggenhout et al. 1996 (<a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>)</p>
+</blockquote>
+<p>The tiny total number of reported patients, all characterized before routine exome/genome sequencing, explains why the syndrome remains molecularly unsolved and why the knowledge base must rely on aggregated case reports rather than molecular data.</p>
+<h3>Finding 5 — Anatomical involvement: inner ear, craniofacial soft tissue, and axial/appendicular skeleton</h3>
+<p>Fryns et al. (1987) attributed the congenital deafness to <em>"an anatomical inner ear anomaly"</em> (sensorineural, at the cochlear/labyrinthine level) and described craniofacial soft-tissue swelling (subcutaneous tissue of cheeks and lips) plus skeletal involvement (broad stubby hands/feet and hyperkyphosis). Van Buggenhout (1996) added macrocephaly and short stature, indicating involvement of both the <strong>axial</strong> skeleton (spine, skull) and the <strong>appendicular</strong> skeleton (hands, feet), together with <strong>CNS</strong> involvement (intellectual disability, seizures).</p>
+<blockquote>
+<p><em>"congenital deafness due to an anatomical inner ear anomaly"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>)</p>
+<p><em>"swelling of the subcutaneous tissue, particularly of cheeks and lips"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>)</p>
+</blockquote>
+<h3>Finding 6 — Management is symptomatic/supportive; prognosis is chronic, non-degenerative, lifelong, with normal-range survival</h3>
+<p>No disease-specific or disease-modifying therapy exists because no causal molecular target is known. Follow-up of patients into adulthood (Van Buggenhout et al. 1996 provide follow-up on 3 previously reported patients) documents survival into adulthood with stable intellectual disability and progressive accentuation of dysmorphic/behavioral features rather than neurodegeneration. Management is therefore supportive: hearing rehabilitation (hearing aids/cochlear implantation) for congenital sensorineural deafness, antiepileptic drugs for seizures, special education for intellectual disability, orthopedic care for kyphosis, and behavioral support.</p>
+<blockquote>
+<p><em>"present follow-up data on three previously reported patients"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>)</p>
+<p><em>"The clinical features of this syndrome become more evident with advancing age"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>)</p>
+</blockquote>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Classic Fountain syndrome is an ultra-rare autosomal recessive multiple-congenital-anomaly / intellectual-disability syndrome characterized by a tetrad of intellectual disability, congenital sensorineural deafness (inner-ear anomaly), skeletal abnormalities, and a coarse face with full lips/subcutaneous soft-tissue swelling.</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>229120</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:2001" target="_blank" rel="noopener noreferrer">ORPHA:2001</a></td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>Q87.8 (other specified congenital malformation syndromes, mapping)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>LD2F.1Y / other specified syndromes with multiple malformations (mapping)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor; indexed under <em>Intellectual Disability</em> / <em>Abnormalities, Multiple</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> "Fountain's syndrome"; "Mental retardation–deafness–skeletal abnormalities–coarse face with full lips" (descriptive). <em>Note:</em> "Hao-Fountain syndrome" is a <strong>different disorder</strong> (see Section 4) and should not be listed as a synonym.</p>
+<p><strong>Data source type:</strong> Information is derived from <strong>aggregated disease-level case reports</strong> (three publications, &lt;10 patients total), not from individual EHR mining or large disease registries.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors.</strong> Genetic — autosomal recessive segregation in affected sibships born to unaffected (often presumed consanguineous) parents. The <strong>specific causative gene is unknown</strong>; no locus has been mapped. There is no evidence for environmental, infectious, or mechanistic (non-genetic) causation.</p>
+<p><strong>Genetic risk factors.</strong> Presumed biallelic pathogenic variants in an unidentified gene. No susceptibility loci or modifier genes have been reported. Consanguinity is a plausible risk factor consistent with recessive inheritance, though not systematically documented.</p>
+<p><strong>Environmental risk factors / protective factors / gene–environment interactions.</strong> <strong>Not applicable / not reported.</strong> As a monogenic Mendelian disorder with unknown gene, no environmental risk factors, protective factors, or gene–environment interactions have been described.</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Severity</th>
+<th>Frequency</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability</td>
+<td>Clinical sign / neurodevelopmental</td>
+<td>Congenital/childhood</td>
+<td>Moderate–severe</td>
+<td>Cardinal (all cases)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (Intellectual disability)</td>
+</tr>
+<tr>
+<td>Congenital sensorineural deafness (inner-ear anomaly)</td>
+<td>Physical/structural + laboratory (audiometry)</td>
+<td>Congenital</td>
+<td>Severe</td>
+<td>Cardinal (all cases)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a> (Sensorineural hearing impairment); <a href="http://purl.obolibrary.org/obo/HP_0011389" target="_blank" rel="noopener noreferrer">HP:0011389</a> (Functional abnormality of inner ear)</td>
+</tr>
+<tr>
+<td>Coarse facies with subcutaneous swelling of cheeks/lips (full lips)</td>
+<td>Physical manifestation</td>
+<td>Childhood, age-progressive</td>
+<td>Variable, progressive</td>
+<td>Cardinal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" rel="noopener noreferrer">HP:0000280</a> (Coarse facial features); <a href="http://purl.obolibrary.org/obo/HP_0000215" target="_blank" rel="noopener noreferrer">HP:0000215</a> (Thick lower lip vermilion)</td>
+</tr>
+<tr>
+<td>Broad stubby hands/feet</td>
+<td>Physical manifestation</td>
+<td>Congenital/childhood</td>
+<td>Moderate</td>
+<td>Cardinal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" rel="noopener noreferrer">HP:0001156</a> (Brachydactyly); <a href="http://purl.obolibrary.org/obo/HP_0001172" target="_blank" rel="noopener noreferrer">HP:0001172</a> (Abnormality of the hand)</td>
+</tr>
+<tr>
+<td>Hyperkyphosis</td>
+<td>Clinical sign (axial skeleton)</td>
+<td>Childhood</td>
+<td>Moderate</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" rel="noopener noreferrer">HP:0002808</a> (Kyphosis)</td>
+</tr>
+<tr>
+<td>Epilepsy (early-onset generalized seizures)</td>
+<td>Clinical sign</td>
+<td>Early childhood</td>
+<td>Variable</td>
+<td>Accessory (frequent)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> (Seizure); <a href="http://purl.obolibrary.org/obo/HP_0002197" target="_blank" rel="noopener noreferrer">HP:0002197</a> (Generalized-onset seizure)</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Mild–moderate</td>
+<td>Accessory</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> (Short stature)</td>
+</tr>
+<tr>
+<td>Macrocephaly (large head circumference)</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>—</td>
+<td>Accessory</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" rel="noopener noreferrer">HP:0000256</a> (Macrocephaly)</td>
+</tr>
+<tr>
+<td>Remarkable behavior</td>
+<td>Behavioral</td>
+<td>Childhood</td>
+<td>Variable</td>
+<td>Accessory</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a> (Behavioral abnormality)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype characteristics.</strong> Onset is congenital-to-childhood; expressivity is <strong>age-progressive</strong> (features become more evident with age; <a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>). The disease course is stable/non-degenerative for cognition but with progressive accentuation of dysmorphism.</p>
+<p><strong>Quality-of-life impact.</strong> No formal QoL instruments (EQ-5D, SF-36, PROMIS) have been applied. Qualitatively, the combination of moderate-to-severe intellectual disability, congenital deafness, and epilepsy implies substantial lifelong dependency and impact on communication, education, and daily functioning.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal genes:</strong> <strong>Unknown</strong> for classic Fountain syndrome (OMIM 229120). No causal gene, pathogenic variant, HGNC-annotated locus, allele-frequency data, or somatic/germline analysis is available because the disorder has never been molecularly solved.</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities:</strong> None identified.</p>
+<p><strong>Important contrast — HAFOUS (USP7), a different disorder:</strong> The molecularly well-characterized "Fountain"-named entity is <strong>Hao-Fountain syndrome (HAFOUS, OMIM #616863)</strong>, caused by heterozygous (autosomal dominant) pathogenic variants or deletions in <strong>USP7</strong> (ubiquitin-specific protease 7). HAFOUS has a validated DNA-methylation episignature, patient-derived iPSC and conditional-knockout mouse models, and an emerging pharmacology of allosteric USP7 activators. <strong>None of this applies to classic Fountain syndrome (OMIM 229120).</strong> The USP7 data are summarized here only to prevent misattribution:</p>
+<ul>
+<li>USP7 pathogenic variants show a spectrum from complete inactivation to hyperactivation (<a href="https://pubmed.ncbi.nlm.nih.gov/40982686/">PMID: 40982686</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40166258/">PMID: 40166258</a>).</li>
+<li>USP7 controls neuronal differentiation via BCOR-ncPRC1.1 and regulates neuronal connectivity via a p53-independent pathway involving Ppil4 (<a href="https://pubmed.ncbi.nlm.nih.gov/39919828/">PMID: 39919828</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37961719/">PMID: 37961719</a>).</li>
+<li>A specific, sensitive DNAm episignature exists for HAFOUS (<a href="https://pubmed.ncbi.nlm.nih.gov/38126281/">PMID: 38126281</a>).</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<p><strong>Not applicable.</strong> Classic Fountain syndrome is a monogenic recessive disorder. No environmental factors, lifestyle factors, or infectious agents have been implicated.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>For <strong>classic Fountain syndrome, the molecular pathophysiology is unknown.</strong> No signaling pathway, cellular process, protein dysfunction, metabolic change, immune involvement, or omics profile has been established. The phenotype implicates developmental processes in three domains — inner-ear morphogenesis (structural cochlear/labyrinthine anomaly → sensorineural deafness), craniofacial soft-tissue/connective-tissue biology (subcutaneous swelling of cheeks/lips), and neurodevelopment (intellectual disability, epilepsy) — but no causal chain can be specified without a gene.</p>
+<p><strong>Suggested (hypothesis-level only) ontology anchors given the phenotype:</strong>
+- GO biological process candidates: <a href="http://purl.obolibrary.org/obo/GO_0042471" target="_blank" rel="noopener noreferrer">GO:0042471</a> (ear morphogenesis), <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a> (nervous system development), <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" rel="noopener noreferrer">GO:0060021</a> (roof of mouth/orofacial development).
+- CL cell types plausibly involved: cochlear hair cell (<a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" rel="noopener noreferrer">CL:0000202</a>), neuron (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), fibroblast/adipocyte of facial subcutis.</p>
+<p>These are <strong>inferential placeholders only</strong>, not established mechanisms.</p>
+<blockquote>
+<p>HAFOUS mechanism (distinct disorder, for contrast): <em>"disruption of ubiquitin signaling networks can lead to neurological disorders … USP7 deletion in the brain perturbs the synaptic proteome and dendritic spine morphogenesis independently of p53"</em> — (<a href="https://pubmed.ncbi.nlm.nih.gov/37961719/">PMID: 37961719</a>).</p>
+</blockquote>
+<h3>7. Anatomical Structures Affected</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structure</th>
+<th>Suggested UBERON/ontology</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Organ (primary)</td>
+<td>Inner ear (cochlea/labyrinth)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a> (internal ear)</td>
+</tr>
+<tr>
+<td>Organ (primary)</td>
+<td>Brain / CNS</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain)</td>
+</tr>
+<tr>
+<td>Organ (primary)</td>
+<td>Skeleton — hands &amp; feet (appendicular)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002091" target="_blank" rel="noopener noreferrer">UBERON:0002091</a> (skeleton); <a href="http://purl.obolibrary.org/obo/UBERON_0002398" target="_blank" rel="noopener noreferrer">UBERON:0002398</a> (manus)</td>
+</tr>
+<tr>
+<td>Organ (primary)</td>
+<td>Vertebral column (axial) — kyphosis</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a> (vertebral column)</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>Facial subcutaneous connective/adipose tissue (cheeks, lips)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002072" target="_blank" rel="noopener noreferrer">UBERON:0002072</a> (skin of face) / subcutis</td>
+</tr>
+<tr>
+<td>Body systems</td>
+<td>Nervous, sensory (auditory), musculoskeletal, integumentary/soft tissue</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Lateralization:</strong> Bilateral (deafness, hands/feet, facial features are symmetric). No asymmetric involvement reported.</p>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital (deafness, skeletal features) with childhood emergence/accentuation of coarse facies and behavioral features; onset pattern is chronic/insidious.</li>
+<li><strong>Progression:</strong> Non-degenerative for cognition; dysmorphic and behavioral features show progressive accentuation with age. No discrete disease stages defined.</li>
+<li><strong>Course:</strong> Chronic, lifelong, stable-to-slowly-accentuating. Not episodic or relapsing-remitting (except seizures, which are episodic events).</li>
+<li><strong>Critical periods:</strong> Prenatal/early-childhood windows for inner-ear and craniofacial development; no defined therapeutic window.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Prevalence:</strong> &lt;1/1,000,000 (Orphanet; "prevalence unknown"). Fewer than ~10 patients reported worldwide.</li>
+<li><strong>Incidence:</strong> Unknown (too few cases).</li>
+<li><strong>Inheritance pattern:</strong> Autosomal recessive (AR), based on affected sibships of unaffected parents (<a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">PMID: 3565469</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>).</li>
+<li><strong>Penetrance / expressivity:</strong> Presumed complete penetrance in biallelic carriers; expressivity is variable and age-dependent.</li>
+<li><strong>Anticipation / germline mosaicism / founder effects / carrier frequency:</strong> Not applicable / unknown (no gene identified).</li>
+<li><strong>Consanguinity:</strong> Plausible contributor consistent with AR inheritance; not systematically documented.</li>
+<li><strong>Population demographics:</strong> No ethnic predilection established. Reported patients include European (Belgian) cohorts. Sex ratio: reported patients were predominantly male, but the cohort is too small to establish a true sex ratio; AR inheritance predicts no sex bias.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Diagnostic approach:</strong> <strong>Clinical</strong>, based on recognition of the cardinal tetrad plus accessory features. There is no molecular confirmatory test.</li>
+<li><strong>Clinical tests:</strong> Audiometry / auditory brainstem response (sensorineural hearing loss); temporal-bone imaging (CT/MRI) to demonstrate the inner-ear anomaly; skeletal radiographs (broad stubby hands/feet, hyperkyphosis); EEG (generalized epilepsy); developmental/cognitive assessment.</li>
+<li><strong>Genetic testing:</strong> No single-gene test exists. Chromosomal microarray and trio whole-exome/whole-genome sequencing are appropriate to <strong>exclude</strong> known mimics and to attempt gene discovery, but there is no established Fountain-syndrome panel or diagnostic variant. WES/WGS is the recommended research route to eventually identify the causal gene.</li>
+<li><strong>Differential diagnosis:</strong> Coffin-Lowry syndrome, mucopolysaccharidoses (coarse facies + skeletal + ID), Williams and other ID-with-deafness syndromes, and — importantly — <strong>Hao-Fountain syndrome (USP7)</strong>, which is distinguished by autosomal dominant inheritance, absence of the structural inner-ear deafness and subcutaneous facial swelling, and a positive USP7 finding with a specific DNAm episignature (<a href="https://pubmed.ncbi.nlm.nih.gov/38126281/">PMID: 38126281</a>).</li>
+<li><strong>Screening:</strong> No newborn or carrier screening exists (gene unknown).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival / life expectancy:</strong> Survival into adulthood is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">PMID: 8897038</a>); no evidence of markedly reduced life expectancy. No disease-specific mortality data.</li>
+<li><strong>Morbidity / disability:</strong> Substantial lifelong disability from moderate-to-severe intellectual disability, congenital deafness, and epilepsy; requires long-term support.</li>
+<li><strong>Disease course:</strong> Chronic, non-degenerative, with age-progressive dysmorphism. Complications relate to seizures, hearing loss, orthopedic issues (kyphosis).</li>
+<li><strong>Prognostic factors:</strong> Severity of intellectual disability and seizure control are the primary determinants of functional outcome. No molecular prognostic biomarkers exist.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying or gene-targeted therapy exists.</strong> Management is entirely <strong>symptomatic and supportive</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Target phenotype</th>
+<th>Suggested MAXO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hearing aids / cochlear implantation</td>
+<td>Congenital sensorineural deafness</td>
+<td>MAXO (hearing assistance / cochlear implantation)</td>
+</tr>
+<tr>
+<td>Antiepileptic drugs</td>
+<td>Seizures</td>
+<td><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (pharmacotherapy); anticonvulsant therapy</td>
+</tr>
+<tr>
+<td>Special education / developmental support</td>
+<td>Intellectual disability</td>
+<td>MAXO (educational intervention)</td>
+</tr>
+<tr>
+<td>Orthopedic management / physiotherapy</td>
+<td>Hyperkyphosis, skeletal</td>
+<td><a href="https://bioregistry.io/MAXO:0000506" target="_blank" rel="noopener noreferrer">MAXO:0000506</a> (physiotherapy)</td>
+</tr>
+<tr>
+<td>Behavioral therapy</td>
+<td>Behavioral abnormalities</td>
+<td>MAXO (behavioral intervention)</td>
+</tr>
+<tr>
+<td>Speech/language &amp; sign-language support</td>
+<td>Communication (deafness + ID)</td>
+<td>MAXO (speech therapy)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacogenomics, gene therapy, cell therapy, RNA therapy, targeted/immunotherapy, experimental trials:</strong> None applicable — there are no Fountain-syndrome-specific clinical trials (no NCT identifiers). (For HAFOUS, USP7 allosteric activators such as MS-8, sertraline and astemizole are under preclinical investigation — <a href="https://pubmed.ncbi.nlm.nih.gov/41086218/">PMID: 41086218</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39999290/">PMID: 39999290</a> — but these are irrelevant to classic Fountain syndrome.)</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> None available (gene unknown). Genetic counseling for families with an affected child is appropriate given autosomal recessive inheritance (25% recurrence risk in siblings).</li>
+<li><strong>Secondary/tertiary prevention:</strong> Early audiologic intervention, seizure control, and developmental support to prevent secondary complications.</li>
+<li><strong>Genetic screening / prenatal / carrier testing:</strong> Not possible without an identified gene. Recurrence-risk counseling can be offered empirically (AR, ~25%).</li>
+<li><strong>Genetic counseling</strong> is the principal preventive tool.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Not applicable / none reported.</strong> No orthologous gene (gene unknown), no naturally occurring animal disease (no OMIA entry), no comparative pathology, and no zoonotic relevance. Classic Fountain syndrome is described only in humans (<em>Homo sapiens</em>, NCBI Taxon 9606).</p>
+<h3>15. Model Organisms</h3>
+<p><strong>None exist for classic Fountain syndrome</strong>, because the causal gene is unknown — no knockout, knock-in, transgenic, cellular, or organoid model can be constructed. (Model systems in the literature — conditional <em>Usp7</em> knockout mice and HAFOUS patient-derived iPSCs, <a href="https://pubmed.ncbi.nlm.nih.gov/37961719/">PMID: 37961719</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41713382/">PMID: 41713382</a> — model HAFOUS/USP7, a different disorder.)</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Because classic Fountain syndrome is molecularly unsolved, the "mechanism" can only be framed as a <strong>phenotype-anchored developmental model</strong> with an unknown recessive gene at its apex:</p>
+<pre><code>   Biallelic loss-of-function in UNKNOWN gene (AR)
+                     │
+     ┌───────────────┼───────────────┬─────────────────┐
+     ▼               ▼               ▼                 ▼
+ Inner-ear      Craniofacial      Skeletal          CNS/neuro-
+ morphogenesis  soft-tissue /     development        development
+ defect         connective tissue (hands/feet,       │
+     │           │                 spine)            │
+     ▼           ▼                  ▼                 ▼
+ Structural   Subcutaneous      Broad stubby     Intellectual
+ cochlear/    swelling of       hands/feet;      disability +
+ labyrinth    cheeks &amp; lips;    hyperkyphosis    early-onset
+ anomaly      coarse facies                      generalized
+     │           │                                epilepsy
+     ▼           ▼                  ▼                 ▼
+ Congenital   Age-progressive   Orthopedic       Lifelong,
+ sensorineural coarsening       morbidity        non-degenerative
+ deafness                                         disability
+</code></pre>
+<p>The unifying feature — simultaneous involvement of ectodermally/mesenchymally derived structures (inner ear, facial soft tissue, skeleton, CNS) — suggests a gene acting broadly in embryonic development, but this is inference, not evidence. The two most important interpretive anchors are: (1) <strong>age-dependent expressivity</strong> (features accentuate over time), and (2) the imperative to <strong>separate this entity from USP7-related HAFOUS</strong>.</p>
+<h3>Fountain syndrome vs. Hao-Fountain syndrome — comparison</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Classic Fountain syndrome (OMIM 229120)</th>
+<th>Hao-Fountain syndrome / HAFOUS (OMIM 616863)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gene</td>
+<td><strong>Unknown</strong></td>
+<td><strong>USP7</strong></td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Autosomal <strong>recessive</strong></td>
+<td>Autosomal <strong>dominant</strong> (heterozygous)</td>
+</tr>
+<tr>
+<td>Deafness</td>
+<td>Congenital sensorineural, inner-ear anomaly</td>
+<td>Not a defining feature</td>
+</tr>
+<tr>
+<td>Facies</td>
+<td>Coarse, subcutaneous cheek/lip swelling</td>
+<td>Mild dysmorphism only</td>
+</tr>
+<tr>
+<td>Skeletal</td>
+<td>Broad stubby hands/feet, hyperkyphosis</td>
+<td>Not defining</td>
+</tr>
+<tr>
+<td>Core neuro</td>
+<td>ID, epilepsy, "remarkable behavior"</td>
+<td>DD, ID, speech delay, ASD, aggression, seizures, hypogonadism</td>
+</tr>
+<tr>
+<td>Molecular tools</td>
+<td>None</td>
+<td>DNAm episignature, iPSC/mouse models, USP7 activators</td>
+</tr>
+<tr>
+<td>Patients reported</td>
+<td>&lt;10</td>
+<td>50+ (incl. 32-patient series)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3565469/">3565469</a></td>
+<td><em>Confirmation of the Fountain syndrome</em> (Fryns et al. 1987)</td>
+<td><strong>Primary.</strong> Establishes cardinal tetrad, AR inheritance, inner-ear anomaly, epilepsy.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8897038/">8897038</a></td>
+<td><em>Fountain syndrome: further delineation and follow-up</em> (Van Buggenhout et al. 1996)</td>
+<td><strong>Primary.</strong> Defines cardinal + accessory features, age-progressive expressivity, adult follow-up.</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38221796/">38221796</a></td>
+<td><em>Hao-Fountain syndrome: 32 novel patients</em> (Wimmer et al. 2024)</td>
+<td>Establishes HAFOUS as distinct USP7 entity (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39862434/">39862434</a></td>
+<td>HAFOUS / USP7 mechanism</td>
+<td>Defines HAFOUS phenotype &amp; gene (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38126281/">38126281</a></td>
+<td>HAFOUS DNAm episignature</td>
+<td>Diagnostic biomarker for HAFOUS (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37961719/">37961719</a></td>
+<td>USP7 regulates neuronal connectivity</td>
+<td>HAFOUS mechanism/model (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39919828/">39919828</a></td>
+<td>USP7 controls neuronal differentiation (BCOR-ncPRC1.1)</td>
+<td>HAFOUS mechanism (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40982686/">40982686</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40166258/">40166258</a></td>
+<td>Functional spectrum of USP7 variants</td>
+<td>HAFOUS variant biology (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41086218/">41086218</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/39999290/">39999290</a></td>
+<td>USP7 allosteric activators (MS-8; sertraline/astemizole)</td>
+<td>HAFOUS-directed therapeutics (differential).</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41713382/">41713382</a></td>
+<td>HAFOUS iPSC lines</td>
+<td>HAFOUS model system (differential).</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> Findings for classic Fountain syndrome derive entirely from <strong>human clinical case reports</strong> (Level: low-to-moderate; small N, pre-genomic). All molecular/model-organism/in-vitro evidence in the literature pertains to HAFOUS, not to the classic syndrome.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No molecular diagnosis.</strong> The causal gene, locus, and variant spectrum of classic Fountain syndrome are entirely unknown. Sections 4–6, 14–15 are effectively empty of established data.</li>
+<li><strong>Extremely small evidence base.</strong> Fewer than ~10 patients across three publications, the most recent from 1996 — all pre-dating routine next-generation sequencing.</li>
+<li><strong>Nosological ambiguity.</strong> Because "Fountain" appears in both OMIM 229120 (classic) and OMIM 616863 (HAFOUS/USP7), the literature is heavily contaminated by USP7 papers that are irrelevant to the classic recessive disorder. Automated knowledge-base ingestion is at high risk of conflating the two.</li>
+<li><strong>No quantitative phenotype frequencies, QoL, epidemiology, or natural-history registry data.</strong> Frequencies are qualitative ("cardinal" vs "accessory") only.</li>
+<li><strong>Possible under-/mis-diagnosis.</strong> With modern genomics, some historically "Fountain syndrome" patients might be reclassified into defined molecular diagnoses; the entity's continued validity as a distinct disorder has not been re-examined in the genomic era.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Gene discovery.</strong> Perform trio/quad whole-genome sequencing and homozygosity mapping on any surviving reported families or newly ascertained patients matching the cardinal tetrad; deposit candidates in GeneMatcher to aggregate the ultra-rare cohort.</li>
+<li><strong>Reanalysis / reclassification.</strong> Systematically re-evaluate the historical ~10 patients (or their banked DNA) against current OMIM/ClinVar to determine whether any resolve into known syndromes (e.g., mucopolysaccharidoses, Coffin-Lowry) — establishing whether classic Fountain syndrome remains a valid distinct entity.</li>
+<li><strong>Deep phenotyping with temporal-bone imaging.</strong> Characterize the specific inner-ear malformation (e.g., Mondini vs cochlear hypoplasia) by high-resolution CT/MRI to sharpen the differential and guide candidate-gene selection (inner-ear developmental genes).</li>
+<li><strong>Knowledge-base disambiguation safeguard.</strong> Explicitly tag OMIM 229120 (classic, AR, gene-unknown) vs OMIM 616863 (HAFOUS, AD, USP7) and add a hard exclusion rule so USP7 literature is not auto-annotated to the classic entity.</li>
+<li><strong>Registry / natural-history capture.</strong> Establish a minimal case registry (Orphanet-linked) to collect prevalence, sex ratio, seizure trajectory, hearing outcomes, and survival for the few identifiable patients.</li>
+</ol>
+<hr />
+<p><em>End of report.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Fountain_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Fountain_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Fountain_Syndrome-falcon.html">← Fountain Syndrome (Falcon)</a>
+                
+                
+                <a href="FOXE3_Anterior_Segment_Dysgenesis-falcon.html">FOXE3-Related Anterior Segment Dysgenesis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Fountain_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Fountain_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Fountain_Syndrome-claude_code.html"><span class="provider-pill provider-claude-code">Claude Code</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Fountain_Syndrome-claude_code-2026-07-30.html"><span class="provider-pill provider-other">Claude Code 2026 07 30</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Fountain_Syndrome-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

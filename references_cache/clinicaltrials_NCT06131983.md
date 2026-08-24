@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06131983"
+reference_id: clinicaltrials:NCT06131983
 title: "A Phase1/2a Dose-Escalating Study to Evaluate the Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of ARO-DUX4 in Adult Patients and Adolescent Patients With Facioscapulohumeral Muscular Dystrophy Type 1"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase1/2a Dose-Escalating Study to Evaluate the Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of ARO-DUX4 in Adult Patients and Adolescent Patients With Facioscapulohumeral Muscular Dystrophy Type 1

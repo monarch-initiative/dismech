@@ -6,6 +6,7 @@ from dismech.graph import (
     _genetic_item_infers_mechanism_edges,
     build_causal_graph,
     graph_to_json,
+    model_edge_predicate,
 )
 
 
@@ -140,6 +141,148 @@ def test_graph_to_json_includes_experimental_and_computational_model_links() -> 
             "description": "Encodes CFTR-dependent signaling states for in silico perturbation.",
         }
     ]
+
+
+def test_graph_to_json_includes_animal_model_links() -> None:
+    """Animal model links should surface on the node, labelled and typed."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Motor Neuron Degeneration",
+                "downstream": [{"target": "Muscle weakness"}],
+            }
+        ],
+        "phenotypes": [{"name": "Muscle weakness"}],
+        "animal_models": [
+            {
+                "name": "SOD1-G93A transgenic mouse",
+                "species": "Mus musculus",
+                "genotype": "SOD1-G93A",
+                "category": "Transgenic mouse",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Motor Neuron Degeneration",
+                        "relationship": "RECAPITULATES",
+                        "fidelity": "MODERATE",
+                        "description": "Progressive spinal motor neuron loss.",
+                    }
+                ],
+            },
+            {
+                # No `name`: falls back to a genotype/species label rather than
+                # being dropped, as the 400 pre-existing entries have none.
+                "species": "Danio rerio",
+                "genotype": "sod1-null",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Motor Neuron Degeneration",
+                        "relationship": "FAILS_TO_RECAPITULATE",
+                    }
+                ],
+            },
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    node = next(
+        node for node in data["nodes"] if node["id"] == "Motor Neuron Degeneration"
+    )
+
+    assert node["meta"]["animal_models"] == [
+        {
+            "name": "SOD1-G93A transgenic mouse",
+            "species": "Mus musculus",
+            "genotype": "SOD1-G93A",
+            "category": "Transgenic mouse",
+            "relationship": "RECAPITULATES",
+            "fidelity": "MODERATE",
+            "description": "Progressive spinal motor neuron loss.",
+        },
+        {
+            "name": "sod1-null Danio rerio",
+            "species": "Danio rerio",
+            "genotype": "sod1-null",
+            "relationship": "FAILS_TO_RECAPITULATE",
+        },
+    ]
+
+    # The models must also be real graph nodes joined by `models` edges, not
+    # only node metadata -- otherwise downstream consumers keyed on edges (the
+    # cx2 exporter's edge-detail lookup) have nothing to attach to.
+    animal_nodes = {n["id"] for n in data["nodes"] if n["node_type"] == "animal_model"}
+    assert animal_nodes == {"SOD1-G93A transgenic mouse", "sod1-null Danio rerio"}
+
+    # The predicate carries the curated claim, so the falsified model is not
+    # drawn as an ordinary `models` arrow asserting the opposite.
+    model_edges = {
+        (e["source"], e["target"], e["predicate"], e.get("relationship"))
+        for e in data["edges"]
+        if e["source"] in animal_nodes
+    }
+    assert model_edges == {
+        (
+            "SOD1-G93A transgenic mouse",
+            "Motor Neuron Degeneration",
+            "models",
+            "RECAPITULATES",
+        ),
+        (
+            "sod1-null Danio rerio",
+            "Motor Neuron Degeneration",
+            "fails_to_model",
+            "FAILS_TO_RECAPITULATE",
+        ),
+    }
+    fidelity = {
+        e["source"]: e.get("fidelity")
+        for e in data["edges"]
+        if e["source"] in animal_nodes
+    }
+    assert fidelity["SOD1-G93A transgenic mouse"] == "MODERATE"
+
+
+def test_model_edge_predicate_maps_every_relationship() -> None:
+    """Each relationship gets its own predicate; an absent one stays `models`."""
+    assert model_edge_predicate(None) == "models"
+    assert model_edge_predicate("RECAPITULATES") == "models"
+    assert model_edge_predicate("PARTIALLY_RECAPITULATES") == "partially_models"
+    assert model_edge_predicate("FAILS_TO_RECAPITULATE") == "fails_to_model"
+    assert model_edge_predicate("PERTURBS") == "perturbs"
+    assert model_edge_predicate("MEASURES") == "measures"
+    assert model_edge_predicate("RESCUES") == "rescues"
+    # An unrecognized value degrades to the neutral predicate rather than
+    # inventing one or raising.
+    assert model_edge_predicate("SOMETHING_NEW") == "models"
+
+
+def test_animal_models_without_mechanism_links_stay_out_of_the_graph() -> None:
+    """An animal model with no `modeled_mechanisms` produces no node or edge.
+
+    This is what keeps the ~400 legacy animal-model entries from flooding every
+    pathograph: they opt in by declaring mechanism links, exactly as the
+    experimental and computational model sections do.
+    """
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Motor Neuron Degeneration",
+                "downstream": [{"target": "Muscle weakness"}],
+            }
+        ],
+        "phenotypes": [{"name": "Muscle weakness"}],
+        "animal_models": [
+            {"species": "Mus musculus", "genotype": "Msx1-null"},
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+
+    assert not [n for n in data["nodes"] if n["node_type"] == "animal_model"]
+    assert not [e for e in data["edges"] if e.get("predicate") == "models"]
 
 
 def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> None:
@@ -438,3 +581,69 @@ def test_graph_to_json_includes_matching_histopathology_terms() -> None:
             "term_label": "Fibrotic Stroma Formation",
         }
     ]
+
+
+def test_build_causal_graph_includes_environmental_mechanism_links() -> None:
+    """Environmental factors linked via influences_mechanisms should enter the pathograph."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Airway Inflammation"},
+            {"name": "Allergic Sensitization"},
+        ],
+        "environmental": [
+            {
+                "name": "Tobacco smoke exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Airway Inflammation",
+                        "environmental_effect": "EXACERBATES",
+                        "causal_link_type": "DIRECT",
+                        "description": "Smoke amplifies ongoing airway inflammation.",
+                    }
+                ],
+            },
+            {
+                "name": "Early-life farm microbial exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Allergic Sensitization",
+                        "environmental_effect": "PROTECTS_AGAINST",
+                    }
+                ],
+            },
+            {
+                "name": "Unlinked contextual exposure",
+            },
+            {
+                "name": "Undirected exposure",
+                "influences_mechanisms": [{"target": "Airway Inflammation"}],
+            },
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    assert ("Tobacco smoke exposure", "Airway Inflammation", "exacerbates") in edges
+    assert (
+        "Early-life farm microbial exposure",
+        "Allergic Sensitization",
+        "protects_against",
+    ) in edges
+    # An unqualified link must not be asserted as causative.
+    assert ("Undirected exposure", "Airway Inflammation", "influences") in edges
+    assert not graph.integrity_issues
+
+    data = json.loads(graph_to_json(graph, disorder))
+    node_types = {node["id"]: node["node_type"] for node in data["nodes"]}
+    assert node_types["Tobacco smoke exposure"] == "environmental"
+    assert node_types["Early-life farm microbial exposure"] == "environmental"
+    # Environmental entries with no mechanism link stay out of the pathograph.
+    assert "Unlinked contextual exposure" not in node_types
+
+    smoke_edge = next(
+        edge for edge in data["edges"] if edge["source"] == "Tobacco smoke exposure"
+    )
+    assert smoke_edge["causal_link_type"] == "DIRECT"
+    assert smoke_edge["description"] == "Smoke amplifies ongoing airway inflammation."

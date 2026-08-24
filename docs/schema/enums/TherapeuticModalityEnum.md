@@ -3,7 +3,7 @@
 
 
 
-_Broad therapeutic modality / platform of a treatment, independent of the specific agent or MAXO action term. Captures the "kind of thing" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy) so treatments are queryable by platform across diseases._
+_Broad therapeutic modality / platform of a treatment, independent of the specific agent or NCIT action term. Captures the "kind of thing" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy) so treatments are queryable by platform across diseases._
 
 
 
@@ -14,6 +14,7 @@ URI: [dismech:enum/TherapeuticModalityEnum](https://w3id.org/monarch-initiative/
 | --- | --- | --- | --- |
 | SMALL_MOLECULE | NCIT:C48809 | Small-molecule pharmacotherapy (orally or parenterally administered chemical ... ||
 | MONOCLONAL_ANTIBODY | NCIT:C20401 | Monoclonal antibody or antibody-derived biologic (including bispecifics and a... ||
+| NANOBODY | None | Single-domain antibody (sdAb/VHH/Nanobody) — a single variable-domain immunog... | Title: Nanobody / single-domain antibody<br>|
 | ANTISENSE_OLIGONUCLEOTIDE | NCIT:C1291 | Single-stranded antisense oligonucleotide (ASO) acting on RNA via RNase H, sp... | Title: Antisense oligonucleotide<br>|
 | SIRNA | NCIT:C2191 | Small interfering RNA or other double-stranded RNAi therapeutic | Title: siRNA / RNAi<br>|
 | MRNA_THERAPY | None | Therapeutic messenger RNA delivering a functional transcript (excludes prophy... | Title: mRNA therapy<br>|
@@ -69,7 +70,7 @@ URI: [dismech:enum/TherapeuticModalityEnum](https://w3id.org/monarch-initiative/
 ```yaml
 name: TherapeuticModalityEnum
 description: Broad therapeutic modality / platform of a treatment, independent of
-  the specific agent or MAXO action term. Captures the "kind of thing" a treatment
+  the specific agent or NCIT action term. Captures the "kind of thing" a treatment
   is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy)
   so treatments are queryable by platform across diseases.
 from_schema: https://w3id.org/monarch-initiative/dismech
@@ -89,6 +90,19 @@ permissible_values:
     meaning: NCIT:C20401
     aliases:
     - Monoclonal Antibody
+  NANOBODY:
+    text: NANOBODY
+    description: Single-domain antibody (sdAb/VHH/Nanobody) — a single variable-domain
+      immunoglobulin fragment (e.g., caplacizumab), distinct from full-size monoclonal
+      antibodies
+    title: Nanobody / single-domain antibody
+    comments:
+    - No generic "single-domain antibody / nanobody" class exists in the configured
+      ontologies (only specific radiolabeled VHH conjugates, e.g. NCIT:C155898); left
+      unmapped
+    aliases:
+    - Single-Domain Antibody
+    - VHH
   ANTISENSE_OLIGONUCLEOTIDE:
     text: ANTISENSE_OLIGONUCLEOTIDE
     description: Single-stranded antisense oligonucleotide (ASO) acting on RNA via

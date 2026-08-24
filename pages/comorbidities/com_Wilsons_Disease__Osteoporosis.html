@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -288,6 +407,64 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .go-terms li {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible,
+        .go-terms li:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .go-terms li:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-parent {
             background: #e0e7ff;
             color: #3730a3;
@@ -431,6 +608,49 @@
     </script>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -525,84 +745,90 @@
             <h3>Wilsons Disease</h3>
             <div class="mermaid-container">
                 <pre class="mermaid">graph LR
-    Thrombocytopenia[&#34;Thrombocytopenia&#34;]
-    Ferroptosis[&#34;Ferroptosis&#34;]
-    Abdominal_Pain[&#34;Abdominal Pain&#34;]
-    Zinc_Acetate[&#34;Zinc Acetate&#34;]
-    Vomiting[&#34;Vomiting&#34;]
-    Dysarthria[&#34;Dysarthria&#34;]
-    Seizure[&#34;Seizure&#34;]
-    ATP7B[&#34;ATP7B&#34;]
-    Focal_T2_Hyperintense_Brainstem_Lesion[&#34;Focal T2 Hyperintense Brainstem Lesion&#34;]
-    Heart_Failure[&#34;Heart Failure&#34;]
-    Gait_Disturbance[&#34;Gait Disturbance&#34;]
-    Jaundice[&#34;Jaundice&#34;]
-    Hepatic_Copper_Accumulation[&#34;Hepatic Copper Accumulation&#34;]
-    Cardiac_Arrhythmia[&#34;Cardiac Arrhythmia&#34;]
-    Weight_Loss[&#34;Weight Loss&#34;]
-    Impaired_Ceruloplasmin_Loading[&#34;Impaired Ceruloplasmin Loading&#34;]
-    Splenomegaly[&#34;Splenomegaly&#34;]
-    Cirrhosis[&#34;Cirrhosis&#34;]
-    Parkinsonism[&#34;Parkinsonism&#34;]
-    N_24_Hour_Urinary_Copper[&#34;24-Hour Urinary Copper&#34;]
-    Hepatocyte_Injury[&#34;Hepatocyte Injury&#34;]
-    Dysphagia[&#34;Dysphagia&#34;]
-    Hepatic_Copper[&#34;Hepatic Copper&#34;]
-    Tetrathiomolybdate[&#34;Tetrathiomolybdate&#34;]
-    Abnormality_Of_The_Menstrual_Cycle[&#34;Abnormality Of The Menstrual Cycle&#34;]
-    AAV_Mediated_ATP7B_Gene_Therapy[&#34;AAV-Mediated ATP7B Gene Therapy&#34;]
-    Trientine[&#34;Trientine&#34;]
-    Excessive_Hepatic_ECM_Deposition[&#34;Excessive Hepatic ECM Deposition&#34;]
-    Drooling[&#34;Drooling&#34;]
-    Neurodegeneration[&#34;Neurodegeneration&#34;]
-    Bruising_Susceptibility[&#34;Bruising Susceptibility&#34;]
-    Systemic_Copper_Distribution[&#34;Systemic Copper Distribution&#34;]
-    Anxiety[&#34;Anxiety&#34;]
-    Cardiomyopathy[&#34;Cardiomyopathy&#34;]
-    Psychosis[&#34;Psychosis&#34;]
-    D_Penicillamine[&#34;D-Penicillamine&#34;]
-    Ataxia[&#34;Ataxia&#34;]
-    Cuproptosis[&#34;Cuproptosis&#34;]
+    Dystonia[&#34;Dystonia&#34;]
+    ATP7B_Copper_Trafficking_Defect[&#34;ATP7B Copper-Trafficking Defect&#34;]
     Failure_To_Thrive[&#34;Failure To Thrive&#34;]
-    Liver_Transplantation[&#34;Liver Transplantation&#34;]
+    Renal_Tubular_Dysfunction[&#34;Renal Tubular Dysfunction&#34;]
+    p.H1069Q[&#34;p.H1069Q&#34;]
+    Tremor[&#34;Tremor&#34;]
+    Dysphagia[&#34;Dysphagia&#34;]
+    Face_Of_The_Giant_Panda_Sign[&#34;Face Of The Giant Panda Sign&#34;]
+    Low_Copper_Diet[&#34;Low Copper Diet&#34;]
+    Joint_Swelling[&#34;Joint Swelling&#34;]
+    Hepatocyte_Injury[&#34;Hepatocyte Injury&#34;]
+    Intellectual_Disability[&#34;Intellectual Disability&#34;]
+    Acute_Hepatic_Failure[&#34;Acute Hepatic Failure&#34;]
     Hepatic_Steatosis[&#34;Hepatic Steatosis&#34;]
-    Bradykinesia[&#34;Bradykinesia&#34;]
+    p.R778L[&#34;p.R778L&#34;]
+    Psychosis[&#34;Psychosis&#34;]
+    Ascites[&#34;Ascites&#34;]
+    Hepatomegaly[&#34;Hepatomegaly&#34;]
+    Systemic_Copper_Distribution[&#34;Systemic Copper Distribution&#34;]
+    Kayser_Fleischer_Rings[&#34;Kayser-Fleischer Rings&#34;]
+    Proximal_Lower_Limb_Muscle_Weakness[&#34;Proximal Lower Limb Muscle Weakness&#34;]
     Elevated_Circulating_Hepatic_Transaminase_Concentration[&#34;Elevated Circulating Hepatic Transaminase Concentration&#34;]
     Arthritis[&#34;Arthritis&#34;]
-    Hepatitis[&#34;Hepatitis&#34;]
-    Non_Ceruloplasmin_Bound_Serum_Copper[&#34;Non-Ceruloplasmin-Bound Serum Copper&#34;]
-    Sunflower_Cataract[&#34;Sunflower Cataract&#34;]
-    Excessive_Salivation[&#34;Excessive Salivation&#34;]
-    Proximal_Lower_Limb_Muscle_Weakness[&#34;Proximal Lower Limb Muscle Weakness&#34;]
-    Intellectual_Disability[&#34;Intellectual Disability&#34;]
-    Kayser_Fleischer_Rings[&#34;Kayser-Fleischer Rings&#34;]
-    Depression[&#34;Depression&#34;]
-    Osteoporosis[&#34;Osteoporosis&#34;]
-    Impaired_Biliary_Copper_Excretion[&#34;Impaired Biliary Copper Excretion&#34;]
-    Anemia[&#34;Anemia&#34;]
-    Osteopenia[&#34;Osteopenia&#34;]
-    Acute_Hepatic_Failure[&#34;Acute Hepatic Failure&#34;]
-    Rigidity[&#34;Rigidity&#34;]
-    Tremor[&#34;Tremor&#34;]
+    Anxiety[&#34;Anxiety&#34;]
+    Erythrocyte_Oxidative_Membrane_Injury[&#34;Erythrocyte Oxidative Membrane Injury&#34;]
+    Bruising_Susceptibility[&#34;Bruising Susceptibility&#34;]
+    AAV_Mediated_ATP7B_Gene_Therapy[&#34;AAV-Mediated ATP7B Gene Therapy&#34;]
+    Bradykinesia[&#34;Bradykinesia&#34;]
     Bone_Pain[&#34;Bone Pain&#34;]
-    Chorea[&#34;Chorea&#34;]
-    Hepatic_Stellate_Cell_Activation[&#34;Hepatic Stellate Cell Activation&#34;]
-    Hemolytic_Anemia[&#34;Hemolytic Anemia&#34;]
-    ATP7B_Copper_Trafficking_Defect[&#34;ATP7B Copper-Trafficking Defect&#34;]
-    Ascites[&#34;Ascites&#34;]
-    Joint_Swelling[&#34;Joint Swelling&#34;]
-    Pruritus[&#34;Pruritus&#34;]
-    Ceruloplasmin[&#34;Ceruloplasmin&#34;]
-    Dystonia[&#34;Dystonia&#34;]
+    Weight_Loss[&#34;Weight Loss&#34;]
+    Anemia[&#34;Anemia&#34;]
     Aggressive_Behavior[&#34;Aggressive Behavior&#34;]
-    Clumsiness[&#34;Clumsiness&#34;]
-    Hepatomegaly[&#34;Hepatomegaly&#34;]
-    Renal_Tubular_Dysfunction[&#34;Renal Tubular Dysfunction&#34;]
-    Personality_Changes[&#34;Personality Changes&#34;]
-    Arthralgia[&#34;Arthralgia&#34;]
+    Heart_Failure[&#34;Heart Failure&#34;]
+    Non_Ceruloplasmin_Bound_Serum_Copper[&#34;Non-Ceruloplasmin-Bound Serum Copper&#34;]
+    Neurodegeneration[&#34;Neurodegeneration&#34;]
+    Tetrathiomolybdate[&#34;Tetrathiomolybdate&#34;]
+    Ceruloplasmin[&#34;Ceruloplasmin&#34;]
+    Hepatic_Copper[&#34;Hepatic Copper&#34;]
+    D_Penicillamine[&#34;D-Penicillamine&#34;]
+    Hepatic_Stellate_Cell_Activation[&#34;Hepatic Stellate Cell Activation&#34;]
+    Chorea[&#34;Chorea&#34;]
+    Cirrhosis[&#34;Cirrhosis&#34;]
+    ATP7B[&#34;ATP7B&#34;]
+    Impaired_Biliary_Copper_Excretion[&#34;Impaired Biliary Copper Excretion&#34;]
+    Osteoporosis[&#34;Osteoporosis&#34;]
+    Sunflower_Cataract[&#34;Sunflower Cataract&#34;]
+    Ferroptosis[&#34;Ferroptosis&#34;]
     Acute_Hepatitis[&#34;Acute Hepatitis&#34;]
+    Trientine[&#34;Trientine&#34;]
+    Zinc_Acetate[&#34;Zinc Acetate&#34;]
+    Cuproptosis[&#34;Cuproptosis&#34;]
+    Gait_Disturbance[&#34;Gait Disturbance&#34;]
+    Osteopenia[&#34;Osteopenia&#34;]
+    Premature_Erythrocyte_Destruction[&#34;Premature Erythrocyte Destruction&#34;]
+    Excessive_Salivation[&#34;Excessive Salivation&#34;]
+    Parkinsonism[&#34;Parkinsonism&#34;]
+    Clumsiness[&#34;Clumsiness&#34;]
+    Rigidity[&#34;Rigidity&#34;]
+    Cardiomyopathy[&#34;Cardiomyopathy&#34;]
+    Liver_Transplantation[&#34;Liver Transplantation&#34;]
+    Pruritus[&#34;Pruritus&#34;]
+    Drooling[&#34;Drooling&#34;]
+    Vomiting[&#34;Vomiting&#34;]
+    Abdominal_Pain[&#34;Abdominal Pain&#34;]
+    Hepatitis[&#34;Hepatitis&#34;]
+    Seizure[&#34;Seizure&#34;]
+    Arthralgia[&#34;Arthralgia&#34;]
+    Ataxia[&#34;Ataxia&#34;]
+    Hemolytic_Anemia[&#34;Hemolytic Anemia&#34;]
+    Impaired_Ceruloplasmin_Loading[&#34;Impaired Ceruloplasmin Loading&#34;]
+    Thrombocytopenia[&#34;Thrombocytopenia&#34;]
+    N_24_Hour_Urinary_Copper[&#34;24-Hour Urinary Copper&#34;]
+    Personality_Changes[&#34;Personality Changes&#34;]
+    Jaundice[&#34;Jaundice&#34;]
+    Abnormality_Of_The_Menstrual_Cycle[&#34;Abnormality Of The Menstrual Cycle&#34;]
+    Hepatic_Copper_Accumulation[&#34;Hepatic Copper Accumulation&#34;]
+    Depression[&#34;Depression&#34;]
+    Focal_T2_Hyperintense_Brainstem_Lesion[&#34;Focal T2 Hyperintense Brainstem Lesion&#34;]
+    Renal_Fanconi_Syndrome[&#34;Renal Fanconi Syndrome&#34;]
+    Dysarthria[&#34;Dysarthria&#34;]
+    Excessive_Hepatic_ECM_Deposition[&#34;Excessive Hepatic ECM Deposition&#34;]
+    Splenomegaly[&#34;Splenomegaly&#34;]
     Pathologic_Fracture[&#34;Pathologic Fracture&#34;]
-    Low_Copper_Diet[&#34;Low Copper Diet&#34;]
+    Cardiac_Arrhythmia[&#34;Cardiac Arrhythmia&#34;]
 
     ATP7B_Copper_Trafficking_Defect --&gt; Impaired_Biliary_Copper_Excretion
     ATP7B_Copper_Trafficking_Defect --&gt; Impaired_Ceruloplasmin_Loading
@@ -616,6 +842,7 @@
     Systemic_Copper_Distribution --&gt; N_24_Hour_Urinary_Copper
     Systemic_Copper_Distribution --&gt; Kayser_Fleischer_Rings
     Systemic_Copper_Distribution --&gt; Renal_Tubular_Dysfunction
+    Systemic_Copper_Distribution --&gt; Renal_Fanconi_Syndrome
     Systemic_Copper_Distribution --&gt; Cardiomyopathy
     Systemic_Copper_Distribution --&gt; Heart_Failure
     Systemic_Copper_Distribution --&gt; Cardiac_Arrhythmia
@@ -634,7 +861,7 @@
     Hepatocyte_Injury --&gt; Hepatomegaly
     Hepatocyte_Injury --&gt; Jaundice
     Hepatocyte_Injury --&gt; Acute_Hepatic_Failure
-    Hepatocyte_Injury --&gt; Hemolytic_Anemia
+    Hepatocyte_Injury --&gt; Erythrocyte_Oxidative_Membrane_Injury
     Hepatocyte_Injury --&gt; Vomiting
     Hepatocyte_Injury --&gt; Cuproptosis
     Hepatocyte_Injury --&gt; Ferroptosis
@@ -672,7 +899,10 @@
     Neurodegeneration --&gt; Excessive_Salivation
     Neurodegeneration --&gt; Proximal_Lower_Limb_Muscle_Weakness
     Neurodegeneration --&gt; Focal_T2_Hyperintense_Brainstem_Lesion
+    Neurodegeneration --&gt; Face_Of_The_Giant_Panda_Sign
     Neurodegeneration --&gt; Aggressive_Behavior
+    Erythrocyte_Oxidative_Membrane_Injury --&gt; Premature_Erythrocyte_Destruction
+    Premature_Erythrocyte_Destruction --&gt; Hemolytic_Anemia
     D_Penicillamine --&gt; Systemic_Copper_Distribution
     Trientine --&gt; Systemic_Copper_Distribution
     Zinc_Acetate --&gt; Hepatic_Copper_Accumulation
@@ -688,87 +918,120 @@
     ATP7B --&gt; ATP7B_Copper_Trafficking_Defect
     ATP7B --&gt; Impaired_Biliary_Copper_Excretion
     ATP7B --&gt; Impaired_Ceruloplasmin_Loading
+    p.H1069Q --&gt; ATP7B
+    p.R778L --&gt; ATP7B
 
-    style Thrombocytopenia fill:#fef3c7
-    style Ferroptosis fill:#dbeafe
-    style Abdominal_Pain fill:#fef3c7
-    style Zinc_Acetate fill:#fce7f3
-    style Vomiting fill:#fef3c7
-    style Dysarthria fill:#fef3c7
-    style Seizure fill:#fef3c7
-    style ATP7B fill:#f3e8ff
-    style Focal_T2_Hyperintense_Brainstem_Lesion fill:#fef3c7
-    style Heart_Failure fill:#fef3c7
-    style Gait_Disturbance fill:#fef3c7
-    style Jaundice fill:#fef3c7
-    style Hepatic_Copper_Accumulation fill:#dbeafe
-    style Cardiac_Arrhythmia fill:#fef3c7
-    style Weight_Loss fill:#fef3c7
-    style Impaired_Ceruloplasmin_Loading fill:#dbeafe
-    style Splenomegaly fill:#fef3c7
-    style Cirrhosis fill:#fef3c7
-    style Parkinsonism fill:#fef3c7
-    style N_24_Hour_Urinary_Copper fill:#e0e7ff
-    style Hepatocyte_Injury fill:#dbeafe
-    style Dysphagia fill:#fef3c7
-    style Hepatic_Copper fill:#e0e7ff
-    style Tetrathiomolybdate fill:#fce7f3
-    style Abnormality_Of_The_Menstrual_Cycle fill:#fef3c7
-    style AAV_Mediated_ATP7B_Gene_Therapy fill:#fce7f3
-    style Trientine fill:#fce7f3
-    style Excessive_Hepatic_ECM_Deposition fill:#dbeafe
-    style Drooling fill:#fef3c7
-    style Neurodegeneration fill:#dbeafe
-    style Bruising_Susceptibility fill:#fef3c7
-    style Systemic_Copper_Distribution fill:#dbeafe
-    style Anxiety fill:#fef3c7
-    style Cardiomyopathy fill:#fef3c7
-    style Psychosis fill:#fef3c7
-    style D_Penicillamine fill:#fce7f3
-    style Ataxia fill:#fef3c7
-    style Cuproptosis fill:#dbeafe
+    style Dystonia fill:#fef3c7
+    style ATP7B_Copper_Trafficking_Defect fill:#dbeafe
     style Failure_To_Thrive fill:#fef3c7
-    style Liver_Transplantation fill:#fce7f3
+    style Renal_Tubular_Dysfunction fill:#fef3c7
+    style p.H1069Q fill:#f3e8ff
+    style Tremor fill:#fef3c7
+    style Dysphagia fill:#fef3c7
+    style Face_Of_The_Giant_Panda_Sign fill:#fef3c7
+    style Low_Copper_Diet fill:#fce7f3
+    style Joint_Swelling fill:#fef3c7
+    style Hepatocyte_Injury fill:#dbeafe
+    style Intellectual_Disability fill:#fef3c7
+    style Acute_Hepatic_Failure fill:#fef3c7
     style Hepatic_Steatosis fill:#fef3c7
-    style Bradykinesia fill:#fef3c7
+    style p.R778L fill:#f3e8ff
+    style Psychosis fill:#fef3c7
+    style Ascites fill:#fef3c7
+    style Hepatomegaly fill:#fef3c7
+    style Systemic_Copper_Distribution fill:#dbeafe
+    style Kayser_Fleischer_Rings fill:#fef3c7
+    style Proximal_Lower_Limb_Muscle_Weakness fill:#fef3c7
     style Elevated_Circulating_Hepatic_Transaminase_Concentration fill:#fef3c7
     style Arthritis fill:#fef3c7
-    style Hepatitis fill:#fef3c7
-    style Non_Ceruloplasmin_Bound_Serum_Copper fill:#e0e7ff
-    style Sunflower_Cataract fill:#fef3c7
-    style Excessive_Salivation fill:#fef3c7
-    style Proximal_Lower_Limb_Muscle_Weakness fill:#fef3c7
-    style Intellectual_Disability fill:#fef3c7
-    style Kayser_Fleischer_Rings fill:#fef3c7
-    style Depression fill:#fef3c7
-    style Osteoporosis fill:#fef3c7
-    style Impaired_Biliary_Copper_Excretion fill:#dbeafe
-    style Anemia fill:#fef3c7
-    style Osteopenia fill:#fef3c7
-    style Acute_Hepatic_Failure fill:#fef3c7
-    style Rigidity fill:#fef3c7
-    style Tremor fill:#fef3c7
+    style Anxiety fill:#fef3c7
+    style Erythrocyte_Oxidative_Membrane_Injury fill:#dbeafe
+    style Bruising_Susceptibility fill:#fef3c7
+    style AAV_Mediated_ATP7B_Gene_Therapy fill:#fce7f3
+    style Bradykinesia fill:#fef3c7
     style Bone_Pain fill:#fef3c7
-    style Chorea fill:#fef3c7
-    style Hepatic_Stellate_Cell_Activation fill:#dbeafe
-    style Hemolytic_Anemia fill:#fef3c7
-    style ATP7B_Copper_Trafficking_Defect fill:#dbeafe
-    style Ascites fill:#fef3c7
-    style Joint_Swelling fill:#fef3c7
-    style Pruritus fill:#fef3c7
-    style Ceruloplasmin fill:#e0e7ff
-    style Dystonia fill:#fef3c7
+    style Weight_Loss fill:#fef3c7
+    style Anemia fill:#fef3c7
     style Aggressive_Behavior fill:#fef3c7
-    style Clumsiness fill:#fef3c7
-    style Hepatomegaly fill:#fef3c7
-    style Renal_Tubular_Dysfunction fill:#fef3c7
-    style Personality_Changes fill:#fef3c7
-    style Arthralgia fill:#fef3c7
+    style Heart_Failure fill:#fef3c7
+    style Non_Ceruloplasmin_Bound_Serum_Copper fill:#e0e7ff
+    style Neurodegeneration fill:#dbeafe
+    style Tetrathiomolybdate fill:#fce7f3
+    style Ceruloplasmin fill:#e0e7ff
+    style Hepatic_Copper fill:#e0e7ff
+    style D_Penicillamine fill:#fce7f3
+    style Hepatic_Stellate_Cell_Activation fill:#dbeafe
+    style Chorea fill:#fef3c7
+    style Cirrhosis fill:#fef3c7
+    style ATP7B fill:#f3e8ff
+    style Impaired_Biliary_Copper_Excretion fill:#dbeafe
+    style Osteoporosis fill:#fef3c7
+    style Sunflower_Cataract fill:#fef3c7
+    style Ferroptosis fill:#dbeafe
     style Acute_Hepatitis fill:#fef3c7
+    style Trientine fill:#fce7f3
+    style Zinc_Acetate fill:#fce7f3
+    style Cuproptosis fill:#dbeafe
+    style Gait_Disturbance fill:#fef3c7
+    style Osteopenia fill:#fef3c7
+    style Premature_Erythrocyte_Destruction fill:#dbeafe
+    style Excessive_Salivation fill:#fef3c7
+    style Parkinsonism fill:#fef3c7
+    style Clumsiness fill:#fef3c7
+    style Rigidity fill:#fef3c7
+    style Cardiomyopathy fill:#fef3c7
+    style Liver_Transplantation fill:#fce7f3
+    style Pruritus fill:#fef3c7
+    style Drooling fill:#fef3c7
+    style Vomiting fill:#fef3c7
+    style Abdominal_Pain fill:#fef3c7
+    style Hepatitis fill:#fef3c7
+    style Seizure fill:#fef3c7
+    style Arthralgia fill:#fef3c7
+    style Ataxia fill:#fef3c7
+    style Hemolytic_Anemia fill:#fef3c7
+    style Impaired_Ceruloplasmin_Loading fill:#dbeafe
+    style Thrombocytopenia fill:#fef3c7
+    style N_24_Hour_Urinary_Copper fill:#e0e7ff
+    style Personality_Changes fill:#fef3c7
+    style Jaundice fill:#fef3c7
+    style Abnormality_Of_The_Menstrual_Cycle fill:#fef3c7
+    style Hepatic_Copper_Accumulation fill:#dbeafe
+    style Depression fill:#fef3c7
+    style Focal_T2_Hyperintense_Brainstem_Lesion fill:#fef3c7
+    style Renal_Fanconi_Syndrome fill:#fef3c7
+    style Dysarthria fill:#fef3c7
+    style Excessive_Hepatic_ECM_Deposition fill:#dbeafe
+    style Splenomegaly fill:#fef3c7
     style Pathologic_Fracture fill:#fef3c7
-    style Low_Copper_Diet fill:#fce7f3</pre>
+    style Cardiac_Arrhythmia fill:#fef3c7</pre>
             </div>
             
+            
+            <h3>Osteoporosis</h3>
+            <div class="mermaid-container">
+                <pre class="mermaid">graph LR
+    Estrogen_Deficiency[&#34;Estrogen Deficiency&#34;]
+    Glucocorticoid_Use[&#34;Glucocorticoid Use&#34;]
+    RANKL_OPG_Dysregulation[&#34;RANKL/OPG Dysregulation&#34;]
+    Microgravity_Exposure[&#34;Microgravity Exposure&#34;]
+    Microgravity_Accelerated_Bone_Resorption[&#34;Microgravity-Accelerated Bone Resorption&#34;]
+    Smoking[&#34;Smoking&#34;]
+    Bone_Remodeling_Imbalance[&#34;Bone Remodeling Imbalance&#34;]
+
+    Estrogen_Deficiency --&gt; RANKL_OPG_Dysregulation
+    Smoking --&gt; Bone_Remodeling_Imbalance
+    Glucocorticoid_Use --&gt; Bone_Remodeling_Imbalance
+    Microgravity_Exposure --&gt; Microgravity_Accelerated_Bone_Resorption
+
+    style Estrogen_Deficiency fill:#dcfce7
+    style Glucocorticoid_Use fill:#dcfce7
+    style RANKL_OPG_Dysregulation fill:#dbeafe
+    style Microgravity_Exposure fill:#dcfce7
+    style Microgravity_Accelerated_Bone_Resorption fill:#dbeafe
+    style Smoking fill:#dcfce7
+    style Bone_Remodeling_Imbalance fill:#dbeafe</pre>
+            </div>
             
         </div>
         
@@ -1164,16 +1427,21 @@
                     <div class="tag-list">
                         
                         
+                        
+                        
                         <span class="tag tag-classification">
                             
     
     
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank">bone remodeling</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" aria-describedby="pill-tip-1">bone remodeling</a>
     
     
     
+                            <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                         </span>
                         
                         
@@ -1777,5 +2045,73 @@ association_signals:
             
         </div>
     </div>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .go-terms li';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

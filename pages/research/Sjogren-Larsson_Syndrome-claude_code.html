@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sjogren-Larsson Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sjogren-Larsson Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sjogren-Larsson Syndrome</h1>
+                
+                <p class="report-subtitle">Sjögren-Larsson Syndrome (SLS): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-07-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010031" target="_blank" rel="noopener noreferrer">MONDO:0010031</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Sjögren-Larsson Syndrome (SLS): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview:</strong> Sjögren-Larsson syndrome (SLS) is a rare autosomal recessive neurocutaneous inborn error of lipid metabolism caused by deficiency of fatty aldehyde dehydrogenase (FALDH), encoded by <em>ALDH3A2</em>. It is defined by a classic clinical triad — congenital ichthyosis, spastic diplegia/tetraplegia, and intellectual disability — with a pathognomonic ophthalmologic finding (glistening white retinal dots/juvenile macular dystrophy) and characteristic leukoencephalopathy. First described by Sjögren and Larsson in Swedish patients (1956–1957).</p>
+<p><strong>Key identifiers:</strong>
+- OMIM: <strong>#270200</strong> (phenotype); gene <em>ALDH3A2</em> OMIM <strong>*609523</strong> (<a href="https://bioregistry.io/HGNC:403" target="_blank" rel="noopener noreferrer">HGNC:403</a>, chromosome 17p11.2)
+- Orphanet: <strong><a href="https://bioregistry.io/ORPHA:816" target="_blank" rel="noopener noreferrer">ORPHA:816</a></strong>
+- MONDO: <strong><a href="http://purl.obolibrary.org/obo/MONDO_0010031" target="_blank" rel="noopener noreferrer">MONDO:0010031</a></strong>; Disease Ontology: <a href="http://purl.obolibrary.org/obo/DOID_14501" target="_blank" rel="noopener noreferrer">DOID:14501</a>
+- ICD-10: <strong>Q87.1</strong> (congenital malformation syndromes predominantly associated with short stature); ICD-11: <strong>5C52.03</strong>
+- MeSH: Sjogren-Larsson Syndrome</p>
+<p><strong>Source of information:</strong> This report draws on aggregated disease-level resources (OMIM, Orphanet, GeneReviews-type reviews, MedLink Neurology) and primary literature (case series, natural history cohorts from the Netherlands and Sweden, and single/multi-patient case reports) rather than raw individual EHR data.</p>
+<p><strong>Synonyms:</strong> SLS; Fatty aldehyde dehydrogenase deficiency; FALDH deficiency; Ichthyosis–spastic diplegia–oligophrenia syndrome.</p>
+<h2>2. Etiology</h2>
+<p><strong>Causal factor:</strong> SLS is monogenic — biallelic loss-of-function variants in <em>ALDH3A2</em> cause deficiency of FALDH (also called fatty alcohol:NAD+ oxidoreductase, FAO), leading to accumulation of long-chain fatty aldehydes and fatty alcohols (Rizzo, <a href="https://pubmed.ncbi.nlm.nih.gov/16996289/" target="_blank" rel="noopener noreferrer">PMID: 16996289</a>).</p>
+<p><strong>Genetic risk factors:</strong>
+- Homozygous or compound heterozygous <em>ALDH3A2</em> variants are both necessary and sufficient — no modifier genes with established effect have been reported.
+- Consanguinity substantially raises risk in outbred populations (case series from consanguineous Arab families reported).
+- Founder mutations: c.943C&gt;T (p.Pro315Ser) is the most common allele in the Swedish founder population (northern Sweden, Västerbotten); c.1297_1298delGA (p.Glu433Argfs*3) is the most common allele among broader European patients. Both arise from single recurrent haplotypes (Journal of Human Genetics, 2019, PMID for founder-effect study on 35 patients).
+- Carrier frequency reaches ~1% in northern Sweden due to founder effect.</p>
+<p><strong>Environmental/other risk factors:</strong> None identified — SLS is purely genetic; there is no described environmental trigger, infectious cause, or acquired risk factor. Preterm birth is a <em>consequence</em> rather than a cause (see Phenotypes below).</p>
+<p><strong>Protective factors:</strong> None described; missense alleles retaining partial residual FALDH activity are associated with milder phenotypes (genotype-phenotype correlation; JIMD Reports 2020, "the mild end of the phenotypic spectrum," PMC7203653).</p>
+<p><strong>Gene-environment interaction:</strong> Not established as a feature of this disease; it behaves as a straightforward Mendelian recessive disorder.</p>
+<h2>3. Phenotypes</h2>
+<p><strong>Classic triad (onset: infancy/early childhood, essentially universal):</strong>
+- <strong>Ichthyosis</strong> (<a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a>): present at birth or within the first year; ranges from erythematous, hyperkeratotic skin to a collodion-membrane presentation; predominantly flexural, sparing central face. Distinctively <strong>pruritic</strong> — a feature that differentiates SLS from most other congenital ichthyoses (this pruritus is attributed to leukotriene B4 accumulation, see Mechanism). HPO: Ichthyosis (<a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a>), Hyperkeratosis (<a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" rel="noopener noreferrer">HP:0000962</a>), Dry skin (<a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" rel="noopener noreferrer">HP:0000958</a>), Erythema (<a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" rel="noopener noreferrer">HP:0010783</a>), Pruritus (<a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" rel="noopener noreferrer">HP:0000989</a>).
+- <strong>Spastic diplegia/tetraplegia</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001285" target="_blank" rel="noopener noreferrer">HP:0001285</a>/<a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" rel="noopener noreferrer">HP:0002510</a>): motor milestone delay (sitting, crawling, walking); lower limbs more severely affected than upper; hypertonia, brisk deep tendon reflexes, extensor plantar responses; most patients become wheelchair-dependent by adolescence. Progressive early in life but largely static thereafter.
+- <strong>Intellectual disability</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>): mild-to-moderate in most; developmental age typically plateaus around 5–6 years; IQ range reported 25–75. Notably "no cognitive deterioration at least during the first three to four decades of life" in most patients (Dove Press review, <a href="https://pubmed.ncbi.nlm.nih.gov/32021380/" target="_blank" rel="noopener noreferrer">PMID 32021380</a> — TACG 2020).</p>
+<p><strong>Additional phenotypes:</strong>
+- <strong>Glistening white retinal dots / juvenile macular dystrophy / crystalline maculopathy</strong> — pathognomonic when present but may not appear until later childhood; often associated with photophobia. HPO: Macular dystrophy (<a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" rel="noopener noreferrer">HP:0007754</a>), Retinal pigment epithelial atrophy, Photophobia (<a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a>), Abnormality of retinal pigmentation (<a href="http://purl.obolibrary.org/obo/HP_0007703" target="_blank" rel="noopener noreferrer">HP:0007703</a>).
+- <strong>Speech abnormality/dysarthria</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a>): pseudobulbar dysarthria, correlating with cognitive level.
+- <strong>Seizures</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>): affect ~35–40% of patients; usually generalized tonic-clonic; generally controllable with standard antiepileptics; interictal EEG often normal, though nonspecific epileptiform activity is reported in some.
+- <strong>Short stature, skeletal abnormalities</strong> (kyphosis, scoliosis), dental enamel abnormality, corneal erosions, microcephaly, hypotonia (axial, in infancy) are variably reported per HPO annotations.
+- <strong>Preterm birth</strong>: reported in ~73% of a Dutch cohort (median gestational age 36 weeks), attributed to elevated leukotriene B4 in amniotic fluid/abnormal lipid metabolism (Staps et al., JIMD Reports 2020).</p>
+<p><strong>Severity/progression:</strong> Broad phenotypic spectrum from severe classic presentations to very mild forms with near-normal intelligence and minor skin/neurologic findings (PMC7203653, "the mild end of the phenotypic spectrum," 2020). Rare neuroregressive courses have been reported in children/adolescents, usually associated with uncontrolled seizures (a "Neurodegenerative Phenotype Associated with SLS," PMC8458237).</p>
+<p><strong>Quality of life impact:</strong> Chronic pruritus is described as particularly distressing ("agonising pruritus" — Willemsen et al., zileuton trial, <a href="https://pubmed.ncbi.nlm.nih.gov/11795678/" target="_blank" rel="noopener noreferrer">PMID 11795678</a>); mobility limitations (wheelchair dependence) and speech impairment materially affect independence; visual impairment from macular dystrophy adds further burden. No validated disease-specific QOL instrument was identified in this search; general pruritus and mobility scales have been used in clinical trials.</p>
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>ALDH3A2</em> (aldehyde dehydrogenase 3 family member A2; formerly FALDH gene), chromosome 17p11.2, ~31 kb, 11 exons; two transcripts (a 485-aa major isoform from exons 1–10, and a 508-aa FALDHv variant including exon 9′) differing at the C-terminus that anchors the enzyme to the ER/microsomal membrane.</p>
+<p><strong>Variant spectrum:</strong> &gt;90–100+ unique variants catalogued (LOVD database, ~178 patients compiled): missense/nonsense substitutions, small insertions/deletions, splice-site defects, and complex rearrangements including large deletions (~5% of mutant alleles; ranging from 1–2 nt up to a 1.44-Mb contiguous gene deletion). Most missense variants severely reduce catalytic activity; a subset retain residual activity with altered kinetics/stability, correlating with milder phenotypes.</p>
+<p><strong>Founder/recurrent alleles:</strong>
+- c.943C&gt;T (p.Pro315Ser) — Swedish founder mutation, single haplotype.
+- c.1297_1298delGA (p.Glu433Argfs*3) — common in broader European ancestry patients.</p>
+<p><strong>Variant classification:</strong> ClinVar contains numerous pathogenic/likely-pathogenic ALDH3A2 entries linked to SLS (e.g., RCV000001709, RCV000001705). ACMG/AMP classification is used clinically; no large gnomAD-based carrier-frequency study was identified in this search beyond the Swedish 1% carrier estimate in Västerbotten.</p>
+<p><strong>Functional consequence:</strong> Loss-of-function (enzyme deficiency) — no gain-of-function or dominant-negative mechanism described. Both germline alleles must be pathogenic (biallelic); no somatic form exists (this is a congenital metabolic disease, not neoplastic).</p>
+<p><strong>Modifier genes:</strong> None established; phenotypic variability (including among siblings sharing the same genotype) is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/16476818/" target="_blank" rel="noopener noreferrer">PMID 16476818</a>, "Phenotypic variability among adult siblings with SLS") but no specific modifier locus has been identified.</p>
+<p><strong>Epigenetics:</strong> No disease-specific epigenetic mechanism reported in the literature surveyed.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not a chromosomal disorder per se, though large contiguous-gene deletions spanning <em>ALDH3A2</em> and neighboring genes have been reported as a subset of causal alleles.</p>
+<h2>5. Environmental Information</h2>
+<p>No environmental toxins, occupational exposures, or lifestyle factors contribute to disease causation — SLS is fully genetically determined. Dietary fat intake modulates <em>symptom severity</em> (see Treatment) rather than causing disease. No infectious trigger is implicated.</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Primary defect:</strong> FALDH (fatty aldehyde dehydrogenase, EC 1.2.1.48) normally oxidizes long-chain fatty aldehydes to fatty acids using NAD+. Deficiency causes accumulation of long-chain aliphatic fatty aldehydes and their reduction products, fatty alcohols (higher relative accumulation of octadecanol vs. hexadecanol in plasma).</p>
+<p><strong>Causal chain — multiple convergent metabolic disruptions:</strong>
+1. <strong>Fatty alcohol/aldehyde accumulation</strong> → covalent adduct formation with cellular macromolecules (proteins, phospholipids) → cytotoxicity. Aldehydes themselves are hard to detect directly because they are highly reactive and rapidly form adducts (e.g., increased N-alkyl-phosphatidylethanolamine as an indirect marker).
+2. <strong>Ether glycerolipid/plasmalogen metabolism</strong>: FALDH normally participates in degrading the alkyl chain cleaved from ether lipids; deficiency disrupts plasmalogen turnover. Plasmalogens comprise 40–50% of myelin phosphatidylethanolamine, linking this pathway to the CNS dysmyelination phenotype (PMC7689726, "Disturbed brain ether lipid metabolism and histology in SLS").
+3. <strong>Leukotriene B4 (LTB4) metabolism</strong>: FALDH normally oxidizes ω-aldehyde-LTB4 to ω-carboxy-LTB4 (inactivation step). SLS patients show markedly elevated urinary LTB4 and ω-hydroxy-LTB4 with absent ω-carboxy-LTB4 — "the only condition described with profound urinary excretion of LTB4" (Willemsen et al., J Neurol Sci 2001, PMID region cited above). LTB4, a potent chemoattractant/pruritogen, is implicated in both the intractable pruritus and possibly the high rate of preterm birth (elevated amniotic LTB4).
+4. <strong>Phytol/phytanic acid and isoprenoid alcohol metabolism</strong>: FALDH also participates in oxidation of phytol and mevalonate-pathway branched-chain alcohols; deficient in vitro, though these compounds do not accumulate systemically in patients.</p>
+<p><strong>Cutaneous pathogenesis:</strong> Accumulated fatty aldehydes/alcohols/ether glycerolipids/wax esters in keratinocytes cause abnormal lamellar body formation and secretion in the stratum granulosum (misshapen, granular-content or empty lamellar bodies), impairing epidermal barrier lipid delivery to the stratum corneum → ichthyosis.</p>
+<p><strong>Neurological pathogenesis:</strong> Neuronal degeneration in cortex and basal ganglia, white-matter demyelination/dysmyelination, and Purkinje cell loss have been reported histopathologically. MRI shows periventricular white-matter T2/FLAIR hyperintensity (frontal/parieto-occipital predominant, cerebellum typically spared) attributed to abnormal myelin maintenance rather than active demyelination. Proton MR spectroscopy reveals a characteristic accumulated-lipid peak at <strong>1.3 ppm</strong> (and ~0.8–0.9 ppm), thought to represent accumulated fatty alcohols/metabolites (hexadecanol/octadecanol) — a distinctive, near diagnostic imaging biomarker (AJNR 2004; PMC7056198, "Proton MR Spectroscopy of Sjögren-Larsson's Syndrome").</p>
+<p><strong>Mouse model mechanistic insight:</strong> <em>Aldh3a2</em> knockout mice show impaired long-chain-base (sphingolipid precursor) metabolism in neurons, reduced 2-hydroxygalactosylceramide (a myelin-important lipid, via secondary fatty acid 2-hydroxylase inactivation), and behavioral correlates of ataxia/anxiety (light-induced), supporting the CNS lipid-mediated mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/30085884/" target="_blank" rel="noopener noreferrer">PMID 30085884</a>).</p>
+<p><strong>Suggested ontology terms:</strong>
+- GO (biological process): fatty aldehyde metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0033306" target="_blank" rel="noopener noreferrer">GO:0033306</a>-adjacent), aldehyde metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0006081" target="_blank" rel="noopener noreferrer">GO:0006081</a>), leukotriene metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0006691" target="_blank" rel="noopener noreferrer">GO:0006691</a>), ether lipid metabolic process, myelination (<a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" rel="noopener noreferrer">GO:0042552</a>), keratinocyte differentiation (<a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a>), lamellar body organization.
+- GO (cellular component): endoplasmic reticulum membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), peroxisome (<a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" rel="noopener noreferrer">GO:0005777</a>) — sites of ALDH3A2 localization; lamellar body.
+- CL: keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), oligodendrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a>), Purkinje cell (<a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a>), cortical neuron.
+- CHEBI: hexadecanol, octadecanol, leukotriene B4 (<a href="http://purl.obolibrary.org/obo/CHEBI_15647" target="_blank" rel="noopener noreferrer">CHEBI:15647</a>), fatty aldehyde.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong> Primary — skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) and central nervous system (brain/spinal cord white matter, <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a>/0002316); secondary — retina/macula (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>), affecting the visual system; skeletal system (kyphoscoliosis, short stature); dental structures (enamel).</p>
+<p><strong>Tissue/cell level:</strong> Epidermis (stratum granulosum/stratum corneum keratinocytes), cerebral/cerebellar white matter oligodendrocytes and myelin, cortical and basal ganglia neurons, Purkinje cells (cerebellum), retinal pigment epithelium/macula.</p>
+<p><strong>Subcellular level:</strong> Endoplasmic reticulum/microsomal membrane (FALDH's primary localization) and peroxisome; lamellar bodies (keratinocyte-specific organelle) — GO Cellular Component: ER membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), peroxisomal membrane (<a href="http://purl.obolibrary.org/obo/GO_0005778" target="_blank" rel="noopener noreferrer">GO:0005778</a>).</p>
+<p><strong>Localization:</strong> Skin involvement is generalized but flexural-predominant with facial sparing; CNS white-matter changes are periventricular, frontal/parieto-occipital predominant, bilateral/symmetric (not lateralized); ocular findings are typically bilateral macular.</p>
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Congenital/neonatal for ichthyosis (present at birth or first weeks of life, sometimes as a collodion membrane); spasticity and developmental delay become apparent in infancy (delayed sitting/crawling/walking); macular dystrophy may not be visible until later childhood.</p>
+<p><strong>Progression:</strong> Skin and motor/spasticity findings are most dynamic in early childhood, then largely <strong>static/non-progressive</strong> through adulthood — a key distinguishing feature from true neurodegenerative leukodystrophies. Cognitive function is reported stable through the first 3–4 decades in most patients. A minority show an atypical <strong>neuroregressive</strong> course, usually linked to uncontrolled seizures (PMC8458237; PMC6114270, "Neurodegeneration in an adolescent with SLS: a decade-long follow-up").</p>
+<p><strong>Course pattern:</strong> Chronic, lifelong, predominantly stable/non-progressive rather than episodic or relapsing-remitting; no spontaneous remission described. Pruritus can fluctuate.</p>
+<p><strong>Critical periods:</strong> Early diagnosis enabling aggressive physiotherapy is emphasized as improving motor outcome (escholarship.org review, "Importance of early diagnosis and aggressive physiotherapy").</p>
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance:</strong> Autosomal recessive; complete penetrance for biallelic pathogenic variants; expressivity is variable (documented phenotypic variability even among siblings with identical genotype, <a href="https://pubmed.ncbi.nlm.nih.gov/16476818/" target="_blank" rel="noopener noreferrer">PMID 16476818</a>).</p>
+<p><strong>Epidemiology:</strong> Overall Swedish prevalence ~1 in 250,000 (~0.4/100,000); dramatically higher in Västerbotten, northern Sweden at <strong>8.3 per 100,000</strong> due to a founder effect and historically higher local consanguinity/isolation. Global prevalence elsewhere is not well quantified but the disease is reported worldwide (Europe, Middle East consanguineous families, other regions).</p>
+<p><strong>Founder effects/carrier frequency:</strong> Carrier frequency up to ~1% in northern Sweden; distinct founder mutations described in different populations (Swedish c.943C&gt;T; broader European c.1297_1298delGA), consistent with multiple independent founder events globally (Journal of Human Genetics 2019 founder-effect study of 35 patients).</p>
+<p><strong>Consanguinity:</strong> A recognized risk factor in outbred populations outside the Swedish founder cluster (e.g., consanguineous Arab families with multiple affected siblings reported).</p>
+<p><strong>Population demographics:</strong> No strong sex predilection reported (autosomal recessive, expected ~1:1 M:F). Age distribution reflects a pediatric-onset, lifelong chronic disease with survival into adulthood in most contemporary cohorts.</p>
+<h2>10. Diagnostics</h2>
+<p><strong>Laboratory/biochemical tests:</strong>
+- FALDH enzyme activity assay in cultured skin fibroblasts, or fatty alcohol:NAD+ oxidoreductase (FAO) activity — deficient in both, providing a combined diagnostic test.
+- Urinary biomarkers: elevated LTB4 and ω-hydroxy-LTB4 with absent ω-carboxy-LTB4 — a non-invasive diagnostic approach.
+- Plasma long-chain fatty alcohol accumulation (octadecanol &gt; hexadecanol).</p>
+<p><strong>Imaging:</strong> Brain MRI — periventricular white-matter T2/FLAIR hyperintensity; <strong>proton MR spectroscopy showing a characteristic 1.3 ppm (and 0.8–0.9 ppm) lipid peak</strong> is described as near-diagnostic/definitive in the correct clinical context (MDedge, "Definitive Diagnosis on Magnetic Resonance Spectroscopy"; AJNR 2004).</p>
+<p><strong>Ophthalmologic exam:</strong> Fundoscopy for glistening white retinal dots (crystalline maculopathy) — pathognomonic when present.</p>
+<p><strong>Histopathology:</strong> Skin biopsy showing disrupted lamellar body formation/secretion in the stratum granulosum (electron microscopy).</p>
+<p><strong>Genetic testing:</strong> Sequencing of <em>ALDH3A2</em> (single-gene test or as part of an ichthyosis/leukodystrophy/spastic-paraplegia gene panel); biallelic pathogenic variants confirm diagnosis. Available via GTR (Genetic Testing Registry) and clinical laboratories (e.g., Myriad Foresight carrier screen lists SLS).</p>
+<p><strong>Clinical criteria:</strong> Diagnosis is typically made by around age 3 based on the classic triad plus supportive enzyme/biochemical/genetic confirmation; clinical suspicion should arise in any child with ichthyosis plus spastic diplegia/tetraplegia — even with normal intelligence, since the mild end of the spectrum exists.</p>
+<p><strong>Differential diagnosis:</strong> Cerebral palsy (a common misdiagnosis before ichthyosis is recognized as linked), other congenital ichthyosiform erythrodermas/collodion baby syndromes (non-pruritic, distinguishing feature), other leukodystrophies/hereditary spastic paraplegias, and other neuroichthyotic syndromes (e.g., Refsum disease, trichothiodystrophy — differentiated by lipid/biochemical/genetic profile).</p>
+<p><strong>Screening:</strong> No population newborn screening program identified; carrier screening is feasible in high-risk populations (e.g., northern Swedish ancestry) and via expanded carrier panels; prenatal/preimplantation testing possible once familial variants are known.</p>
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival:</strong> Most patients now survive well into adulthood; earlier reports suggested life expectancy roughly halved relative to the general population (historical estimates as low as 15–26 years), but more recent clinical experience is more favorable, especially with modern supportive care.</p>
+<p><strong>Disease course/morbidity:</strong> Predominantly non-progressive motor/cognitive course after an early developmental period — most patients plateau rather than continuing to decline. Chronic morbidity centers on: wheelchair dependence (progressive spasticity to non-ambulation in many), speech impairment, visual impairment from macular dystrophy, and persistent pruritus/skin discomfort. A minority experience atypical neuroregression, generally associated with poorly controlled seizures.</p>
+<p><strong>Complications:</strong> Contractures, orthopedic deformities (kyphoscoliosis) from long-standing spasticity, corneal erosions, dental enamel defects, growth/short stature.</p>
+<p><strong>Prognostic factors:</strong> Genotype (missense variants with residual FALDH activity → milder phenotype); seizure control (uncontrolled seizures associated with neuroregressive courses); early diagnosis and aggressive physiotherapy improving functional motor outcomes.</p>
+<h2>12. Treatment</h2>
+<p>Management is currently <strong>entirely symptomatic</strong>; there is no FDA-approved disease-modifying therapy.</p>
+<p><strong>Pharmacotherapy — skin:</strong>
+- Topical emollients/keratolytics: urea creams (2–10%), used 1–2×/day (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a>-adjacent topical care; general symptomatic skin care).
+- Topical vitamin D analogue: calcipotriol, reported to improve ichthyosis.
+- Systemic retinoids: <strong>acitretin</strong> — effective for cutaneous symptoms with good tolerability in reported cohorts (short-acting retinoid preferred over older agents like etretinate for pediatric use due to tissue-storage concerns). MAXO/NCIT: Pharmacotherapy (NCIT:C15986) with therapeutic_agent acitretin (CHEBI).
+- Topical cholesterol/lovastatin (lipid replacement approach) — reported to give slight improvement.</p>
+<p><strong>Pharmacotherapy — pruritus/leukotriene pathway:</strong>
+- <strong>Zileuton</strong> (5-lipoxygenase inhibitor, blocks LTB4/cysteinyl-leukotriene synthesis): open-label trial in 5 patients (3 months) showed significant improvement in pruritus score (P=0.006), general well-being, and EEG background activity (Willemsen et al., Eur J Pediatr 2001, <a href="https://pubmed.ncbi.nlm.nih.gov/11795678/" target="_blank" rel="noopener noreferrer">PMID 11795678</a>). However, a subsequent double-blind, placebo-controlled crossover trial in 10 patients did not replicate the pruritus benefit; the authors still recommended a 4–6 week therapeutic trial in patients with severe disabling pruritus (Acta Derm Venereol 2016 zileuton RCT).</p>
+<p><strong>Dietary therapy:</strong> Fat-restricted diet (~30% of calories from fat) with medium-chain triglyceride (MCT) supplementation and adjusted essential fatty acid (linoleic:linolenic) ratios has been tried, reducing substrate for pathological long-chain fatty alcohol synthesis; results are inconsistent, with occasional cutaneous benefit but no convincing effect on neurologic symptoms — early intervention appeared to help more in reported cases.</p>
+<p><strong>Neurological/spasticity management:</strong>
+- Oral baclofen, benzodiazepines, muscle relaxants, anticholinergics.
+- Intrathecal baclofen — favorable response reported.
+- Physical/occupational therapy (<a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> physical therapy) — emphasized as critical, especially with early diagnosis.
+- Orthopedic surgery: tendon lengthening, adductor release, dorsal rhizotomy (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a>/NCIT:C16186 orthopedic surgical procedure) for contracture/spasticity management.</p>
+<p><strong>Seizure management:</strong> Standard antiepileptic drugs; seizures are usually controllable.</p>
+<p><strong>Experimental/investigational therapies:</strong>
+- <strong>ADX-102 (reproxalap) 1% topical cream</strong> — an aldehyde-scavenging small molecule tested in the industry-sponsored <strong>RESET Trial (NCT03445650)</strong>, a Phase 3 randomized, double-blind, vehicle-controlled trial (Aldeyra Therapeutics) targeting ichthyosis in SLS; Part 1 enrolled 11 subjects (2018–2020). A related compound, ADX-629, has also been studied (NCT05443685).
+- Aldehyde scavenger <strong>NS2</strong> — reduces N-alkyl-phosphatidylethanolamine formation in FALDH-deficient CHO cells and mouse models; early-phase clinical development noted.
+- <strong>PPAR-α agonist bezafibrate</strong> — increased <em>ALDH3A2</em> expression and residual enzyme activity in fibroblasts from missense-mutation patients in vitro; not yet clinically trialed.
+- <strong>ALDH activator Alda-89</strong> — stimulates residual FALDH activity ~3-fold in vitro; no clinical trials yet.
+- <strong>JNK pathway inhibitors</strong> — rationale based on trans-2-hexadecenal-induced JNK activation/apoptosis in model systems.
+- <strong>Gene therapy</strong>: rAAV-2-mediated FALDH gene transfer restored ~15-fold FALDH activity (60–70% of normal) in transduced SLS keratinocytes in vitro, with 84% of cells regaining resistance to long-chain aldehyde toxicity; lentiviral hematopoietic stem cell gene therapy has been tested in mouse models. Clinical translation remains preliminary; transgenic mouse overexpression models have been hampered by neonatal lethality.</p>
+<p><strong>Natural history study:</strong> NCT01971957 ("Sjogren-Larsson Syndrome: Natural History, Clinical Variation and Evaluation of Biochemical Markers") — ongoing NIH-affiliated natural history study informing future trial design.</p>
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Not applicable in the traditional sense (no environmental exposure to avoid); genetic counseling is the principal primary-prevention tool for at-risk couples (both carriers), especially in high-prevalence founder populations (northern Sweden) or consanguineous unions.</p>
+<p><strong>Secondary prevention/screening:</strong> Carrier screening in high-risk populations (feasible via targeted panels, e.g., commercial expanded carrier screens); prenatal diagnosis and preimplantation genetic diagnosis (PGD) are technically available once familial <em>ALDH3A2</em> variants are identified, though no population-wide newborn screening program was identified in this search.</p>
+<p><strong>Tertiary prevention:</strong> Early clinical diagnosis (target by ~age 3) paired with aggressive physiotherapy is repeatedly emphasized in the literature as improving functional motor outcomes and preventing/minimizing contractures; regular ophthalmologic surveillance for macular dystrophy and dental/orthopedic follow-up to manage secondary complications.</p>
+<p><strong>Genetic counseling:</strong> Standard autosomal-recessive recurrence-risk counseling (25% recurrence per pregnancy for carrier couples); relevant in populations with known founder mutations or consanguinity.</p>
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary/companion-animal form of SLS (spontaneous <em>ALDH3A2</em> deficiency) was identified in this search — this appears to be a human-specific reported condition without an OMIA veterinary entry found. The relevant cross-species information is limited to <strong>engineered model organisms</strong> (see below) rather than natural disease in other species.</p>
+<p><strong>Orthologous gene:</strong> <em>Aldh3a2</em> (mouse; NCBI Gene ortholog) — used to generate the knockout model discussed below.</p>
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse model (<em>Aldh3a2</em> knockout, mammalian genetic model):</strong>
+- Aldh3a2 KO mice show impaired long-chain-base (sphingolipid precursor) metabolism in neurons and reduced 2-hydroxygalactosylceramide (a myelin-relevant lipid, via secondary fatty acid 2-hydroxylase inactivation) in brain tissue.
+- Behavioral phenotype recapitulation: increased paw slips on balance-beam testing (motor/coordination deficit) and light-induced anxiety (potentially modeling photophobia), corresponding to some human SLS features (<a href="https://pubmed.ncbi.nlm.nih.gov/30085884/" target="_blank" rel="noopener noreferrer">PMID 30085884</a>).
+- <strong>Limitations:</strong> Transgenic/overexpression mouse models attempting to model the disease more fully have suffered neonatal lethality, limiting some in vivo therapeutic testing; the KO model does not fully recapitulate the ichthyosis or spasticity phenotype seen in humans, so it is used primarily for CNS lipid/mechanistic studies rather than full disease modeling.</p>
+<p><strong>Cellular models:</strong>
+- Patient-derived dermal fibroblasts and keratinocytes — standard for FALDH/FAO enzyme activity assays and gene-therapy vector testing (rAAV-2 FALDH transduction studies).
+- <strong>iPSC-derived oligodendrocyte-lineage cells</strong> from SLS patients — recently established to study accumulation of ether phospholipids and CNS-relevant lipid pathology in a human cellular system (PMC11608845, 2024).
+- CHO (Chinese hamster ovary) cell lines engineered to be FALDH-deficient — used for aldehyde-scavenger (NS2) and gene-transfer proof-of-concept studies.</p>
+<p><strong>Applications:</strong> These models collectively support study of (1) keratinocyte lamellar body/lipid barrier dysfunction, (2) CNS myelin lipid abnormalities, and (3) therapeutic strategies (gene transfer, aldehyde scavenging, enzyme activators) prior to human trials.</p>
+<hr />
+<h2>Summary Table of Key Ontology Term Suggestions</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0010031" target="_blank" rel="noopener noreferrer">MONDO:0010031</a>; <a href="https://bioregistry.io/OMIM:270200" target="_blank" rel="noopener noreferrer">OMIM:270200</a>; <a href="https://bioregistry.io/ORPHA:816" target="_blank" rel="noopener noreferrer">ORPHA:816</a>; <a href="http://purl.obolibrary.org/obo/DOID_14501" target="_blank" rel="noopener noreferrer">DOID:14501</a></td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><a href="https://bioregistry.io/HGNC:403" target="_blank" rel="noopener noreferrer">HGNC:403</a> <em>ALDH3A2</em>; <a href="https://bioregistry.io/OMIM:609523" target="_blank" rel="noopener noreferrer">OMIM:609523</a></td>
+</tr>
+<tr>
+<td>Phenotype (HP)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a> Ichthyosis; <a href="http://purl.obolibrary.org/obo/HP_0001285" target="_blank" rel="noopener noreferrer">HP:0001285</a> Spastic tetraplegia; <a href="http://purl.obolibrary.org/obo/HP_0002510" target="_blank" rel="noopener noreferrer">HP:0002510</a> Spastic diplegia; <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> Intellectual disability; <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" rel="noopener noreferrer">HP:0007754</a> Macular dystrophy; <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> Photophobia; <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" rel="noopener noreferrer">HP:0000989</a> Pruritus; <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> Seizure; <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a> Dysarthria</td>
+</tr>
+<tr>
+<td>GO (process)</td>
+<td>Aldehyde metabolic process; leukotriene metabolic process; ether lipid metabolic process; myelination; keratinocyte differentiation</td>
+</tr>
+<tr>
+<td>GO (component)</td>
+<td>Endoplasmic reticulum membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>); peroxisome (<a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" rel="noopener noreferrer">GO:0005777</a>)</td>
+</tr>
+<tr>
+<td>CL</td>
+<td>Keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>); oligodendrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a>); Purkinje cell (<a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a>)</td>
+</tr>
+<tr>
+<td>UBERON</td>
+<td>Skin epidermis; white matter of CNS; macula</td>
+</tr>
+<tr>
+<td>CHEBI</td>
+<td>Leukotriene B4; hexadecanol; octadecanol</td>
+</tr>
+<tr>
+<td>MAXO</td>
+<td>Physical therapy (<a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a>); surgical procedure (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h3>Sources:</h3>
+<ul>
+<li><a href="https://omim.org/entry/270200">Entry - #270200 - SJOGREN-LARSSON SYNDROME; SLS (OMIM)</a></li>
+<li><a href="https://omim.org/entry/609523">Entry - *609523 - ALDH3A2 (OMIM)</a></li>
+<li><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?Lng=GB&amp;Expert=816">Orphanet: Sjögren-Larsson syndrome</a></li>
+<li><a href="https://rarediseases.org/rare-diseases/sjogren-larsson-syndrome/">Sjögren-Larsson Syndrome - NORD</a></li>
+<li><a href="https://emedicine.medscape.com/article/949023-overview">Sjögren-Larsson Syndrome: Background, Epidemiology, Etiology (Medscape)</a></li>
+<li><a href="https://emedicine.medscape.com/article/949023-treatment">Sjögren-Larsson Syndrome Treatment &amp; Management (Medscape)</a></li>
+<li><a href="https://emedicine.medscape.com/article/949023-differential">Genetics of Sjogren-Larsson Syndrome Differential Diagnoses (Medscape)</a></li>
+<li><a href="https://www.dovepress.com/sjogren-larsson-syndrome-mechanisms-and-management-peer-reviewed-fulltext-article-TACG">Sjogren-Larsson Syndrome: Mechanisms and Management (Dove Press / TACG)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16996289/">Sjögren-Larsson syndrome: molecular genetics and biochemical pathogenesis of FALDH deficiency - PubMed (PMID 16996289)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11795678/">Clinical and biochemical effects of zileuton in SLS - PubMed (PMID 11795678)</a></li>
+<li><a href="https://repository.ubn.ru.nl/bitstream/handle/2066/168285/168285.pdf">Zileuton for Pruritus in Sjögren-Larsson Syndrome (RU Nijmegen repository)</a></li>
+<li><a href="https://www.nature.com/articles/s10038-019-0637-x">Phenotypic and mutational spectrum of 35 patients with SLS: 11 novel ALDH3A2 mutations and founder effects (J Hum Genet)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7203653/">Sjögren‐Larsson syndrome: The mild end of the phenotypic spectrum (JIMD Reports, PMC7203653)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16476818/">Phenotypic variability among adult siblings with SLS - PubMed (PMID 16476818)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8458237/">A Neurodegenerative Phenotype Associated with SLS (PMC8458237)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6114270/">Neurodegeneration in an adolescent with SLS: decade-long follow-up (PMC6114270)</a></li>
+<li><a href="https://www.ajnr.org/content/25/4/649">MR Imaging and Proton MR Spectroscopic Studies in SLS (AJNR 2004)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7056198/">Proton MR Spectroscopy of Sjögren-Larsson's Syndrome (PMC7056198)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7689726/">Disturbed brain ether lipid metabolism and histology in SLS (PMC7689726)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/30085884/">Neural symptoms in Aldh3a2 KO mouse model of SLS - PubMed (PMID 30085884)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11306053/">Fatty aldehyde dehydrogenase: genomic structure, expression and mutation analysis - PubMed (PMID 11306053)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11608845/">Accumulation of ether phospholipids in iPSC and oligodendrocyte-lineage cells from SLS patients (PMC11608845)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4989507/">Genetics and prospective therapeutic targets for SLS (PMC4989507)</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT03445650">RESET Trial - Part 1 (NCT03445650, ClinicalTrials.gov)</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT05443685">ADX-629 Therapy for Sjogren-Larsson Syndrome (NCT05443685)</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT01971957">SLS: Natural History, Clinical Variation and Evaluation of Biochemical Markers (NCT01971957)</a></li>
+<li><a href="https://www.medlink.com/articles/sjogren-larsson-syndrome">Sjögren-Larsson Syndrome (MedLink Neurology)</a></li>
+<li><a href="https://www.genecards.org/card/ALDH3A2">ALDH3A2 Gene - GeneCards</a></li>
+<li><a href="https://rarediseases.info.nih.gov/diseases/7654/sjogren-larsson-syndrome">Sjogren-larsson syndrome - GARD (NIH)</a></li>
+<li><a href="https://escholarship.org/uc/item/8ht1d817">Sjogren-Larsson syndrome: Importance of early diagnosis and aggressive physiotherapy (eScholarship)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10550349/">Sjögren-Larsson syndrome brain volumetric reductions (PMC10550349)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10301067/">Untargeted Metabolomic Analysis of SLS (PMC10301067)</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sjogrens_Syndrome-falcon.html">← Sjogren&#39;s Syndrome (Falcon)</a>
+                
+                
+                <a href="SLC12A5-Related_Developmental_and_Epileptic_Encephalopathy-claude_code.html">SLC12A5-Related Developmental and Epileptic Encephalopathy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sjogren-Larsson_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sjogren-Larsson_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

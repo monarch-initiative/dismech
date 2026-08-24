@@ -3,7 +3,7 @@
 
 For each MONDO ID listed in the epic issue's checklist, marks the item as
 checked ([x]) if the disease is covered in kb/disorders/ — either as a root
-entry, a has_subtypes subtype, or a mondo_mappings cross-reference.
+entry, a has_subtypes subtype, or an exact/narrow mondo_mappings cross-reference.
 
 This correctly handles LUMP_INTO_PARENT diseases whose parent has been curated
 and lists them as a subtype, even though no standalone kb/disorders/ file
@@ -47,9 +47,9 @@ _SECTION_HEADER_PATTERN = re.compile(
 def build_covered_ids(kb_dir: Path) -> dict[str, str]:
     """Build a mapping of covered MONDO IDs → kb filename.
 
-    Includes root entries, has_subtypes subtypes, and mondo_mappings so that
-    LUMP_INTO_PARENT diseases covered via a parent's has_subtypes are correctly
-    identified as curated.
+    Includes root entries, has_subtypes subtypes, and exact/narrow MONDO
+    mappings. Broad, close, and related mappings do not assert that the mapped
+    concept itself has been curated.
     """
     covered: dict[str, str] = {}
     for path in iter_disease_files(kb_dir):
@@ -61,8 +61,21 @@ def build_covered_ids(kb_dir: Path) -> dict[str, str]:
 
 def fetch_issue_body(repo: str, issue: int) -> str:
     result = subprocess.run(
-        ["gh", "issue", "view", str(issue), "--repo", repo, "--json", "body", "-q", ".body"],
-        capture_output=True, text=True, check=True,
+        [
+            "gh",
+            "issue",
+            "view",
+            str(issue),
+            "--repo",
+            repo,
+            "--json",
+            "body",
+            "-q",
+            ".body",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return result.stdout.rstrip("\n")
 
@@ -143,9 +156,15 @@ def reconcile_body(body: str, covered: dict[str, str]) -> tuple[str, int, int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--issue", type=int, default=1079, help="GitHub issue number")
-    parser.add_argument("--repo", default="monarch-initiative/dismech", help="GitHub repo")
-    parser.add_argument("--kb-dir", default="kb/disorders", help="Path to kb/disorders/")
-    parser.add_argument("--dry-run", action="store_true", help="Print diff without updating")
+    parser.add_argument(
+        "--repo", default="monarch-initiative/dismech", help="GitHub repo"
+    )
+    parser.add_argument(
+        "--kb-dir", default="kb/disorders", help="Path to kb/disorders/"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print diff without updating"
+    )
     args = parser.parse_args()
 
     kb_dir = Path(args.kb_dir)
@@ -155,7 +174,10 @@ def main() -> int:
 
     print(f"Building coverage index from {kb_dir} ...")
     covered = build_covered_ids(kb_dir)
-    print(f"  {len(covered)} MONDO IDs covered (root + has_subtypes + mondo_mappings)")
+    print(
+        f"  {len(covered)} MONDO IDs covered "
+        "(root + has_subtypes + exact/narrow mondo_mappings)"
+    )
 
     print(f"Fetching issue #{args.issue} from {args.repo} ...")
     body = fetch_issue_body(args.repo, args.issue)
@@ -166,7 +188,9 @@ def main() -> int:
         print("No changes — all checkboxes already up to date.")
         return 0
 
-    print(f"  {newly_checked} newly checked, {total_checked} total checked after reconciliation")
+    print(
+        f"  {newly_checked} newly checked, {total_checked} total checked after reconciliation"
+    )
 
     if args.dry_run:
         # Show a compact diff
@@ -174,7 +198,7 @@ def main() -> int:
         new_lines = updated_body.splitlines()
         for i, (old, new) in enumerate(zip(old_lines, new_lines)):
             if old != new:
-                print(f"  line {i+1}:")
+                print(f"  line {i + 1}:")
                 print(f"    - {old}")
                 print(f"    + {new}")
         print("[dry-run] No changes written.")

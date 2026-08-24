@@ -22,8 +22,8 @@ Alias: reference
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [PublicationReference](../classes/PublicationReference.md) | A reference to a publication with associated findings |  yes  |
 | [MappingConsistency](../classes/MappingConsistency.md) | Consistency assertion for a mapping relative to another source |  yes  |
+| [PublicationReference](../classes/PublicationReference.md) | A reference to a publication with associated findings |  yes  |
 | [EvidenceItem](../classes/EvidenceItem.md) |  |  no  |
 
 

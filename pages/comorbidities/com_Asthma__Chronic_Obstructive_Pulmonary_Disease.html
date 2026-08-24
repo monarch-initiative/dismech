@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -288,6 +407,64 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .go-terms li {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible,
+        .go-terms li:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .go-terms li:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-parent {
             background: #e0e7ff;
             color: #3730a3;
@@ -431,6 +608,49 @@
     </script>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -525,30 +745,35 @@
             <h3>Asthma</h3>
             <div class="mermaid-container">
                 <pre class="mermaid">graph LR
-    ADAM33[&#34;ADAM33&#34;]
-    Bronchoconstriction[&#34;Bronchoconstriction&#34;]
-    Airway_Inflammation[&#34;Airway Inflammation&#34;]
-    Rapid_Breathing[&#34;Rapid Breathing&#34;]
-    Airway_Remodeling[&#34;Airway Remodeling&#34;]
-    Early_Life_Rhinovirus_Wheezing_Illness_and_Asthma_Inception[&#34;Early-Life Rhinovirus Wheezing Illness and Asthma Inception&#34;]
-    Exercise_Intolerance[&#34;Exercise Intolerance&#34;]
-    IL4[&#34;IL4&#34;]
-    Wheezing[&#34;Wheezing&#34;]
-    IL13[&#34;IL13&#34;]
-    Coughing[&#34;Coughing&#34;]
-    STAT3[&#34;STAT3&#34;]
-    Respiratory_Distress[&#34;Respiratory Distress&#34;]
-    Sleep_Disturbance[&#34;Sleep Disturbance&#34;]
-    Mucus_Overproduction[&#34;Mucus Overproduction&#34;]
-    Chest_Tightness[&#34;Chest Tightness&#34;]
-    Reduced_Exercise_Tolerance[&#34;Reduced Exercise Tolerance&#34;]
-    Anxiety[&#34;Anxiety&#34;]
-    Cyanosis[&#34;Cyanosis&#34;]
-    SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation[&#34;SIRT1-Mediated NAD+ Signaling and Protective Deacetylation&#34;]
     Fatigue[&#34;Fatigue&#34;]
-    CDHR3[&#34;CDHR3&#34;]
+    IL13[&#34;IL13&#34;]
+    Reduced_Exercise_Tolerance[&#34;Reduced Exercise Tolerance&#34;]
+    Rapid_Breathing[&#34;Rapid Breathing&#34;]
+    Early_Life_Rhinovirus_Wheezing_Illness_and_Asthma_Inception[&#34;Early-Life Rhinovirus Wheezing Illness and Asthma Inception&#34;]
+    Airway_Inflammation[&#34;Airway Inflammation&#34;]
+    Wheezing[&#34;Wheezing&#34;]
+    Air_Pollution[&#34;Air Pollution&#34;]
+    Anxiety[&#34;Anxiety&#34;]
+    Respiratory_Distress[&#34;Respiratory Distress&#34;]
+    Cyanosis[&#34;Cyanosis&#34;]
+    Allergens[&#34;Allergens&#34;]
+    Chest_Tightness[&#34;Chest Tightness&#34;]
+    Prenatal_Acid_Suppressive_Medication_Exposure[&#34;Prenatal Acid-Suppressive Medication Exposure&#34;]
     House_Dust_Mite_Allergen_Protease_Induced_Epithelial_Oxidant_Signaling[&#34;House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling&#34;]
+    CDHR3[&#34;CDHR3&#34;]
+    STAT3[&#34;STAT3&#34;]
+    SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation[&#34;SIRT1-Mediated NAD+ Signaling and Protective Deacetylation&#34;]
     Type_2_Immune_Response___Th2_Signaling[&#34;Type 2 Immune Response / Th2 Signaling&#34;]
+    Airway_Remodeling[&#34;Airway Remodeling&#34;]
+    Bronchoconstriction[&#34;Bronchoconstriction&#34;]
+    Tobacco_Smoke[&#34;Tobacco Smoke&#34;]
+    Mucus_Overproduction[&#34;Mucus Overproduction&#34;]
+    Coughing[&#34;Coughing&#34;]
+    Occupational_Exposures[&#34;Occupational Exposures&#34;]
+    Sleep_Disturbance[&#34;Sleep Disturbance&#34;]
+    IL4[&#34;IL4&#34;]
+    ADAM33[&#34;ADAM33&#34;]
+    Exercise_Intolerance[&#34;Exercise Intolerance&#34;]
 
     Airway_Inflammation --&gt; Bronchoconstriction
     Type_2_Immune_Response___Th2_Signaling --&gt; Airway_Inflammation
@@ -572,56 +797,69 @@
     House_Dust_Mite_Allergen_Protease_Induced_Epithelial_Oxidant_Signaling --&gt; Airway_Inflammation
     Wheezing --&gt; Respiratory_Distress
     Wheezing --&gt; Reduced_Exercise_Tolerance
+    Allergens --&gt; Type_2_Immune_Response___Th2_Signaling
+    Air_Pollution --&gt; Airway_Inflammation
+    Tobacco_Smoke --&gt; Airway_Inflammation
+    Occupational_Exposures --&gt; Airway_Inflammation
+    Prenatal_Acid_Suppressive_Medication_Exposure --&gt; Type_2_Immune_Response___Th2_Signaling
     IL4 --&gt; Type_2_Immune_Response___Th2_Signaling
     IL13 --&gt; Type_2_Immune_Response___Th2_Signaling
     ADAM33 --&gt; Airway_Remodeling
     STAT3 --&gt; SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation
     CDHR3 --&gt; Early_Life_Rhinovirus_Wheezing_Illness_and_Asthma_Inception
 
-    style ADAM33 fill:#f3e8ff
-    style Bronchoconstriction fill:#dbeafe
-    style Airway_Inflammation fill:#dbeafe
-    style Rapid_Breathing fill:#fef3c7
-    style Airway_Remodeling fill:#dbeafe
-    style Early_Life_Rhinovirus_Wheezing_Illness_and_Asthma_Inception fill:#dbeafe
-    style Exercise_Intolerance fill:#fef3c7
-    style IL4 fill:#f3e8ff
-    style Wheezing fill:#fef3c7
-    style IL13 fill:#f3e8ff
-    style Coughing fill:#fef3c7
-    style STAT3 fill:#f3e8ff
-    style Respiratory_Distress fill:#fef3c7
-    style Sleep_Disturbance fill:#fef3c7
-    style Mucus_Overproduction fill:#dbeafe
-    style Chest_Tightness fill:#fef3c7
-    style Reduced_Exercise_Tolerance fill:#fef3c7
-    style Anxiety fill:#fef3c7
-    style Cyanosis fill:#fef3c7
-    style SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation fill:#dbeafe
     style Fatigue fill:#fef3c7
-    style CDHR3 fill:#f3e8ff
+    style IL13 fill:#f3e8ff
+    style Reduced_Exercise_Tolerance fill:#fef3c7
+    style Rapid_Breathing fill:#fef3c7
+    style Early_Life_Rhinovirus_Wheezing_Illness_and_Asthma_Inception fill:#dbeafe
+    style Airway_Inflammation fill:#dbeafe
+    style Wheezing fill:#fef3c7
+    style Air_Pollution fill:#dcfce7
+    style Anxiety fill:#fef3c7
+    style Respiratory_Distress fill:#fef3c7
+    style Cyanosis fill:#fef3c7
+    style Allergens fill:#dcfce7
+    style Chest_Tightness fill:#fef3c7
+    style Prenatal_Acid_Suppressive_Medication_Exposure fill:#dcfce7
     style House_Dust_Mite_Allergen_Protease_Induced_Epithelial_Oxidant_Signaling fill:#dbeafe
-    style Type_2_Immune_Response___Th2_Signaling fill:#dbeafe</pre>
+    style CDHR3 fill:#f3e8ff
+    style STAT3 fill:#f3e8ff
+    style SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation fill:#dbeafe
+    style Type_2_Immune_Response___Th2_Signaling fill:#dbeafe
+    style Airway_Remodeling fill:#dbeafe
+    style Bronchoconstriction fill:#dbeafe
+    style Tobacco_Smoke fill:#dcfce7
+    style Mucus_Overproduction fill:#dbeafe
+    style Coughing fill:#fef3c7
+    style Occupational_Exposures fill:#dcfce7
+    style Sleep_Disturbance fill:#fef3c7
+    style IL4 fill:#f3e8ff
+    style ADAM33 fill:#f3e8ff
+    style Exercise_Intolerance fill:#fef3c7</pre>
             </div>
             
             
             <h3>Chronic Obstructive Pulmonary Disease</h3>
             <div class="mermaid-container">
                 <pre class="mermaid">graph LR
-    Respiratory_Failure[&#34;Respiratory Failure&#34;]
-    SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation[&#34;SIRT1-Mediated NAD+ Signaling and Protective Deacetylation&#34;]
-    Forced_Expiratory_Volume_in_1_Second_FEV1[&#34;Forced Expiratory Volume in 1 Second (FEV1)&#34;]
-    Oxidative_Stress_and_Mitochondrial_Dysfunction[&#34;Oxidative Stress and Mitochondrial Dysfunction&#34;]
     Cellular_Senescence[&#34;Cellular Senescence&#34;]
+    SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation[&#34;SIRT1-Mediated NAD+ Signaling and Protective Deacetylation&#34;]
+    Respiratory_Failure[&#34;Respiratory Failure&#34;]
+    NFE2L2[&#34;NFE2L2&#34;]
+    Air_Pollution[&#34;Air Pollution&#34;]
     Hypercapnia[&#34;Hypercapnia&#34;]
-    Exercise_Intolerance[&#34;Exercise Intolerance&#34;]
-    Progressive_Respiratory_Impairment[&#34;Progressive Respiratory Impairment&#34;]
-    Hypoxemia[&#34;Hypoxemia&#34;]
-    Dyspnea[&#34;Dyspnea&#34;]
     Chronic_Inflammation[&#34;Chronic Inflammation&#34;]
+    Forced_Expiratory_Volume_in_1_Second_FEV1[&#34;Forced Expiratory Volume in 1 Second (FEV1)&#34;]
+    Hypoxemia[&#34;Hypoxemia&#34;]
+    Smoking[&#34;Smoking&#34;]
+    Dyspnea[&#34;Dyspnea&#34;]
+    Exercise_Intolerance[&#34;Exercise Intolerance&#34;]
+    Occupational_Dust_and_Chemicals[&#34;Occupational Dust and Chemicals&#34;]
+    Oxidative_Stress_and_Mitochondrial_Dysfunction[&#34;Oxidative Stress and Mitochondrial Dysfunction&#34;]
     Airflow_Limitation[&#34;Airflow Limitation&#34;]
     Alveolar_Destruction[&#34;Alveolar Destruction&#34;]
-    NFE2L2[&#34;NFE2L2&#34;]
+    Progressive_Respiratory_Impairment[&#34;Progressive Respiratory Impairment&#34;]
 
     Airflow_Limitation -.-&gt; Progressive_Respiratory_Impairment
     SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation --&gt; Chronic_Inflammation
@@ -631,23 +869,29 @@
     Dyspnea --&gt; Exercise_Intolerance
     Respiratory_Failure --&gt; Hypoxemia
     Respiratory_Failure --&gt; Hypercapnia
+    Smoking --&gt; Chronic_Inflammation
+    Air_Pollution --&gt; Oxidative_Stress_and_Mitochondrial_Dysfunction
+    Occupational_Dust_and_Chemicals --&gt; Chronic_Inflammation
     Airflow_Limitation -.-&gt; Forced_Expiratory_Volume_in_1_Second_FEV1
     NFE2L2 --&gt; SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation
 
-    style Respiratory_Failure fill:#fef3c7
-    style SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation fill:#dbeafe
-    style Forced_Expiratory_Volume_in_1_Second_FEV1 fill:#e0e7ff
-    style Oxidative_Stress_and_Mitochondrial_Dysfunction fill:#dbeafe
     style Cellular_Senescence fill:#dbeafe
+    style SIRT1_Mediated_NAD+_Signaling_and_Protective_Deacetylation fill:#dbeafe
+    style Respiratory_Failure fill:#fef3c7
+    style NFE2L2 fill:#f3e8ff
+    style Air_Pollution fill:#dcfce7
     style Hypercapnia fill:#fef3c7
-    style Exercise_Intolerance fill:#fef3c7
-    style Progressive_Respiratory_Impairment fill:#fee2e2,stroke:#dc2626,stroke-dasharray: 5 5
-    style Hypoxemia fill:#fef3c7
-    style Dyspnea fill:#fef3c7
     style Chronic_Inflammation fill:#dbeafe
+    style Forced_Expiratory_Volume_in_1_Second_FEV1 fill:#e0e7ff
+    style Hypoxemia fill:#fef3c7
+    style Smoking fill:#dcfce7
+    style Dyspnea fill:#fef3c7
+    style Exercise_Intolerance fill:#fef3c7
+    style Occupational_Dust_and_Chemicals fill:#dcfce7
+    style Oxidative_Stress_and_Mitochondrial_Dysfunction fill:#dbeafe
     style Airflow_Limitation fill:#dbeafe
     style Alveolar_Destruction fill:#dbeafe
-    style NFE2L2 fill:#f3e8ff</pre>
+    style Progressive_Respiratory_Impairment fill:#fee2e2,stroke:#dc2626,stroke-dasharray: 5 5</pre>
             </div>
             
         </div>
@@ -830,16 +1074,21 @@
                     <div class="tag-list">
                         
                         
+                        
+                        
                         <span class="tag tag-classification">
                             
     
     
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank">inflammatory response</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" aria-describedby="pill-tip-1">inflammatory response</a>
     
     
     
+                            <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                         </span>
                         
                         
@@ -1000,5 +1249,73 @@ association_signals:
             
         </div>
     </div>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .go-terms li';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -1,0 +1,12 @@
+---
+reference_id: "clinicaltrials:NCT07380594"
+title: Descriptive Study of Psychiatric Symptoms in White-Sutton Syndrome
+content_type: summary
+full_text_attempted: true
+---
+
+# Descriptive Study of Psychiatric Symptoms in White-Sutton Syndrome
+
+## Content
+
+White Sutton syndrome is a rare developmental disorder identified following the description of de novo variations in the POGZ gene, responsible for neurocognitive disorders that may be associated with other signs including hypotonia, deafness, visual disorders, tendency to be overweight, gastrointestinal disorders, convulsions, sleep disorders with sleep apnoea and facial morphological peculiarities. A descriptive study focusing on the neuropsychological assessments of patients showed an absence of systematic intellectual disability and clinical heterogeneity. Psychiatrically, anxiety seems to predominate and manifest itself broadly in the form of generalised anxiety disorder, phobic disorder or obsessive-compulsive disorder. Some patients may also present with autism spectrum disorders, behavioural disorders and attention disorders with or without hyperactivity. Psychiatric symptoms appear to be present in many patients, but with varying frequency and heterogeneous manifestations. Psychiatric manifestations and symptoms can complicate the already complex and often multidisciplinary management of patients. It is therefore essential to define more precisely the psychological characteristics of patients and the psychiatric comorbidities that may be associated with this condition in order to adapt behavioural, environmental and therapeutic management strategies.Psychiatric symptoms appear to be present in many patients, but with varying frequency and heterogeneous manifestations. Psychiatric manifestations and symptoms can complicate the already complex and often multidisciplinary management of patients. It is therefore essential to define more precisely the psychological characteristics of patients and the psychiatric comorbidities that may be associated with this condition in order to adapt behavioural, environmental and therapeutic management strategies. This would make it possible to consider methods for early detection and faster management of psychiatric comorbidities.

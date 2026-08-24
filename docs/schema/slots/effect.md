@@ -17,8 +17,8 @@ Alias: effect
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Transmission](../classes/Transmission.md) |  |  no  |
 | [ExperimentalPerturbation](../classes/ExperimentalPerturbation.md) | A structured perturbation, intervention, or exposure used in an experiment |  no  |
+| [Transmission](../classes/Transmission.md) |  |  no  |
 | [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 
 

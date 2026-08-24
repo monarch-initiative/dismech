@@ -1,15 +1,6 @@
 # OAK Configuration for dismech term validation
 # Maps ontology prefixes to OAK adapter strings
 #
-# CI cache reset: 2026-07-19 — a branch-scoped Actions OAK-sqlite cache went
-# corrupt ("database disk image is malformed" on the NCIT edge table), failing
-# test (3.13) deterministically while main stayed green. The original comment-
-# only reset was defeated by the cache action's broad restore-key fallback,
-# which immediately rehydrated the poisoned database. The action now restores
-# only caches with this exact config hash; this revised comment rotates that
-# hash once more so the next run downloads a clean NCIT DB. Safe to remove in a
-# later cleanup.
-#
 # Adapter types:
 #   sqlite:obo:<name>  - Pre-built SQLite databases (fast, offline, recommended)
 #   ols:               - Ontology Lookup Service (EBI, online)
@@ -26,11 +17,12 @@ ontology_adapters:
   ICD10CM: sqlite:obo:icd10cm
   icd11f: sqlite:obo:icd11f
 
-  # Phenotype ontology
-  HP: sqlite:obo:hp
+  # Phenotype ontology. Served via OLS rather than the local SQLite build; see
+  # the "OBO ontologies served via OLS" note at the bottom of this file.
+  HP: ols:hp
 
-  # Cell type ontology
-  CL: sqlite:obo:cl
+  # Cell type ontology. Served via OLS — see the note at the bottom of this file.
+  CL: ols:cl
 
   # Gene Ontology (biological processes, molecular functions, cellular components)
   GO: ols:go
@@ -38,8 +30,12 @@ ontology_adapters:
   # Anatomy ontology
   UBERON: ols:uberon
 
-  # Chemical entities
-  CHEBI: sqlite:obo:chebi
+  # Chemical entities. The last of the large local builds (~3.7 GB uncompressed),
+  # now served via OLS — see the note at the bottom of this file. CHEBI is the
+  # highest-volume prefix here (therapeutic_agent bindings), so the cache-first
+  # behaviour matters most for it: routine validation reads cache/chebi/terms.csv
+  # and never leaves the machine.
+  CHEBI: ols:chebi
 
   # Gene symbols - repo data uses lowercase hgnc:, but keep uppercase HGNC:
   # for schema enums and any legacy uppercase CURIEs.
@@ -48,6 +44,11 @@ ontology_adapters:
 
   # Genotype ontology (for inheritance patterns, variant effects)
   GENO: sqlite:obo:geno
+
+  # Quality/modifier ontology. Only four static `meaning:` values in the schema
+  # bind PATO, so a local build is pure overhead. Served via OLS — see the note
+  # at the bottom of this file.
+  PATO: ols:pato
 
   # NCI Thesaurus (treatment/clinical-intervention and cancer concepts). Served
   # via OLS instead of the large ~2.7GB local SQLite build. See issue #5160.
@@ -58,11 +59,11 @@ ontology_adapters:
   ExO: sqlite:obo:ecto  # ExO is bundled with ECTO
   XCO: sqlite:obo:xco
 
-  # Environment ontology
-  ENVO: sqlite:obo:envo
+  # Environment ontology. Served via OLS — see the note at the bottom of this file.
+  ENVO: ols:envo
 
-  # Food ontology
-  FOODON: sqlite:obo:foodon
+  # Food ontology. Served via OLS — see the note at the bottom of this file.
+  FOODON: ols:foodon
 
   # Taxonomy. Served via OLS instead of a local SQLite DB: the
   # sqlite:obo:ncbitaxon build is ~13.5 GB uncompressed, and NCBITaxon is used
@@ -72,6 +73,73 @@ ontology_adapters:
 
   # Parasite life cycle ontology
   OPL: sqlite:obo:opl
+
+  # ---------------------------------------------------------------------------
+  # OBO ontologies served via OLS
+  #   HP, CL, PATO, CHEBI, ENVO, FOODON — plus MONDO, GO, UBERON, NCIT,
+  #   NCBITaxon above.
+  #
+  # These are OBO-library ontologies that OLS serves directly, so `ols:<name>`
+  # is an authoritative source, not a substitute one. Moving them off
+  # `sqlite:obo:*` drops the corresponding downloads from every fresh checkout
+  # and CI run (chebi ~3.7 GB, hp ~1.1 GB, cl ~380 MB uncompressed), continuing
+  # the migration begun for NCIT and NCBITaxon in issue #5160. With chebi gone,
+  # no multi-GB build remains local.
+  #
+  # This is cheap because term validation is cache-first, via two caches that do
+  # different jobs and should not be conflated:
+  #
+  #   cache/<prefix>/terms.csv  LABEL cache. "This CURIE exists, and this is its
+  #                             canonical label." Says nothing about which enum a
+  #                             term may be used in. It accumulates every CURIE
+  #                             ever looked up, including ones a curator then
+  #                             rejected, so presence here is not endorsement.
+  #   cache/enums/*.csv         MEMBERSHIP cache. The materialized value set of
+  #                             one dynamic enum.
+  #
+  # OAK is consulted only for a CURIE missing from the relevant cache — and a
+  # `reachable_from` query specifically runs only when a value is used in a slot
+  # bound to that enum AND misses the enum cache. The adapter string is not part
+  # of the enum-cache key, so switching it does not invalidate any committed
+  # cache.
+  #
+  # THE PRECONDITION FOR MOVING A PREFIX HERE. OLS must agree with the local
+  # build on two things: the canonical label, and whether its `rdfs:subClassOf`
+  # ancestor closure reaches the enum source nodes that prefix is validated
+  # against. What matters is that the two adapters AGREE, not what either says
+  # in isolation. Both were checked term-by-term against `sqlite:obo:*` before
+  # each switch, with zero disagreements:
+  #
+  #   HP     -> HP:0000118, HP:0000005      CL     -> CL:0000000
+  #   CHEBI  -> CHEBI:24431                 ENVO   -> ENVO:01000254, ENVO:00010483,
+  #   FOODON -> FOODON:00001002, CHEBI:33284           ENVO:01001886, ENVO:00000070
+  #
+  # This agreement is NOT automatic, which is the whole reason to check. The
+  # counter-example is MONDO: newer MONDO terms have an OLS closure that omits
+  # MONDO:0000001, so their per-value `reachable_from` check fails even though
+  # label lookup works (see the B-ALL/LBL history record). Re-run the comparison
+  # before moving any further prefix here.
+  #
+  # If you run that comparison by sampling CURIEs out of cache/<prefix>/
+  # terms.csv, expect some of them to be unreachable — that is the label cache,
+  # not a membership claim (see above), so it legitimately holds terms that are
+  # not valid values of the enum. `FOODON:03311737` (processed food) and
+  # `FOODON:03310815` (soft drink) are the examples here: real FOODON terms that
+  # sit under `food material` rather than under FOODON:00001002, so both
+  # adapters agree they are not FoodTerm values and using one in a `food_source`
+  # slot is correctly rejected. Only a local-vs-OLS *disagreement* is a finding.
+  #
+  # Trade-off: term validation for uncached CURIEs now depends on the network
+  # and on OLS latency. Known symptom is an intermittent lookup timeout on a
+  # brand-new term, which several history records document for MONDO/GO; the
+  # workaround is a one-off validate against the local sqlite adapter to seed
+  # the cache, restoring this file afterwards. This bites hardest on a curation
+  # pass that introduces many new CHEBI drug bindings at once, since each
+  # uncached term costs an OLS round trip (~2 s) instead of a local query.
+  #
+  # NOT candidates for this treatment: HGNC/GENO/ECTO/XCO/OPL (kept local; small
+  # builds, and HGNC is high-volume) and the non-OBO ICD builds.
+  # ---------------------------------------------------------------------------
 
   # Skip validation for these common prefixes
   linkml: ""

@@ -290,8 +290,11 @@ Include taxa in `description` or `notes` fields instead.
 # Full validation
 just validate kb/disorders/MyDisorder.yaml
 
-# Check references
-just validate-references kb/disorders/MyDisorder.yaml
+# Check evidence snippets against the reference cache (seconds, offline)
+just count-verified-snippets kb/disorders/MyDisorder.yaml
+
+# Before opening the PR: the batched schema+terms+references sweep CI runs
+just validate-disorders kb/disorders/MyDisorder.yaml
 
 # Generate HTML to visualize causal graph
 uv run python -m dismech.render kb/disorders/MyDisorder.yaml

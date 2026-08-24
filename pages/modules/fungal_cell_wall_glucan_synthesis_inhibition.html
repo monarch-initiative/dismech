@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -256,6 +375,61 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -316,7 +490,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -354,6 +527,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         /* Mechanistic hypotheses */
         .hypothesis-box {
             background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
@@ -361,6 +552,8 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
+        /* Keep curator-written paragraph breaks in hypothesis descriptions. */
+        .hypothesis-box .item-desc { white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -380,6 +573,57 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .evidence-support {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .support-SUPPORT { background: #d1fae5; color: #065f46; }
+        .support-PARTIAL { background: #fef3c7; color: #92400e; }
+        .support-REFUTE { background: #fee2e2; color: #991b1b; }
+        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
+        .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
             font-size: 0.82rem;
@@ -524,8 +768,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -555,6 +807,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -678,6 +959,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -689,6 +1011,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -859,19 +1184,39 @@
                 .text(label);
 
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
         });
 
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -1007,8 +1352,26 @@
                 html.push(readoutHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1021,6 +1384,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -1086,11 +1455,55 @@
 </head>
 <body>
     
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
 
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     
 
     
 
+    
+
+    
     
     <nav class="site-nav">
         <div class="nav-inner">
@@ -1127,13 +1540,13 @@
             <div class="header-meta">
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">fungal_cell_wall_glucan_synthesis_inhibition</span>
-                <span class="badge badge-count">0 disorders</span>
+                <span class="badge badge-count">1 disorder</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
             </div>
             
-            <div class="header-description">The fungal cell-wall beta-1,3-glucan biosynthetic pathway and the point at which echinocandins interrupt it, structured as a causal cascade. The fungal cell wall is built largely of beta-1,3-glucan, a load-bearing polymer polymerized at the plasma membrane by the beta-1,3-glucan synthase complex whose catalytic subunit is encoded by FKS1 (and the paralog FKS2): the enzyme transfers glucose from UDP-glucose into a growing beta-1,3-glucan chain. The nascent glucan is then assembled into the wall, where it cross-links chitin and mannoproteins to form the intact, load-bearing fungal cell wall that resists internal turgor. This module traces that pathway as successive biological steps: beta-1,3-glucan synthesis at the membrane -&gt; cell-wall assembly and integrity -&gt; (when synthesis is blocked) cell-wall integrity failure and osmotic lysis. Echinocandins (caspofungin, micafungin, anidulafungin, and the long-acting rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of the glucan synthase catalytic subunit; depleting beta-1,3-glucan collapses wall integrity so that unopposed turgor drives osmotic lysis. Because mammalian cells have no cell wall and no homologous synthase, this is a fungal-specific, selectively toxic target that gives the echinocandin class the cleanest selectivity of any antifungal class. The pathway also generates the failure modes: acquired FKS1/FKS2 hotspot mutations reduce enzyme drug sensitivity (the cause of clinical breakthrough, especially in Candida glabrata), and whole pathogen lineages lie outside the class&#39;s reach — Cryptococcus species show negligible echinocandin activity and the Mucorales are intrinsically resistant — so organism identity alone can exclude the class before any susceptibility testing. This module defines the mechanism-of-action design pattern for echinocandin treatments: conforming fungal-disease entries link an echinocandin treatment to the specific node it inhibits via target_mechanisms.</div>
+            <div class="header-description">The fungal cell-wall beta-1,3-glucan biosynthetic pathway and the point at which echinocandins interrupt it, structured as a biological pathway with an intervention-conditional outcome. The fungal cell wall is built largely of beta-1,3-glucan, a load-bearing polymer synthesized at the plasma membrane by the beta-1,3-glucan synthase complex whose catalytic subunit is encoded principally by FKS1, with FKS2 additionally important in species such as Candida glabrata. The enzyme transfers glucose from UDP-glucose into a growing beta-1,3-glucan chain. The nascent glucan is then assembled into the wall, where it cross-links chitin and mannoproteins to form the intact, load-bearing fungal cell wall that resists internal turgor. This module traces the normal pathway from beta-1,3-glucan synthesis at the membrane to cell-wall assembly and integrity, and separately records the intervention-conditional integrity failure and osmotic lysis that follow when synthesis is blocked. Echinocandins (caspofungin, micafungin, anidulafungin, and the long-acting rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of the glucan synthase catalytic subunit; depleting beta-1,3-glucan collapses wall integrity so that unopposed turgor drives osmotic lysis. Because mammalian cells have no cell wall and no homologous synthase, this is a fungal-specific, selectively toxic target that gives the echinocandin class a favorable therapeutic index. The module separately records failure modes: acquired FKS1/FKS2 hotspot mutations reduce enzyme drug sensitivity (the cause of clinical breakthrough, especially in Candida glabrata), and some pathogen lineages lie outside the class&#39;s reach — Cryptococcus species show negligible echinocandin activity — so organism identity can exclude the class. Other organism-level class exclusions are documented in the dedicated antifungal intrinsic-resistance gating module. This module defines the mechanism-of-action design pattern for echinocandin treatments: conforming fungal-disease entries link an echinocandin treatment to the specific node it inhibits via target_mechanisms.</div>
             
         </header>
 
@@ -1169,16 +1582,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         beta-1,3-Glucan Biosynthesis
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006075" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006075">GO:0006075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006075</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves beta-1,3-Glucan Biosynthesis (GO:0006075). GO:0006075 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1189,6 +1607,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Fungal-Type Cell Wall Biogenesis
@@ -1196,10 +1616,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009272" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009272">GO:0009272</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009272" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0009272</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Fungal-Type Cell Wall Biogenesis (GO:0009272). GO:0009272 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1210,6 +1633,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Cell Death
@@ -1217,10 +1642,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0008219</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Cell Death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1232,16 +1660,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Response to Xenobiotic Stimulus
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0009410</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Response to Xenobiotic Stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1264,8 +1697,10 @@
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is an antifungal drug-mechanism module structured as a biological pathway, not a specific disease. Its nodes are successive biological steps of fungal cell-wall beta-1,3-glucan biosynthesis (membrane glucan synthesis -&gt; cell-wall assembly and integrity -&gt; cell-wall integrity failure and osmotic lysis), with an acquired-resistance branch and an intrinsic-resistance gating branch; the echinocandin drug class that acts on the synthase step is described in the node text rather than modelled as a separate node. Disorder entries reference individual nodes via conforms_to (e.g., &#34;fungal_cell_wall_glucan_synthesis_inhibition#beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)&#34;), and their echinocandin treatments point at the inhibited node via target_mechanisms (analogous to how cell-wall-active antibiotic treatments link to &#34;bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34;). Key conformance / treatment target: &#34;beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)&#34; (the fungal-specific beta-1,3-glucan synthase that every echinocandin inhibits). The two resistance nodes capture the gating knowledge that distinguishes &#34;an echinocandin is used&#34; from real drug selection — acquired FKS hotspot resistance, and intrinsic resistance in organisms (Cryptococcus, Mucorales) for which the glucan-synthase target is not a viable drug target. Conforming entries for those organisms should NOT declare conforms_to against the target node; the intrinsic-resistance node documents the negative/gating case. See projects/ANTIFUNGAL.md for the broader drug-fungus strategy and the complementary ergosterol-synthesis, ergosterol-membrane, and antimetabolite antifungal modules.</div>
+            <div class="item-desc">This is an antifungal drug-mechanism module structured as a biological pathway, not a specific disease. Its nodes are successive biological steps of fungal cell-wall beta-1,3-glucan biosynthesis (membrane glucan synthesis -&gt; cell-wall assembly and integrity), with the intervention-conditional integrity-failure outcome recorded as a separate node, plus separate acquired- and intrinsic-resistance nodes; the echinocandin drug class that acts on the synthase step is described in the node text rather than modelled as a separate node. Disorder entries reference individual nodes via conforms_to (e.g., &#34;fungal_cell_wall_glucan_synthesis_inhibition#beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase&#34;), and their echinocandin treatments point at the inhibited node via target_mechanisms (analogous to how cell-wall-active antibiotic treatments link to &#34;bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34;). Key conformance / treatment target: &#34;beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase&#34; (the fungal-specific beta-1,3-glucan synthase that every echinocandin inhibits). The two resistance nodes capture the gating knowledge that distinguishes &#34;an echinocandin is used&#34; from real drug selection — acquired FKS hotspot resistance, and intrinsic resistance in Cryptococcus, for which the glucan-synthase target is not a viable drug target. Cryptococcus disease entries should NOT declare conforms_to against the positive target node; the intrinsic-resistance node documents that negative case. Other organism-level exclusions belong in antifungal_intrinsic_resistance_gating. As a high-precision operational curation boundary, rather than a claim of biological necessity, target-node conformance requires explicit FKS-catalyzed beta-1,3-glucan synthesis with GO:0006075 and GO:0003843, plus an evidence-bearing disease echinocandin treatment edge whose treatment_effect is INHIBITS. Mere fungal beta-glucan presence, a beta-D-glucan diagnostic biomarker, or host Dectin-1 recognition is insufficient. The infectious agent remains on the disorder, and this fungus-wide molecular activity does not require a CL cell type. A target-only conformer is sufficient; downstream integrity failure or lysis should be conformed only when disease-specific intervention evidence supports that outcome. Within this shared module, the outgoing edges from the target record treatment-selection and intervention-conditional consequences in their descriptions because the schema has no conditional causal-edge type. See projects/ANTIFUNGAL.md for the broader drug-fungus strategy and the complementary ergosterol-synthesis, ergosterol-membrane, and antimetabolite antifungal modules.</div>
         </div>
+        
+
         
 
         
@@ -1276,10 +1711,27 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">0</span>
+                <span class="card-count">1</span>
             </div>
             
-            <div class="empty-state">No disorder entries currently reference this module via <code>conforms_to</code>.</div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Invasive_Candidiasis.html">Invasive Candidiasis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Candida beta-1,3-Glucan Synthesis by Fks Glucan Synthase → beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+            </div>
             
         </div>
 
@@ -1301,7 +1753,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cell-Wall Assembly and Integrity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beta-1,3-glucan synthesized at the membrane is the principal load-bearing polymer of the fungal cell wall: it forms the structural scaffold into which chitin and mannoproteins are cross-linked to build the intact, rigid wall that contains the high internal osmotic (turgor) pressure of the cell. This node represents the normal biological consequence of the upstream synthesis step \\u2014 an assembled, mechanically competent wall \\u2014 and is the structure that echinocandin inhibition of glucan synthase undermines. A wall in which beta-1,3-glucan is abundant is intact and osmotically stable; depletion of the polymer removes the scaffold on which assembly depends.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Fungal-Type Cell Wall Biogenesis\"], \"role\": \"effector\"}}, {\"id\": \"Cell-Wall Integrity Failure and Osmotic Lysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When echinocandins inhibit beta-1,3-glucan synthase, the wall is depleted of its load-bearing polymer and its mechanical integrity fails; the high internal osmotic (turgor) pressure is no longer contained and ruptures the cell, producing osmotic lysis and cell death. Because the lethal outcome depends on a wall that the host does not possess, this lytic effect is selectively toxic to the fungus \\u2014 the basis of the class\u0027s favorable therapeutic index. This is the terminal consequence of engaging the glucan-synthase target. Activity is fungicidal against Candida and fungistatic (growth-inhibitory at hyphal tips) against Aspergillus.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cell Death\"], \"role\": \"consequence\"}}, {\"id\": \"FKS-Mediated Echinocandin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acquired echinocandin resistance in otherwise susceptible species arises during therapy through amino-acid changes in conserved hotspot regions of the FKS-encoded catalytic subunits (FKS1, and FKS2 in Candida glabrata) of beta-1,3-glucan synthase. These substitutions reduce the sensitivity of the enzyme to drug, raising minimum inhibitory concentrations and driving clinical breakthrough. Cellular stress-response pathways promote drug adaptation and the emergence of resistant fks strains. Resistance is rare among common Candida species but is disproportionately seen in Candida glabrata, which is frequently also azole-resistant, yielding difficult-to-treat multidrug-resistant strains. This adaptive branch off the catalytic-synthesis node explains why echinocandin monotherapy can fail despite an intact pathway and why susceptibility testing and agent selection matter; conforming entries can attach a treatment failure mode to it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to Xenobiotic Stimulus\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"Intrinsic Resistance in Organisms Lacking an Echinocandin-Susceptible Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The module\u0027s mechanism presupposes a beta-1,3-glucan wall in which the glucan-synthase target is essential and accessible. Some clinically important fungi fall outside that scope: Cryptococcus species display negligible echinocandin activity (the wall\u0027s reliance on the target and the drug-target interaction differ such that inhibition does not translate into killing), and the Mucorales are intrinsically resistant to echinocandins. For these organisms, organism identity alone excludes the echinocandin class a priori, regardless of dose or in vitro testing \\u2014 the clearest example of mechanism gating drug choice on the antifungal side. Disorder entries for Cryptococcus- or Mucorales-caused disease should NOT declare conforms_to against the glucan-synthase target node; this node documents the negative case and the reason echinocandin therapy is excluded (cryptococcal disease is treated with amphotericin B, flucytosine, and azoles; mucormycosis with amphotericin B or isavuconazole).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Xenobiotic Stimulus\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The committed biosynthetic step of the fungal cell wall: at the plasma membrane the beta-1,3-glucan synthase complex polymerizes UDP-glucose into beta-1,3-glucan, the essential load-bearing polymer of the wall. The catalytic subunit is encoded by FKS1 (and the paralog FKS2), and its 1,3-beta-D-glucan synthase activity transfers glucose into the growing glucan chain. Echinocandins (caspofungin, micafungin, anidulafungin, rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of this fungal-specific enzyme, blocking incorporation of glucose into beta-1,3-glucan and starving the wall of its principal structural polymer. Because mammalian cells lack a cell wall and a homologous synthase, the enzyme is absent from the host, making it the most cleanly selective antifungal drug target. This is the central, most widely exploited node of the module and the canonical conformance / treatment target for echinocandin therapy (caspofungin, micafungin, anidulafungin, and rezafungin in invasive candidiasis/candidemia, and as an alternative in invasive aspergillosis).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"beta-1,3-Glucan Biosynthesis\"], \"molecular_functions\": [\"1,3-beta-D-Glucan Synthase Activity\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)\", \"target\": \"Cell-Wall Assembly and Integrity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The beta-1,3-glucan polymerized at the membrane is assembled into the wall, where it cross-links chitin and mannoproteins to build the intact, load-bearing fungal cell wall.\"}, {\"source\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)\", \"target\": \"FKS-Mediated Echinocandin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hotspot amino-acid substitutions in the FKS-encoded glucan-synthase subunits lower the enzyme\u0027s drug sensitivity, the basis of acquired resistance at this catalytic step.\"}, {\"source\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)\", \"target\": \"Intrinsic Resistance in Organisms Lacking an Echinocandin-Susceptible Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In Cryptococcus and the Mucorales the glucan-synthase target is not a viable drug target, so inhibition at this step has no useful effect regardless of dose.\"}, {\"source\": \"Cell-Wall Assembly and Integrity\", \"target\": \"Cell-Wall Integrity Failure and Osmotic Lysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When beta-1,3-glucan is depleted, the wall loses the scaffold that maintains its mechanical integrity, so unopposed internal turgor ruptures the cell.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cell-Wall Assembly and Integrity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beta-1,3-glucan synthesized at the membrane is the principal load-bearing polymer of the fungal cell wall: it forms the structural scaffold into which chitin and mannoproteins are cross-linked to build the intact, rigid wall that contains the high internal osmotic (turgor) pressure of the cell. This node represents the normal biological consequence of the upstream synthesis step \\u2014 an assembled, mechanically competent wall \\u2014 and is the structure that echinocandin inhibition of glucan synthase undermines. A wall in which beta-1,3-glucan is abundant is intact and osmotically stable; depletion of the polymer removes the scaffold on which assembly depends.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Fungal-Type Cell Wall Biogenesis\"], \"role\": \"effector\"}}, {\"id\": \"Cell-Wall Integrity Failure and Osmotic Lysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When echinocandins inhibit beta-1,3-glucan synthase, the wall is depleted of its load-bearing polymer and its mechanical integrity fails; the high internal osmotic (turgor) pressure is no longer contained and ruptures the cell, producing osmotic lysis and cell death. Because the lethal outcome depends on a wall that the host does not possess, this lytic effect is selectively toxic to the fungus \\u2014 the basis of the class\u0027s favorable therapeutic index. This is an intervention-conditional consequence of engaging the glucan-synthase target. Because treatments are modeled on disorder entries and the module has no conditional causal-edge type, the incoming edge description records that intervention conditionality explicitly. Activity is fungicidal against Candida and fungistatic (growth-inhibitory at hyphal tips) against Aspergillus.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cell Death\"], \"role\": \"consequence\"}}, {\"id\": \"FKS-Mediated Echinocandin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acquired echinocandin resistance in otherwise susceptible species arises during therapy through amino-acid changes in conserved hotspot regions of the FKS-encoded catalytic subunits (FKS1, and FKS2 in Candida glabrata) of beta-1,3-glucan synthase. These substitutions reduce the sensitivity of the enzyme to drug, raising minimum inhibitory concentrations and driving clinical breakthrough. Cellular stress-response pathways promote drug adaptation and the emergence of resistant fks strains. Resistance is rare among common Candida species but is disproportionately seen in Candida glabrata, which is frequently also azole-resistant, yielding difficult-to-treat multidrug-resistant strains. This target-alteration escape mechanism explains why echinocandin monotherapy can fail despite an intact pathway and why susceptibility testing and agent selection matter; conforming entries can attach a treatment failure mode to it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Response to Xenobiotic Stimulus\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"Intrinsic Echinocandin Resistance in Cryptococcus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The module\u0027s mechanism presupposes a beta-1,3-glucan wall in which the glucan-synthase target is essential and accessible. Some clinically important fungi fall outside that scope: Cryptococcus species display negligible echinocandin activity because inhibition of the target does not translate into useful antifungal activity. For cryptococcal disease, organism identity therefore excludes the echinocandin class. Cryptococcus-caused disease entries should NOT declare conforms_to against the positive glucan-synthase target node; this node documents the negative case. Other organism-level exclusions, including Mucorales, belong in the dedicated antifungal_intrinsic_resistance_gating module and are not asserted here without class-specific evidence.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Response to Xenobiotic Stimulus\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The committed biosynthetic step of the fungal cell wall: at the plasma membrane the beta-1,3-glucan synthase complex polymerizes UDP-glucose into beta-1,3-glucan, the essential load-bearing polymer of the wall. The catalytic subunit is encoded principally by FKS1; FKS2 supplies an additional, clinically relevant catalytic subunit in species such as Candida glabrata. Its 1,3-beta-D-glucan synthase activity transfers glucose into the growing glucan chain. Echinocandins (caspofungin, micafungin, anidulafungin, rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of this fungal-specific enzyme, blocking incorporation of glucose into beta-1,3-glucan and starving the wall of its principal structural polymer. Because mammalian cells lack a cell wall and a homologous synthase, the enzyme is absent from the host, making it a highly selective antifungal drug target. This is the central, most widely exploited node of the module and the canonical conformance / treatment target for echinocandin therapy (caspofungin, micafungin, anidulafungin, and rezafungin in invasive candidiasis/candidemia, and as an alternative in invasive aspergillosis).\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"beta-1,3-Glucan Biosynthesis\"], \"molecular_functions\": [\"1,3-beta-D-Glucan Synthase Activity\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase\", \"target\": \"Cell-Wall Assembly and Integrity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The beta-1,3-glucan polymerized at the membrane is assembled into the wall, where it cross-links chitin and mannoproteins to build the intact, load-bearing fungal cell wall.\"}, {\"source\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase\", \"target\": \"FKS-Mediated Echinocandin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under echinocandin selection, FKS hotspot substitutions can reduce the drug sensitivity of this catalytic target and permit treatment escape; this is a therapy-conditional resistance branch rather than a constitutive consequence of normal glucan synthesis.\"}, {\"source\": \"beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase\", \"target\": \"Intrinsic Echinocandin Resistance in Cryptococcus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In Cryptococcus, the glucan-synthase pathway is intrinsically refractory to clinically useful echinocandin activity; this organism-conditional edge records a target-selection exclusion rather than a downstream disease mechanism.\"}, {\"source\": \"Cell-Wall Assembly and Integrity\", \"target\": \"Cell-Wall Integrity Failure and Osmotic Lysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When echinocandin treatment blocks upstream glucan synthesis, depletion of the load-bearing polymer converts normal wall assembly into integrity failure and osmotic lysis. This edge is explicitly intervention-conditional.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -1316,15 +1768,15 @@
                 <span class="card-count">5</span>
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-beta-1-3-glucan-synthesis-at-the-plasma-membrane-by-glucan-synthase-fks1" data-dismech-node="beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)" data-dismech-type="pathophysiology">
-                <div class="item-name">beta-1,3-Glucan Synthesis at the Plasma Membrane by Glucan Synthase (FKS1)</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-beta-1-3-glucan-synthesis-at-the-plasma-membrane-by-fks-glucan-synthase" data-dismech-node="beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase" data-dismech-type="pathophysiology">
+                <div class="item-name">beta-1,3-Glucan Synthesis at the Plasma Membrane by Fks Glucan Synthase</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
                 
-                <div class="item-desc">The committed biosynthetic step of the fungal cell wall: at the plasma membrane the beta-1,3-glucan synthase complex polymerizes UDP-glucose into beta-1,3-glucan, the essential load-bearing polymer of the wall. The catalytic subunit is encoded by FKS1 (and the paralog FKS2), and its 1,3-beta-D-glucan synthase activity transfers glucose into the growing glucan chain. Echinocandins (caspofungin, micafungin, anidulafungin, rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of this fungal-specific enzyme, blocking incorporation of glucose into beta-1,3-glucan and starving the wall of its principal structural polymer. Because mammalian cells lack a cell wall and a homologous synthase, the enzyme is absent from the host, making it the most cleanly selective antifungal drug target. This is the central, most widely exploited node of the module and the canonical conformance / treatment target for echinocandin therapy (caspofungin, micafungin, anidulafungin, and rezafungin in invasive candidiasis/candidemia, and as an alternative in invasive aspergillosis).</div>
+                <div class="item-desc">The committed biosynthetic step of the fungal cell wall: at the plasma membrane the beta-1,3-glucan synthase complex polymerizes UDP-glucose into beta-1,3-glucan, the essential load-bearing polymer of the wall. The catalytic subunit is encoded principally by FKS1; FKS2 supplies an additional, clinically relevant catalytic subunit in species such as Candida glabrata. Its 1,3-beta-D-glucan synthase activity transfers glucose into the growing glucan chain. Echinocandins (caspofungin, micafungin, anidulafungin, rezafungin) are cyclic lipopeptides that act as non-competitive inhibitors of this fungal-specific enzyme, blocking incorporation of glucose into beta-1,3-glucan and starving the wall of its principal structural polymer. Because mammalian cells lack a cell wall and a homologous synthase, the enzyme is absent from the host, making it a highly selective antifungal drug target. This is the central, most widely exploited node of the module and the canonical conformance / treatment target for echinocandin therapy (caspofungin, micafungin, anidulafungin, and rezafungin in invasive candidiasis/candidemia, and as an alternative in invasive aspergillosis).</div>
                 
 
                 
@@ -1332,16 +1784,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         beta-1,3-Glucan Biosynthesis
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006075" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006075">GO:0006075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006075</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves beta-1,3-Glucan Biosynthesis, annotated with (1-&gt;3)-beta-D-glucan biosynthetic process (GO:0006075). GO:0006075 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1359,6 +1816,20 @@
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Invasive_Candidiasis.html">Invasive Candidiasis</a>
+                            
+                            <span class="crosslink-desc">as Candida beta-1,3-Glucan Synthesis by Fks Glucan Synthase</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -1375,14 +1846,14 @@
                         <li class="crosslink-item">
                             <span class="flow-target">FKS-Mediated Echinocandin Resistance</span>
                             
-                            <span class="crosslink-desc">Hotspot amino-acid substitutions in the FKS-encoded glucan-synthase subunits lower the enzyme&#39;s drug sensitivity, the basis of acquired resistance at this catalytic step.</span>
+                            <span class="crosslink-desc">Under echinocandin selection, FKS hotspot substitutions can reduce the drug sensitivity of this catalytic target and permit treatment escape; this is a therapy-conditional resistance branch rather than a constitutive consequence of normal glucan synthesis.</span>
                             
                         </li>
                         
                         <li class="crosslink-item">
-                            <span class="flow-target">Intrinsic Resistance in Organisms Lacking an Echinocandin-Susceptible Wall</span>
+                            <span class="flow-target">Intrinsic Echinocandin Resistance in Cryptococcus</span>
                             
-                            <span class="crosslink-desc">In Cryptococcus and the Mucorales the glucan-synthase target is not a viable drug target, so inhibition at this step has no useful effect regardless of dose.</span>
+                            <span class="crosslink-desc">In Cryptococcus, the glucan-synthase pathway is intrinsically refractory to clinically useful echinocandin activity; this organism-conditional edge records a target-selection exclusion rather than a downstream disease mechanism.</span>
                             
                         </li>
                         
@@ -1407,16 +1878,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Fungal-Type Cell Wall Biogenesis
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009272" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009272">GO:0009272</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009272" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0009272</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Fungal-Type Cell Wall Biogenesis (GO:0009272). GO:0009272 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1443,7 +1919,7 @@
                         <li class="crosslink-item">
                             <span class="flow-target">Cell-Wall Integrity Failure and Osmotic Lysis</span>
                             
-                            <span class="crosslink-desc">When beta-1,3-glucan is depleted, the wall loses the scaffold that maintains its mechanical integrity, so unopposed internal turgor ruptures the cell.</span>
+                            <span class="crosslink-desc">When echinocandin treatment blocks upstream glucan synthesis, depletion of the load-bearing polymer converts normal wall assembly into integrity failure and osmotic lysis. This edge is explicitly intervention-conditional.</span>
                             
                         </li>
                         
@@ -1460,7 +1936,7 @@
                     
                 </div>
                 
-                <div class="item-desc">When echinocandins inhibit beta-1,3-glucan synthase, the wall is depleted of its load-bearing polymer and its mechanical integrity fails; the high internal osmotic (turgor) pressure is no longer contained and ruptures the cell, producing osmotic lysis and cell death. Because the lethal outcome depends on a wall that the host does not possess, this lytic effect is selectively toxic to the fungus — the basis of the class&#39;s favorable therapeutic index. This is the terminal consequence of engaging the glucan-synthase target. Activity is fungicidal against Candida and fungistatic (growth-inhibitory at hyphal tips) against Aspergillus.</div>
+                <div class="item-desc">When echinocandins inhibit beta-1,3-glucan synthase, the wall is depleted of its load-bearing polymer and its mechanical integrity fails; the high internal osmotic (turgor) pressure is no longer contained and ruptures the cell, producing osmotic lysis and cell death. Because the lethal outcome depends on a wall that the host does not possess, this lytic effect is selectively toxic to the fungus — the basis of the class&#39;s favorable therapeutic index. This is an intervention-conditional consequence of engaging the glucan-synthase target. Because treatments are modeled on disorder entries and the module has no conditional causal-edge type, the incoming edge description records that intervention conditionality explicitly. Activity is fungicidal against Candida and fungistatic (growth-inhibitory at hyphal tips) against Aspergillus.</div>
                 
 
                 
@@ -1468,16 +1944,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Cell Death
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008219">GO:0008219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008219</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cell Death (GO:0008219). GO:0008219 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1507,7 +1988,7 @@
                     
                 </div>
                 
-                <div class="item-desc">Acquired echinocandin resistance in otherwise susceptible species arises during therapy through amino-acid changes in conserved hotspot regions of the FKS-encoded catalytic subunits (FKS1, and FKS2 in Candida glabrata) of beta-1,3-glucan synthase. These substitutions reduce the sensitivity of the enzyme to drug, raising minimum inhibitory concentrations and driving clinical breakthrough. Cellular stress-response pathways promote drug adaptation and the emergence of resistant fks strains. Resistance is rare among common Candida species but is disproportionately seen in Candida glabrata, which is frequently also azole-resistant, yielding difficult-to-treat multidrug-resistant strains. This adaptive branch off the catalytic-synthesis node explains why echinocandin monotherapy can fail despite an intact pathway and why susceptibility testing and agent selection matter; conforming entries can attach a treatment failure mode to it.</div>
+                <div class="item-desc">Acquired echinocandin resistance in otherwise susceptible species arises during therapy through amino-acid changes in conserved hotspot regions of the FKS-encoded catalytic subunits (FKS1, and FKS2 in Candida glabrata) of beta-1,3-glucan synthase. These substitutions reduce the sensitivity of the enzyme to drug, raising minimum inhibitory concentrations and driving clinical breakthrough. Cellular stress-response pathways promote drug adaptation and the emergence of resistant fks strains. Resistance is rare among common Candida species but is disproportionately seen in Candida glabrata, which is frequently also azole-resistant, yielding difficult-to-treat multidrug-resistant strains. This target-alteration escape mechanism explains why echinocandin monotherapy can fail despite an intact pathway and why susceptibility testing and agent selection matter; conforming entries can attach a treatment failure mode to it.</div>
                 
 
                 
@@ -1515,16 +1996,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Response to Xenobiotic Stimulus
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0009410</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Xenobiotic Stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1546,15 +2032,15 @@
                 
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-intrinsic-resistance-in-organisms-lacking-an-echinocandin-susceptible-wall" data-dismech-node="Intrinsic Resistance in Organisms Lacking an Echinocandin-Susceptible Wall" data-dismech-type="pathophysiology">
-                <div class="item-name">Intrinsic Resistance in Organisms Lacking an Echinocandin-Susceptible Wall</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-intrinsic-echinocandin-resistance-in-cryptococcus" data-dismech-node="Intrinsic Echinocandin Resistance in Cryptococcus" data-dismech-type="pathophysiology">
+                <div class="item-name">Intrinsic Echinocandin Resistance in Cryptococcus</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">intrinsic resistance</span>
                     
                 </div>
                 
-                <div class="item-desc">The module&#39;s mechanism presupposes a beta-1,3-glucan wall in which the glucan-synthase target is essential and accessible. Some clinically important fungi fall outside that scope: Cryptococcus species display negligible echinocandin activity (the wall&#39;s reliance on the target and the drug-target interaction differ such that inhibition does not translate into killing), and the Mucorales are intrinsically resistant to echinocandins. For these organisms, organism identity alone excludes the echinocandin class a priori, regardless of dose or in vitro testing — the clearest example of mechanism gating drug choice on the antifungal side. Disorder entries for Cryptococcus- or Mucorales-caused disease should NOT declare conforms_to against the glucan-synthase target node; this node documents the negative case and the reason echinocandin therapy is excluded (cryptococcal disease is treated with amphotericin B, flucytosine, and azoles; mucormycosis with amphotericin B or isavuconazole).</div>
+                <div class="item-desc">The module&#39;s mechanism presupposes a beta-1,3-glucan wall in which the glucan-synthase target is essential and accessible. Some clinically important fungi fall outside that scope: Cryptococcus species display negligible echinocandin activity because inhibition of the target does not translate into useful antifungal activity. For cryptococcal disease, organism identity therefore excludes the echinocandin class. Cryptococcus-caused disease entries should NOT declare conforms_to against the positive glucan-synthase target node; this node documents the negative case. Other organism-level exclusions, including Mucorales, belong in the dedicated antifungal_intrinsic_resistance_gating module and are not asserted here without class-specific evidence.</div>
                 
 
                 
@@ -1562,16 +2048,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Response to Xenobiotic Stimulus
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0009410</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Response to Xenobiotic Stimulus (GO:0009410). GO:0009410 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1604,6 +2095,11 @@
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/modules/fungal_cell_wall_glucan_synthesis_inhibition.yaml" target="_blank">View source on GitHub</a>
             </p>
+            
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
     <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
@@ -1621,5 +2117,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

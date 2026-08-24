@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STAT6 Gain-of-Function Disease · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>STAT6 Gain-of-Function Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>STAT6 Gain-of-Function Disease</h1>
+                
+                <p class="report-subtitle">STAT6 Gain-of-Function Disease (Hyper-IgE Syndrome 6, HIES6): A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-07-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0957807" target="_blank" rel="noopener noreferrer">MONDO:0957807</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">10 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>STAT6 Gain-of-Function Disease (Hyper-IgE Syndrome 6, HIES6): A Comprehensive Disease Characterization Report</h1>
+<h2>Summary</h2>
+<p><strong>STAT6 gain-of-function (GOF) disease</strong> is a rare, recently described (2023) autosomal-dominant <strong>primary atopic disorder (PAD)</strong>—one of a growing group of inborn errors of immunity (IEIs) in which a single germline gene defect produces severe, early-onset allergic disease. It is caused by germline heterozygous <strong>activating (gain-of-function) missense variants in <em>STAT6</em></strong> (Signal Transducer and Activator of Transcription 6; chromosome 12q13.3; <a href="https://bioregistry.io/HGNC:11364" target="_blank" rel="noopener noreferrer">HGNC:11364</a>; NCBI Gene 6778; OMIM 601512). Pathogenic variants cluster in the <strong>DNA-binding domain</strong>, with a recurrent hotspot at codon <strong>Asp419 (D419H/Y/G/N)</strong> and additional recurrent variants including E372K, E377K, E382Q, and D519H/N. These variants produce <strong>constitutive and/or ligand-hypersensitive IL-4/IL-13–JAK–STAT6 signaling</strong>, with sustained STAT6 phosphorylation, enhanced nuclear translocation (in some cases even without phosphorylation), increased STAT6 target-gene expression, and pathological <strong>TH2 skewing</strong> of the adaptive immune system.</p>
+<p>Clinically, the disease presents in <strong>infancy (100% of the founding cohort)</strong> with a profound, multi-system allergic phenotype: <strong>widespread treatment-resistant atopic dermatitis (94%)</strong>, <strong>hypereosinophilia and markedly elevated serum IgE (94%)</strong>, <strong>IgE-mediated food allergy (94%)</strong>, <strong>asthma (69%)</strong>, <strong>eosinophilic gastrointestinal disease (63%)</strong>, and <strong>anaphylaxis (56%)</strong>. Variable features include recurrent skin/respiratory/viral infections, short stature, osteoporosis, and a small but important risk of <strong>B-cell/follicular lymphoma (~6%)</strong>, mechanistically linked to the same DNA-binding-domain residues that are recurrently mutated somatically in follicular lymphoma. The disorder is catalogued as <strong>OMIM #620532</strong> ("Hyper-IgE syndrome 6, autosomal dominant, with recurrent infections; HIES6") and <strong><a href="http://purl.obolibrary.org/obo/MONDO_0957807" target="_blank" rel="noopener noreferrer">MONDO:0957807</a></strong>.</p>
+<p>The disease is <strong>highly actionable</strong>: because the driver is a hyperactive, druggable signaling axis, <strong>pathway-targeted therapy is transformative</strong>. The anti–IL-4Rα monoclonal antibody <strong>dupilumab</strong> and <strong>JAK inhibitors (e.g., ruxolitinib)</strong> improve both clinical manifestations and immunological biomarkers. Diagnosis relies on exome/genome sequencing with functional confirmation of STAT6 hyperactivation. Two constitutively active mouse models (Stat6VT transgenic and patient-derived D419N knock-in) recapitulate the human TH2/allergic phenotype and validate the causal mechanism. This report synthesizes 9 confirmed findings drawn from 11 reviewed papers into a full disease knowledge-base entry organized along the 15 requested characteristic domains, followed by a mechanistic model, evidence base, limitations, and proposed follow-up actions.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — STAT6 GOF disease is a novel autosomal-dominant primary atopic disorder caused by germline heterozygous gain-of-function <em>STAT6</em> variants</h3>
+<p>The defining evidence comes from a landmark international cohort of <strong>16 patients from 10 families across three continents</strong> (Sharma et al., 2023). <strong>All patients carried monoallelic (heterozygous) rare variants in <em>STAT6</em></strong>, and functional studies established a gain-of-function phenotype. As the authors state verbatim: <em>"All patients carried monoallelic rare variants in STAT6 and functional studies established their gain-of-function (GOF) phenotype with sustained STAT6 phosphorylation, increased STAT6 target gene expression, and TH2 skewing"</em> and <em>"This study identifies heterozygous GOF variants in STAT6 as a novel autosomal dominant allergic disorder"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a>). Inheritance was <strong>sporadic (de novo) in 7 kindreds and autosomal dominant in 3 kindreds</strong>, consistent with a dominant, GOF (not loss-of-function/haploinsufficiency) mechanism.</p>
+<p><strong>Evidence source:</strong> human clinical/genetic (multi-family cohort with functional validation).</p>
+<h3>Finding 2 — Core clinical phenotype: early-onset treatment-resistant atopic dermatitis, hypereosinophilia, eosinophilic GI disease, asthma, elevated IgE, food allergy and anaphylaxis</h3>
+<p>The founding cohort described <em>"a profound phenotype of early-life onset allergic immune dysregulation, widespread treatment-resistant atopic dermatitis, hypereosinophilia with esosinophilic gastrointestinal disease, asthma, elevated serum IgE, IgE-mediated food allergies, and anaphylaxis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a>). This multi-system atopic constellation is the diagnostic signature and is independently replicated in single-case/kindred reports: Baris et al. (E372K), Suratannon/independent (E377K), Minskaia (D419H), and Samra (D519N) each describe severe atopic dermatitis, eosinophilia, elevated IgE, and food allergy.</p>
+<p><strong>Evidence source:</strong> human clinical.</p>
+<h3>Finding 3 — Recurrent pathogenic variants cluster in the STAT6 DNA-binding domain and cause constitutive/enhanced IL-4/JAK/STAT6 signaling</h3>
+<p>Reported germline missense variants include <strong>p.E372K (c.1114G&gt;A), p.E377K (c.1129G&gt;A), p.E382Q (c.1144G&gt;C), p.D419H (c.1255G&gt;C), p.D419Y (c.1255G&gt;T), p.D419G (c.1256A&gt;G), p.D419N (c.1255G&gt;A), and p.D519H/N (c.1555G&gt;C)</strong>—several within the <strong>DNA-binding domain (DBD)</strong>. Direct quotes anchor the mechanism:
+- <em>"a missense mutation in the DNA binding domain of STAT6 (c.1114G&gt;A, p.E372K)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36758835/">PMID: 36758835</a>).
+- <em>"a novel heterozygous germline mutation STAT6 c.1255G &gt; C, p.D419H leading to overactivity of IL-4 JAK/STAT signalling pathway"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37316763/">PMID: 37316763</a>).
+- Ligand independence was shown for D419N: <em>"even in the absence of IL-4 stimulation, we observed the translocation of mutant STAT6 in its unphosphorylated state, which activated gene expression"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40603028/">PMID: 40603028</a>).</p>
+<p>Thus, some variants confer <strong>hypersensitivity to IL-4</strong> (elevated total/phospho-STAT6 at baseline and after IL-4, e.g., D419H) while others confer <strong>constitutive, phosphorylation-independent nuclear translocation and transcription</strong> (D419N).</p>
+<p><strong>Evidence source:</strong> human genetic + in vitro functional (HEK293T, patient PBMC, gastric organoids).</p>
+<h3>Finding 4 — Targeted therapy: dupilumab and JAK inhibitors are effective; disease is associated with follicular lymphoma risk</h3>
+<p>Because the disease is driven by a hyperactive IL-4/IL-13–JAK–STAT6 axis, <strong>blocking that axis is therapeutic</strong>. <em>"Precision treatment with the anti-IL-4Rα antibody, dupilumab, was highly effective improving both clinical manifestations and immunological biomarkers"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a>); dupilumab was also effective for the D519N variant (Samra 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40502541/">PMID: 40502541</a>). JAK inhibition targets the upstream kinases: <em>"The selective JAK1/JAK2 inhibitor ruxolitinib reduced pSTAT6 levels in D419H HEK293T cells and patient PBMC"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37316763/">PMID: 37316763</a>). Critically, the same Minskaia kindred (D419H) included <strong>follicular lymphoma</strong>, linking germline STAT6 GOF to lymphomagenesis.</p>
+<p><strong>Evidence source:</strong> human clinical (treatment response) + in vitro (pharmacodynamic).</p>
+<h3>Finding 5 — Nosology and identifiers: OMIM #620532 (HIES6) / <a href="http://purl.obolibrary.org/obo/MONDO_0957807" target="_blank" rel="noopener noreferrer">MONDO:0957807</a></h3>
+<p>STAT6 GOF disease is catalogued as <strong>OMIM #620532</strong> = "HYPER-IgE SYNDROME 6, AUTOSOMAL DOMINANT, WITH RECURRENT INFECTIONS; HIES6." The Mondo term <strong><a href="http://purl.obolibrary.org/obo/MONDO_0957807" target="_blank" rel="noopener noreferrer">MONDO:0957807</a></strong> ("hyper-IgE syndrome 6, autosomal dominant, with recurrent infections") cross-references <a href="https://bioregistry.io/OMIM:620532" target="_blank" rel="noopener noreferrer">OMIM:620532</a>, <a href="https://bioregistry.io/GARD:0026874" target="_blank" rel="noopener noreferrer">GARD:0026874</a>, MedGen:1851769, and UMLS:C5848786. The causal gene <em>STAT6</em> = OMIM 601512, <a href="https://bioregistry.io/HGNC:11364" target="_blank" rel="noopener noreferrer">HGNC:11364</a>, NCBI Gene 6778, UniProt P42226. NCI Thesaurus <strong>C212086</strong> = "Activating STAT6 Gene Mutation." <strong>No dedicated Orphanet/ORDO code</strong> was identified at the time of research.</p>
+<p><strong>Evidence source:</strong> aggregated disease-level resources (OMIM, Mondo, MedGen, NCIt).</p>
+<h3>Finding 6 — Quantitative phenotype frequencies (HPO annotations, n=16 founding cohort)</h3>
+<p>Official HPO disease annotations (<a href="https://bioregistry.io/OMIM:620532" target="_blank" rel="noopener noreferrer">OMIM:620532</a> / <a href="http://purl.obolibrary.org/obo/MONDO_0957807" target="_blank" rel="noopener noreferrer">MONDO:0957807</a>), all sourced to <a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a>, provide curated frequencies (see the phenotype table in Section 3). They derive from the cohort description: <em>"widespread treatment-resistant atopic dermatitis, hypereosinophilia with esosinophilic gastrointestinal disease, asthma, elevated serum IgE, IgE-mediated food allergies, and anaphylaxis."</em></p>
+<p><strong>Evidence source:</strong> curated ontology annotation of human clinical cohort.</p>
+<h3>Finding 7 — ClinVar variant spectrum and gnomAD constraint support a DBD missense GOF mechanism (not haploinsufficiency)</h3>
+<p>ClinVar (transcript NM_003153.5) lists germline Pathogenic/Likely-pathogenic <em>STAT6</em> variants for "Hyper-IgE syndrome 6": c.1114G&gt;A p.Glu372Lys (P), c.1144G&gt;C p.Glu382Gln (P), c.1255G&gt;C p.Asp419His (LP), c.1255G&gt;T p.Asp419Tyr (P), c.1256A&gt;G p.Asp419Gly (P), and c.1555G&gt;C p.Asp519His (P). <strong>Codon 419 is a recurrent hotspot.</strong> gnomAD constraint metrics show <em>STAT6</em> is <strong>LoF-tolerant</strong> (pLI = 0.057; oe_lof upper bound = 0.54) but <strong>missense-constrained</strong> (mis_z = 3.47). This constraint signature—tolerant of loss-of-function but intolerant of missense change, combined with recurrent, clustered, dominant missense variants—is the classic fingerprint of a <strong>gain-of-function</strong>, not haploinsufficiency, disease mechanism.</p>
+<p><strong>Evidence source:</strong> population genomics / variant databases (computational).</p>
+<h3>Finding 8 — Constitutively active STAT6 mouse models recapitulate the human TH2/allergic phenotype</h3>
+<p>Two independent mouse models validate causality. The <strong>Stat6VT transgenic</strong> expresses a constitutively active STAT6 in T cells and <em>"develop[s] spontaneous inflammation of the skin"</em> (allergic dermatitis) plus allergic airway disease (<a href="https://pubmed.ncbi.nlm.nih.gov/28653395/">PMID: 28653395</a>). The <strong>patient-derived D419N knock-in mouse</strong> <em>"elicited an abnormal TH2-dominant immune response in vivo, with findings similar to those observed in patients"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40603028/">PMID: 40603028</a>). Together, these models reproduce the cardinal human features (atopic skin disease, airway disease, TH2 skewing).</p>
+<p><strong>Evidence source:</strong> model organism (mouse).</p>
+<h3>Finding 9 — PARP14 links STAT6 GOF allergic disease to lymphomagenesis as a druggable co-activator</h3>
+<p>PARP14 (ARTD8) is an IL-4/STAT6-induced transcriptional co-activator: <em>"the presence of interleukin-4 (IL-4) and activated Stat6 induces the enzymatic activity of PARP14 that promotes T helper type 2 differentiation and allergic airway disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28653395/">PMID: 28653395</a>). PARP14 is also <em>"a novel target in STAT6 mutant follicular lymphoma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35851155/">PMID: 35851155</a>). Because germline STAT6 GOF and somatic follicular-lymphoma STAT6 mutations affect the <strong>same DNA-binding-domain residues (notably D419)</strong>, PARP14 represents a shared, druggable downstream node connecting the allergic and oncologic ends of the disease spectrum.</p>
+<p><strong>Evidence source:</strong> model organism + in vitro / cancer genomics.</p>
+<hr />
+<h2>Full Disease Characterization (15 Domains)</h2>
+<h3>1. Disease Information</h3>
+<p>STAT6 GOF disease is a <strong>monogenic, autosomal-dominant primary atopic disorder / inborn error of immunity</strong> characterized by early-onset, severe, multi-system allergic disease driven by constitutive TH2 signaling. It was first defined as a distinct entity in 2023.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Identifier type</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (disease)</td>
+<td>#620532 (Hyper-IgE syndrome 6, autosomal dominant, with recurrent infections; HIES6)</td>
+</tr>
+<tr>
+<td>Mondo</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0957807" target="_blank" rel="noopener noreferrer">MONDO:0957807</a></td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0026874</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>1851769</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C5848786</td>
+</tr>
+<tr>
+<td>NCIt</td>
+<td>C212086 (Activating STAT6 Gene Mutation)</td>
+</tr>
+<tr>
+<td>Gene (OMIM)</td>
+<td><em>STAT6</em> 601512</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td>11364</td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>6778</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>P42226</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>None dedicated identified</td>
+</tr>
+<tr>
+<td>ICD-10/ICD-11</td>
+<td>No specific code; mapped under primary immunodeficiency/atopic categories</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated term; indexed via STAT6 / hyper-IgE / hypersensitivity</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms/alternative names:</strong> STAT6 gain-of-function disease; STAT6-GOF; Hyper-IgE syndrome 6 (HIES6); autosomal dominant STAT6 GOF; STAT6-associated primary atopic disorder.</p>
+<p><strong>Information source type:</strong> Predominantly <strong>aggregated disease-level resources</strong> (OMIM, Mondo, HPO) built from a small number of <strong>individual-patient case cohorts/reports</strong> (n≈16 founding + additional single cases). This is a very rare, newly described disease, so all knowledge derives from individual patients described in the literature, not EHR-scale populations.</p>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Primary cause:</strong> germline heterozygous <strong>gain-of-function missense variants in <em>STAT6</em></strong>. The disease is monogenic and genetic; no environmental or infectious cause is required.</li>
+<li><strong>Genetic risk factors:</strong> the causal variants themselves (DBD hotspot D419 and neighbors E372, E377, E382, D519). No modifier loci are established.</li>
+<li><strong>Environmental risk factors:</strong> none required for disease causation. Allergen exposure, as in common atopy, may trigger/exacerbate individual manifestations (food allergy, anaphylaxis, asthma), but the disease penetrates independent of specific exposures.</li>
+<li><strong>Protective factors:</strong> none established genetically or environmentally. Therapeutically, IL-4Rα blockade and JAK inhibition suppress the disease phenotype (see Section 12).</li>
+<li><strong>Gene–environment interactions:</strong> the hyperactive STAT6 axis lowers the threshold for TH2 responses to environmental allergens; thus environment shapes <em>which</em> allergic manifestations appear, while genotype drives the underlying diathesis. No formal GxE quantification exists.</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<p>Quantitative HPO-annotated frequencies (n=16 founding cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Frequency</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Infantile onset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a></td>
+<td>16/16 (100%)</td>
+<td>onset</td>
+</tr>
+<tr>
+<td>Atopic dermatitis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" rel="noopener noreferrer">HP:0001047</a></td>
+<td>15/16 (94%)</td>
+<td>clinical sign / skin</td>
+</tr>
+<tr>
+<td>Food allergy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" rel="noopener noreferrer">HP:0500093</a></td>
+<td>15/16 (94%)</td>
+<td>clinical sign</td>
+</tr>
+<tr>
+<td>Increased eosinophil count</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" rel="noopener noreferrer">HP:0001880</a></td>
+<td>15/16 (94%)</td>
+<td>lab abnormality</td>
+</tr>
+<tr>
+<td>Increased circulating IgE</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" rel="noopener noreferrer">HP:0003212</a></td>
+<td>present (high)</td>
+<td>lab abnormality</td>
+</tr>
+<tr>
+<td>Asthma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" rel="noopener noreferrer">HP:0002099</a></td>
+<td>11/16 (69%)</td>
+<td>clinical sign / respiratory</td>
+</tr>
+<tr>
+<td>Gastrointestinal eosinophilia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032064" target="_blank" rel="noopener noreferrer">HP:0032064</a></td>
+<td>10/16 (63%)</td>
+<td>lab / histopathology</td>
+</tr>
+<tr>
+<td>Anaphylactic shock</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100845" target="_blank" rel="noopener noreferrer">HP:0100845</a></td>
+<td>9/16 (56%)</td>
+<td>clinical sign</td>
+</tr>
+<tr>
+<td>Recurrent skin infections</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001581" target="_blank" rel="noopener noreferrer">HP:0001581</a></td>
+<td>7/16 (44%)</td>
+<td>clinical sign</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+<td>7/16 (44%)</td>
+<td>physical manifestation</td>
+</tr>
+<tr>
+<td>Recurrent respiratory infections</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" rel="noopener noreferrer">HP:0002205</a></td>
+<td>5/16 (31%)</td>
+<td>clinical sign</td>
+</tr>
+<tr>
+<td>Gastroesophageal reflux</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+<td>4/16 (25%)</td>
+<td>clinical sign</td>
+</tr>
+<tr>
+<td>Osteoporosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" rel="noopener noreferrer">HP:0000939</a></td>
+<td>3/16 (19%)</td>
+<td>lab / imaging</td>
+</tr>
+<tr>
+<td>Recurrent viral infections</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" rel="noopener noreferrer">HP:0004429</a></td>
+<td>2/16 (13%)</td>
+<td>clinical sign</td>
+</tr>
+<tr>
+<td>B-cell lymphoma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012191" target="_blank" rel="noopener noreferrer">HP:0012191</a></td>
+<td>1/16 (6%)</td>
+<td>neoplasm</td>
+</tr>
+<tr>
+<td>Eosinophilic esophagitis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410151" target="_blank" rel="noopener noreferrer">HP:0410151</a></td>
+<td>present</td>
+<td>histopathology</td>
+</tr>
+<tr>
+<td>Autosomal dominant inheritance</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a></td>
+<td>—</td>
+<td>inheritance</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong> age of onset is <strong>neonatal/infantile (100%)</strong>; severity is generally <strong>severe</strong> (treatment-resistant atopic dermatitis); course is <strong>chronic/progressive</strong> with episodic anaphylaxis; <strong>variable expressivity</strong> is documented even within families (e.g., E377K kindred showed clinical heterogeneity, <a href="https://pubmed.ncbi.nlm.nih.gov/36216080/">PMID: 36216080</a>). <strong>Quality-of-life impact</strong> is substantial: severe pruritic dermatitis, dietary restriction from food allergy, anaphylaxis risk, and growth impairment—though formal EQ-5D/SF-36 data are not available for this rare disease.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal gene:</strong> <em>STAT6</em> (12q13.3; OMIM 601512; <a href="https://bioregistry.io/HGNC:11364" target="_blank" rel="noopener noreferrer">HGNC:11364</a>; NCBI Gene 6778; UniProt P42226).</li>
+<li><strong>Pathogenic variants (germline, dominant):</strong> E372K (c.1114G&gt;A), E377K (c.1129G&gt;A), E382Q (c.1144G&gt;C), D419H (c.1255G&gt;C), D419Y (c.1255G&gt;T), D419G (c.1256A&gt;G), D419N (c.1255G&gt;A), D519H/N (c.1555G&gt;C). <strong>Codon D419 is the recurrent hotspot.</strong></li>
+<li><strong>Variant classification (ACMG/AMP, ClinVar):</strong> Pathogenic (E372K, E382Q, D419Y, D419G, D519H) or Likely pathogenic (D419H).</li>
+<li><strong>Variant type:</strong> exclusively <strong>missense</strong> to date.</li>
+<li><strong>Allele frequency:</strong> these variants are <strong>absent or ultra-rare</strong> in gnomAD; <em>STAT6</em> is missense-constrained (mis_z = 3.47) and LoF-tolerant (pLI = 0.057, oe_lof upper = 0.54).</li>
+<li><strong>Somatic vs germline:</strong> the disease variants are <strong>germline</strong>; notably, <strong>somatic</strong> STAT6 DBD mutations at the same residues (D419) recur in follicular lymphoma.</li>
+<li><strong>Functional consequence:</strong> <strong>gain of function</strong> — constitutive and/or IL-4-hypersensitive STAT6 activation.</li>
+<li><strong>Modifier genes:</strong> none established. <strong>Epigenetic changes / chromosomal abnormalities:</strong> none reported; disease is a point-mutation disorder.</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<p>No environmental toxin, occupational exposure, lifestyle factor, or infectious agent <strong>causes</strong> STAT6 GOF disease. Environmental allergens act as <strong>triggers</strong> for individual atopic manifestations. Recurrent infections (skin/respiratory/viral) reflect immune dysregulation intrinsic to the genotype rather than an environmental etiology.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Causal chain (upstream → downstream):</strong></p>
+<pre><code>Germline STAT6 DBD missense variant (e.g., D419H/N, E372K)
+│
+▼
+Constitutive / IL-4-hypersensitive STAT6 activation
+  • sustained tyrosine phosphorylation (pSTAT6)
+  • ligand-independent nuclear translocation (D419N, even unphosphorylated)
+│
+▼
+Increased STAT6 target-gene transcription (e.g., PARP14, GATA3 program)
+│
+▼
+Pathological TH2 skewing of CD4+ T cells (IL-4, IL-5, IL-13 ↑)
+│
+├──► B-cell IgE class switching  → hyper-IgE, food allergy, anaphylaxis
+├──► Eosinophil recruitment/survival → hypereosinophilia, eosinophilic GI disease
+├──► Skin barrier/Th2 inflammation → treatment-resistant atopic dermatitis
+├──► Airway Th2 inflammation → asthma
+└──► Chronic B-cell proliferation + PARP14 co-activation → follicular lymphoma risk
+</code></pre>
+<ul>
+<li><strong>Molecular pathway:</strong> IL-4/IL-13 → JAK1/JAK2/TYK2 → <strong>STAT6</strong> (KEGG JAK-STAT signaling; Reactome IL-4/IL-13 signaling). Upstream node = JAK kinases (JAK-inhibitor target); membrane receptor = IL-4Rα (dupilumab target).</li>
+<li><strong>Cellular processes:</strong> TH2 differentiation, IgE class-switch recombination, eosinophilia, type-2 inflammation.</li>
+<li><strong>Protein dysfunction:</strong> gain of function — enhanced DNA binding / nuclear retention of STAT6 (a transcription factor). Not misfolding or aggregation.</li>
+<li><strong>Immune involvement:</strong> immune <strong>dysregulation</strong> (allergy axis) with partial immunodeficiency (recurrent infections).</li>
+<li><strong>Transcriptional co-activator:</strong> <strong>PARP14</strong> amplifies the STAT6/TH2 program and connects to lymphomagenesis.</li>
+<li><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0042092" target="_blank" rel="noopener noreferrer">GO:0042092</a> (type 2 immune response), <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" rel="noopener noreferrer">GO:0045064</a> (T-helper 2 cell differentiation), <a href="http://purl.obolibrary.org/obo/GO_0043330" target="_blank" rel="noopener noreferrer">GO:0043330</a> (response to exogenous dsRNA — not applicable; use <a href="http://purl.obolibrary.org/obo/GO_0070670" target="_blank" rel="noopener noreferrer">GO:0070670</a> response to IL-4), <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a> (regulation of transcription by RNA Pol II), <a href="http://purl.obolibrary.org/obo/GO_0042113" target="_blank" rel="noopener noreferrer">GO:0042113</a> (B-cell activation). <strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" rel="noopener noreferrer">CL:0000546</a> (T-helper 2 cell), <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a> (B cell), <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a> (eosinophil), <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a> (mast cell). <strong>Subcellular:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> (nucleus) — the site of STAT6 dysfunction.</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organs / systems:</strong> skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), immune/hematopoietic system (<a href="http://purl.obolibrary.org/obo/UBERON_0002405" target="_blank" rel="noopener noreferrer">UBERON:0002405</a>), gastrointestinal tract—esophagus (<a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" rel="noopener noreferrer">UBERON:0001043</a>), stomach, gut—and respiratory system/lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>).</li>
+<li><strong>Secondary:</strong> skeletal system (short stature, osteoporosis); lymphoid tissue (lymphoma).</li>
+<li><strong>Tissues/cells:</strong> epithelial (skin/GI/airway barrier), and immune cell populations — <strong>TH2 cells (<a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" rel="noopener noreferrer">CL:0000546</a>)</strong>, <strong>eosinophils (<a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a>)</strong>, <strong>B cells/plasma cells (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>)</strong>, mast cells.</li>
+<li><strong>Subcellular:</strong> nucleus (transcription-factor dysfunction).</li>
+<li><strong>Lateralization:</strong> systemic/<strong>bilateral</strong> (dermatitis, asthma); not lateralized.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> congenital/<strong>infantile (100%)</strong>, insidious-to-chronic.</li>
+<li><strong>Progression:</strong> chronic, lifelong; atopic dermatitis is persistent and treatment-resistant; anaphylaxis is <strong>episodic</strong>; lymphoma is a late, rare complication.</li>
+<li><strong>Course:</strong> progressive multi-system atopy without treatment; <strong>treatment-induced remission/control</strong> achievable with dupilumab/JAK inhibitors.</li>
+<li><strong>Critical periods:</strong> early childhood — window for diagnosis and initiation of targeted therapy to prevent morbidity.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> <strong>autosomal dominant</strong>; ~70% sporadic/de novo (7/10 kindreds), ~30% inherited (3/10 kindreds) in the founding cohort.</li>
+<li><strong>Penetrance:</strong> appears high but with <strong>variable expressivity</strong> (intra-familial heterogeneity documented).</li>
+<li><strong>Epidemiology:</strong> <strong>ultra-rare</strong>; exact prevalence/incidence unknown (fewer than ~20 published families as of 2025). No founder effect, consanguinity role, or carrier-frequency data (dominant, de novo–enriched).</li>
+<li><strong>Demographics:</strong> reported across three continents; no ethnic predilection established; no clear sex ratio.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Laboratory:</strong> markedly <strong>elevated serum total IgE</strong> (LOINC-mappable IgE assays), <strong>peripheral hypereosinophilia</strong> (CBC/differential), tissue eosinophilia on GI biopsy.</li>
+<li><strong>Biomarkers:</strong> <strong>STAT6 target-gene expression</strong> and <strong>pSTAT6</strong> (functional readouts); TH2 cytokine skewing.</li>
+<li><strong>Genetic testing (definitive):</strong> <strong>whole-genome or whole-exome sequencing</strong> is the recommended upfront approach for primary atopic disorders (<em>"Upfront genome-wide analysis by whole genome sequencing (WGS) will shorten the time to diagnosis"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/39381601/">PMID: 39381601</a>); targeted <em>STAT6</em> single-gene or PAD gene-panel testing is an alternative. <strong>Functional confirmation</strong> (sustained pSTAT6, enhanced nuclear translocation, luciferase/EMSA reporter assays, patient PBMC signaling) distinguishes GOF variants from VUS.</li>
+<li><strong>Histopathology:</strong> eosinophilic infiltration of esophagus/GI tract; atopic dermatitis skin changes.</li>
+<li><strong>Differential diagnosis:</strong> other primary atopic disorders / transcription-factor IEIs — <strong>STAT3 loss-of-function (Job syndrome), FOXP3 deficiency (IPEX), T-bet deficiency, DOCK8 deficiency, Netherton syndrome</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37727514/">PMID: 37727514</a>). STAT6 GOF is distinguished by the constitutive STAT6-activation signature and dupilumab responsiveness.</li>
+<li><strong>Screening:</strong> cascade genetic testing of at-risk relatives in inherited kindreds.</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> no disease-specific mortality data; anaphylaxis and lymphoma are the principal life-threatening risks.</li>
+<li><strong>Morbidity:</strong> high — severe dermatitis, dietary restriction, growth impairment, recurrent infections; substantial quality-of-life burden (no formal EQ-5D/SF-36 data).</li>
+<li><strong>Complications:</strong> anaphylaxis, eosinophilic GI disease, recurrent infections, osteoporosis, and <strong>B-cell/follicular lymphoma (~6%)</strong>.</li>
+<li><strong>Prognostic factors:</strong> the disease is highly <strong>treatment-responsive</strong>; early targeted therapy markedly improves outcomes. Lymphoma surveillance is warranted given the PARP14/STAT6 link.</li>
+</ul>
+<h3>12. Treatment</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Therapy</th>
+<th>Class / target</th>
+<th>Mechanism</th>
+<th>Evidence</th>
+<th>MAXO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dupilumab</strong></td>
+<td>anti–IL-4Rα monoclonal antibody</td>
+<td>Blocks IL-4/IL-13 receptor upstream of STAT6</td>
+<td><em>"highly effective improving both clinical manifestations and immunological biomarkers"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a>); effective for D519N (<a href="https://pubmed.ncbi.nlm.nih.gov/40502541/">PMID: 40502541</a>)</td>
+<td>MAXO monoclonal-antibody therapy</td>
+</tr>
+<tr>
+<td><strong>Ruxolitinib / JAK inhibitors</strong></td>
+<td>JAK1/JAK2 inhibitor</td>
+<td>Reduces pSTAT6 by blocking upstream kinases</td>
+<td><em>"ruxolitinib reduced pSTAT6 levels in D419H HEK293T cells and patient PBMC"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37316763/">PMID: 37316763</a>)</td>
+<td>MAXO pharmacotherapy / targeted therapy</td>
+</tr>
+<tr>
+<td>Supportive atopic care</td>
+<td>Topical steroids, emollients, allergen avoidance, epinephrine</td>
+<td>Symptom control</td>
+<td>Standard atopy management</td>
+<td>MAXO supportive care</td>
+</tr>
+<tr>
+<td><strong>PARP14 inhibition</strong> (experimental)</td>
+<td>small-molecule co-activator inhibitor</td>
+<td>Blocks downstream STAT6 co-activator; also anti-lymphoma</td>
+<td>Preclinical (<a href="https://pubmed.ncbi.nlm.nih.gov/35851155/">PMID: 35851155</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28653395/">PMID: 28653395</a>)</td>
+<td>MAXO experimental therapy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Personalized medicine:</strong> the disease is a paradigm of <strong>genotype-guided precision therapy</strong> — a druggable, hyperactive signaling axis directly matched to approved biologics (dupilumab) and JAK inhibitors. <strong>Pharmacogenomics:</strong> not specifically characterized. No gene/cell therapy is in clinical use.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> none (monogenic, largely de novo). <strong>Genetic counseling</strong> for inherited kindreds; prenatal/preimplantation genetic testing is theoretically possible for known familial variants.</li>
+<li><strong>Secondary prevention:</strong> early genomic diagnosis and initiation of targeted therapy; allergen/anaphylaxis risk management.</li>
+<li><strong>Tertiary prevention:</strong> dupilumab/JAK inhibitors to prevent complications; <strong>lymphoma surveillance</strong>; infection prophylaxis as needed.</li>
+<li>No immunization or population public-health intervention is applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy/orthologs:</strong> <em>STAT6</em> is conserved; mouse <em>Stat6</em> (NCBI Gene 20852). No naturally occurring companion-animal/wildlife equivalent of germline STAT6 GOF disease is catalogued (no OMIA entry identified). <strong>Comparative biology:</strong> the IL-4/STAT6/TH2 axis is evolutionarily conserved, underpinning the validity of mouse models. No zoonotic relevance.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Genetic design</th>
+<th>Phenotype recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Stat6VT</strong></td>
+<td>Mouse (transgenic)</td>
+<td>Constitutively active STAT6 in T cells</td>
+<td>Spontaneous allergic skin inflammation + allergic airway disease; PARP14-dependent TH2 program</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28653395/">PMID: 28653395</a></td>
+</tr>
+<tr>
+<td><strong>STAT6 D419N knock-in</strong></td>
+<td>Mouse (patient-variant knock-in)</td>
+<td>Germline D419N</td>
+<td><em>"abnormal TH2-dominant immune response in vivo, with findings similar to those observed in patients"</em></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40603028/">PMID: 40603028</a></td>
+</tr>
+<tr>
+<td>Patient cells / HEK293T</td>
+<td>In vitro</td>
+<td>Overexpressed variant STAT6</td>
+<td>pSTAT6 elevation, nuclear translocation, reporter activation; ruxolitinib response</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37316763/">PMID: 37316763</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">PMID: 36884218</a></td>
+</tr>
+<tr>
+<td>Gastric organoids</td>
+<td>In vitro (patient-derived)</td>
+<td>E377K</td>
+<td>Downstream effector-cytokine studies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36216080/">PMID: 36216080</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Applications:</strong> mechanism of TH2 skewing, allergic skin/airway disease, target validation for dupilumab/JAK/PARP14. <strong>Limitations:</strong> mouse models capture allergic dermatitis and TH2 skewing but do not fully model the human lymphoma continuum or the complete multi-system phenotype.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>STAT6 GOF disease is best understood as a <strong>"single-node type-2 immune amplifier" disorder</strong>. A germline missense change in the STAT6 DNA-binding domain converts a normally ligand-controlled transcription factor into a <strong>hyperactive or constitutively active driver of the TH2 gene program</strong>. The location of the mutations is mechanistically decisive: the DBD hotspot (D419) either stabilizes STAT6 in a DNA-bound/nuclear-retained state or lowers the activation threshold for IL-4 signaling. This produces the entire downstream cascade of type-2 immunity—IgE class switching, eosinophilia, and barrier-tissue inflammation—explaining why one gene defect yields such a broad, coherent, multi-organ atopic phenotype.</p>
+<p>Three lines of evidence converge on gain-of-function rather than haploinsufficiency: (1) the <strong>dominant inheritance with recurrent, clustered missense variants</strong>; (2) <strong>gnomAD constraint</strong> showing LoF tolerance but strong missense intolerance (mis_z = 3.47); and (3) <strong>direct functional assays</strong> showing sustained/ligand-independent STAT6 activation. The mouse models close the causal loop: constitutively active STAT6 alone is sufficient to produce spontaneous allergic skin and airway disease.</p>
+<p>The disease also illuminates a <strong>shared germline–somatic axis</strong>. The identical DBD residues mutated germline in this atopic disorder are recurrently mutated somatically in follicular lymphoma, and <strong>PARP14</strong> functions as a common downstream co-activator in both settings. This explains the small but real lymphoma risk and nominates PARP14 as a mechanistic bridge and therapeutic target spanning allergy and oncology.</p>
+<p>Clinically, the model is directly <strong>actionable</strong>: blocking the axis at the receptor (dupilumab/IL-4Rα) or upstream kinase (JAK inhibitor) reverses both symptoms and biomarkers, making STAT6 GOF disease a textbook example of precision medicine in inborn errors of immunity.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36884218/">36884218</a></td>
+<td><em>Human germline heterozygous GOF STAT6 variants cause severe allergic disease</em></td>
+<td><strong>Defining cohort (n=16)</strong>: GOF mechanism, AD inheritance, core phenotype, dupilumab efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36216080/">36216080</a></td>
+<td><em>A germline STAT6 GOF variant is associated with early-onset allergies</em></td>
+<td>E377K DBD variant; spontaneous STAT6 activation; gastric organoids; variable expressivity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36758835/">36758835</a></td>
+<td><em>Severe allergic dysregulation due to a GOF mutation in STAT6</em></td>
+<td>E372K DBD variant</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37316763/">37316763</a></td>
+<td><em>Autosomal dominant STAT6 GOF causes severe atopy associated with lymphoma</em></td>
+<td>D419H variant; ruxolitinib reduces pSTAT6; follicular lymphoma link</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40603028/">40603028</a></td>
+<td><em>Mechanism of pathogenesis by a GOF STAT6 variant</em></td>
+<td>D419N: ligand-independent nuclear translocation; knock-in mouse recapitulation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40502541/">40502541</a></td>
+<td><em>STAT6 GOF: p.D519N responds to dupilumab</em></td>
+<td>New variant; expands phenotype; dupilumab response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38238227/">38238227</a></td>
+<td><em>Human germline GOF STAT6: from allergy to lymphoma</em></td>
+<td>Review; allergy-to-lymphoma spectrum; targeted-treatment overview</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37727514/">37727514</a></td>
+<td><em>Transcription factor defects in IEIs with atopy</em></td>
+<td>Places STAT6 GOF among TF-defect atopic IEIs; differential diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39381601/">39381601</a></td>
+<td><em>Rapid identification of PAD by upfront genomic sequencing</em></td>
+<td>Diagnostic strategy: upfront WGS for primary atopic disorders</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28653395/">28653395</a></td>
+<td><em>PARP14 limits severity of allergic skin disease</em></td>
+<td>Stat6VT mouse; PARP14 as STAT6 co-activator in TH2/allergic disease</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35851155/">35851155</a></td>
+<td><em>PARP14 is a novel target in STAT6 mutant follicular lymphoma</em></td>
+<td>PARP14 druggability; germline–somatic mechanistic bridge</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All eleven papers are mutually consistent; none challenge the core GOF model. Evidence spans human clinical/genetic cohorts, in vitro functional assays, and two mouse models, providing multi-modal validation.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Very small sample size.</strong> Fewer than ~20 families are published; frequencies (e.g., lymphoma 6%) derive from n=16 and carry wide confidence intervals. True prevalence/incidence is unknown.</li>
+<li><strong>No dedicated Orphanet/ICD code</strong>, complicating registry-based epidemiology.</li>
+<li><strong>Penetrance and expressivity</strong> are incompletely quantified; intra-familial heterogeneity is described but not modeled.</li>
+<li><strong>Long-term outcomes</strong> (life expectancy, lymphoma lifetime risk, treatment durability) are unknown given the disease's recency.</li>
+<li><strong>Genotype–phenotype correlations</strong> (e.g., whether specific DBD residues predict lymphoma vs pure atopy) are not yet resolved.</li>
+<li><strong>No formal QoL instruments, pharmacogenomics, or gene/cell-therapy data.</strong></li>
+<li><strong>PARP14 inhibition</strong> remains preclinical for this indication.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish an international STAT6-GOF registry</strong> to refine prevalence, penetrance, lymphoma risk, and natural history.</li>
+<li><strong>Systematic genotype–phenotype mapping</strong> across all reported variants (D419 hotspot vs others) to test whether specific residues predict lymphoma risk or dupilumab responsiveness.</li>
+<li><strong>Prospective dupilumab and JAK-inhibitor trials</strong> with standardized clinical and biomarker (pSTAT6, IgE, eosinophil) endpoints and QoL instruments (EQ-5D, PROMIS).</li>
+<li><strong>Lymphoma surveillance protocol</strong> development, leveraging the shared germline–somatic DBD/PARP14 axis.</li>
+<li><strong>PARP14 inhibitor preclinical testing</strong> in the D419N knock-in mouse for both allergic and lymphoma endpoints.</li>
+<li><strong>Deep functional characterization</strong> of each variant (constitutive vs ligand-hypersensitive) to guide therapy selection (receptor blockade vs kinase inhibition).</li>
+<li><strong>Assign a dedicated Orphanet/ICD-11 code</strong> and complete HPO annotation for downstream variants.</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/STAT6_Gain_of_Function_Disease-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/STAT6_Gain_of_Function_Disease-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Stargardt_Disease-falcon.html">← Stargardt Disease (Falcon)</a>
+                
+                
+                <a href="Stevens-Johnson_Syndrome-falcon.html">Stevens-Johnson Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/STAT6_Gain-of-Function_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/STAT6_Gain_of_Function_Disease-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

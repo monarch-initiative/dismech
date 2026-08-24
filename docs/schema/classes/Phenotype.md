@@ -22,6 +22,17 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
         
       Phenotype : diagnostic
         
+      Phenotype : electrophysiology
+        
+          
+    
+        
+        
+        Phenotype --> "0..1" ElectrophysiologyContext : electrophysiology
+        click ElectrophysiologyContext href "../../classes/ElectrophysiologyContext/"
+    
+
+        
       Phenotype : evidence
         
           
@@ -70,6 +81,17 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
     
 
         
+      Phenotype : reports_on
+        
+          
+    
+        
+        
+        Phenotype --> "*" PhenotypeReadout : reports_on
+        click PhenotypeReadout href "../../classes/PhenotypeReadout/"
+    
+
+        
       Phenotype : review_notes
         
       Phenotype : sequelae
@@ -113,18 +135,20 @@ URI: [dismech:class/Phenotype](https://w3id.org/monarch-initiative/dismech/class
 | [category](../slots/category.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [name](../slots/name.md) | 1 <br/> [String](../types/String.md) |  | direct |
 | [phenotype_term](../slots/phenotype_term.md) | 0..1 <br/> [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | The HP term for this phenotype | direct |
-| [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
+| [frequency](../slots/frequency.md) | 0..1 <br/> [FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md) |  | direct |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [diagnostic](../slots/diagnostic.md) | 0..1 <br/> [Boolean](../types/Boolean.md) |  | direct |
 | [sequelae](../slots/sequelae.md) | * <br/> [CausalEdge](../classes/CausalEdge.md) |  | direct |
 | [evidence](../slots/evidence.md) | * _recommended_ <br/> [EvidenceItem](../classes/EvidenceItem.md) |  | direct |
 | [context](../slots/context.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [review_notes](../slots/review_notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
-| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | direct |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | direct |
 | [notes](../slots/notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [subtype](../slots/subtype.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [subtypes](../slots/subtypes.md) | * <br/> [String](../types/String.md) | Names of subtypes (foreign keys to this disease's `has_subtypes[] | direct |
 | [phenotype_contexts](../slots/phenotype_contexts.md) | * <br/> [PhenotypeContext](../classes/PhenotypeContext.md) | Context-specific qualifications of this phenotype's frequency, severity, or o... | direct |
+| [electrophysiology](../slots/electrophysiology.md) | 0..1 <br/> [ElectrophysiologyContext](../classes/ElectrophysiologyContext.md) | Optional electrophysiologic post-composition sidecar for a phenotype whose ph... | direct |
+| [reports_on](../slots/reports_on.md) | * <br/> [PhenotypeReadout](../classes/PhenotypeReadout.md) | Links an investigation-readout phenotype (e | direct |
 
 
 
@@ -201,6 +225,8 @@ slots:
 - subtype
 - subtypes
 - phenotype_contexts
+- electrophysiology
+- reports_on
 
 ```
 </details>
@@ -254,6 +280,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -285,6 +312,7 @@ attributes:
     - ExperimentalReadout
     - ReferenceRangeBand
     - Phenotype
+    - ImagingFinding
     - LogicalCriterion
     - DifferentiatingMechanism
     range: PhenotypeDescriptor
@@ -303,6 +331,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: Any
     any_of:
@@ -333,6 +362,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -340,6 +370,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -377,6 +408,7 @@ attributes:
     domain_of:
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     range: boolean
   sequelae:
     name: sequelae
@@ -414,17 +446,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -440,6 +476,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -467,6 +504,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Stage
     - AgentLifeCycle
     - AgentLifeCycleStage
@@ -539,12 +577,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -585,6 +626,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: string
   subtypes:
@@ -621,6 +663,51 @@ attributes:
     domain_of:
     - Phenotype
     range: PhenotypeContext
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  electrophysiology:
+    name: electrophysiology
+    description: Optional electrophysiologic post-composition sidecar for a phenotype
+      whose phenotype_term is an EEG/EMG/EKG finding (HP:0002353 / HP:0003457 / HP:0003115
+      subtrees). Carries modality plus the ictal and recording-state axes a flat HP
+      term cannot express. Electrophysiologic findings are HP phenotypes, so they
+      stay in `phenotypes`; this only post-composes them.
+    comments:
+    - Use on EEG/EMG/EKG phenotypes; leave absent otherwise
+    - Not for acquisition protocol, per-patient tracings, or decision support
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: electrophysiology
+    owner: Phenotype
+    domain_of:
+    - Phenotype
+    range: ElectrophysiologyContext
+    inlined: true
+  reports_on:
+    name: reports_on
+    description: Links an investigation-readout phenotype (e.g. an abnormal electrophysiology
+      or clinical-test finding such as HP:0000512 Abnormal electroretinogram) to the
+      pathograph node whose underlying state it measures or reflects. The target is
+      a named pathophysiology or phenotype node in the same disease file. These are
+      observational readout links, not causal disease-progression edges, so they let
+      an otherwise-disconnected test-result phenotype attach to the mechanism it reports
+      on without asserting that the mechanism "causes" the test result.
+    comments:
+    - Use on investigation/test-result phenotypes (electrophysiology, functional testing,
+      laboratory findings) that report on an underlying mechanism rather than participating
+      causally
+    - Target names should match a pathophysiology or phenotype entry name in the same
+      disease file
+    - Rendered as a dashed observational edge (mechanism -.-> readout), like biomarker
+      readouts
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: reports_on
+    owner: Phenotype
+    domain_of:
+    - Phenotype
+    range: PhenotypeReadout
     multivalued: true
     inlined: true
     inlined_as_list: true

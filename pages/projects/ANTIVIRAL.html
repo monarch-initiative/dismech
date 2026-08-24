@@ -52,6 +52,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -167,6 +286,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -312,7 +474,7 @@ treatment <code>target_mechanisms</code> edges), tracked in §7.</p>
 <th>Module (built ✓)</th>
 <th>Target / principle</th>
 <th>Drug classes</th>
-<th>Candidate conformers (existing entries)</th>
+<th>Current / candidate conformers (existing entries)</th>
 </tr>
 </thead>
 <tbody>
@@ -324,9 +486,9 @@ treatment <code>target_mechanisms</code> edges), tracked in §7.</p>
 </tr>
 <tr>
 <td><code>viral_protease_inhibition</code></td>
-<td>Viral polyprotein maturation protease (HIV PR, HCV NS3/4A, SARS-CoV-2 Mpro/3CLpro)</td>
+<td>Virus-encoded polyprotein-processing protease; replicase-protein release (SARS-CoV-2 Mpro, HCV NS3/4A) versus structural virion maturation (HIV PR)</td>
 <td>protease inhibitors</td>
-<td><a href="../disorders/COVID-19.html">COVID-19</a> (nirmatrelvir), <a href="../disorders/Hepatitis_C.html">Hepatitis C</a> (glecaprevir/grazoprevir), <a href="../disorders/Acquired_Immunodeficiency_Syndrome.html">Acquired Immunodeficiency Syndrome</a> (atazanavir/darunavir, ritonavir boost)</td>
+<td><strong>Wired:</strong> <a href="../disorders/COVID-19.html">COVID-19</a> (nirmatrelvir), <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a> (glecaprevir). <strong>Candidates:</strong> <a href="../disorders/Hepatitis_C.html">Hepatitis C</a> (glecaprevir/grazoprevir), <a href="../disorders/Acquired_Immunodeficiency_Syndrome.html">Acquired Immunodeficiency Syndrome</a> (atazanavir/darunavir, ritonavir boost)</td>
 </tr>
 <tr>
 <td><code>viral_entry_fusion_inhibition</code></td>
@@ -362,10 +524,10 @@ side):
   protease (<code>viral_protease_inhibition</code>) + entry (<code>viral_entry_fusion_inhibition</code>)
   + latent reservoir (<code>viral_latency_reservoir_persistence</code>). The canonical
   combination-therapy story.
-- <strong><a href="../disorders/Hepatitis_C.html">Hepatitis C</a> (DAA regimens)</strong>: NS5B polymerase
+- <strong><a href="../disorders/Hepatitis_C.html">Hepatitis C</a> (direct-acting antiviral regimens)</strong>: NS5B polymerase
   (<code>viral_polymerase_inhibition</code>) + NS3/4A protease
   (<code>viral_protease_inhibition</code>) + NS5A replication-complex
-  (<code>viral_assembly_release_inhibition</code>). The three-target DAA cure.
+  (<code>viral_assembly_release_inhibition</code>). The three-target antiviral cure.
 - <strong><a href="../disorders/Hepatitis_B.html">Hepatitis B</a></strong>: reverse transcriptase suppression
   (<code>viral_polymerase_inhibition</code>) gated by the cccDNA reservoir
   (<code>viral_latency_reservoir_persistence</code>) — explains indefinite suppression
@@ -422,7 +584,7 @@ in a given virus, is the whole game. We want to encode that depth.</p>
 failure modes: a DNA-virus polymerase inhibitor has nothing to point at in an
 RNA virus, and an integrase inhibitor is meaningless outside the retroviruses.</p>
 <h2 id="3-three-tier-encoding">3. Three-Tier Encoding</h2>
-<p><strong>Tier 1 — crude baseline.</strong> <code>treatment_term: MAXO:0000168</code> (antiviral agent
+<p><strong>Tier 1 — crude baseline.</strong> <code>treatment_term: NCIT:C16119</code> (Antiviral Therapy
 therapy) or <code>NCIT:C15986</code> (Pharmacotherapy) + <code>therapeutic_agent</code> (CHEBI for the
 drug, e.g. <code>CHEBI:85083</code> sofosbuvir, <code>CHEBI:145994</code> remdesivir,
 <code>CHEBI:170007</code> nirmatrelvir) + <code>therapeutic_modality: SMALL_MOLECULE</code>. Says
@@ -479,7 +641,7 @@ whereas the proposed modules capture the <strong>direct antiviral drug-target</s
 <tr>
 <td><strong>High mutation rate / quasispecies</strong></td>
 <td>error-prone RdRp/RT → resistance escape → mandates combination therapy or high-barrier agents</td>
-<td>HIV (3-drug ART), HCV (multi-DAA); high genetic barrier of dolutegravir/sofosbuvir</td>
+<td>HIV (3-drug ART), HCV (multi-agent direct-acting therapy); high genetic barrier of dolutegravir/sofosbuvir</td>
 </tr>
 <tr>
 <td><strong>Resistance mutation</strong></td>
@@ -499,7 +661,7 @@ whereas the proposed modules capture the <strong>direct antiviral drug-target</s
 <tr>
 <td><strong>Window of action</strong></td>
 <td>many antivirals only work early (before peak replication / irreversible immunopathology)</td>
-<td><a href="../disorders/Influenza.html">Influenza</a> (NA inhibitors within 48 h), Acute_Hepatitis_C (early DAA before chronicity)</td>
+<td><a href="../disorders/Influenza.html">Influenza</a> (NA inhibitors within 48 h), Acute_Hepatitis_C (early direct-acting antiviral therapy before chronicity)</td>
 </tr>
 </tbody>
 </table>
@@ -539,12 +701,16 @@ can separate them.</p>
       termination, sofosbuvir prodrug, high-mutation-rate escape), Amblard
       35792384 (HIV NRTIs). Key target: <code>#Viral Polymerase as the Replication
       Engine and Drug Target</code>.</li>
-<li>[x] Draft <code>viral_protease_inhibition</code>. Built: three nodes (maturation protease
-      target → immature non-infectious virions → protease-inhibitor resistance /
-      ritonavir-boost rationale). Evidence: 32858867 (HIV maturation), 37407698
-      (SARS-CoV-2 Mpro structure), 35993498 (HCV NS3/4A resistance), 26566368
-      (cobicistat boosting). Key target: <code>#Viral Polyprotein Maturation Protease
-      as Drug Target</code>.</li>
+<li>[x] Draft <code>viral_protease_inhibition</code>. Built as a shared polyprotein-synthesis
+      and virus-encoded protease-processing trunk with separate
+      replicase-protein/RNA-replication (SARS-CoV-2, HCV) and structural
+      virion-maturation (HIV) outputs, plus a viral target-resistance branch.
+      The immature non-infectious-particle consequence is confined to the
+      structural branch, and pharmacokinetic boosting is separate from viral
+      resistance. Evidence: 32858867 (HIV maturation), 35380892 (SARS-CoV-2
+      replicase-polyprotein cleavage), 22558217 (HCV NS3/4A polyprotein
+      processing), and 35993498 (HCV NS3/4A resistance). Key target:
+      <code>#Virus-Encoded Protease-Dependent Polyprotein Processing</code>.</li>
 <li>[x] Draft <code>viral_entry_fusion_inhibition</code> (attachment / co-receptor / fusion /
       NTCP), <code>viral_integrase_inhibition</code> (retroviral strand transfer), and
       <code>viral_assembly_release_inhibition</code> (influenza neuraminidase + HCV NS5A;
@@ -557,15 +723,14 @@ can separate them.</p>
       reactivation on interruption). Evidence covers the HIV proviral reservoir,
       HBV cccDNA, and HSV neuronal latency. Key gating target: <code>#Antiviral
       Suppression Without Eradication of the Reservoir</code>.</li>
-<li>[ ] <strong>Wire conforming disease entries</strong> (the remaining payoff — modules exist
-      but no antiviral disorder yet <code>conforms_to</code> them). Highest-value first:
-      <strong><a href="../disorders/COVID-19.html">COVID-19</a></strong> (add explicit SARS-CoV-2 RdRp + Mpro drug-target nodes,
-      <code>conforms_to</code> the polymerase/protease modules, <code>target_mechanisms</code> from
-      remdesivir/molnupiravir and nirmatrelvir; host-evasion
-      <code>parp_parg_macrodomain_viral_evasion</code> conformance is already present);
-      <strong><a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a></strong> / <strong><a href="../disorders/Hepatitis_C.html">Hepatitis C</a></strong> (split the coarse
-      "Early HCV infection of hepatocytes" target into NS5B / NS3/4A / NS5A
-      nodes); <strong><a href="../disorders/Hepatitis_B.html">Hepatitis B</a></strong> (RT suppression gated by cccDNA reservoir);
+<li>[ ] <strong>Wire remaining conforming disease entries.</strong> The
+      <code>viral_protease_inhibition</code> replicase branch is now instantiated in
+      <strong><a href="../disorders/COVID-19.html">COVID-19</a></strong> (pp1a/pp1ab → Mpro processing → replication-transcription
+      complex; nirmatrelvir target edge) and
+      <strong><a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a></strong> (HCV polyprotein → NS3/4A processing
+      → RNA replication; glecaprevir target edge). Remaining highest-value
+      work includes <a href="../disorders/COVID-19.html">COVID-19</a> polymerase targets, chronic <strong><a href="../disorders/Hepatitis_C.html">Hepatitis C</a></strong>
+      NS5B/NS3/4A/NS5A nodes, <strong><a href="../disorders/Hepatitis_B.html">Hepatitis B</a></strong> RT suppression gated by cccDNA,
       <strong><a href="../disorders/Acquired_Immunodeficiency_Syndrome.html">Acquired Immunodeficiency Syndrome</a></strong> as the flagship five-module
       conformer (RT + integrase + protease + entry + reservoir).</li>
 <li>[ ] Decide how to model <strong><a href="../disorders/Influenza.html">Influenza</a></strong> baloxavir (cap-dependent endonuclease,

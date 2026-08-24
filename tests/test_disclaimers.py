@@ -27,6 +27,7 @@ STATIC_PAGES = [
     "index.html",
     "app/index.html",
     "app/discussions/index.html",
+    "app/models/index.html",
     "app/embeddings/index.html",
     "app/embeddings/mechanisms.html",
     "details/index.html",

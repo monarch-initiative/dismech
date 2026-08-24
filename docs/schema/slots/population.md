@@ -23,9 +23,10 @@ Alias: population
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  no  |
-| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
-| [ReferenceRange](../classes/ReferenceRange.md) | A population reference interval for a clinical laboratory analyte |  yes  |
 | [Prevalence](../classes/Prevalence.md) |  |  no  |
+| [PhenotypeContext](../classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |  no  |
+| [GeneCaseFraction](../classes/GeneCaseFraction.md) | A structured estimate of the fraction of cases of a genetically heterogeneous... |  no  |
+| [ReferenceRange](../classes/ReferenceRange.md) | A population reference interval for a clinical laboratory analyte |  yes  |
 
 
 
@@ -39,7 +40,7 @@ Alias: population
 | Property | Value |
 | --- | --- |
 | Range | [String](../types/String.md) |
-| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [ReferenceRange](../classes/ReferenceRange.md), [Prevalence](../classes/Prevalence.md), [AssociationSignal](../classes/AssociationSignal.md) |
+| Domain Of | [PhenotypeContext](../classes/PhenotypeContext.md), [ReferenceRange](../classes/ReferenceRange.md), [Prevalence](../classes/Prevalence.md), [GeneCaseFraction](../classes/GeneCaseFraction.md), [AssociationSignal](../classes/AssociationSignal.md) |
 
 ### Cardinality and Requirements
 
@@ -102,6 +103,7 @@ domain_of:
 - PhenotypeContext
 - ReferenceRange
 - Prevalence
+- GeneCaseFraction
 - AssociationSignal
 range: string
 

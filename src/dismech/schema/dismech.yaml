@@ -16,7 +16,11 @@ imports:
   - classifications/channelopathies
   - classifications/phenotype_category
   - classifications/icimd
+  - classifications/isds_skeletal_nosology
   - classifications/nih_research_priorities
+  - classifications/ilo_occupational_diseases
+  - classifications/eu_occupational_schedule
+  - classifications/exposure_classification
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -33,6 +37,7 @@ prefixes:
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
+  PATO: http://purl.obolibrary.org/obo/PATO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
   ENVO: http://purl.obolibrary.org/obo/ENVO_
@@ -45,18 +50,29 @@ prefixes:
   geo: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=
   arrayexpress: https://www.ebi.ac.uk/biostudies/arrayexpress/studies/
   sra: https://www.ncbi.nlm.nih.gov/sra/
+  bioproject: https://www.ncbi.nlm.nih.gov/bioproject/
   dbgap: https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=
   pride: https://www.ebi.ac.uk/pride/archive/projects/
+  proteomexchange: https://www.ebi.ac.uk/pride/archive/projects/
   metabolights: https://www.ebi.ac.uk/metabolights/
+  metabolomics_workbench: "https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID="
+  ega: https://ega-archive.org/studies/
+  massive: "https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task="
+  mgnify: https://www.ebi.ac.uk/metagenomics/studies/
   hca: https://data.humancellatlas.org/explore/projects/
   gtex: https://gtexportal.org/home/datasets/
   encode: https://www.encodeproject.org/experiments/
   synapse: "https://www.synapse.org/#!Synapse:"
   cellxgene: https://cellxgene.cziscience.com/collections/
+  scea: https://www.ebi.ac.uk/gxa/sc/experiments/
   # Case-level phenotype collections
   phenopacket-store: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
   # Clinical trials
   clinicaltrials: https://clinicaltrials.gov/study/
+  # WHO International Clinical Trials Registry Platform — the umbrella over
+  # every primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ANZCTR, ...),
+  # used for trials that have no ClinicalTrials.gov NCT identifier.
+  ICTRP: "https://trialsearch.who.int/Trial2.aspx?TrialID="
   # CIViC clinical evidence knowledgebase
   CIVIC_EID: https://civicdb.org/links/evidence_items/
   CIVIC_ASSERTION: https://civicdb.org/links/assertions/
@@ -72,7 +88,9 @@ prefixes:
   morphic: https://data.morphic.bio/
   # Computational model repositories
   # Spaceflight biology data repositories
-  osdr: https://osdr.nasa.gov/bio/repo/data/studies/OSD-
+  # Accessions are curated with their OSD- prefix (osdr:OSD-737), so the base
+  # must not repeat it or URLs come out as .../OSD-OSD-737.
+  osdr: https://osdr.nasa.gov/bio/repo/data/studies/
   bigg: https://bigg.ucsd.edu/models/
   vmh: https://www.vmh.life/#human/
   biomodels: https://www.ebi.ac.uk/biomodels/
@@ -620,23 +638,65 @@ enums:
         title: Unknown
         description: Functional impact is not known.
   ModifierEnum:
-    description: Qualifiers for direction, intensity, or pathological state of a descriptor
+    description: >-
+      Qualifiers for direction, intensity, functional impact, or pathological state of
+      a descriptor (biological process, molecular function, cell type, etc.).
+      GAIN_OF_FUNCTION and LOSS_OF_FUNCTION describe the activity *state* of a pathway
+      or process regardless of underlying cause (genetic variant, viral protein,
+      epigenetic silencing, post-translational modification, etc.). For the functional
+      consequence of a specific genetic *variant*, use
+      GeneticContext.functional_impact_category (FunctionalImpactEnum) instead.
+      Boundary with INCREASED/DECREASED: prefer the PATO-bound INCREASED/DECREASED when
+      the claim is *quantitative* — a normally regulated process running above or below
+      its normal level. Reserve GAIN_OF_FUNCTION/LOSS_OF_FUNCTION for a *qualitative*
+      change in regulatory control, where the process is driven outside its normal
+      regulatory constraints (viral oncoprotein, autocrine loop, epigenetic silencing,
+      protein sequestration). Existing INCREASED/DECREASED annotations should not be
+      migrated to GAIN_OF_FUNCTION/LOSS_OF_FUNCTION without that qualitative
+      justification.
     permissible_values:
       INCREASED:
         title: Increased
+        meaning: PATO:0002300
+        aliases:
+        - increased quality  # canonical PATO:0002300 label
         description: Upregulated, hyperactive, elevated, or excessive
       DECREASED:
         title: Decreased
+        meaning: PATO:0002301
+        aliases:
+        - decreased quality  # canonical PATO:0002301 label
         description: Downregulated, hypoactive, reduced, or deficient
       ABNORMAL:
         title: Abnormal
+        meaning: PATO:0000460  # abnormal
         description: Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)
       DYSREGULATED:
         title: Dysregulated
+        # No PATO term exists — verified via OAK 2026-06-26
         description: Regulation is impaired (may be increased or decreased)
       ABSENT:
         title: Absent
+        meaning: PATO:0000462  # absent
         description: Not occurring or not present
+      GAIN_OF_FUNCTION:
+        title: Gain of function
+        # No suitable ontology term found across PATO/GENO/GO/SO (verified 2026-06-26)
+        # SO:0002053 exists but is a variant-consequence term, not an activity modifier
+        description: >-
+          Constitutive or aberrant activation of a pathway, process, or molecular
+          function regardless of underlying mechanism (viral oncoprotein, autocrine
+          loop, post-translational modification, etc.). For mutation-driven GOF,
+          use GeneticContext.functional_impact_category: GAIN_OF_FUNCTION.
+      LOSS_OF_FUNCTION:
+        title: Loss of function
+        # No suitable ontology term found across PATO/GENO/GO/SO (verified 2026-06-26)
+        # SO:0002054 exists but is a variant-consequence term, not an activity modifier
+        description: >-
+          Reduction or abolition of normal pathway, process, or molecular function
+          regardless of underlying mechanism (epigenetic silencing, protein
+          sequestration, competitive inhibition, etc.). For mutation-driven LOF,
+          use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.
   DietaryModificationActionEnum:
     description: Action applied to a food or beverage as part of a dietary treatment
     permissible_values:
@@ -1288,6 +1348,9 @@ enums:
       JUVENILE:
         description: Juvenile onset
         meaning: HP:0003621
+      ADULT:
+        description: Adult onset
+        meaning: HP:0003581
       YOUNG_ADULT:
         description: Young adult onset
         meaning: HP:0011462
@@ -1376,6 +1439,108 @@ enums:
         description: Host-microbe or multi-cell-type coculture system
       OTHER:
         description: Other experimental model type not covered above
+  ModelMechanismRelationshipEnum:
+    description: >-
+      Controlled relationship between an experimental, animal, or computational
+      model and the pathophysiology node it is linked to. Distinguishes a model
+      that reproduces a mechanism from one that merely manipulates or measures
+      it, and gives negative results (a model that does NOT reproduce the human
+      mechanism) a first-class home rather than leaving them in prose.
+    permissible_values:
+      RECAPITULATES:
+        title: Recapitulates
+        description: >-
+          The model reproduces the linked mechanism, such that observations in
+          the model are taken to be informative about the human mechanism.
+      PARTIALLY_RECAPITULATES:
+        title: Partially recapitulates
+        description: >-
+          The model reproduces some but not all of the linked mechanism. Use
+          `limitations` to state which facets are and are not reproduced.
+      FAILS_TO_RECAPITULATE:
+        title: Fails to recapitulate
+        description: >-
+          The model does NOT reproduce the linked mechanism. This is a
+          substantive negative claim and the structural signal for a
+          HUMAN_MODEL_MISMATCH discussion; it requires `limitations` and
+          supporting `evidence`.
+      PERTURBS:
+        title: Perturbs
+        description: >-
+          The model manipulates the linked mechanism (knockout, knockdown,
+          overexpression, chemical challenge) without itself being a claim that
+          the full mechanism is reproduced.
+      MEASURES:
+        title: Measures
+        description: >-
+          The model provides a readout of the linked mechanism without claiming
+          to reproduce or perturb it.
+      RESCUES:
+        title: Rescues
+        description: >-
+          The model demonstrates reversal or correction of the linked mechanism,
+          typically a genetic-correction, drug-rescue, or isogenic-repair arm.
+  ModelFidelityEnum:
+    description: >-
+      Curator assessment of how faithfully a model captures the linked human
+      mechanism. Deliberately coarse: this is a translational-validity caveat,
+      not a metric. Pair with `limitations` for the specific caveat.
+    permissible_values:
+      HIGH:
+        title: High
+        description: >-
+          Human-derived or otherwise closely matched system reproducing the
+          mechanism with well-characterized correspondence to human disease.
+      MODERATE:
+        title: Moderate
+        description: >-
+          Reproduces the mechanism with known and material divergences from
+          human biology (species differences, supraphysiological expression,
+          reduced cellular complexity).
+      LOW:
+        title: Low
+        description: >-
+          Informative but with divergences substantial enough that findings
+          should not be transferred to human disease without corroboration.
+      UNKNOWN:
+        title: Unknown
+        description: >-
+          Correspondence to the human mechanism has not been established.
+          Prefer this over guessing a tier.
+  ModelReadoutDirectionEnum:
+    description: >-
+      Direction of a measured effect in an experimental, animal, or
+      computational model, relative to the model's control or comparator arm.
+      Complements BiomarkerReadoutDirectionEnum, which describes the direction
+      of a clinical biomarker's *association* with an endpoint rather than the
+      direction of an experimental measurement.
+    permissible_values:
+      INCREASED:
+        title: Increased
+        description: The readout is higher in the model condition than in the comparator
+      DECREASED:
+        title: Decreased
+        description: The readout is lower in the model condition than in the comparator
+      UNCHANGED:
+        title: Unchanged
+        description: >-
+          The readout does not differ materially from the comparator. A genuine
+          negative result, not missing data; omit `direction` entirely when the
+          measurement was not made or not reported.
+      RESTORED:
+        title: Restored
+        description: >-
+          The readout returns toward the comparator/wild-type value, typically
+          in a rescue, correction, or treatment arm.
+      ABOLISHED:
+        title: Abolished
+        description: The readout is lost or reduced to background in the model condition
+      ALTERED:
+        title: Altered
+        description: >-
+          The readout differs from the comparator in a way that is not
+          monotonic (e.g. a shifted distribution or changed kinetics). Prefer a
+          directional value when one applies.
   CurationActionEnum:
     description: Simple action types for curation audit trail
     permissible_values:
@@ -1497,6 +1662,42 @@ enums:
         description: Works around the disrupted mechanism via an alternative pathway
       RESTORES:
         description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
+
+  EnvironmentalEffectEnum:
+    description: >-
+      How an environmental factor or exposure acts on a pathophysiology
+      mechanism node. The environmental analogue of TreatmentEffectEnum,
+      used to keep causative, aggravating, and protective exposures visually
+      and semantically distinct in the pathograph.
+    permissible_values:
+      TRIGGERS:
+        title: Triggers
+        description: >-
+          The exposure initiates the mechanism, which would not otherwise
+          occur in its absence (e.g., inorganic arsenic ingestion initiating
+          systemic arsenic exposure; allergen contact initiating sensitization).
+      EXACERBATES:
+        title: Exacerbates
+        description: >-
+          The exposure worsens or amplifies a mechanism that is already
+          present or can arise independently (e.g., tobacco smoke amplifying
+          airway inflammation).
+      PREDISPOSES:
+        title: Predisposes
+        description: >-
+          The exposure increases susceptibility to the mechanism without
+          being sufficient to produce it (e.g., a risk-factor exposure that
+          requires additional genetic or environmental hits).
+      PROTECTS_AGAINST:
+        title: Protects against
+        description: >-
+          The exposure reduces the occurrence or severity of the mechanism
+          (e.g., early-life microbial exposure and allergic sensitization).
+      MODULATES:
+        title: Modulates
+        description: >-
+          The exposure alters the mechanism without a clear unidirectional
+          effect, or the direction is context dependent.
 
   ImagingModalityEnum:
     description: >-
@@ -2305,7 +2506,11 @@ slots:
     inlined: true
     recommended: true
   modifier:
-    description: Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)
+    description: >-
+      Directional, functional, or qualitative modifier for a descriptor (e.g., increased,
+      decreased, abnormal, gain of function, loss of function). See ModifierEnum for the
+      boundary between the quantitative INCREASED/DECREASED values and the
+      GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.
     range: ModifierEnum
   located_in:
     description: Anatomical location where this entity/process occurs or procedure is performed
@@ -3559,7 +3764,36 @@ slots:
     comments:
       - Target names should match pathophysiology entry names in the same disease file
       - Use description to capture the specific assayable or modeled assertion, not just the node label
-      - Kept intentionally lightweight so it can later align more explicitly with NAMO relations
+      - Use readouts on each link to record the outcome measures that ground the assertion
+      - Applies to experimental (NAM), animal, and computational models alike
+  fidelity:
+    description: >-
+      Curator assessment of how faithfully this model captures the linked human
+      mechanism. A translational-validity caveat, not a metric.
+    range: ModelFidelityEnum
+  limitations:
+    description: >-
+      Specific caveats on transferring findings from this model to the human
+      mechanism: species divergence, supraphysiological expression, absent cell
+      types, missing immune or vascular compartments, and similar.
+    range: string
+  influences_mechanisms:
+    description: >-
+      Pathophysiology mechanism nodes that this environmental factor or exposure
+      acts on. Connects a disease-level environmental entry into the causal
+      graph, so that exposures appear in the pathograph as upstream initiating
+      steps rather than as a disconnected list.
+    multivalued: true
+    range: EnvironmentalMechanismTarget
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology entry names in the same disease file
+      - Use environmental_effect to distinguish triggering, aggravating, and protective exposures
+      - Distinct from Pathophysiology.triggers, which annotates an ECTO exposure term
+        directly on a mechanism node rather than linking a disease-level environmental entry
+  environmental_effect:
+    description: How the environmental factor affects the targeted mechanism
+    range: EnvironmentalEffectEnum
   treatment_effect:
     description: How the treatment affects the targeted mechanism
     range: TreatmentEffectEnum
@@ -3792,44 +4026,166 @@ slots:
     inlined: true
   # Classification assignment slots
   icdo_morphology:
+    title: ICD-O Morphology
     description: ICD-O morphology classification (for neoplastic diseases)
     range: ICDOMorphologyAssignment
     inlined: true
   harrisons_chapter:
+    title: Harrison's Part
     description: Harrison's internal medicine chapter classification
     range: HarrisonsChapterAssignment
     inlined: true
     multivalued: true
   lysosomal_storage_category:
+    title: Lysosomal Storage
     description: Lysosomal storage disease biochemical classification
     range: LysosomalStorageAssignment
     inlined: true
   mechanistic_category:
+    title: Mechanistic Nosology
     description: Mechanistic/pathway-based disease classification
     range: MechanisticNosologyAssignment
     inlined: true
     multivalued: true
   iuis_category:
+    title: IUIS Category
     description: IUIS primary immunodeficiency classification
     range: IUISAssignment
     inlined: true
   channelopathy_category:
+    title: Channelopathy
     description: Channelopathy organ system classification
     range: ChannelopathyAssignment
     inlined: true
   icimd_category:
+    title: ICIMD (Inherited Metabolic Disorders)
     description: >-
       International Classification of Inherited Metabolic Disorders (ICIMD)
       category/group classification (for inherited metabolic disorders)
     range: ICIMDAssignment
     inlined: true
     multivalued: true
+  isds_skeletal_category:
+    title: ISDS Skeletal Nosology
+    description: >-
+      ISDS Nosology and Classification of Genetic Skeletal Disorders group
+      assignment (for genetic skeletal disorders). Assign only to entries the
+      Nosology itself lists (or an unambiguous subtype/synonym of one); a
+      single listed disorder carries exactly one group.
+    range: ISDSNosologyAssignment
+    inlined: true
+    multivalued: true
   nih_research_priority:
+    title: NIH Highlighted Topic
     description: >-
       NIH "Highlighted Topics" funding-priority area(s) this disease is relevant
       to. A secondary, soft, grant-strategy classification (NOT a nosology); an
       entry may carry several or none.
     range: NIHResearchPriorityAssignment
+    inlined: true
+    multivalued: true
+  occupational_classification:
+    title: Occupational Disease
+    description: >-
+      Grouping slot collecting the occupational-disease nosology assignments
+      (the two ILO axes and the European schedule). Purely **presentational** —
+      LinkML slot groups "do not change the semantics of a model", so this
+      neither constrains values nor implies the members are alternatives. It
+      exists so the two orthogonal ILO axes read as one classification rather
+      than as unrelated slots scattered through ``DiseaseClassifications``.
+      What actually keeps an axis's values out of the other axis's slot is that
+      each slot ranges over its own enum.
+    is_grouping_slot: true
+  ilo_agent_category:
+    title: ILO (revised 2010) — by causative agent
+    description: >-
+      Item(s) on the **causative-agent axis** of the ILO List of Occupational
+      Diseases (revised 2010, annexed to Recommendation No. 194) — sections 1
+      (chemical, physical, biological agents) and 3 (occupational cancer). The
+      item names the agent, not the disease. Orthogonal to
+      ``ilo_disease_category``; a disease commonly carries both. Assign only
+      when an occupational form of the disease is recognised.
+    range: ILOCausativeAgentAssignment
+    slot_group: occupational_classification
+    inlined: true
+    multivalued: true
+  ilo_disease_category:
+    title: ILO (revised 2010) — by disease category
+    description: >-
+      Item(s) on the **disease-category axis** of the ILO List of Occupational
+      Diseases (revised 2010) — section 2 (by target organ system) and section 4
+      (other diseases). The item names a clinical entity, not the agent.
+      Orthogonal to ``ilo_agent_category``. Multivalued because more than one
+      item from this axis can apply: silicosis takes both 2.1.1 and 2.1.2.
+    range: ILODiseaseCategoryAssignment
+    slot_group: occupational_classification
+    inlined: true
+    multivalued: true
+  eu_occupational_category:
+    title: European schedule
+    description: >-
+      Item(s) of the European schedule of occupational diseases (Commission
+      Recommendation 2003/670/EC as amended by 2022/2337 and 2025/2609) that this
+      disease appears under. Annex II values record a SUSPECTED, not established,
+      occupational aetiology and must say so in ``notes``. Unlike the ILO list
+      the European schedule is not biaxial — it indexes by agent or route
+      throughout — so it takes a single slot.
+    range: EUOccupationalScheduleAssignment
+    slot_group: occupational_classification
+    inlined: true
+    multivalued: true
+  # Exposure/agent classification slots (attach to Environmental, not Disease)
+  exposure_classifications:
+    description: >-
+      Classification assignments for this environmental factor from
+      exposure- and agent-level standards (hazard type, route, duration, IARC
+      carcinogen group, GHS health hazard class, exposome domain). Distinct from
+      ``Disease.classifications``, which classifies the disease.
+    range: ExposureClassifications
+    inlined: true
+  hazard_agent_type:
+    description: >-
+      Occupational-hygiene classification of the agent by its nature (chemical,
+      physical, biological, ergonomic, psychosocial, safety).
+    range: HazardAgentTypeAssignment
+    inlined: true
+    multivalued: true
+  exposure_route:
+    description: >-
+      Route(s) by which the agent reaches the organism. Multivalued: one agent
+      commonly has more than one relevant route, and route can determine which
+      disease results.
+    range: ExposureRouteAssignment
+    inlined: true
+    multivalued: true
+  exposure_duration:
+    description: >-
+      Duration/pattern of the exposure, using the ATSDR day ranges. Describes the
+      exposure, not the disease course.
+    range: ExposureDurationAssignment
+    inlined: true
+    multivalued: true
+  iarc_carcinogen_group:
+    description: >-
+      IARC Monographs carcinogenicity group for the agent. A hazard
+      identification about the AGENT, not a risk statement and not a claim that
+      the agent caused this entry's disease.
+    range: IARCCarcinogenGroupAssignment
+    inlined: true
+  ghs_health_hazard_class:
+    description: >-
+      UN GHS health hazard class(es) for the agent. Record the numbered category
+      (e.g. "Carc. 1A") in ``notes``; categories are class-specific and are not
+      enumerated.
+    range: GHSHealthHazardClassAssignment
+    inlined: true
+    multivalued: true
+  exposome_domain:
+    description: >-
+      Domain of the exposome (Wild 2012) this exposure sits in. A framing device
+      for exposome-scale epidemiology, not a regulatory instrument; domains
+      overlap by design.
+    range: ExposomeDomainAssignment
     inlined: true
     multivalued: true
   classification_value:
@@ -4850,10 +5206,16 @@ classes:
 
   ExperimentalModel:
     description: >-
-      A disease-relevant non-animal experimental model system. This is a disease-centric
-      bridge class inspired by NAMO, intended to capture the model itself while keeping
-      dismech focused on disease mechanisms rather than study-level model registries.
+      A disease-relevant non-animal experimental model system — a New Approach
+      Methodology (NAM) such as an organoid, organ-on-chip, cell line, iPSC-derived
+      model, or primary culture. This is a disease-centric bridge class inspired by
+      NAMO, intended to capture the model itself while keeping dismech focused on
+      disease mechanisms rather than study-level model registries.
     comments:
+      - >-
+        Whole-organism animal models belong in `animal_models` as AnimalModel, which
+        carries the same `modeled_mechanisms` pathograph link. Do not route an animal
+        model here via `experimental_model_type: OTHER`.
       - Use `namo_type` to map to a corresponding NAMO class when applicable
       - Prefer `experimental_model_type` for broad local categorization and `description` or `notes` for disease-specific nuance
       - Use `cell_source` to record whether the system is patient-derived, iPSC-derived, primary, immortalized, or mixed
@@ -4960,9 +5322,15 @@ classes:
 
   ExperimentalReadout:
     description: >-
-      A structured readout or outcome measured in an experiment. Use descriptor
-      slots to ground readouts to phenotypes, biomarkers, biological processes,
-      and assays.
+      A structured readout or outcome measured in an experiment or reported by a
+      model. Use descriptor slots to ground readouts to phenotypes, biomarkers,
+      biological processes, and assays.
+    comments:
+      - >-
+        Reached from Experiment.readouts for a proposed or executed experiment,
+        and from ModelMechanismLink.readouts for the outcome measures a curated
+        model reports on a pathophysiology node. Reusing one class keeps a
+        proposed experiment and a realized model directly comparable.
     slots:
       - name
       - description
@@ -4980,10 +5348,23 @@ classes:
         description: >-
           Entity reference for the pathograph node, phenotype, or other modeled
           object that this readout measures or adjudicates.
+      direction:
+        description: >-
+          Direction of the measured or expected effect. Accepts
+          ModelReadoutDirectionEnum (INCREASED, DECREASED, UNCHANGED, RESTORED,
+          ABOLISHED, ALTERED) for an experimental measurement relative to its
+          comparator, and BiomarkerReadoutDirectionEnum for a readout expressed
+          as the direction of association with an endpoint. Prefer the model
+          enum for a measurement made in a model system.
+        range: Any
+        any_of:
+          - range: ModelReadoutDirectionEnum
+          - range: BiomarkerReadoutDirectionEnum
       interpretation:
         description: >-
           Curator-facing explanation of how this readout would be interpreted
-          relative to the experiment's decision criterion.
+          relative to the experiment's decision criterion, or of what the
+          measured value says about the linked mechanism.
 
   ExperimentalControl:
     description: >-
@@ -5007,6 +5388,11 @@ classes:
     comments:
       - Uses NCT identifiers from ClinicalTrials.gov
       - Evidence and supporting text can be validated via linkml-reference-validator against ClinicalTrials.gov API
+      - >-
+        For a trial with no ClinicalTrials.gov registration, use its WHO ICTRP
+        identifier (ChiCTR2100045397, ISRCTN67795930, CTRI/2021/05/033585, ...)
+        as the name and cite ICTRP:<TrialID> in evidence; the record is cached
+        by `just ictrp-fetch <TrialID>`. See docs/ictrp.md.
     slots:
       - name
       - description
@@ -5018,7 +5404,10 @@ classes:
       - review_notes
     slot_usage:
       name:
-        description: NCT identifier (e.g., NCT00000001) or trial name
+        description: >-
+          NCT identifier (e.g., NCT00000001), WHO ICTRP identifier for a trial
+          registered outside ClinicalTrials.gov (e.g., ChiCTR2100045397,
+          ISRCTN67795930), or trial name
         identifier: false
       description:
         description: >-
@@ -5026,11 +5415,22 @@ classes:
         recommended: true
       phase:
         range: ClinicalTrialPhaseEnum
-        description: Trial phase (Phase I, Phase II, Phase III, Phase IV, or Not Applicable)
+        description: >-
+          Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV, or
+          NOT_APPLICABLE, not the prose spellings ("Phase III").
+        examples:
+          - value: PHASE_III
+          - value: NOT_APPLICABLE
         recommended: true
       status:
         range: ClinicalTrialStatusEnum
-        description: Recruitment or trial status (e.g., Recruiting, Completed, Terminated, Active not recruiting)
+        description: >-
+          Recruitment or trial status. Enum-bound: use RECRUITING, NOT_RECRUITING,
+          ACTIVE_NOT_RECRUITING, COMPLETED, ENROLLING_BY_INVITATION, SUSPENDED,
+          TERMINATED, WITHDRAWN, or UNKNOWN, not the prose spellings ("Completed").
+        examples:
+          - value: COMPLETED
+          - value: RECRUITING
         recommended: true
       evidence:
         description: Supporting evidence with snippets from trial documentation
@@ -5200,26 +5600,91 @@ classes:
           Must match a pathophysiology or phenotype name in the same disease file.
       evidence:
         description: Evidence that this treatment targets this specific mechanism
-  ModelMechanismLink:
+  EnvironmentalMechanismTarget:
     description: >-
-      Links an experimental model to a specific pathophysiology mechanism node,
-      with optional assertion text describing the aspect of the mechanism that the
-      model recapitulates, perturbs, or reads out.
+      Links an environmental factor or exposure to a specific pathophysiology
+      mechanism node it acts on. The environmental counterpart of
+      TreatmentMechanismTarget: it places exposures inside the causal graph as
+      upstream initiating (or protective) steps instead of leaving them as a
+      disconnected disease-level list.
     slots:
       - target
+      - environmental_effect
+      - causal_link_type
       - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this environmental factor acts on. Prefer
+          a pathophysiology entry; phenotype targets are also allowed when the
+          exposure acts directly on a clinical manifestation rather than an
+          upstream mechanism node. Must match a pathophysiology or phenotype
+          name in the same disease file.
+        required: true
+      environmental_effect:
+        description: >-
+          How the exposure acts on the target. Omit only when the direction of
+          effect is genuinely unstated in the cited evidence.
+      causal_link_type:
+        description: >-
+          Whether the exposure acts directly on the target mechanism or through
+          omitted (known or unknown) intermediates.
+      evidence:
+        description: Evidence that this exposure acts on this specific mechanism
+  ModelMechanismLink:
+    description: >-
+      Links an experimental (NAM), animal, or computational model to a specific
+      pathophysiology mechanism node, recording which facet of that mechanism the
+      model recapitulates, perturbs, or reads out; how faithfully it does so; and
+      the outcome measures that ground the claim.
+    comments:
+      - >-
+        Two evidence layers, deliberately separate. Evidence on the link attests
+        that the model is informative for the node; evidence on each readout
+        attests that a specific measurement was made, in a specific direction.
+      - >-
+        Readouts belong on the link rather than on the model, because one model
+        typically measures different things for different mechanism nodes.
+      - >-
+        A FAILS_TO_RECAPITULATE link is a substantive negative claim and should
+        carry both `limitations` and `evidence`; it usually pairs with a
+        HUMAN_MODEL_MISMATCH discussion.
+    slots:
+      - target
+      - relationship
+      - description
+      - readouts
+      - fidelity
+      - limitations
       - evidence
     slot_usage:
       target:
         description: >-
           Name of the pathophysiology entry this model is linked to.
           Must match a pathophysiology name in the same disease file.
+      relationship:
+        description: >-
+          What this model does to the linked mechanism: reproduces it,
+          manipulates it, measures it, rescues it, or fails to reproduce it.
+        range: ModelMechanismRelationshipEnum
       description:
         description: >-
           Brief assertion-level note describing what facet of the linked
           mechanism the model captures or assays.
+      readouts:
+        description: >-
+          Outcome measures through which this model reports on the linked
+          mechanism, each optionally grounded to an OBI assay, an HP phenotype,
+          a biomarker, or a GO process, with a measured direction and its own
+          evidence. Each readout's own `target` is required and must repeat the
+          link's `target`, so a readout stays self-describing when lifted out of
+          its link by the graph and KGX exporters.
+        range: ExperimentalReadout
+        inlined_as_list: true
       evidence:
         description: Evidence that this model is informative for the linked mechanism
+        recommended: true
   BiomarkerReadout:
     description: >-
       Links a biochemical biomarker to a pathograph node that it measures,
@@ -5868,6 +6333,8 @@ classes:
       - exposure_term
       - environment_context
       - food_source
+      - influences_mechanisms
+      - exposure_classifications
   Disease:
     slots:
       - name
@@ -5963,6 +6430,24 @@ classes:
       - context
       - review_notes
   AnimalModel:
+    description: >-
+      A whole-organism animal model of the disease. This is the home for animal
+      models; non-animal systems (organoids, organ-chips, cell lines, iPSC-derived
+      and primary cultures) belong in `experimental_models` as ExperimentalModel.
+    comments:
+      - >-
+        Use `modeled_mechanisms` to link the model to the pathophysiology nodes it
+        recapitulates, perturbs, measures, or fails to recapitulate, so the model
+        appears in the pathograph rather than as a disconnected list.
+      - >-
+        `name` is optional but recommended once `modeled_mechanisms` is populated:
+        it is the stable label used for pathograph nodes and in-page anchors. When
+        absent, renderers fall back to a label derived from genotype and species,
+        which is not stable across edits and collides when one entry file carries
+        two models of the same genotype.
+      - >-
+        Animal-model evidence should carry `evidence_source: MODEL_ORGANISM` and
+        should not be the sole support for a human phenotype.
     slots:
       - species
       - genotype
@@ -5971,8 +6456,31 @@ classes:
       - category
       - alleles
       - description
+      - publication
       - associated_phenotypes
+      - modeled_mechanisms
       - evidence
+      - notes
+    attributes:
+      name:
+        description: >-
+          Short stable label for the model, e.g. "SOD1-G93A transgenic mouse".
+          Used as the pathograph node label and in-page anchor. Optional but
+          recommended once `modeled_mechanisms` is populated. Defined as a
+          class-local attribute (not the global identifier `name` slot) so it
+          is a plain optional label: 425 of 439 existing animal models omit it,
+          and AnimalModel is an inlined object that needs no identifier.
+        range: string
+        recommended: true
+    slot_usage:
+      publication:
+        description: >-
+          Primary publication describing the model, when one paper is the
+          canonical reference for it. Per-claim citations still go in `evidence`.
+      modeled_mechanisms:
+        description: >-
+          Pathophysiology mechanism nodes this animal model recapitulates,
+          perturbs, measures, rescues, or fails to recapitulate.
   Treatment:
     slots:
       - name
@@ -6168,6 +6676,24 @@ classes:
         range: ICIMDEnum
         required: true
 
+  ISDSNosologyAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      ISDS Nosology group assignment for a genetic skeletal disorder, per the
+      Nosology of Genetic Skeletal Disorders (2023 revision, 11th edition;
+      Unger et al., PMID:36779427), which supersedes the 2019 revision
+      (PMID:31633310). Record the provenance — which revision, the group
+      number/name, and the listed disorder name where it differs from the
+      dismech entry name — in ``notes``. Assignments may legitimately cite
+      either revision while the 2019-derived backfill is being re-verified
+      against the 2023 table; the ``notes`` must say which one.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ISDSNosologyGroupEnum
+        required: true
+
   NIHResearchPriorityAssignment:
     is_a: ClassificationAssignment
     description: >-
@@ -6182,6 +6708,141 @@ classes:
         range: NIHResearchPriorityEnum
         required: true
 
+  ILOCausativeAgentAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      Assignment of a disease to a **causative-agent-axis** item of the ILO List
+      of Occupational Diseases (revised 2010), annexed to the List of
+      Occupational Diseases Recommendation, 2002 (No. 194) — sections 1 and 3.
+      Record the revision and item number in ``notes``, together with whether the
+      disease occurs only occupationally or also has non-occupational forms — the
+      assignment records that an occupational form is recognised, not that every
+      case is occupational.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ILOCausativeAgentEnum
+        required: true
+
+  ILODiseaseCategoryAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      Assignment of a disease to a **disease-category-axis** item of the ILO List
+      of Occupational Diseases (revised 2010) — section 2 (by target organ
+      system) and section 4 (other diseases). Same ``notes`` discipline as
+      ``ILOCausativeAgentAssignment``.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ILODiseaseCategoryEnum
+        required: true
+
+  EUOccupationalScheduleAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      Assignment of a disease to an item of the European schedule of
+      occupational diseases (Commission Recommendation 2003/670/EC, as amended
+      by Recommendation (EU) 2022/2337 and Recommendation (EU) 2025/2609).
+      Record the item number and annex in ``notes``. An Annex II
+      (``suspected_*``) value asserts a SUSPECTED occupational origin only, and
+      must not be reported as a recognised occupational disease.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: EUOccupationalScheduleEnum
+        required: true
+
+  HazardAgentTypeAssignment:
+    is_a: ClassificationAssignment
+    description: Occupational-hygiene hazard-agent-type assignment for an exposure.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: HazardAgentTypeEnum
+        required: true
+
+  ExposureRouteAssignment:
+    is_a: ClassificationAssignment
+    description: Route-of-exposure assignment for an exposure.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ExposureRouteEnum
+        required: true
+
+  ExposureDurationAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      Exposure-duration assignment, using the ATSDR Minimal Risk Level day
+      ranges (acute 1-14 d, intermediate 15-364 d, chronic 365 d and longer).
+      Where the cited source uses a different convention, note it.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ExposureDurationEnum
+        required: true
+
+  IARCCarcinogenGroupAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      IARC Monographs carcinogenicity group assignment for an agent, per the
+      Preamble as amended January 2019. This is hazard identification, not risk
+      assessment: the group states the strength of evidence that the agent can
+      cause cancer, not its potency or the size of any attributable burden.
+      Record the Monograph volume and the tumour sites with sufficient evidence
+      in ``notes``.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: IARCCarcinogenGroupEnum
+        required: true
+
+  GHSHealthHazardClassAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      UN GHS health hazard class assignment for an agent. The numbered category
+      within the class (e.g. "Carc. 1A", "Acute Tox. 3") is class-specific and
+      is recorded in ``notes`` rather than as a permissible value.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: GHSHealthHazardClassEnum
+        required: true
+
+  ExposomeDomainAssignment:
+    is_a: ClassificationAssignment
+    description: >-
+      Exposome-domain assignment (Wild 2012, PMID:22296988). The domains overlap
+      by design, so a placement is a framing choice rather than a sharp claim.
+    slots:
+      - classification_value
+    slot_usage:
+      classification_value:
+        range: ExposomeDomainEnum
+        required: true
+
+  ExposureClassifications:
+    description: >-
+      Container for exposure- and agent-level classification assignments on an
+      ``Environmental`` entry. Deliberately separate from
+      ``DiseaseClassifications``: everything here classifies the agent or the
+      exposure event (benzene is an IARC Group 1 carcinogen), not the disease.
+    slots:
+      - hazard_agent_type
+      - exposure_route
+      - exposure_duration
+      - iarc_carcinogen_group
+      - ghs_health_hazard_class
+      - exposome_domain
+
   DiseaseClassifications:
     description: Container for all classification assignments for a disease
     slots:
@@ -6192,7 +6853,11 @@ classes:
       - iuis_category
       - channelopathy_category
       - icimd_category
+      - isds_skeletal_category
       - nih_research_priority
+      - ilo_agent_category
+      - ilo_disease_category
+      - eu_occupational_category
 
   Definition:
     description: A diagnostic or phenotype definition for the disease
@@ -6235,6 +6900,9 @@ classes:
     slot_usage:
       status:
         range: AlgorithmValidationStatusEnum
+        examples:
+          - value: PROPOSED
+          - value: VALIDATED_AGAINST_GOLD_STANDARD
         required: true
       rationale:
         description: >-
@@ -6505,6 +7173,9 @@ classes:
         required: true
       status:
         range: MechanisticHypothesisStatusEnum
+        examples:
+          - value: CANONICAL
+          - value: EMERGING
 
   Discussion:
     description: >-
@@ -6540,6 +7211,9 @@ classes:
         range: DiscussionKindEnum
       status:
         range: DiscussionStatusEnum
+        examples:
+          - value: OPEN
+          - value: RESOLVED
 
   DiseaseCollection:
     slots:
@@ -6618,6 +7292,7 @@ classes:
       - negated
       - phenotype_term
       - min_frequency
+      - inheritance_term
       - gene
       - biological_processes
       - module

@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ebstein Anomaly · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ebstein Anomaly</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ebstein Anomaly</h1>
+                
+                <p class="report-subtitle">Ebstein Anomaly — Comprehensive Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009144" target="_blank" rel="noopener noreferrer">MONDO:0009144</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">37 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Ebstein Anomaly — Comprehensive Disease Characteristics Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Ebstein anomaly (EA) is a rare, congenital malformation of the tricuspid valve and right ventricle. The defining lesion is apical (downward) displacement of the functional tricuspid annulus into the right ventricle, caused by failure of delamination of the septal and posterior (inferior) leaflets from the underlying myocardium during valvulogenesis. This produces "atrialization" of the inlet portion of the right ventricle (the RV segment proximal to the displaced valve becomes thin-walled and functions as an extension of the right atrium), a redundant and often abnormally attached anterior/anterosuperior leaflet, a functionally smaller (distal) true right ventricle, tricuspid regurgitation, and right atrial enlargement. Severity ranges from mild (incidental, adult-diagnosed) to severe forms presenting with massive cardiomegaly and circulatory failure in the fetus/neonate ("Ebstein's anomaly-like" fetal hydrops).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> 224700 (EBSTEIN ANOMALY) — <a href="https://omim.org/entry/224700" target="_blank" rel="noopener noreferrer">https://omim.org/entry/224700</a>
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:1880" target="_blank" rel="noopener noreferrer">ORPHA:1880</a> (Ebstein malformation of the tricuspid valve)
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009144" target="_blank" rel="noopener noreferrer">MONDO:0009144</a>
+- <strong>ICD-10:</strong> Q22.5 (Ebstein's anomaly)
+- <strong>ICD-11:</strong> LA61.0 (or equivalent congenital tricuspid malformation code)
+- <strong>MeSH:</strong> D004437 (Ebstein Anomaly)
+- <strong>HPO (as a phenotype/malformation term):</strong> <a href="http://purl.obolibrary.org/obo/HP_0010316" target="_blank" rel="noopener noreferrer">HP:0010316</a> (Ebstein anomaly)</p>
+<p><strong>Synonyms/alternative names:</strong> Ebstein's anomaly; Ebstein malformation of the tricuspid valve; Ebstein's disease; tricuspid valve atrialization; downward displacement of the tricuspid valve.</p>
+<p><strong>Evidence base character:</strong> Much of the mechanistic and epidemiologic literature is aggregated disease-level data — population birth-defect registries (e.g., National Birth Defects Prevention Study, Danish/Swedish national registries), multicenter surgical/echocardiographic case series, and candidate-gene/exome cohorts — rather than individual-patient EHR mining, though single-center EHR-derived case series (e.g., fetal echocardiographic cohorts, CICU admission cohorts) also contribute.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>EA is etiologically heterogeneous: the majority of cases are <strong>sporadic</strong>, with a minority attributable to identifiable monogenic causes (sarcomeric gene mutations), chromosomal microdeletions, or <strong>teratogenic exposure</strong> (notably lithium). The unifying developmental mechanism is failure of normal delamination/apoptotic remodeling of the septal and inferior tricuspid leaflets from the ventricular myocardium during valvulogenesis (roughly weeks 9–16 of human gestation), leaving the leaflets tethered directly to endocardium/myocardium rather than forming discrete mobile leaflets tethered by chordae to papillary muscles.</p>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>MYH7</strong> (β-myosin heavy chain, sarcomere gene; 14q11.2): Heterozygous MYH7 mutations were identified in 8/141 (6%) unrelated EA probands in a next-generation/Sanger sequencing cohort, with 7 distinct mutations (5 novel, 2 previously known HCM-causing variants). This defines an autosomal-dominant subtype of EA associated with <strong>left ventricular noncompaction (LVNC)</strong>. (<a href="https://pubmed.ncbi.nlm.nih.gov/21604106/" target="_blank" rel="noopener noreferrer">PMID:21604106</a> — "Ebstein's anomaly may be caused by mutations in the sarcomere protein gene MYH7"; <a href="https://pubmed.ncbi.nlm.nih.gov/23794396/" target="_blank" rel="noopener noreferrer">PMID:23794396</a> — familial EA + LVNC autosomal dominant, MYH7; <a href="https://pubmed.ncbi.nlm.nih.gov/25444217/" target="_blank" rel="noopener noreferrer">PMID:25444217</a> — familial EA, LVNC, and VSD with MYH7 mutation.)</li>
+<li><strong>NKX2-5</strong> and <strong>GATA4</strong>: Candidate transcription-factor genes implicated in isolated and familial EA and broader congenital heart disease (CHD); GATA4 also implicated via <strong>8p23.1 microdeletion</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/21815254/" target="_blank" rel="noopener noreferrer">PMID:21815254</a> — "Ebstein anomaly: Genetic heterogeneity and association with microdeletions 1p36 and 8p23.1"). NKX2-5/GATA4/TBX5 act combinatorially in cardiac septation/valvulogenesis gene regulatory networks.</li>
+<li><strong>Chromosomal microdeletions</strong>: 1p36 deletion syndrome and 8p23.1 deletion syndrome are recurrently associated with EA or EA-like tricuspid valve malformation.</li>
+<li><strong>Exome/targeted-panel studies</strong>: A 47-case EA cohort sequenced for 50 candidate genes (including NKX2-5, GATA4, MYH7) implicated myocardial-development pathway genes (PLOS ONE, PMID not directly captured — "Genetic Variants in Isolated Ebstein Anomaly Implicated in Myocardial Development Pathways").</li>
+<li>Most sporadic EA is <strong>not</strong> explained by a single identified gene; recurrence risk in siblings of an isolated case is low (empirically ~1%), consistent with predominantly sporadic/multifactorial causation, with monogenic causes concentrated in familial or syndromic clusters (especially the MYH7/LVNC subtype).</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<ul>
+<li><strong>Lithium</strong> (maternal first-trimester exposure): Historically implicated with a very high relative risk (~400) based on voluntary case-registry data from the 1970s, now understood to be a substantial overestimate. Contemporary controlled studies (case-control and cohort, including the large NEJM cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/28591541/" target="_blank" rel="noopener noreferrer">PMID:28591541</a> — Lithium Use in Pregnancy and the Risk of Cardiac Malformations) show a <strong>modest</strong> increase in cardiac-malformation risk with first-trimester lithium exposure, disproportionately affecting right-ventricular-outflow/tricuspid lesions (most likely EA); absolute risk of EA specifically is estimated at roughly 1–2 per 1000 (0.1–0.2%) with exposure, versus ~1 in 20,000 baseline. Risk appears dose-dependent, increasing above ~900 mg/day lithium.</li>
+<li>Other implicated teratogens/exposures (less strongly supported, from the National Birth Defects Prevention Study, PMID: PMC6711372 — "Potential risk factors for Ebstein anomaly"): benzodiazepine use, certain maternal illnesses/exposures during the periconceptional period; findings are exploratory given the rarity of the defect and generally require replication.</li>
+<li>Maternal diabetes and other general CHD risk factors have been examined but are not specifically or strongly linked to EA the way lithium is.</li>
+</ul>
+<h3>Protective Factors</h3>
+<p>No well-established genetic or environmental protective factors are documented in the literature; folic acid periconceptional supplementation is a general CHD-risk-reduction measure but is not specifically validated for EA.</p>
+<h3>Gene–Environment Interactions</h3>
+<p>No specific validated gene–environment interaction has been characterized for EA (e.g., no data indicating lithium risk is modified by a specific genotype). This remains an evidence gap.</p>
+<p><strong>Suggested ontology terms:</strong> HGNC:MYH7 (<a href="https://bioregistry.io/HGNC:7577" target="_blank" rel="noopener noreferrer">HGNC:7577</a>), HGNC:NKX2-5 (<a href="https://bioregistry.io/HGNC:2488" target="_blank" rel="noopener noreferrer">HGNC:2488</a>), HGNC:GATA4 (<a href="https://bioregistry.io/HGNC:4237" target="_blank" rel="noopener noreferrer">HGNC:4237</a>); CHEBI term for lithium (<a href="http://purl.obolibrary.org/obo/CHEBI_30145" target="_blank" rel="noopener noreferrer">CHEBI:30145</a>, lithium(1+)); GENO terms for LOSS_OF_FUNCTION/dominant-negative variant classes.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Cardiac structural phenotypes</h3>
+<ul>
+<li><strong>Apical displacement of the septal/inferior tricuspid leaflet</strong> — <a href="http://purl.obolibrary.org/obo/HP_0031653" target="_blank" rel="noopener noreferrer">HP:0031653</a> (if available) or best-fit <a href="http://purl.obolibrary.org/obo/HP_0001702" target="_blank" rel="noopener noreferrer">HP:0001702</a>/<a href="http://purl.obolibrary.org/obo/HP_0025269" target="_blank" rel="noopener noreferrer">HP:0025269</a>-class terms; more precisely the defining structural anomaly maps to <strong><a href="http://purl.obolibrary.org/obo/HP_0010316" target="_blank" rel="noopener noreferrer">HP:0010316</a> Ebstein anomaly</strong> itself, and component features:</li>
+<li>Tricuspid valve regurgitation — <strong><a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" rel="noopener noreferrer">HP:0005180</a></strong> (Tricuspid regurgitation)</li>
+<li>Tricuspid stenosis (less common) — <strong><a href="http://purl.obolibrary.org/obo/HP_0031653" target="_blank" rel="noopener noreferrer">HP:0031653</a></strong> / related term</li>
+<li>Right atrial enlargement / cardiomegaly — <strong><a href="http://purl.obolibrary.org/obo/HP_0004268" target="_blank" rel="noopener noreferrer">HP:0004268</a></strong> (Atrial septal defect, if concurrent), <strong><a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" rel="noopener noreferrer">HP:0001680</a></strong> cardiomegaly-related term, <strong><a href="http://purl.obolibrary.org/obo/HP_0025168" target="_blank" rel="noopener noreferrer">HP:0025168</a></strong> (Right atrial enlargement, if present in HPO)</li>
+<li>Atrialized right ventricle / functionally diminished RV</li>
+<li>Right ventricular outflow tract obstruction (in severe fetal forms) — <a href="http://purl.obolibrary.org/obo/HP_0031090" target="_blank" rel="noopener noreferrer">HP:0031090</a>-class term</li>
+<li>Patent foramen ovale / atrial septal defect (common concurrent lesion, right-to-left shunting causing cyanosis) — <strong><a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a></strong> (Atrial septal defect)</li>
+<li>Pulmonary atresia/stenosis (severe neonatal presentations) — <strong><a href="http://purl.obolibrary.org/obo/HP_0002637" target="_blank" rel="noopener noreferrer">HP:0002637</a></strong>/<a href="http://purl.obolibrary.org/obo/HP_0001640" target="_blank" rel="noopener noreferrer">HP:0001640</a>-class terms</li>
+</ul>
+<h3>Functional/clinical phenotypes</h3>
+<ul>
+<li><strong>Cyanosis</strong> (from right-to-left interatrial shunting) — <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" rel="noopener noreferrer">HP:0000961</a></li>
+<li><strong>Heart failure/right ventricular failure</strong> — <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> (Congestive heart failure)</li>
+<li><strong>Arrhythmia</strong>, particularly supraventricular tachyarrhythmias and <strong>Wolff-Parkinson-White (WPW) pre-excitation</strong>:</li>
+<li>5–25% of EA patients have WPW syndrome, making EA the CHD most strongly associated with accessory AV pathways; ~10–25% have one or more accessory pathways, up to 50% of whom have multiple pathways.</li>
+<li>Atrial fibrillation occurs in roughly one-third of adult EA patients.</li>
+<li>Pediatric rhythm-disturbance prevalence ~17% (lower than adults), predominantly supraventricular.</li>
+<li>HP terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" rel="noopener noreferrer">HP:0001680</a></strong> (Arrhythmia — non-specific term), <strong><a href="http://purl.obolibrary.org/obo/HP_0004757" target="_blank" rel="noopener noreferrer">HP:0004757</a></strong> (Ventricular preexcitation), <strong><a href="http://purl.obolibrary.org/obo/HP_0001671" target="_blank" rel="noopener noreferrer">HP:0001671</a></strong> (Atrial fibrillation), <strong><a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" rel="noopener noreferrer">HP:0004308</a></strong> (Ventricular arrhythmia)</li>
+<li><strong>Right bundle branch block</strong> — <a href="http://purl.obolibrary.org/obo/HP_0011711" target="_blank" rel="noopener noreferrer">HP:0011711</a></li>
+<li><strong>Sudden cardiac death risk</strong> — increased due to arrhythmia substrate</li>
+</ul>
+<h3>Fetal/neonatal-specific phenotypes</h3>
+<ul>
+<li>Fetal hydrops in severe forms</li>
+<li>Massive cardiomegaly (cardiothoracic ratio) in utero</li>
+<li>Pulmonary hypoplasia secondary to cardiomegaly compressing developing lungs — <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" rel="noopener noreferrer">HP:0002089</a></li>
+</ul>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset</strong>: Spans a continuum from severe prenatal presentation (detectable by mid-gestation fetal echocardiography, often associated with poor outcome) to incidental adult diagnosis of mild anatomic variants. Neonatal presentation with cyanosis and heart failure occurs in more severe anatomic forms; milder cases may be asymptomatic until childhood or adulthood, when arrhythmia or exertional symptoms prompt evaluation.</li>
+<li><strong>Severity</strong>: Highly variable — graded clinically/echocardiographically (e.g., Carpentier classification types A–D of leaflet tethering, and the echocardiographic Great Ormond Street Echo, "GOSE," score in the fetal/neonatal setting).</li>
+<li><strong>Progression</strong>: Can be progressive over decades due to worsening tricuspid regurgitation, right heart dilation, and arrhythmia burden; some patients remain stable for long periods with mild disease.</li>
+<li><strong>Frequency of specific features</strong>: Tricuspid regurgitation is nearly universal; WPW/accessory pathways occur in a substantial minority (5–25%); atrial septal communication (ASD/PFO) is very common; cyanosis frequency depends on shunt direction and pulmonary flow.</li>
+</ul>
+<h3>Quality of life impact</h3>
+<p>Impact on functional capacity correlates with disease severity: patients with severe RV dysfunction and heart failure have significant exercise limitation (reduced NYHA functional class); arrhythmia burden (recurrent SVT/AF) independently reduces quality of life and increases healthcare utilization; patients undergoing successful cone reconstruction generally show improved functional status and exercise tolerance postoperatively. Detailed disease-specific EQ-5D/SF-36 data for EA specifically is sparse in the literature relative to more common CHD lesions — this is a data gap.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal genes (monogenic subsets)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC</th>
+<th>OMIM gene</th>
+<th>Role in EA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MYH7</td>
+<td><a href="https://bioregistry.io/HGNC:7577" target="_blank" rel="noopener noreferrer">HGNC:7577</a></td>
+<td>160760</td>
+<td>Autosomal-dominant EA + LVNC subtype; ~6% of EA probands in one cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/21604106/" target="_blank" rel="noopener noreferrer">PMID:21604106</a>)</td>
+</tr>
+<tr>
+<td>NKX2-5</td>
+<td><a href="https://bioregistry.io/HGNC:2488" target="_blank" rel="noopener noreferrer">HGNC:2488</a></td>
+<td>600584</td>
+<td>Candidate gene; broader CHD transcription factor, implicated in isolated/familial EA</td>
+</tr>
+<tr>
+<td>GATA4</td>
+<td><a href="https://bioregistry.io/HGNC:4237" target="_blank" rel="noopener noreferrer">HGNC:4237</a></td>
+<td>600576</td>
+<td>Candidate gene; implicated via 8p23.1 microdeletion (<a href="https://pubmed.ncbi.nlm.nih.gov/21815254/" target="_blank" rel="noopener noreferrer">PMID:21815254</a>) and direct sequence variants</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Pathogenic variant characteristics</h3>
+<ul>
+<li><strong>Variant type</strong>: Predominantly missense variants in MYH7 (consistent with sarcomeric dominant-negative/gain-of-function mechanisms as in hypertrophic/dilated cardiomyopathy); some MYH7 variants identified in EA cohorts were previously known HCM-causing alleles, suggesting pleiotropy of specific MYH7 residues across cardiomyopathy and valvulopathy phenotypes.</li>
+<li><strong>Classification</strong>: Variant pathogenicity in these small EA cohorts is largely based on segregation with LVNC/EA phenotype in families, absence from population databases, and known cardiomyopathy association (per ACMG/AMP-style reasoning); formal ClinVar-level classification varies by variant.</li>
+<li><strong>Allele frequency</strong>: EA-associated MYH7 variants are rare/private, consistent with rarity in gnomAD population databases (specific frequencies not systematically reported in the identified literature — check ClinVar/gnomAD directly for individual variants).</li>
+<li><strong>Origin</strong>: Predominantly germline; familial cases show autosomal dominant transmission with variable expressivity (EA, isolated LVNC, or both, and VSD in some kindreds — <a href="https://pubmed.ncbi.nlm.nih.gov/25444217/" target="_blank" rel="noopener noreferrer">PMID:25444217</a>).</li>
+<li><strong>Functional consequence</strong>: Sarcomeric dysfunction (myosin motor domain or lever-arm alterations) is hypothesized to disrupt normal myocardial mechanics during the valvulogenic remodeling window, secondarily impairing tricuspid leaflet delamination — a proposed but not fully mechanistically resolved link between a sarcomere-protein defect and a valve-morphogenesis phenotype.</li>
+</ul>
+<h3>Modifier genes</h3>
+<p>Not well characterized for EA specifically; TBX5 is a co-regulator with NKX2-5/GATA4 in cardiac septation networks and is a plausible modifier/candidate but lacks EA-specific validation in the retrieved literature.</p>
+<h3>Chromosomal abnormalities</h3>
+<ul>
+<li><strong>1p36 deletion syndrome</strong> — associated with EA/EA-like tricuspid malformation (<a href="https://pubmed.ncbi.nlm.nih.gov/21815254/" target="_blank" rel="noopener noreferrer">PMID:21815254</a>)</li>
+<li><strong>8p23.1 microdeletion</strong> (encompassing GATA4) — associated with EA (<a href="https://pubmed.ncbi.nlm.nih.gov/21815254/" target="_blank" rel="noopener noreferrer">PMID:21815254</a>)</li>
+</ul>
+<h3>Epigenetic information</h3>
+<p>No EA-specific epigenetic (DNA methylation/chromatin) studies were identified in this search; this is an evidence gap relative to more common CHD lesions.</p>
+<p><strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0060420" target="_blank" rel="noopener noreferrer">GO:0060420</a> (regulation of heart growth), <a href="http://purl.obolibrary.org/obo/GO_0003158" target="_blank" rel="noopener noreferrer">GO:0003158</a> (endothelium development), <a href="http://purl.obolibrary.org/obo/GO_0003170" target="_blank" rel="noopener noreferrer">GO:0003170</a> (heart valve development), <a href="http://purl.obolibrary.org/obo/GO_0055008" target="_blank" rel="noopener noreferrer">GO:0055008</a> (cardiac muscle tissue morphogenesis); CL terms for cardiac valve interstitial cells and endocardial cells involved in valvulogenesis.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental factors</h3>
+<ul>
+<li><strong>Lithium</strong> (see Etiology above) — the single best-characterized environmental/pharmacologic risk factor, historically over-estimated but confirmed at a modest, dose-related elevated risk in modern cohort studies (<a href="https://pubmed.ncbi.nlm.nih.gov/28591541/" target="_blank" rel="noopener noreferrer">PMID:28591541</a>, NEJM 2017; <a href="https://pubmed.ncbi.nlm.nih.gov/8031346/" target="_blank" rel="noopener noreferrer">PMID:8031346</a> — "A reevaluation of risk of in utero exposure to lithium").</li>
+<li>Possible associations with other maternal medication exposures examined in the National Birth Defects Prevention Study (benzodiazepines and others) are preliminary/hypothesis-generating (PMC6711372).</li>
+</ul>
+<h3>Lifestyle factors</h3>
+<p>No robust, EA-specific lifestyle risk factor (smoking, alcohol, diet) has been established in the literature reviewed; general CHD teratogen avoidance guidance applies but is not EA-specific.</p>
+<h3>Infectious agents</h3>
+<p>No infectious etiology is established for EA; it is a structural/developmental cardiac malformation, not known to be triggered by a specific pathogen.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Developmental mechanism (causal chain)</h3>
+<ol>
+<li><strong>Trigger</strong>: Genetic lesion (e.g., MYH7 sarcomeric variant, NKX2-5/GATA4 dysregulation) or teratogenic exposure (lithium) perturbs normal atrioventricular valvulogenesis during fetal cardiac development.</li>
+<li><strong>Failure of leaflet delamination</strong>: Normally, the septal and inferior (posterior) tricuspid leaflets separate ("delaminate") from the underlying ventricular myocardium via a program of localized apoptosis/extracellular matrix remodeling, becoming free, mobile, chordally-tethered structures. In EA, this delamination process is incomplete, leaving the septal and inferior leaflets adherent to (or "plastered" against) the myocardium.</li>
+<li><strong>Apical (downward) displacement of the functional tricuspid annulus</strong>: Because the leaflets remain attached to myocardium rather than forming a discrete annular hinge point, the effective/functional tricuspid orifice is displaced apically into the right ventricle, well below the true anatomic tricuspid annulus.</li>
+<li><strong>Atrialization of the right ventricle</strong>: The portion of right ventricular myocardium between the true (anatomic) tricuspid annulus and the displaced functional valve becomes thin-walled, dyskinetic, and functionally continuous with the right atrium — the "atrialized RV."</li>
+<li><strong>Anterosuperior leaflet abnormality</strong>: The anterosuperior leaflet, while typically not displaced, is frequently enlarged, redundant, fenestrated, and tethered by abnormal chordal/muscular attachments to the RV free wall, further impairing coaptation.</li>
+<li><strong>Tricuspid regurgitation / functional right ventricular dysfunction</strong>: Failure of leaflet coaptation causes tricuspid regurgitation; a functionally small, distal "true" right ventricle plus a large, thin atrialized segment reduces effective RV pump function.</li>
+<li><strong>Downstream hemodynamic consequences</strong>: Right atrial dilation, elevated right atrial pressure, right-to-left shunting across an associated ASD/PFO (causing cyanosis when present), reduced pulmonary blood flow in severe cases, and — in the most severe fetal presentations — massive cardiomegaly, pulmonary hypoplasia (via mechanical lung compression), and hydrops.</li>
+<li><strong>Arrhythmogenic substrate</strong>: The abnormal atrioventricular junction anatomy predisposes to accessory atrioventricular conduction pathways (WPW), and atrial dilation predisposes to atrial fibrillation/flutter and other supraventricular arrhythmias, creating risk for sudden cardiac death.</li>
+</ol>
+<h3>Molecular pathways</h3>
+<ul>
+<li>Cardiac transcription factor network: NKX2-5–GATA4–TBX5 complex regulating genes required for cardiac septation and AV valve/junction formation (PMC3370385, PMC6503026).</li>
+<li>Sarcomere gene pathway: MYH7-encoded β-myosin heavy chain — primarily characterized in the context of hypertrophic/dilated cardiomyopathy and LVNC signaling, with EA representing a less common but reported phenotypic manifestation, presumably via altered myocardial mechanical signaling during the valvulogenic remodeling window (mechanism incompletely resolved — see Springer Nature chapter "Molecular Pathways and Animal Models of Ebstein's Anomaly," 2023).</li>
+<li>Second heart field (SHF)–derived AV canal signaling: In zebrafish, the transcription factor <strong>foxn4</strong> acts with <strong>tbx5</strong> to direct AV boundary formation by regulating <strong>tbx2b</strong> expression, establishing the developmental logic of AV valve delamination that is disrupted in EA-like phenotypes (relevant developmental biology parallel, not EA-specific human data).</li>
+</ul>
+<h3>Cellular processes</h3>
+<ul>
+<li>Endocardial cushion formation and epithelial-to-mesenchymal transition (EMT) at the AV canal.</li>
+<li>Localized programmed cell death (apoptosis) in myocardium underlying the developing septal/inferior leaflets, a step required for normal delamination — presumed disrupted in EA.</li>
+<li>Extracellular matrix remodeling of the developing valve leaflets.</li>
+</ul>
+<h3>Tissue damage / remodeling mechanisms</h3>
+<p>Chronic tricuspid regurgitation and RV volume overload drive progressive right atrial and (atrialized) right ventricular dilation, myocardial wall thinning, and fibrosis over time; longstanding RV dysfunction can secondarily affect left ventricular function via ventricular interdependence (documented in the Da Silva cone-repair outcome literature, where LV function improves after cone repair — PMC12295748).</p>
+<h3>Biochemical/functional abnormalities</h3>
+<p>Primary defect is structural/mechanical (valve-myocardial adhesion and displacement) rather than a discrete enzymatic or receptor-level biochemical lesion, distinguishing EA mechanistically from metabolic or channelopathic cardiac disease.</p>
+<h3>Molecular profiling</h3>
+<p>Systematic transcriptomic, proteomic, or metabolomic profiling specific to EA valve/myocardial tissue was not identified in this search — this is a notable data/methods gap; most molecular data derive from candidate-gene sequencing rather than unbiased -omics of affected tissue.</p>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0003171" target="_blank" rel="noopener noreferrer">GO:0003171</a> (atrioventricular valve development), <a href="http://purl.obolibrary.org/obo/GO_0003190" target="_blank" rel="noopener noreferrer">GO:0003190</a> (atrioventricular valve formation), <a href="http://purl.obolibrary.org/obo/GO_0055010" target="_blank" rel="noopener noreferrer">GO:0055010</a> (ventricular cardiac muscle tissue morphogenesis), <a href="http://purl.obolibrary.org/obo/GO_0060412" target="_blank" rel="noopener noreferrer">GO:0060412</a> (ventricular septum morphogenesis), <a href="http://purl.obolibrary.org/obo/GO_0097084" target="_blank" rel="noopener noreferrer">GO:0097084</a> (vascular associated smooth muscle cell development — if relevant to valve interstitial lineage), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process, for leaflet delamination).</p>
+<p><strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0002138" target="_blank" rel="noopener noreferrer">CL:0002138</a> (endocardial cell), <a href="http://purl.obolibrary.org/obo/CL_0000670" target="_blank" rel="noopener noreferrer">CL:0000670</a> (primary heart field cardiomyocyte / cardiac muscle cell — as best fit), valve interstitial cell (if a CL term exists), cardiac neural crest-derived cell (where relevant to AV cushion mesenchyme).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ level</h3>
+<ul>
+<li><strong>Primary</strong>: Heart — specifically the tricuspid valve (<a href="http://purl.obolibrary.org/obo/UBERON_0002102" target="_blank" rel="noopener noreferrer">UBERON:0002102</a>) and right ventricle (<a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" rel="noopener noreferrer">UBERON:0002080</a>)/right atrium (<a href="http://purl.obolibrary.org/obo/UBERON_0002078" target="_blank" rel="noopener noreferrer">UBERON:0002078</a>).</li>
+<li><strong>Secondary/complication-related</strong>: Lungs (pulmonary hypoplasia in severe fetal cases, <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), liver/systemic venous system (secondary to right heart failure and systemic venous congestion).</li>
+<li><strong>Body systems</strong>: Cardiovascular system primarily; secondary respiratory involvement in severe fetal/neonatal disease.</li>
+</ul>
+<h3>Tissue/cell level</h3>
+<ul>
+<li>Valve leaflet fibrous/connective tissue (septal, inferior/posterior, and anterosuperior tricuspid leaflets) — <a href="http://purl.obolibrary.org/obo/UBERON_0002145" target="_blank" rel="noopener noreferrer">UBERON:0002145</a> (heart valve) as parent term.</li>
+<li>Ventricular myocardium of the atrialized right ventricle.</li>
+<li>Endocardium/endocardial cushion-derived tissue.</li>
+<li>Conduction system tissue (relevant to accessory pathway formation) — UBERON structures for the AV node/His bundle region.</li>
+</ul>
+<h3>Subcellular level</h3>
+<p>Not specifically characterized beyond generic cardiomyocyte sarcomeric structures (relevant to the MYH7 subtype) — GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0030017" target="_blank" rel="noopener noreferrer">GO:0030017</a> (sarcomere), <a href="http://purl.obolibrary.org/obo/GO_0030016" target="_blank" rel="noopener noreferrer">GO:0030016</a> (myofibril).</p>
+<h3>Localization</h3>
+<ul>
+<li>Right-heart-restricted anatomic defect (left heart structures are typically anatomically normal except in LVNC-overlap MYH7-associated cases, where left ventricular noncompaction co-occurs).</li>
+<li>Not laterality-relevant in the classic sense (it is inherently a right-sided cardiac malformation, not a bilateral/asymmetric process).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Congenital</strong>: EA originates in utero during atrioventricular valve morphogenesis (roughly the first trimester through mid-gestation).</li>
+<li><strong>Clinical presentation spans</strong>: prenatal detection via fetal echocardiography (severe forms, sometimes with poor prognosis), neonatal presentation with cyanosis/heart failure (moderate-severe forms), or delayed diagnosis in childhood through adulthood — sometimes incidentally — in mild anatomic variants.</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Disease course pattern</strong>: Can be stable for extended periods (especially milder anatomic forms) or progressive, with worsening tricuspid regurgitation, right heart enlargement, and increasing arrhythmia burden over years to decades.</li>
+<li><strong>Progression drivers</strong>: Chronic volume overload from tricuspid regurgitation, progressive RV/RA dilation, development or worsening of arrhythmia substrate.</li>
+<li>Fetal cases with severe cardiomegaly and hydrops carry high risk of in utero or neonatal demise; a cited case series found in-utero mortality of 37.5% and neonatal mortality of 50% in a high-risk fetal cohort, with ~30% one-year mortality overall in prenatally/neonatally diagnosed severe disease.</li>
+<li>Long-term registry data (Danish/Swedish nationwide cohorts, PMID/JACC 2023 — "Mortality in Patients With Ebstein Anomaly") found 35-year cumulative mortality of 11% even among patients with anticipated <em>mild</em> EA, with higher mortality in those with associated cardiac lesions; mortality has decreased in patients diagnosed in the modern era compared with earlier eras.</li>
+</ul>
+<h3>Patterns</h3>
+<ul>
+<li><strong>Critical period</strong>: The valvulogenic window (delamination of AV valve leaflets) is the developmental critical period during which the causal insult (genetic or teratogenic) acts.</li>
+<li><strong>Remission</strong>: Not applicable in the classic sense (structural malformation), but successful surgical (cone) reconstruction can produce durable, near-normalization of valve competence and functional status for many years.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Prevalence at birth</strong>: Estimates vary by source/methodology — approximately 1 in 20,000 to 1 in 100,000 live births (Orphanet); other studies report 3–5, 4.4, or up to 7 per 100,000 live births (Texas birth-defects registry, <a href="https://pubmed.ncbi.nlm.nih.gov/21465650/" target="_blank" rel="noopener noreferrer">PMID:21465650</a> — "Epidemiology of Ebstein anomaly: prevalence and patterns in Texas, 1999–2005"); broader estimates place incidence at 1.2–5 per 100,000 live births, or as high as 50–100 per million live births in some critical-CHD classifications.</li>
+<li>EA comprises <strong>&lt;1%</strong> of all congenital heart defects.</li>
+<li>No strong sex predilection is generally reported (roughly equal male:female distribution), though some individual series show slight variation.</li>
+</ul>
+<h3>Inheritance pattern (for genetically resolved subsets)</h3>
+<ul>
+<li><strong>Autosomal dominant</strong> inheritance is documented for the MYH7-associated EA/LVNC subtype, with variable expressivity across kindred members (isolated LVNC, isolated EA, or both, plus VSD in some families) (<a href="https://pubmed.ncbi.nlm.nih.gov/23794396/" target="_blank" rel="noopener noreferrer">PMID:23794396</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25444217/" target="_blank" rel="noopener noreferrer">PMID:25444217</a>).</li>
+<li>The majority of EA cases are <strong>sporadic</strong>, without a clearly Mendelian inheritance pattern, consistent with multifactorial or de novo genetic causation, or non-genetic (e.g., lithium) etiology.</li>
+<li><strong>Chromosomal microdeletion</strong> cases (1p36, 8p23.1) typically arise de novo but can rarely be inherited from a similarly affected/carrier parent.</li>
+</ul>
+<h3>Penetrance / expressivity</h3>
+<ul>
+<li>Variable expressivity is documented within MYH7-mutation-positive families (different family members manifesting EA, LVNC, or both) (<a href="https://pubmed.ncbi.nlm.nih.gov/23794396/" target="_blank" rel="noopener noreferrer">PMID:23794396</a>).</li>
+<li>Penetrance estimates for specific MYH7 variants in the EA context are not precisely quantified in the retrieved literature.</li>
+</ul>
+<h3>Population demographics</h3>
+<ul>
+<li>No strong evidence for a specific ethnic/geographic founder effect in EA (unlike many monogenic disorders); it is broadly distributed geographically.</li>
+<li>Sibling recurrence risk for isolated/sporadic EA is empirically low (~1%), consistent with predominantly sporadic causation.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical/imaging tests</h3>
+<ul>
+<li><strong>Transthoracic and fetal echocardiography</strong> are the primary diagnostic modalities — demonstrating apical displacement of septal/inferior tricuspid leaflets (displacement index typically defined as &gt;8 mm/m² BSA in adults, or specific fetal apical displacement thresholds), atrialized RV, and tricuspid regurgitation severity.</li>
+<li><strong>Cardiac MRI</strong>: Used for RV volumetric assessment, atrialized RV quantification, and risk stratification (e.g., RV end-diastolic volume index, RVEF) — cardiovascular magnetic resonance-based risk prediction models for major adverse events and atrial tachyarrhythmia have been published (PMC5749347).</li>
+<li><strong>Electrocardiography (ECG)</strong>: Right bundle branch block pattern, evidence of pre-excitation (WPW pattern — short PR interval, delta wave) when accessory pathways are present.</li>
+<li><strong>Electrophysiology study</strong>: For mapping and characterizing accessory pathways prior to ablation, given the high (~25%) prevalence of accessory pathways and frequent multiplicity of pathways in EA.</li>
+<li><strong>Chest radiography</strong>: Classic "wall-to-wall heart" cardiomegaly appearance in severe cases.</li>
+</ul>
+<h3>Fetal-specific diagnostics and scoring</h3>
+<ul>
+<li><strong>Fetal echocardiography</strong> allows in-utero diagnosis and prognostication; key prognostic sonographic features include cardiothoracic index &gt;0.55, relative foramen ovale/atrial septal ratio &lt;0.3, right ventricular outflow tract obstruction, tricuspid valve displacement index &gt;2.5, absence of reverse flow in the ductus arteriosus, and RV:LV ratio &gt;2 (<a href="https://pubmed.ncbi.nlm.nih.gov/23819422/" target="_blank" rel="noopener noreferrer">PMID:23819422</a> and related fetal Ebstein prognosis literature).</li>
+<li><strong>Great Ormond Street Echo (GOSE) score</strong>: A validated ratio-based echocardiographic prognostic index; e.g., a GOSE score ratio of 1.1–1.49 corresponds to ~10% early mortality in acyanotic patients but up to 100% mortality in cyanotic patients, illustrating the strong prognostic interaction between anatomic severity and physiologic (cyanosis) status.</li>
+</ul>
+<h3>Genetic testing</h3>
+<ul>
+<li>Not part of routine diagnostic workup for isolated/sporadic EA given its predominantly non-Mendelian nature, but <strong>recommended</strong> when EA is accompanied by left ventricular noncompaction, a family history suggestive of autosomal dominant transmission, or additional syndromic features — targeted sequencing/panel testing for <strong>MYH7</strong> (and consideration of <strong>NKX2-5</strong>, <strong>GATA4</strong>) is reasonable in these contexts.</li>
+<li><strong>Chromosomal microarray (CMA)</strong>: Indicated when EA occurs with additional dysmorphic features or extracardiac anomalies, to detect 1p36 or 8p23.1 microdeletions.</li>
+<li><strong>Whole exome/genome sequencing</strong>: Used in research cohorts (e.g., 47-case, 50-gene candidate panel study) to identify novel variants in myocardial-development pathway genes; not yet standard clinical practice for isolated EA.</li>
+</ul>
+<h3>Clinical criteria / differential diagnosis</h3>
+<ul>
+<li>Diagnosis is primarily echocardiographic/anatomic rather than criteria-based (no DSM/consensus clinical scoring system analogous to other diseases).</li>
+<li><strong>Differential diagnosis</strong> includes other causes of severe tricuspid regurgitation and right heart enlargement: tricuspid valve dysplasia (a distinct entity without the same degree of leaflet delamination failure/annular displacement), pulmonary atresia with intact ventricular septum, uhl anomaly (parchment right ventricle), and other causes of fetal cardiomegaly/hydrops.</li>
+</ul>
+<h3>Screening</h3>
+<p>No population-based newborn or prenatal screening program specifically targets EA (given its rarity); detection occurs opportunistically via routine obstetric anomaly ultrasound or, postnatally, via clinical evaluation of murmur/cyanosis/arrhythmia.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and mortality</h3>
+<ul>
+<li><strong>Population-level cohort data</strong> (Danish/Swedish national registries, patients born 1970–2017, 530 EA patients vs. 5,300 matched controls, median follow-up 11 years; JACC 2023, PMID for "Mortality in Patients With Ebstein Anomaly"): 35-year cumulative mortality of <strong>11%</strong>, even in patients with anticipated <em>mild</em> disease; patients with associated cardiac lesions had higher mortality than isolated EA; mortality has declined in the modern diagnostic/treatment era relative to earlier decades; most common cause of late death was cardiac-related.</li>
+<li><strong>Fetal/neonatal cohorts</strong>: Substantially worse — one high-risk case series reported in-utero mortality of 37.5% and neonatal mortality of 50%; broader estimates place 1-year mortality at ~30% for prenatally/neonatally diagnosed cases, heavily dependent on anatomic severity and cyanosis status (per GOSE score stratification above).</li>
+<li><strong>Postoperative mortality risk factors</strong> (surgical cohorts): RV end-diastolic volume index &gt;200 mL/m², RV ejection fraction &lt;40%, and age &gt;50 years at time of operation.</li>
+</ul>
+<h3>Morbidity and functional outcomes</h3>
+<ul>
+<li>Progressive tricuspid regurgitation and right heart failure are the principal drivers of morbidity in unrepaired or inadequately repaired disease.</li>
+<li>Arrhythmia-related morbidity (recurrent SVT, atrial fibrillation, WPW-mediated tachyarrhythmia) is common and can itself precipitate heart failure or, rarely, sudden cardiac death.</li>
+<li>Post cone-repair, RV size decreases and antegrade stroke volume increases as early as 6 months postoperatively (<a href="https://pubmed.ncbi.nlm.nih.gov/25535206/" target="_blank" rel="noopener noreferrer">PMID:25535206</a> — Da Silva cone repair effect on RV size/function); mid-term studies (2025) additionally document recovery of RV function <em>and</em> improvement of LV function after cone repair (PMC12295748), supporting a ventricular-interdependence mechanism for the pre-repair LV dysfunction sometimes observed.</li>
+</ul>
+<h3>Prognostic factors</h3>
+<ul>
+<li>Anatomic severity (degree of leaflet displacement/tethering, Carpentier type), presence/degree of cyanosis, RV size and function (echocardiographic and MRI-derived indices), presence of associated lesions (pulmonary stenosis/atresia, ASD), and arrhythmia burden are the principal prognostic determinants identified across the fetal, pediatric, and adult literature.</li>
+<li>A 2025 review specifically synthesizes "poor prognostic factors" in EA (PMC12859563 — "Complex Considerations for a Complex Disease: Identifying Poor Prognostic Factors in Ebstein's Anomaly").</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy</h3>
+<ul>
+<li><strong>Antiarrhythmic medications</strong> (e.g., beta-blockers, class III agents) for rate/rhythm control of atrial fibrillation/flutter and supraventricular tachyarrhythmias.</li>
+<li><strong>Heart failure pharmacotherapy</strong> (diuretics, and standard heart-failure agents as adapted for right-heart-predominant failure) in patients with RV dysfunction.</li>
+<li><strong>Prostaglandin E1</strong> in neonates with ductal-dependent pulmonary blood flow (severe forms with functional pulmonary atresia) to maintain ductal patency pending intervention.</li>
+<li>NCIT term: NCIT:C15986 (Pharmacotherapy) as the generic action term, with specific agents captured via <code>therapeutic_agent</code> (e.g., CHEBI terms for individual antiarrhythmics).</li>
+</ul>
+<h3>Interventional electrophysiology</h3>
+<ul>
+<li><strong>Catheter ablation</strong> of accessory pathways (for WPW) and arrhythmia substrates — though EA-associated ablation carries a notably higher recurrence rate (30–40%) compared with the general population (5–10%), reflecting the complex, often multiple accessory-pathway anatomy in EA.</li>
+<li>NCIT term: consider NCIT:C15329 (Surgical Procedure) parent or a more specific interventional cardiology procedure term if available; <code>therapeutic_modality: DEVICE</code> may apply for catheter-based ablation technology.</li>
+</ul>
+<h3>Surgical treatment</h3>
+<ul>
+<li><strong>Cone reconstruction (Da Silva cone repair)</strong>: The current preferred definitive surgical technique — extensive mobilization of the (dysplastic but present) leaflet tissue, longitudinal plication of the atrialized right ventricle, and reconstruction of a cone-shaped, leaflet-to-leaflet coapting neo-tricuspid valve using the patient's own (mobilized ± patch-augmented) leaflet tissue. Reported to produce excellent valve competence in the large majority of patients, with RV size normalization and improved antegrade stroke volume by 6 months, and documented mid-term (multi-year) recovery of both RV and LV function (<a href="https://pubmed.ncbi.nlm.nih.gov/25535206/" target="_blank" rel="noopener noreferrer">PMID:25535206</a>; PMC12295748). Variants include septal leaflet augmentation with autologous pericardial patch when native septal leaflet tissue is severely deficient (2025 comparative outcomes literature).</li>
+<li><strong>Staged single-ventricle palliation (Starnes procedure)</strong>: Reserved for the most severe, unrepairable neonatal forms (severe RV hypoplasia/dysfunction) — tricuspid valve exclusion with fenestrated patch, atrial septectomy, and a modified BT shunt or similar systemic-to-pulmonary shunt, as a bridge toward staged single-ventricle (Fontan-pathway) palliation. A cone operation can subsequently be performed after a prior Starnes procedure in select cases (biventricular "conversion") with reported favorable initial outcomes.</li>
+<li><strong>Cardiac transplantation</strong>: Considered in end-stage cases with severe, irreparable ventricular dysfunction.</li>
+<li>NCIT terms: NCIT:C15329 (Surgical Procedure), and more specific valve-repair/reconstruction terms if available in NCIT; <code>therapeutic_modality: SURGERY</code>.</li>
+</ul>
+<h3>Supportive/rehabilitative care</h3>
+<ul>
+<li>Standard heart-failure supportive management, activity guidance, and longitudinal cardiology follow-up (arrhythmia surveillance, RV function monitoring).</li>
+<li>NCIT:C15747 (Supportive Care).</li>
+</ul>
+<h3>Experimental / emerging approaches</h3>
+<ul>
+<li>No gene therapy, RNA-based therapy, or targeted molecular therapy is currently established or in active clinical trials specific to EA (the disease is structural/surgical rather than a target for molecular correction), consistent with its developmental/anatomic (rather than progressive metabolic or degenerative) pathophysiology. Ongoing research is concentrated in surgical technique refinement (e.g., septal leaflet augmentation approaches, 2025) and risk-stratification/outcomes modeling (fetal echocardiographic prognostic markers, CMR-based risk prediction) rather than pharmacologic/molecular intervention.</li>
+</ul>
+<h3>Treatment outcomes</h3>
+<ul>
+<li>Cone repair: high rates of excellent postoperative valve competence, with RV remodeling (size reduction, functional improvement) documented from 6 months through multi-year follow-up.</li>
+<li>Ablation for WPW/accessory pathways in EA: elevated recurrence (30–40%) relative to structurally normal hearts, reflecting anatomic complexity.</li>
+<li>Population-level surgical outcome studies (PMC6852467 — "Early and Long-Term Outcomes of Surgical Treatment of Ebstein's Anomaly") document continued improvement in both early and late surgical outcomes over time as technique (particularly cone reconstruction) has matured.</li>
+</ul>
+<h3>Treatment strategy</h3>
+<ul>
+<li>Management is stratified by anatomic severity, degree of cyanosis, RV function, and presence of arrhythmia: mild, asymptomatic cases may be managed with surveillance alone; moderate-severe symptomatic disease with significant TR/RV dilation is generally directed toward cone reconstruction; the most severe neonatal forms with minimal functional RV may require staged single-ventricle palliation (Starnes-first strategy) rather than primary biventricular repair.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention</strong>: Avoidance/minimization of first-trimester lithium exposure in women who are or may become pregnant is the principal identified, modifiable primary-prevention strategy; when lithium is clinically necessary for maternal bipolar disorder management, guidance emphasizes using the lowest effective dose, therapeutic drug monitoring, and consideration of dose-related risk (&gt;900 mg/day associated with higher malformation risk) (see PMC10596010 — "Lithium management in pregnant patients with bipolar disorder").</li>
+<li><strong>Secondary prevention</strong>: Fetal anomaly ultrasound/echocardiography enables early detection, allowing for informed counseling, planned delivery at a center with cardiac surgical/ECMO capability, and early postnatal intervention planning — this does not prevent the malformation but mitigates downstream morbidity/mortality via optimized perinatal management.</li>
+<li><strong>Genetic counseling</strong>: Recommended for families with a known MYH7 variant or other identified monogenic cause, given autosomal dominant inheritance and variable expressivity in that subset; recurrence-risk counseling for sporadic/isolated EA is generally reassuring (low empiric recurrence risk) absent an identified familial genetic cause.</li>
+<li><strong>Prenatal genetic testing/counseling</strong>: Consideration of targeted variant testing in subsequent pregnancies when a causal familial variant has been identified.</li>
+<li>No vaccine, public health, or population-level environmental intervention is applicable given the rarity and largely sporadic/idiosyncratic (lithium-exposure-driven or de novo genetic) nature of EA.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Naturally occurring EA-like disease in companion/domestic animals</strong>: Not well documented as a recognized naturally occurring veterinary clinical entity analogous to human EA; tricuspid valve dysplasia is described in dogs (e.g., Labrador Retrievers) as a distinct congenital tricuspid malformation, but it is generally classified separately from "Ebstein-like" apical displacement with leaflet-myocardial adhesion, and formal cross-species nosological equivalence to human EA is not firmly established in the retrieved literature — recommend checking OMIA directly for any curated veterinary entries.</li>
+<li><strong>Comparative/orthologous developmental biology</strong>: Zebrafish (<em>Danio rerio</em>) atrioventricular canal development studies (foxn4/tbx5/tbx2b pathway) provide the closest comparative developmental-biology parallel for the delamination/AV-boundary-formation process disrupted in human EA, though these are developmental models of the normal AV valve program rather than models reproducing an EA disease phenotype per se.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse models</strong>: Both mouse and zebrafish genes have been catalogued as associated with EA via cross-species phenotype-matching approaches (linking model-organism cardiac phenotype ontology annotations to candidate human EA genes); specific validated mouse knockout models fully recapitulating the EA leaflet-delamination-failure phenotype were not identified with a specific citation in this search — this appears to be an area with limited dedicated animal-model literature relative to more common structural CHD lesions (see the 2023 review chapter "Molecular Pathways and Animal Models of Ebstein's Anomaly," Springer, for the most current synthesis).</li>
+<li><strong>Zebrafish models</strong>: Zebrafish AV canal/valve development work (foxn4–tbx5–tbx2b transcriptional pathway) establishes the relevant normal developmental program; loss-of-function perturbation of these genes disrupts AV boundary formation in a manner mechanistically analogous to (but not an established formal model of) human EA.</li>
+<li><strong>Model characteristics/limitations</strong>: No single animal model is described in the retrieved literature as fully recapitulating the specific combination of septal/inferior leaflet myocardial adhesion, functional annular displacement, and atrialized RV segment characteristic of human EA; existing models primarily inform the normal AV valvulogenesis program whose disruption is inferred (rather than directly demonstrated) to underlie EA.</li>
+<li><strong>Applications</strong>: Zebrafish AV-canal models are useful for dissecting the transcriptional regulatory logic of valve leaflet delamination and could in principle be used to test candidate EA genes (e.g., MYH7 orthologs, NKX2-5/GATA4 pathway members) for AV valve phenotypes, but this specific application to EA candidate genes was not documented with a citation in the retrieved search results.</li>
+<li><strong>Resources</strong>: MGI (Mouse Genome Informatics) and ZFIN (Zebrafish Information Network) are the appropriate primary databases to query directly for any curated EA-relevant knockout/mutant phenotype records (not exhaustively queried in this search pass).</li>
+</ul>
+<hr />
+<h2>Summary of Key Data Gaps (for curation flagging)</h2>
+<ol>
+<li><strong>Molecular profiling</strong> (transcriptomic/proteomic) of EA-affected valve/myocardial tissue is essentially absent from the literature reviewed.</li>
+<li><strong>Dedicated animal models</strong> that recapitulate the specific EA leaflet-delamination-failure phenotype (as opposed to general AV valve developmental biology) are not well established.</li>
+<li><strong>Quantitative penetrance</strong> estimates for specific MYH7 (or other) pathogenic variants in the EA context are not precisely defined.</li>
+<li><strong>Disease-specific quality-of-life instrument data</strong> (EQ-5D/SF-36) specific to EA populations is sparse.</li>
+<li><strong>Gene–environment interaction</strong> data (e.g., whether lithium risk is modified by genotype) is absent.</li>
+<li>Veterinary/natural-disease cross-species correlates are not well substantiated in this pass and should be checked directly against OMIA before curation.</li>
+</ol>
+<hr />
+<h2>Suggested Ontology Term Summary Table</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009144" target="_blank" rel="noopener noreferrer">MONDO:0009144</a>; <a href="https://bioregistry.io/OMIM:224700" target="_blank" rel="noopener noreferrer">OMIM:224700</a>; <a href="https://bioregistry.io/ORPHA:1880" target="_blank" rel="noopener noreferrer">ORPHA:1880</a>; ICD-10 Q22.5</td>
+</tr>
+<tr>
+<td>Phenotype (HPO)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010316" target="_blank" rel="noopener noreferrer">HP:0010316</a> (Ebstein anomaly), <a href="http://purl.obolibrary.org/obo/HP_0005180" target="_blank" rel="noopener noreferrer">HP:0005180</a> (Tricuspid regurgitation), <a href="http://purl.obolibrary.org/obo/HP_0004757" target="_blank" rel="noopener noreferrer">HP:0004757</a> (Ventricular preexcitation), <a href="http://purl.obolibrary.org/obo/HP_0001671" target="_blank" rel="noopener noreferrer">HP:0001671</a> (Atrial fibrillation), <a href="http://purl.obolibrary.org/obo/HP_0011711" target="_blank" rel="noopener noreferrer">HP:0011711</a> (RBBB), <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" rel="noopener noreferrer">HP:0000961</a> (Cyanosis), <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> (Congestive heart failure), <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a> (Atrial septal defect), <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" rel="noopener noreferrer">HP:0002089</a> (Pulmonary hypoplasia)</td>
+</tr>
+<tr>
+<td>Genes</td>
+<td><a href="https://bioregistry.io/HGNC:7577" target="_blank" rel="noopener noreferrer">HGNC:7577</a> (MYH7), <a href="https://bioregistry.io/HGNC:2488" target="_blank" rel="noopener noreferrer">HGNC:2488</a> (NKX2-5), <a href="https://bioregistry.io/HGNC:4237" target="_blank" rel="noopener noreferrer">HGNC:4237</a> (GATA4)</td>
+</tr>
+<tr>
+<td>GO — biological process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0003171" target="_blank" rel="noopener noreferrer">GO:0003171</a>/<a href="http://purl.obolibrary.org/obo/GO_0003190" target="_blank" rel="noopener noreferrer">GO:0003190</a> (AV valve development/formation), <a href="http://purl.obolibrary.org/obo/GO_0055010" target="_blank" rel="noopener noreferrer">GO:0055010</a> (ventricular cardiac muscle tissue morphogenesis), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process)</td>
+</tr>
+<tr>
+<td>CL</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002138" target="_blank" rel="noopener noreferrer">CL:0002138</a> (endocardial cell)</td>
+</tr>
+<tr>
+<td>UBERON</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002102" target="_blank" rel="noopener noreferrer">UBERON:0002102</a> (tricuspid valve), <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" rel="noopener noreferrer">UBERON:0002080</a> (right cardiac ventricle), <a href="http://purl.obolibrary.org/obo/UBERON_0002078" target="_blank" rel="noopener noreferrer">UBERON:0002078</a> (right cardiac atrium)</td>
+</tr>
+<tr>
+<td>CHEBI</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_30145" target="_blank" rel="noopener noreferrer">CHEBI:30145</a> (lithium(1+))</td>
+</tr>
+<tr>
+<td>NCIT (treatment)</td>
+<td>NCIT:C15329 (Surgical Procedure — cone reconstruction), NCIT:C15986 (Pharmacotherapy), NCIT:C15747 (Supportive Care)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://omim.org/entry/224700">Entry - 224700 - EBSTEIN ANOMALY (OMIM)</a></li>
+<li><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=1880">Orphanet: Ebstein malformation of the tricuspid valve</a></li>
+<li><a href="https://monarchinitiative.org/MONDO:0009144">Ebstein anomaly | Monarch Initiative</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK534824/">Ebstein Anomaly and Malformation - StatPearls</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/10798422/">Congenital Heart Surgery Nomenclature and Database Project: Ebstein's anomaly and tricuspid valve disease - PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3578524/">Ebstein's anomaly may be caused by mutations in the sarcomere protein gene MYH7 - PMC/PubMed</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/21604106/">PubMed 21604106</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23794396/">Ebstein anomaly associated with left ventricular noncompaction: an autosomal dominant condition that can be caused by mutations in MYH7 - PubMed 23794396</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25444217/">Familial Ebstein's anomaly, left ventricular noncompaction, and ventricular septal defect associated with an MYH7 mutation - PubMed 25444217</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21815254/">Ebstein anomaly: Genetic heterogeneity and association with microdeletions 1p36 and 8p23.1 - PubMed 21815254</a></li>
+<li><a href="https://journals.plos.org/plosone/article?id=10.1371%2Fjournal.pone.0165174">Genetic Variants in Isolated Ebstein Anomaly Implicated in Myocardial Development Pathways | PLOS One</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3370385/">Combined Mutation Screening of NKX2-5, GATA4, and TBX5 in Congenital Heart Disease - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6503026/">Association of NKX2-5, GATA4, and TBX5 polymorphisms with congenital heart disease in Egyptian children - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28591541/">Lithium Use in Pregnancy and the Risk of Cardiac Malformations - NEJM / PubMed 28591541</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/8031346/">A reevaluation of risk of in utero exposure to lithium - PubMed 8031346</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10596010/">Lithium management in pregnant patients with bipolar disorder - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6711372/">Potential risk factors for Ebstein anomaly, National Birth Defects Prevention Study, 1997–2011 - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21465650/">Epidemiology of Ebstein anomaly: prevalence and patterns in Texas, 1999-2005 - PubMed 21465650</a></li>
+<li><a href="https://www.jacc.org/doi/10.1016/j.jacc.2023.04.037">Mortality in Patients With Ebstein Anomaly | JACC</a></li>
+<li><a href="https://www.jacc.org/doi/10.1016/j.jacc.2023.05.009">Ebstein Anomaly: We Should Do Better | JACC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12859563/">Complex Considerations for a Complex Disease: Identifying Poor Prognostic Factors in Ebstein's Anomaly - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11012800/">A Twenty-Year Follow-Up of Adults with Ebstein Anomaly - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5749347/">Major adverse events and atrial tachycardia in Ebstein's anomaly predicted by cardiovascular magnetic resonance - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11198643/">Risk Factors for Atrial Arrhythmias in Adults With Ebstein Anomaly - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19937010/">A multicenter, long-term study on arrhythmias in children with Ebstein anomaly - PubMed 19937010</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/1394922/">Effect of Ebstein's anomaly on short- and long-term outcome of surgically treated patients with WPW syndrome - PubMed 1394922</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25535206/">Da Silva's cone repair for Ebstein's anomaly: effect on right ventricular size and function - PubMed 25535206</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12295748/">Mid-Term Recovery of Right Ventricular Function and Improvement of Left Ventricular Function After Da Silva Cone Procedure for Ebstein Anomaly - PMC</a></li>
+<li><a href="https://www.researchgate.net/publication/341450720">The Da Silva cone operation after the Starnes procedure for Ebstein's anomaly</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41819162/">Septal leaflet augmentation during Da Silva cone repair - PubMed 41819162</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6852467/">Early and Long-Term Outcomes of Surgical Treatment of Ebstein's Anomaly - PMC</a></li>
+<li><a href="https://e-kcj.org/DOIx.php?id=10.4070%2Fkcj.2023.0200">Long-Term Outcomes of Modified Cone Reconstruction for Ebstein's Anomaly in Pediatric Patients</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23819422/">Fetal diagnosis and prognosis of Ebstein's anomaly - PubMed 23819422</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s00246-024-03530-9">Prenatal Cardiac Ultrasound Markers of Outcomes in Ebstein's Anomaly - Pediatric Cardiology (Springer)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8601841/">Ebstein's Anomaly, Left Ventricular Noncompaction and Gerbode-Like Defect Triad - PMC</a></li>
+<li><a href="https://link.springer.com/chapter/10.1007/978-3-031-44087-8_58">Molecular Pathways and Animal Models of Ebstein's Anomaly - Springer Nature Link</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11998914/">Zebrafish arterial valve development occurs through direct differentiation of second heart field progenitors - PMC</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ebola_Virus_Disease_EVD-falcon.html">← Ebola Virus Disease (EVD) (Falcon)</a>
+                
+                
+                <a href="EBV_Associated_Gastric_Cancer-falcon.html">EBV-Associated Gastric Cancer (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ebstein_Anomaly.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ebstein_Anomaly-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

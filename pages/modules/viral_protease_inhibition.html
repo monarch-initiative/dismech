@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -256,6 +375,61 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -316,7 +490,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -354,6 +527,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         /* Mechanistic hypotheses */
         .hypothesis-box {
             background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
@@ -361,6 +552,8 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
+        /* Keep curator-written paragraph breaks in hypothesis descriptions. */
+        .hypothesis-box .item-desc { white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -380,6 +573,57 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .evidence-support {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .support-SUPPORT { background: #d1fae5; color: #065f46; }
+        .support-PARTIAL { background: #fef3c7; color: #92400e; }
+        .support-REFUTE { background: #fee2e2; color: #991b1b; }
+        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
+        .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
             font-size: 0.82rem;
@@ -524,8 +768,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -555,6 +807,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -678,6 +959,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -689,6 +1011,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -859,19 +1184,39 @@
                 .text(label);
 
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
         });
 
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -1007,8 +1352,26 @@
                 html.push(readoutHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1021,6 +1384,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -1086,11 +1455,55 @@
 </head>
 <body>
     
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
 
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     
 
     
 
+    
+
+    
     
     <nav class="site-nav">
         <div class="nav-inner">
@@ -1127,13 +1540,13 @@
             <div class="header-meta">
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">viral_protease_inhibition</span>
-                <span class="badge badge-count">0 disorders</span>
+                <span class="badge badge-count">2 disorders</span>
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
                 
             </div>
             
-            <div class="header-description">The viral polyprotein-maturation pathway and the point at which protease-targeting antivirals interrupt it. Many clinically important viruses translate their genome as one or more large polyprotein precursors that are themselves non-functional: their constituent structural proteins and replicative enzymes only become active after a virally encoded protease cleaves the precursor at defined junctions. This module traces that pathway as a causal cascade — the polyprotein precursor is first synthesized from the viral genome; the viral maturation protease then cleaves it into functional subunits; that cleavage drives the structural rearrangement of a nascent particle into a mature, infectious virion; and the antiviral endpoint, when the protease is blocked, is the release of immature, non-infectious particles. The conserved maturation protease is the single most exploited antiviral drug target after the polymerase, and the same druggable architecture recurs across unrelated families with different catalytic chemistries: the HIV-1 aspartyl protease (PR) cleaving the Gag and Gag-Pol polyproteins, the HCV NS3/4A serine protease processing the nonstructural polyprotein, and the SARS-CoV-2 main protease (Mpro / 3CLpro), a cysteine protease that liberates the replicase nonstructural proteins. Protease inhibitors — HIV PIs (atazanavir, darunavir, lopinavir), HCV NS3/4A &#34;-previr&#34; inhibitors (glecaprevir, grazoprevir), and SARS-CoV-2 nirmatrelvir — are substrate-mimetic or active-site-directed small molecules that occupy the protease cleft at the maturation-cleavage step, so virions are released immature and non-infectious. The key conformance / treatment target of this module is the proteolytic-maturation-cleavage node, &#34;Proteolytic Maturation Cleavage by the Viral Protease&#34;. Because the protease active site tolerates resistance substitutions, and because several HIV and SARS-CoV-2 protease inhibitors are themselves cleared rapidly by host CYP3A, this drug class is characteristically boosted (ritonavir or cobicistat) and used in combination regimens — captured by the adaptive-escape branch off the cleavage node.</div>
+            <div class="header-description">A conserved antiviral drug-mechanism pattern centered on virus-encoded protease-dependent polyprotein processing. Many RNA viruses and retroviruses synthesize polyprotein precursors whose products become functional only after proteolytic cleavage. The shared trunk is polyprotein synthesis followed by cleavage by a virus-encoded protease. Its productive output is virus-family-specific: SARS-CoV-2 Mpro and HCV NS3/4A release nonstructural replicase proteins needed for replication-complex formation and viral RNA replication, whereas HIV protease cleavage of Gag and Gag-Pol drives structural virion maturation. Protease inhibitors act at the shared processing node, but the downstream antiviral phenotype must follow the applicable branch: loss of replicase function for SARS-CoV-2 and HCV, or production of immature non-infectious particles for HIV. Resistance caused by viral protease substitutions is an adaptive-escape branch. Pharmacokinetic enhancement with a host CYP3A inhibitor is regimen context, not viral resistance and not a second viral-protease target.</div>
             
         </header>
 
@@ -1142,10 +1555,10 @@
                 <div class="card-header">
                     <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                     <h2 class="card-title">Pathophysiology Nodes</h2>
-                    <span class="card-count">5</span>
+                    <span class="card-count">6</span>
                 </div>
                 <div class="empty-state">
-                    5 shared nodes are defined in this module.
+                    6 shared nodes are defined in this module.
                 </div>
             </div>
 
@@ -1169,16 +1582,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Viral Gene Expression
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0019080" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019080">GO:0019080</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019080" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0019080</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Viral Gene Expression (GO:0019080). GO:0019080 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1189,6 +1607,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Viral Protein Processing
@@ -1196,10 +1616,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0019082" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019082">GO:0019082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019082</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Viral Protein Processing (GO:0019082). GO:0019082 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1210,6 +1633,34 @@
     
     
     
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        Viral RNA Genome Replication
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0039694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0039694</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Viral RNA Genome Replication (GO:0039694). GO:0039694 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Virion Assembly
@@ -1217,10 +1668,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0019068" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019068">GO:0019068</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019068" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0019068</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Virion Assembly (GO:0019068). GO:0019068 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1231,6 +1685,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Negative Regulation of Viral Process
@@ -1238,31 +1694,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0048525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048525">GO:0048525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0048525</a>
     
     
                         
-                    </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                    <span class="tag tag-bio">
-                        Response to Xenobiotic Stimulus
-                        
-                        
-    
-    
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
-    
-    
-                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves Negative Regulation of Viral Process (GO:0048525). GO:0048525 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1285,8 +1723,10 @@
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is an antiviral drug-mechanism module structured as a biological pathway, not a specific disease. Its nodes are successive biological steps of viral polyprotein maturation (synthesis of the polyprotein precursor -&gt; proteolytic maturation cleavage by the viral protease -&gt; virion maturation into infectious particles), with the antiviral consequence (production of immature, non-infectious virions) and an adaptive resistance branch; the drug classes that act at each step are described in the node text rather than modelled as separate nodes. Disorder entries reference individual nodes via conforms_to (e.g., &#34;viral_protease_inhibition#Proteolytic Maturation Cleavage by the Viral Protease&#34;), and their protease-targeting treatments point at the inhibited node via target_mechanisms (analogous to how polymerase-targeting treatments link to &#34;viral_polymerase_inhibition#Nucleotide Selection and Catalytic Incorporation at the Polymerase Active Site&#34;, and how cell-wall-active antibiotic treatments link to &#34;bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34;). Key conformance / treatment target: &#34;Proteolytic Maturation Cleavage by the Viral Protease&#34; — the shared HIV PR / HCV NS3/4A / SARS-CoV-2 Mpro target of protease inhibitors. The module is pathogen-process-centric: nodes are biological steps in polyprotein maturation, not individual drugs; a given protease-inhibitor class maps to the cleavage step it inhibits. The resistance node captures the gating knowledge that distinguishes &#34;a protease inhibitor is used&#34; from real drug selection — substrate-cleft resistance mutations and rapid host metabolism that together mandate ritonavir/cobicistat boosting and combination therapy. Worked conformers (proposed in projects/ANTIVIRAL.md): Acquired_Immunodeficiency_Syndrome (atazanavir/darunavir/lopinavir, ritonavir-boosted), Hepatitis_C (glecaprevir/grazoprevir NS3/4A &#34;-previr&#34; class), and COVID-19 (ritonavir-boosted nirmatrelvir). See projects/ANTIVIRAL.md.</div>
+            <div class="item-desc">This pathogen-process-centric module models biological steps rather than individual drugs. Disorder nodes reference exact anchors with conforms_to, and protease-inhibitor treatments point to the conforming virus-specific processing node with target_mechanisms. Key conformance / treatment target: &#34;Virus-Encoded Protease-Dependent Polyprotein Processing&#34;. The two outputs are deliberately distinct. COVID-19 and Acute_Hepatitis_C_Virus_Infection conform through &#34;Replication-Complex Formation and Viral RNA Replication&#34;; an HIV conformer would instead use &#34;Protease-Driven Structural Virion Maturation&#34; and may continue to &#34;Production of Immature, Non-Infectious Virions&#34;. As a high-precision operational curation boundary, a qualifying branch must model synthesis of a viral polyprotein precursor, cleavage at defined junctions by a virus-encoded protease, and exactly the applicable productive output: nonstructural replicase function and viral RNA replication, or Gag/Gag-Pol structural maturation. Conformance to the central virus-encoded processing node is mandatory. Protease-resistance and immature-particle nodes are optional, context-specific extensions and are not sufficient by themselves. Host-protease entry or priming (including TMPRSS2 and furin), host CYP3A boosting, protease-mediated immune evasion without the polyprotein-processing trunk, replication or viremia alone, immature particles alone, and non-protease antiviral targets do not qualify. Ritonavir is itself an HIV protease inhibitor, but in modern regimens it is used almost exclusively as a pharmacokinetic enhancer. In nirmatrelvir/ritonavir it inhibits host CYP3A rather than the viral protease; that boosting role is therefore described separately from viral target inhibition and resistance. See projects/ANTIVIRAL.md.</div>
         </div>
+        
+
         
 
         
@@ -1297,10 +1737,62 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">0</span>
+                <span class="card-count">2</span>
             </div>
             
-            <div class="empty-state">No disorder entries currently reference this module via <code>conforms_to</code>.</div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        HCV Polyprotein Translation → Synthesis of the Viral Polyprotein Precursor
+                        
+                        
+                        , 
+                        
+                        HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein → Virus-Encoded Protease-Dependent Polyprotein Processing
+                        
+                        
+                        , 
+                        
+                        HCV genome replication and early viremia → Replication-Complex Formation and Viral RNA Replication
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/COVID-19.html">COVID-19</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab) → Synthesis of the Viral Polyprotein Precursor
+                        
+                        
+                        , 
+                        
+                        SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab → Virus-Encoded Protease-Dependent Polyprotein Processing
+                        
+                        
+                        , 
+                        
+                        SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication → Replication-Complex Formation and Viral RNA Replication
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+            </div>
             
         </div>
 
@@ -1322,7 +1814,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Production of Immature, Non-Infectious Virions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When a protease inhibitor occupies the active-site cleft, the maturation protease can no longer cleave the polyprotein precursor at its scissile junctions. The constituent structural proteins and enzymes are therefore never liberated from the precursor, the maturation rearrangement cannot occur, and particles are released in an immature, non-infectious state. For HIV-1, blocking proteolytic cleavage of the Gag and Gag-Pol polyproteins yields particles that are released but remain immature and non-infectious; the analogous defect underlies HCV NS3/4A and SARS-CoV-2 Mpro inhibition, where failure to process the nonstructural/replicase polyprotein aborts the productive replication cycle. This is the antiviral consequence of engaging the protease target and, because it acts at a late maturation step rather than blocking initial infection, it suppresses the spread of infectious progeny rather than sterilizing an already-infected cell.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative Regulation of Viral Process\"], \"role\": \"consequence\"}}, {\"id\": \"Protease-Inhibitor Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral proteases evolve under drug pressure, and the protease active-site / substrate cleft tolerates amino-acid substitutions that reduce inhibitor affinity while preserving enough catalytic activity to process the polyprotein. In HCV, error-prone replication generates a quasispecies from which NS3/4A resistance-associated substitutions at signature positions (R155, A156, D168) are rapidly selected against \\\"-previr\\\" inhibitors; HIV PR and SARS-CoV-2 Mpro accumulate analogous active-site and accessory mutations. A second, pharmacological dimension compounds escape: several HIV and SARS-CoV-2 protease inhibitors are rapidly metabolized by host CYP3A, so they are co-administered with a CYP3A-inhibitor pharmacoenhancer (ritonavir or cobicistat) to maintain inhibitory drug levels \\u2014 the booster has no intrinsic antiviral activity and so does not itself add resistance pressure. This adaptive branch off the cleavage node explains why protease-inhibitor monotherapy fails against high-mutation-rate viruses and why durable benefit requires boosting plus combination regimens (HIV three-drug ART, multi-DAA HCV cure). Conforming entries can attach a treatment\u0027s failure mode or its boosting/combination rationale to this node.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Response to Xenobiotic Stimulus\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"Proteolytic Maturation Cleavage by the Viral Protease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the central step of the pathway the virally encoded maturation protease cleaves the polyprotein precursor at defined scissile junctions through its peptidase activity, liberating the mature structural proteins and replicative enzymes. This processing protease is essential for the production of infectious progeny, is conserved within a virus family, and differs in structure and specificity from host proteases, making it the second most exploited antiviral drug target after the polymerase. The same druggable cleavage step recurs with different catalytic classes: the HIV-1 aspartyl protease (PR) cleaves the Gag and Gag-Pol polyproteins during virion maturation, the HCV NS3/4A serine protease processes the nonstructural polyprotein, and the SARS-CoV-2 main protease (Mpro / 3CLpro), a cysteine protease, releases the replicase nonstructural proteins. Protease inhibitors \\u2014 HIV PIs (atazanavir, darunavir, lopinavir, typically ritonavir-boosted), HCV NS3/4A \\\"-previr\\\" inhibitors (glecaprevir, grazoprevir), and SARS-CoV-2 nirmatrelvir \\u2014 are substrate-mimetic or active-site-directed molecules that occupy the protease substrate cleft and prevent this cleavage. This is the central node of the module and the canonical conformance / treatment target for protease-directed antiviral therapy.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Viral Protein Processing\"], \"molecular_functions\": [\"Peptidase Activity\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Synthesis of the Viral Polyprotein Precursor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Maturation begins with the synthesis of a large polyprotein precursor: after the viral genome is transcribed and translated, the structural proteins and replicative enzymes are produced as a single non-functional precursor that must later be cleaved into its functional subunits. For HIV-1, the Gag and Gag-Pol polyproteins are translated from the integrated provirus and trafficked to the plasma membrane, where they assemble into the immature particle; the HCV nonstructural polyprotein and the SARS-CoV-2 replicase polyproteins (pp1a/pp1ab) follow the same logic. This is the committed, upstream step of the pathway \\u2014 the precursor it produces is the substrate on which the viral maturation protease, and therefore protease-inhibitor therapy, acts.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Viral Gene Expression\"], \"role\": \"trigger\"}}, {\"id\": \"Virion Maturation into Infectious Particles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the natural cycle, proteolytic cleavage of the polyprotein liberates the mature structural proteins, and this cleavage triggers the structural rearrangement that converts an immature, nascent particle into a mature, infectious virion. For HIV-1, protease-mediated Gag cleavage drives disassembly of the immature Gag lattice and assembly of the mature conical capsid from fully processed capsid protein; the analogous maturation event in HCV and SARS-CoV-2 yields the functional replicase and infectious progeny. This effector node is the productive output of the upstream cleavage step \\u2014 the biological state that protease-inhibitor therapy is designed to prevent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Virion Assembly\"], \"role\": \"effector\"}}], \"edges\": [{\"source\": \"Synthesis of the Viral Polyprotein Precursor\", \"target\": \"Proteolytic Maturation Cleavage by the Viral Protease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The synthesized polyprotein precursor is then cleaved at its defined junctions by the virally encoded maturation protease.\"}, {\"source\": \"Proteolytic Maturation Cleavage by the Viral Protease\", \"target\": \"Virion Maturation into Infectious Particles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Successful cleavage of the polyprotein liberates the mature proteins that drive the structural rearrangement of the particle into an infectious virion.\"}, {\"source\": \"Proteolytic Maturation Cleavage by the Viral Protease\", \"target\": \"Protease-Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate-cleft mutations in the protease reduce inhibitor binding and let maturation cleavage resume, escaping the drug.\"}, {\"source\": \"Virion Maturation into Infectious Particles\", \"target\": \"Production of Immature, Non-Infectious Virions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the upstream protease cleavage is pharmacologically blocked, this maturation step cannot occur and particles are released immature and non-infectious.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Production of Immature, Non-Infectious Virions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the HIV structural-maturation branch, inhibiting viral protease prevents complete Gag and Gag-Pol cleavage. Particles can be released but retain immature architecture and are non-infectious. This consequence is scoped to the structural branch and is not asserted as the phenotype of HCV NS3/4A or SARS-CoV-2 Mpro inhibition.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Negative Regulation of Viral Process\"], \"role\": \"consequence\"}}, {\"id\": \"Protease-Driven Structural Virion Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the structural-maturation branch exemplified by HIV-1, protease-mediated Gag and Gag-Pol cleavage reorganizes the immature particle and produces the mature capsid and other functional virion components. This branch is not used for SARS-CoV-2 Mpro or HCV NS3/4A conformances.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Virion Assembly\"], \"role\": \"effector\"}}, {\"id\": \"Protease-Inhibitor Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral proteases can acquire substitutions that reduce inhibitor affinity while preserving enough catalytic activity for polyprotein processing. HCV NS3/4A resistance-associated substitutions at positions including R155, A156, and D168 illustrate this adaptive escape. Host-drug metabolism and pharmacokinetic boosting are intentionally excluded from this node: ritonavir or cobicistat enhancement changes inhibitor exposure, whereas resistance is a heritable viral target change selected under drug pressure.\", \"meta\": {\"evidence_count\": 2, \"role\": \"adaptive_escape\"}}, {\"id\": \"Replication-Complex Formation and Viral RNA Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the replicase branch, proteolytic processing releases viral nonstructural proteins that form or support the replication machinery. SARS-CoV-2 pp1a/pp1ab processing releases products including the RNA polymerase and helicase, and HCV NS3/4A processing of the nonstructural region is essential for viral replication. Inhibition of the upstream protease prevents this functional replicase output; it is not represented as production of an immature particle.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Viral RNA Genome Replication\"], \"role\": \"effector\"}}, {\"id\": \"Synthesis of the Viral Polyprotein Precursor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The viral genome is expressed as one or more polyprotein precursors. These precursors contain structural proteins, replicative enzymes, or both, and must be cleaved into individual functional products. Examples include HIV Gag and Gag-Pol, the HCV polyprotein, and the SARS-CoV-2 replicase polyproteins pp1a and pp1ab.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Viral Gene Expression\"], \"role\": \"trigger\"}}, {\"id\": \"Virus-Encoded Protease-Dependent Polyprotein Processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A virus-encoded peptidase cleaves the polyprotein precursor at defined sites. This shared druggable step is instantiated by HIV protease cleavage of Gag and Gag-Pol, HCV NS3/4A cleavage within the nonstructural region, and SARS-CoV-2 Mpro (3CLpro/nsp5) cleavage of pp1a and pp1ab. Active-site or substrate-cleft protease inhibitors prevent the applicable cleavage events. The products and downstream phenotype are branch-specific rather than interchangeable across these virus families.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Viral Protein Processing\"], \"molecular_functions\": [\"Peptidase Activity\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Synthesis of the Viral Polyprotein Precursor\", \"target\": \"Virus-Encoded Protease-Dependent Polyprotein Processing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A virus-encoded protease cleaves the synthesized precursor at defined junctions to release functional viral proteins.\"}, {\"source\": \"Virus-Encoded Protease-Dependent Polyprotein Processing\", \"target\": \"Replication-Complex Formation and Viral RNA Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In SARS-CoV-2 and HCV, processing releases nonstructural proteins required for replication-complex function and viral RNA replication.\"}, {\"source\": \"Virus-Encoded Protease-Dependent Polyprotein Processing\", \"target\": \"Protease-Driven Structural Virion Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In HIV, Gag and Gag-Pol processing drives structural conversion of the nascent particle into a mature infectious virion.\"}, {\"source\": \"Virus-Encoded Protease-Dependent Polyprotein Processing\", \"target\": \"Protease-Inhibitor Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Under inhibitor selection, protease substitutions that reduce drug binding while retaining sufficient processing activity can be enriched.\"}, {\"source\": \"Protease-Driven Structural Virion Maturation\", \"target\": \"Production of Immature, Non-Infectious Virions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When structural Gag/Gag-Pol processing is inhibited, released HIV particles retain an immature, non-infectious phenotype.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -1334,7 +1826,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box anchor-target" id="module-pathophysiology-synthesis-of-the-viral-polyprotein-precursor" data-dismech-node="Synthesis of the Viral Polyprotein Precursor" data-dismech-type="pathophysiology">
@@ -1345,7 +1837,7 @@
                     
                 </div>
                 
-                <div class="item-desc">Maturation begins with the synthesis of a large polyprotein precursor: after the viral genome is transcribed and translated, the structural proteins and replicative enzymes are produced as a single non-functional precursor that must later be cleaved into its functional subunits. For HIV-1, the Gag and Gag-Pol polyproteins are translated from the integrated provirus and trafficked to the plasma membrane, where they assemble into the immature particle; the HCV nonstructural polyprotein and the SARS-CoV-2 replicase polyproteins (pp1a/pp1ab) follow the same logic. This is the committed, upstream step of the pathway — the precursor it produces is the substrate on which the viral maturation protease, and therefore protease-inhibitor therapy, acts.</div>
+                <div class="item-desc">The viral genome is expressed as one or more polyprotein precursors. These precursors contain structural proteins, replicative enzymes, or both, and must be cleaved into individual functional products. Examples include HIV Gag and Gag-Pol, the HCV polyprotein, and the SARS-CoV-2 replicase polyproteins pp1a and pp1ab.</div>
                 
 
                 
@@ -1353,16 +1845,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Viral Gene Expression
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0019080" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019080">GO:0019080</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019080" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0019080</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Viral Gene Expression (GO:0019080). GO:0019080 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1380,6 +1877,27 @@
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                            
+                            <span class="crosslink-desc">as HCV Polyprotein Translation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/COVID-19.html">COVID-19</a>
+                            
+                            <span class="crosslink-desc">as SARS-CoV-2 Replicase Polyprotein Translation (pp1a/pp1ab)</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -1387,9 +1905,9 @@
                     <ul class="flow-list">
                         
                         <li class="crosslink-item">
-                            <span class="flow-target">Proteolytic Maturation Cleavage by the Viral Protease</span>
+                            <span class="flow-target">Virus-Encoded Protease-Dependent Polyprotein Processing</span>
                             
-                            <span class="crosslink-desc">The synthesized polyprotein precursor is then cleaved at its defined junctions by the virally encoded maturation protease.</span>
+                            <span class="crosslink-desc">A virus-encoded protease cleaves the synthesized precursor at defined junctions to release functional viral proteins.</span>
                             
                         </li>
                         
@@ -1398,15 +1916,15 @@
                 
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-proteolytic-maturation-cleavage-by-the-viral-protease" data-dismech-node="Proteolytic Maturation Cleavage by the Viral Protease" data-dismech-type="pathophysiology">
-                <div class="item-name">Proteolytic Maturation Cleavage by the Viral Protease</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-virus-encoded-protease-dependent-polyprotein-processing" data-dismech-node="Virus-Encoded Protease-Dependent Polyprotein Processing" data-dismech-type="pathophysiology">
+                <div class="item-name">Virus-Encoded Protease-Dependent Polyprotein Processing</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
                 
-                <div class="item-desc">At the central step of the pathway the virally encoded maturation protease cleaves the polyprotein precursor at defined scissile junctions through its peptidase activity, liberating the mature structural proteins and replicative enzymes. This processing protease is essential for the production of infectious progeny, is conserved within a virus family, and differs in structure and specificity from host proteases, making it the second most exploited antiviral drug target after the polymerase. The same druggable cleavage step recurs with different catalytic classes: the HIV-1 aspartyl protease (PR) cleaves the Gag and Gag-Pol polyproteins during virion maturation, the HCV NS3/4A serine protease processes the nonstructural polyprotein, and the SARS-CoV-2 main protease (Mpro / 3CLpro), a cysteine protease, releases the replicase nonstructural proteins. Protease inhibitors — HIV PIs (atazanavir, darunavir, lopinavir, typically ritonavir-boosted), HCV NS3/4A &#34;-previr&#34; inhibitors (glecaprevir, grazoprevir), and SARS-CoV-2 nirmatrelvir — are substrate-mimetic or active-site-directed molecules that occupy the protease substrate cleft and prevent this cleavage. This is the central node of the module and the canonical conformance / treatment target for protease-directed antiviral therapy.</div>
+                <div class="item-desc">A virus-encoded peptidase cleaves the polyprotein precursor at defined sites. This shared druggable step is instantiated by HIV protease cleavage of Gag and Gag-Pol, HCV NS3/4A cleavage within the nonstructural region, and SARS-CoV-2 Mpro (3CLpro/nsp5) cleavage of pp1a and pp1ab. Active-site or substrate-cleft protease inhibitors prevent the applicable cleavage events. The products and downstream phenotype are branch-specific rather than interchangeable across these virus families.</div>
                 
 
                 
@@ -1414,16 +1932,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Viral Protein Processing
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0019082" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019082">GO:0019082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0019082</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Viral Protein Processing (GO:0019082). GO:0019082 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1441,6 +1964,27 @@
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                            
+                            <span class="crosslink-desc">as HCV NS3/4A-Dependent Processing of the Nonstructural Polyprotein</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/COVID-19.html">COVID-19</a>
+                            
+                            <span class="crosslink-desc">as SARS-CoV-2 Mpro-Dependent Processing of pp1a/pp1ab</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -1448,16 +1992,23 @@
                     <ul class="flow-list">
                         
                         <li class="crosslink-item">
-                            <span class="flow-target">Virion Maturation into Infectious Particles</span>
+                            <span class="flow-target">Replication-Complex Formation and Viral RNA Replication</span>
                             
-                            <span class="crosslink-desc">Successful cleavage of the polyprotein liberates the mature proteins that drive the structural rearrangement of the particle into an infectious virion.</span>
+                            <span class="crosslink-desc">In SARS-CoV-2 and HCV, processing releases nonstructural proteins required for replication-complex function and viral RNA replication.</span>
+                            
+                        </li>
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Protease-Driven Structural Virion Maturation</span>
+                            
+                            <span class="crosslink-desc">In HIV, Gag and Gag-Pol processing drives structural conversion of the nascent particle into a mature infectious virion.</span>
                             
                         </li>
                         
                         <li class="crosslink-item">
                             <span class="flow-target">Protease-Inhibitor Resistance</span>
                             
-                            <span class="crosslink-desc">Substrate-cleft mutations in the protease reduce inhibitor binding and let maturation cleavage resume, escaping the drug.</span>
+                            <span class="crosslink-desc">Under inhibitor selection, protease substitutions that reduce drug binding while retaining sufficient processing activity can be enriched.</span>
                             
                         </li>
                         
@@ -1466,15 +2017,15 @@
                 
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-virion-maturation-into-infectious-particles" data-dismech-node="Virion Maturation into Infectious Particles" data-dismech-type="pathophysiology">
-                <div class="item-name">Virion Maturation into Infectious Particles</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-replication-complex-formation-and-viral-rna-replication" data-dismech-node="Replication-Complex Formation and Viral RNA Replication" data-dismech-type="pathophysiology">
+                <div class="item-name">Replication-Complex Formation and Viral RNA Replication</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
                 
-                <div class="item-desc">In the natural cycle, proteolytic cleavage of the polyprotein liberates the mature structural proteins, and this cleavage triggers the structural rearrangement that converts an immature, nascent particle into a mature, infectious virion. For HIV-1, protease-mediated Gag cleavage drives disassembly of the immature Gag lattice and assembly of the mature conical capsid from fully processed capsid protein; the analogous maturation event in HCV and SARS-CoV-2 yields the functional replicase and infectious progeny. This effector node is the productive output of the upstream cleavage step — the biological state that protease-inhibitor therapy is designed to prevent.</div>
+                <div class="item-desc">In the replicase branch, proteolytic processing releases viral nonstructural proteins that form or support the replication machinery. SARS-CoV-2 pp1a/pp1ab processing releases products including the RNA polymerase and helicase, and HCV NS3/4A processing of the nonstructural region is essential for viral replication. Inhibition of the upstream protease prevents this functional replicase output; it is not represented as production of an immature particle.</div>
                 
 
                 
@@ -1482,16 +2033,94 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
+                    <span class="tag tag-bio">
+                        Viral RNA Genome Replication
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0039694" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0039694</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Viral RNA Genome Replication (GO:0039694). GO:0039694 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Acute_Hepatitis_C_Virus_Infection.html">Acute Hepatitis C Virus Infection</a>
+                            
+                            <span class="crosslink-desc">as HCV genome replication and early viremia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/COVID-19.html">COVID-19</a>
+                            
+                            <span class="crosslink-desc">as SARS-CoV-2 Replication-Transcription Complex Formation and RNA Replication</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-protease-driven-structural-virion-maturation" data-dismech-node="Protease-Driven Structural Virion Maturation" data-dismech-type="pathophysiology">
+                <div class="item-name">Protease-Driven Structural Virion Maturation</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">effector</span>
+                    
+                </div>
+                
+                <div class="item-desc">In the structural-maturation branch exemplified by HIV-1, protease-mediated Gag and Gag-Pol cleavage reorganizes the immature particle and produces the mature capsid and other functional virion components. This branch is not used for SARS-CoV-2 Mpro or HCV NS3/4A conformances.</div>
+                
+
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
                     <span class="tag tag-bio">
                         Virion Assembly
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0019068" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019068">GO:0019068</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019068" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0019068</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Virion Assembly (GO:0019068). GO:0019068 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1518,7 +2147,7 @@
                         <li class="crosslink-item">
                             <span class="flow-target">Production of Immature, Non-Infectious Virions</span>
                             
-                            <span class="crosslink-desc">When the upstream protease cleavage is pharmacologically blocked, this maturation step cannot occur and particles are released immature and non-infectious.</span>
+                            <span class="crosslink-desc">When structural Gag/Gag-Pol processing is inhibited, released HIV particles retain an immature, non-infectious phenotype.</span>
                             
                         </li>
                         
@@ -1535,7 +2164,7 @@
                     
                 </div>
                 
-                <div class="item-desc">When a protease inhibitor occupies the active-site cleft, the maturation protease can no longer cleave the polyprotein precursor at its scissile junctions. The constituent structural proteins and enzymes are therefore never liberated from the precursor, the maturation rearrangement cannot occur, and particles are released in an immature, non-infectious state. For HIV-1, blocking proteolytic cleavage of the Gag and Gag-Pol polyproteins yields particles that are released but remain immature and non-infectious; the analogous defect underlies HCV NS3/4A and SARS-CoV-2 Mpro inhibition, where failure to process the nonstructural/replicase polyprotein aborts the productive replication cycle. This is the antiviral consequence of engaging the protease target and, because it acts at a late maturation step rather than blocking initial infection, it suppresses the spread of infectious progeny rather than sterilizing an already-infected cell.</div>
+                <div class="item-desc">In the HIV structural-maturation branch, inhibiting viral protease prevents complete Gag and Gag-Pol cleavage. Particles can be released but retain immature architecture and are non-infectious. This consequence is scoped to the structural branch and is not asserted as the phenotype of HCV NS3/4A or SARS-CoV-2 Mpro inhibition.</div>
                 
 
                 
@@ -1543,16 +2172,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Negative Regulation of Viral Process
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0048525" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048525">GO:0048525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048525</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Negative Regulation of Viral Process (GO:0048525). GO:0048525 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1582,36 +2216,11 @@
                     
                 </div>
                 
-                <div class="item-desc">Viral proteases evolve under drug pressure, and the protease active-site / substrate cleft tolerates amino-acid substitutions that reduce inhibitor affinity while preserving enough catalytic activity to process the polyprotein. In HCV, error-prone replication generates a quasispecies from which NS3/4A resistance-associated substitutions at signature positions (R155, A156, D168) are rapidly selected against &#34;-previr&#34; inhibitors; HIV PR and SARS-CoV-2 Mpro accumulate analogous active-site and accessory mutations. A second, pharmacological dimension compounds escape: several HIV and SARS-CoV-2 protease inhibitors are rapidly metabolized by host CYP3A, so they are co-administered with a CYP3A-inhibitor pharmacoenhancer (ritonavir or cobicistat) to maintain inhibitory drug levels — the booster has no intrinsic antiviral activity and so does not itself add resistance pressure. This adaptive branch off the cleavage node explains why protease-inhibitor monotherapy fails against high-mutation-rate viruses and why durable benefit requires boosting plus combination regimens (HIV three-drug ART, multi-DAA HCV cure). Conforming entries can attach a treatment&#39;s failure mode or its boosting/combination rationale to this node.</div>
+                <div class="item-desc">Viral proteases can acquire substitutions that reduce inhibitor affinity while preserving enough catalytic activity for polyprotein processing. HCV NS3/4A resistance-associated substitutions at positions including R155, A156, and D168 illustrate this adaptive escape. Host-drug metabolism and pharmacokinetic boosting are intentionally excluded from this node: ritonavir or cobicistat enhancement changes inhibitor exposure, whereas resistance is a heritable viral target change selected under drug pressure.</div>
                 
 
                 
 
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        Response to Xenobiotic Stimulus
-                        
-                        
-    
-    
-    <a href="http://purl.obolibrary.org/obo/GO_0009410" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009410">GO:0009410</a>
-    
-    
-                        
-                    </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                </div>
                 
 
                 
@@ -1632,6 +2241,11 @@
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/modules/viral_protease_inhibition.yaml" target="_blank">View source on GitHub</a>
             </p>
+            
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
     <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
@@ -1649,5 +2263,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

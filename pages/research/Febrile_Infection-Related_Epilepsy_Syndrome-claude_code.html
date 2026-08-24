@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -745,16 +907,16 @@
 <p>No cure; management is a two-front war — <strong>stop the seizures</strong> and <strong>cool the inflammation</strong> — with early, aggressive escalation. The 2022 international consensus (Wickstrom et al., <a href="https://pubmed.ncbi.nlm.nih.gov/35951466/" target="_blank" rel="noopener noreferrer">PMID:35951466</a>, 85 consensus statements) is the anchor.</p>
 <p><strong>A. Anti-seizure / anesthetic (acute SE control)</strong>
 - Standard SE ladder: benzodiazepines → IV ASMs (levetiracetam, valproate, phenytoin/fosphenytoin) → <strong>anesthetic/burst-suppression coma</strong> (midazolam, <strong>barbiturates/pentobarbital</strong>, ketamine, propofol). <em>Caveat:</em> <strong>prolonged barbiturate coma correlates with worse cognition</strong> — a therapy whose cure edges into harm.
-  - MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a></strong> (pharmacotherapy) / antiseizure pharmacotherapy; anesthesia.
+  - MAXO: <strong><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a></strong> (pharmacotherapy) / antiseizure pharmacotherapy; anesthesia.
 - <strong>Cannabidiol (Epidiolex):</strong> promising in both phases — case series of 7 children, <strong>6/7 improved</strong> in seizure frequency/duration (Gofshteyn et al. 2017, <em>J Child Neurol</em>; <strong><a href="https://pubmed.ncbi.nlm.nih.gov/27655472/" target="_blank" rel="noopener noreferrer">PMID:27655472</a></strong>); acute-phase reports of SE resolution within days (Fetta 2023, <em>Epilepsia Open</em>, <a href="https://onlinelibrary.wiley.com/doi/10.1002/epi4.12740">doi:10.1002/epi4.12740</a>, <strong>verify PMID</strong>). CHEBI: cannabidiol <strong><a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" rel="noopener noreferrer">CHEBI:69478</a></strong>.
 - Other ASMs reported ad hoc (cenobamate, perampanel, topiramate) in the chronic phase — anecdotal.</p>
 <p><strong>B. Ketogenic diet (KD) — a signature FIRES therapy</strong>
-- Landmark: <strong>Nabbout et al. 2010, <em>Epilepsia</em></strong> (<a href="https://onlinelibrary.wiley.com/doi/10.1111/j.1528-1167.2010.02703.x">doi:10.1111/j.1528-1167.2010.02703.x</a>, <strong>verify PMID</strong>) — 4:1 KD in 9 FIRES children, <strong>efficacious in 7</strong>, with seizure cessation <strong>2–4 days after ketonuria / 4–6 days after diet onset</strong>. Now a recommended early adjunct (watch for propofol interaction → propofol infusion syndrome). MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a></strong> (dietary intervention) / ketogenic diet.</p>
+- Landmark: <strong>Nabbout et al. 2010, <em>Epilepsia</em></strong> (<a href="https://onlinelibrary.wiley.com/doi/10.1111/j.1528-1167.2010.02703.x">doi:10.1111/j.1528-1167.2010.02703.x</a>, <strong>verify PMID</strong>) — 4:1 KD in 9 FIRES children, <strong>efficacious in 7</strong>, with seizure cessation <strong>2–4 days after ketonuria / 4–6 days after diet onset</strong>. Now a recommended early adjunct (watch for propofol interaction → propofol infusion syndrome). MAXO: <strong><a href="https://bioregistry.io/MAXO:0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a></strong> (dietary intervention) / ketogenic diet.</p>
 <p><strong>C. Immunotherapy (mechanistically the most rational)</strong>
-- <strong>First-line, start within ~72 h:</strong> high-dose <strong>corticosteroids</strong> (MAXO/CHEBI corticosteroid), <strong>IVIG</strong>, and/or <strong>plasma exchange</strong>. MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000759" target="_blank" rel="noopener noreferrer">MAXO:0000759</a></strong> (immunosuppressive therapy); plasmapheresis.
+- <strong>First-line, start within ~72 h:</strong> high-dose <strong>corticosteroids</strong> (MAXO/CHEBI corticosteroid), <strong>IVIG</strong>, and/or <strong>plasma exchange</strong>. MAXO: <strong><a href="https://bioregistry.io/MAXO:0000759" target="_blank" rel="noopener noreferrer">MAXO:0000759</a></strong> (immunosuppressive therapy); plasmapheresis.
 - <strong>Second-line, escalate early in cryptogenic FIRES:</strong>
   - <strong>Anakinra</strong> (recombinant <strong>IL-1 receptor antagonist</strong>) — the most evidence-backed targeted therapy, born from the mechanism itself. First reported by <strong>Kenney-Jung et al. 2016, <em>Ann Neurol</em></strong> (<a href="https://onlinelibrary.wiley.com/doi/10.1002/ana.24806">doi:10.1002/ana.24806</a>, <strong>verify PMID</strong>): CSF cytokines normalized on treatment. In one series, <strong>11/15 children had &gt;50% seizure reduction at 1 week</strong> (PMC9756623); early use → shorter ICU stay. Long-term neuropsych outcomes can still be poor despite anakinra (Frontiers Neurol 2023). 
-  - <strong>Tocilizumab</strong> (<strong>IL-6 receptor</strong> monoclonal antibody) — effective in some <strong>anakinra-refractory</strong> cases (Stredny et al. 2020, <em>Child Neurol Open</em>, <a href="https://journals.sagepub.com/doi/10.1177/2329048X20979253">doi:10.1177/2329048X20979253</a>, <strong>verify PMID</strong>); and vice versa — <strong>anakinra works in some tocilizumab-refractory cases even with normal IL-1β</strong> (Frontiers Immunol 2026). MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000759" target="_blank" rel="noopener noreferrer">MAXO:0000759</a></strong> immunomodulation; therapeutic_modality: MONOCLONAL_ANTIBODY for tocilizumab.
+  - <strong>Tocilizumab</strong> (<strong>IL-6 receptor</strong> monoclonal antibody) — effective in some <strong>anakinra-refractory</strong> cases (Stredny et al. 2020, <em>Child Neurol Open</em>, <a href="https://journals.sagepub.com/doi/10.1177/2329048X20979253">doi:10.1177/2329048X20979253</a>, <strong>verify PMID</strong>); and vice versa — <strong>anakinra works in some tocilizumab-refractory cases even with normal IL-1β</strong> (Frontiers Immunol 2026). MAXO: <strong><a href="https://bioregistry.io/MAXO:0000759" target="_blank" rel="noopener noreferrer">MAXO:0000759</a></strong> immunomodulation; therapeutic_modality: MONOCLONAL_ANTIBODY for tocilizumab.
   - Chronic-phase case series: anakinra/tocilizumab gave <strong>partial seizure reduction (20–50%) in some, no seizure-freedom</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35759951/">Seizure 2022, PMID:35759951</a>).
   - Others (rituximab, tacrolimus, canakinumab, cyclophosphamide) — inconsistent/unclear benefit.</p>
 <p><strong>D. Other / experimental:</strong> vagus nerve stimulation and epilepsy surgery in selected chronic drug-resistant cases; therapeutic hypothermia (largely abandoned); intrathecal/other anti-cytokine strategies under study. Active clinical trials exist (e.g., KD for SRSE, NCT07496749 — verify) — search ClinicalTrials.gov for current anakinra/tocilizumab/KD FIRES trials.</p>
@@ -807,10 +969,10 @@
 
             <nav class="report-nav" aria-label="Report navigation">
                 
-                <a href="FAS-related_Autoimmune_Lymphoproliferative_Syndrome-manual.html">← FAS-related Autoimmune Lymphoproliferative Syndrome (Manual)</a>
+                <a href="Fatal_Familial_Insomnia-falcon.html">← Fatal Familial Insomnia (Falcon)</a>
                 
                 
-                <a href="Feingold_Syndrome-falcon.html">Feingold Syndrome (Falcon) →</a>
+                <a href="Febrile_Ulceronecrotic_Mucha-Habermann_Disease-openscientist.html">Febrile Ulceronecrotic Mucha-Habermann Disease (OpenScientist) →</a>
                 
             </nav>
         </main>

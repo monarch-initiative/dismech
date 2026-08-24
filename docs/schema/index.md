@@ -14,6 +14,7 @@ Name: dismech
 | --- | --- |
 | [AgentLifeCycle](classes/AgentLifeCycle.md) |  |
 | [AgentLifeCycleStage](classes/AgentLifeCycleStage.md) |  |
+| [AlgorithmValidationStatus](classes/AlgorithmValidationStatus.md) | Validation maturity of a phenotype algorithm / computable case definition: a ... |
 | [AnimalModel](classes/AnimalModel.md) |  |
 | [AntisenseOligonucleotideDetail](classes/AntisenseOligonucleotideDetail.md) | Structured attributes specific to an antisense oligonucleotide (ASO) treatmen... |
 | [Any](classes/Any.md) |  |
@@ -28,9 +29,13 @@ Name: dismech
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ChannelopathyAssignment](classes/ChannelopathyAssignment.md) | Channelopathy organ system classification assignment |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[HarrisonsChapterAssignment](classes/HarrisonsChapterAssignment.md) | Harrison's internal medicine chapter classification assignment |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ICDOMorphologyAssignment](classes/ICDOMorphologyAssignment.md) | ICD-O morphology classification assignment for neoplastic diseases |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ICIMDAssignment](classes/ICIMDAssignment.md) | ICIMD category/group classification assignment for inherited metabolic disord... |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ISDSNosologyAssignment](classes/ISDSNosologyAssignment.md) | ISDS Nosology group assignment for a genetic skeletal disorder, per the Nosol... |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[IUISAssignment](classes/IUISAssignment.md) | IUIS primary immunodeficiency classification assignment |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[LysosomalStorageAssignment](classes/LysosomalStorageAssignment.md) | Lysosomal storage disease biochemical classification assignment |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[MechanisticNosologyAssignment](classes/MechanisticNosologyAssignment.md) | Mechanistic/pathway-based disease classification assignment |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[NIHResearchPriorityAssignment](classes/NIHResearchPriorityAssignment.md) | NIH Highlighted Topics funding-priority assignment |
+| [ClinicalBurden](classes/ClinicalBurden.md) | Disease-level assessment of the typical clinical burden imposed by a disease |
 | [ClinicalTrial](classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |
 | [ComorbidityAssociation](classes/ComorbidityAssociation.md) | An association between two conditions, including directionality, evidence, an... |
 | [ComorbidityHypothesis](classes/ComorbidityHypothesis.md) | Mechanistic hypothesis for a comorbidity association, with rich text and embe... |
@@ -56,7 +61,8 @@ Name: dismech
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[FoodDescriptor](classes/FoodDescriptor.md) | A descriptor for foods, beverages, nutrients, minerals, and supplements, bind... |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[GeneDescriptor](classes/GeneDescriptor.md) | A descriptor for genes, bindable to HGNC or other gene databases |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[GeneProductDescriptor](classes/GeneProductDescriptor.md) | A descriptor for gene products (proteins, fusion proteins, oncoproteins), bin... |
-| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[HistopathologyFindingDescriptor](classes/HistopathologyFindingDescriptor.md) | A descriptor for histopathologic findings, bindable to NCIT Morphologic Findi... |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[HistopathologyFindingDescriptor](classes/HistopathologyFindingDescriptor.md) | A descriptor for histopathologic findings, bindable to the NCIT Histopatholog... |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ImagingFindingDescriptor](classes/ImagingFindingDescriptor.md) | A descriptor for an in-vivo imaging finding, bindable to the NCIT Imaging Fin... |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[InheritanceDescriptor](classes/InheritanceDescriptor.md) | A descriptor for inheritance patterns, bindable to HPO mode of inheritance te... |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[LifeCycleStageDescriptor](classes/LifeCycleStageDescriptor.md) | A descriptor for parasite life cycle stages, bindable to OPL |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ModelVariableDescriptor](classes/ModelVariableDescriptor.md) | A descriptor mapping a model variable to an ontology term (LOINC, CHEBI, HP, ... |
@@ -68,7 +74,7 @@ Name: dismech
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[RegimenDescriptor](classes/RegimenDescriptor.md) | A descriptor for treatment regimens, bindable to NCIT |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[SampleTypeDescriptor](classes/SampleTypeDescriptor.md) | A descriptor for biological sample types (tissue and/or cell type) |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[SubtypeDescriptor](classes/SubtypeDescriptor.md) | A descriptor for disease subtypes, bindable to MONDO disease terms or NCIT on... |
-| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[TreatmentDescriptor](classes/TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinica... |
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[TreatmentDescriptor](classes/TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to NCIT clinical interv... |
 | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[TriggerDescriptor](classes/TriggerDescriptor.md) | A descriptor for triggers/causes |
 | [Diagnosis](classes/Diagnosis.md) |  |
 | [DietaryModification](classes/DietaryModification.md) | A structured dietary addition, restriction, avoidance, or substitution used t... |
@@ -79,6 +85,7 @@ Name: dismech
 | [DiseaseClassifications](classes/DiseaseClassifications.md) | Container for all classification assignments for a disease |
 | [DiseaseCollection](classes/DiseaseCollection.md) |  |
 | [DiseaseMappings](classes/DiseaseMappings.md) | Container for external identifier mappings for a disease or subtype |
+| [ElectrophysiologyContext](classes/ElectrophysiologyContext.md) | An optional post-composition sidecar on a Phenotype, carrying the electrophys... |
 | [Environmental](classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |
 | [EpidemiologyInfo](classes/EpidemiologyInfo.md) |  |
 | [EvidenceItem](classes/EvidenceItem.md) |  |
@@ -90,6 +97,8 @@ Name: dismech
 | [ExternalAssertion](classes/ExternalAssertion.md) | An externally curated assertion or registry record relevant to a disease or v... |
 | [Finding](classes/Finding.md) | A key finding or claim extracted from a source (publication or dataset) |
 | [FunctionalEffect](classes/FunctionalEffect.md) | Describes the functional consequence of a genetic variant, including regulato... |
+| [GeneCaseFraction](classes/GeneCaseFraction.md) | A structured estimate of the fraction of cases of a genetically heterogeneous... |
+| [GeneSetAssociation](classes/GeneSetAssociation.md) | A curated link between this disease and an external gene set, referenced by i... |
 | [Genetic](classes/Genetic.md) |  |
 | [GeneticContext](classes/GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |
 | [GOEnrichment](classes/GOEnrichment.md) | GO enrichment results for an association signal |
@@ -98,6 +107,7 @@ Name: dismech
 | [GroupingCriteria](classes/GroupingCriteria.md) | The shared membership criteria for a grouping, pairing a human-readable descr... |
 | [GroupingMember](classes/GroupingMember.md) | One member of a grouping, referenced by foreign key, together with the mechan... |
 | [HistopathologyFinding](classes/HistopathologyFinding.md) | A histopathologic finding from microscopic examination of tissue |
+| [ImagingFinding](classes/ImagingFinding.md) | A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc |
 | [InfectiousAgent](classes/InfectiousAgent.md) |  |
 | [Inheritance](classes/Inheritance.md) |  |
 | [LogicalCriterion](classes/LogicalCriterion.md) | A node in a nested boolean membership-criteria expression |
@@ -111,6 +121,7 @@ Name: dismech
 | [Pathophysiology](classes/Pathophysiology.md) |  |
 | [Phenotype](classes/Phenotype.md) |  |
 | [PhenotypeContext](classes/PhenotypeContext.md) | A context-specific annotation qualifying how a phenotype manifests under part... |
+| [PhenotypeReadout](classes/PhenotypeReadout.md) | Links an investigation-readout phenotype (an abnormal electrophysiology, func... |
 | [Prevalence](classes/Prevalence.md) |  |
 | [ProgressionInfo](classes/ProgressionInfo.md) |  |
 | [ProteinStructure](classes/ProteinStructure.md) | A 3D protein structure from PDB or AlphaFold relevant to understanding a trea... |
@@ -174,7 +185,13 @@ Name: dismech
 | [base_model](slots/base_model.md) | Parent/base model this is derived from (e |
 | [biochemical](slots/biochemical.md) |  |
 | [biological_processes](slots/biological_processes.md) |  |
+| [biological_scale](slots/biological_scale.md) | Biological scale of the substrate this pathophysiology node primarily describ... |
 | [biomarker_term](slots/biomarker_term.md) | Ontology term for a biomarker (from NCIT) |
+| [burden_level](slots/burden_level.md) | Coarse disease-level clinical burden category |
+| [case_fraction_high](slots/case_fraction_high.md) | Upper bound of the case fraction (percent) when the source gives a range |
+| [case_fraction_low](slots/case_fraction_low.md) | Lower bound of the case fraction (percent) when the source gives a range |
+| [case_fraction_percent](slots/case_fraction_percent.md) | Point estimate of the percentage of cases attributable to this gene in the st... |
+| [case_fractions](slots/case_fractions.md) | Per-cohort estimates of the fraction of cases of a genetically heterogeneous ... |
 | [categories](slots/categories.md) |  |
 | [category](slots/category.md) |  |
 | [causal_link_type](slots/causal_link_type.md) | Whether this edge is direct or indirect, and whether omitted intermediates ar... |
@@ -192,11 +209,13 @@ Name: dismech
 | [clinical_benefit](slots/clinical_benefit.md) | Specific clinical benefit, clinical outcome, or direct endpoint predicted by ... |
 | [clinical_benefit_linkage](slots/clinical_benefit_linkage.md) | How the surrogate endpoint is linked to clinical benefit in the regulatory co... |
 | [clinical_benefit_linkage_basis](slots/clinical_benefit_linkage_basis.md) | Explanation of how the clinical-benefit linkage was inferred or curated |
+| [clinical_burden](slots/clinical_burden.md) | Disease-level assessment of the typical clinical burden imposed by this disea... |
 | [clinical_course](slots/clinical_course.md) | Clinical course qualifier for this descriptor (e |
 | [clinical_significance](slots/clinical_significance.md) |  |
 | [clinical_trials](slots/clinical_trials.md) | Clinical trials relevant to disease treatment and research |
 | [code](slots/code.md) | Code within the specified code system |
 | [code_system](slots/code_system.md) | Code system used for a condition reference (e |
+| [cohort_size](slots/cohort_size.md) | Number of probands/cases in the cohort the case fraction was computed in, whe... |
 | [combined_score](slots/combined_score.md) | Combined score used by an enrichment method |
 | [complementation_group](slots/complementation_group.md) | Complementation group designation (e |
 | [components](slots/components.md) | Component conditions that make up a composite descriptor |
@@ -232,9 +251,10 @@ Name: dismech
 | [definition_type](slots/definition_type.md) | The type of definition or criteria set |
 | [definitions](slots/definitions.md) | Definitions or diagnostic criteria for this disease |
 | [demographics](slots/demographics.md) | Demographic stratification for an association signal |
+| [derivation_basis](slots/derivation_basis.md) | Epistemic grounding of a definition, orthogonal to definition_type: establish... |
 | [description](slots/description.md) |  |
 | [diagnosis](slots/diagnosis.md) |  |
-| [diagnosis_term](slots/diagnosis_term.md) | The MAXO term for this diagnostic procedure |
+| [diagnosis_term](slots/diagnosis_term.md) | The NCIT term for this diagnostic procedure |
 | [diagnostic](slots/diagnostic.md) |  |
 | [dietary_modifications](slots/dietary_modifications.md) | Structured dietary additions, restrictions, avoidances, or substitutions asso... |
 | [differential_diagnoses](slots/differential_diagnoses.md) | Differential diagnoses - similar diseases that must be ruled out |
@@ -257,6 +277,9 @@ Name: dismech
 | [duration](slots/duration.md) |  |
 | [duration_days](slots/duration_days.md) |  |
 | [effect](slots/effect.md) |  |
+| [effect_direction](slots/effect_direction.md) | The sign of the association - whether one condition raises (RISK) or lowers (... |
+| [electrophysiology](slots/electrophysiology.md) | Optional electrophysiologic post-composition sidecar for a phenotype whose ph... |
+| [electrophysiology_modality](slots/electrophysiology_modality.md) | The in-vivo electrophysiologic modality on which a phenotype was recorded |
 | [endpoint_context](slots/endpoint_context.md) | Endpoint or use context for a biomarker readout link |
 | [endpoint_validation_level](slots/endpoint_validation_level.md) | BEST-aligned validation level inferred or curated for the surrogate endpoint |
 | [environment_context](slots/environment_context.md) | The ENVO term for the environmental context/setting |
@@ -292,6 +315,8 @@ Name: dismech
 | [functional_impact_category](slots/functional_impact_category.md) | Controlled functional impact category for a genetic context |
 | [gene](slots/gene.md) |  |
 | [gene_products](slots/gene_products.md) | Gene products (proteins, fusion proteins, oncoproteins) involved in this path... |
+| [gene_set](slots/gene_set.md) | Structured-source id of the gene set, e |
+| [gene_sets](slots/gene_sets.md) | Curated links from this disease to external gene sets, each referenced by its... |
 | [gene_term](slots/gene_term.md) | The HGNC term for this gene |
 | [genes](slots/genes.md) |  |
 | [genetic](slots/genetic.md) |  |
@@ -313,9 +338,13 @@ Name: dismech
 | [icd10cm_mappings](slots/icd10cm_mappings.md) | ICD-10-CM code mappings for this disease |
 | [icd11f_mappings](slots/icd11f_mappings.md) | ICD-11 Foundation code mappings for this disease |
 | [icdo_morphology](slots/icdo_morphology.md) | ICD-O morphology classification (for neoplastic diseases) |
+| [icimd_category](slots/icimd_category.md) | International Classification of Inherited Metabolic Disorders (ICIMD) categor... |
+| [ictal_state](slots/ictal_state.md) | Timing of an electrophysiologic finding relative to a seizure/paroxysmal even... |
 | [id](slots/id.md) | Ontology term identifier (CURIE) |
 | [identifiers](slots/identifiers.md) |  |
 | [images](slots/images.md) | Relative paths to image files (figures, charts, micrographs) sourced from dee... |
+| [imaging_finding_term](slots/imaging_finding_term.md) | Ontology term for an imaging finding (from the NCIT Imaging Finding branch or... |
+| [imaging_findings](slots/imaging_findings.md) | In-vivo imaging findings (radiologic, nuclear-medicine, or ultrasound) that r... |
 | [imaging_requirements](slots/imaging_requirements.md) | Imaging requirements used in a criteria set |
 | [inclusion_criteria](slots/inclusion_criteria.md) | Inclusion criteria for a definition or criteria set |
 | [incubation_days](slots/incubation_days.md) |  |
@@ -327,6 +356,7 @@ Name: dismech
 | [intermediate_mechanisms](slots/intermediate_mechanisms.md) | Known or suspected intermediate mechanisms omitted from this edge for graph c... |
 | [interpretation](slots/interpretation.md) | Curator-facing explanation of how to interpret the biomarker relative to the ... |
 | [interpretation_bands](slots/interpretation_bands.md) | Ordered graded interpretation bands that partition a measurement scale into c... |
+| [isds_skeletal_category](slots/isds_skeletal_category.md) | ISDS Nosology and Classification of Genetic Skeletal Disorders group assignme... |
 | [iuis_category](slots/iuis_category.md) | IUIS primary immunodeficiency classification |
 | [kind](slots/kind.md) | Categorical type of a Discussion (narrowed via slot_usage to DiscussionKindEn... |
 | [label](slots/label.md) | Human-readable label for the ontology term |
@@ -357,6 +387,7 @@ Name: dismech
 | [maximum_value](slots/maximum_value.md) |  |
 | [mean_age_years](slots/mean_age_years.md) | Mean age of onset in years, as reported in a cohort study |
 | [mean_range](slots/mean_range.md) |  |
+| [measure_type](slots/measure_type.md) | Which epidemiological measure this Prevalence record reports (point prevalenc... |
 | [mechanism](slots/mechanism.md) |  |
 | [mechanism_confidence](slots/mechanism_confidence.md) | Level of confidence in this pathophysiology mechanism |
 | [mechanisms](slots/mechanisms.md) |  |
@@ -376,6 +407,7 @@ Name: dismech
 | [min_frequency](slots/min_frequency.md) | Minimum phenotype frequency threshold for a HAS_PHENOTYPE criterion; members ... |
 | [minimum_required](slots/minimum_required.md) | Minimum number of criteria required in this criteria set |
 | [minimum_value](slots/minimum_value.md) |  |
+| [modality](slots/modality.md) | The in-vivo imaging modality by which a finding is detected |
 | [model_format](slots/model_format.md) | File format (e |
 | [model_id](slots/model_id.md) | Identifier within the repository (e |
 | [model_software](slots/model_software.md) | Software/toolbox for running the model (e |
@@ -391,6 +423,8 @@ Name: dismech
 | [namo_type](slots/namo_type.md) | Optional mapping to the corresponding NAMO class, such as `namo:Organoid` or ... |
 | [ncit_mappings](slots/ncit_mappings.md) | NCIT disease, subtype, or disease/finding mappings |
 | [negated](slots/negated.md) | If true, this leaf criterion is negated (the constraint must NOT hold) |
+| [nih_research_priority](slots/nih_research_priority.md) | NIH "Highlighted Topics" funding-priority area(s) this disease is relevant to |
+| [note](slots/note.md) | Free-text curator note on the link (e |
 | [notes](slots/notes.md) |  |
 | [onset](slots/onset.md) | Structured age of onset descriptor |
 | [onset_category](slots/onset_category.md) | HPO onset category (e |
@@ -424,6 +458,7 @@ Name: dismech
 | [preferred_term](slots/preferred_term.md) | The preferred human-readable term for this descriptor |
 | [presence](slots/presence.md) |  |
 | [prevalence](slots/prevalence.md) |  |
+| [prevalence_class](slots/prevalence_class.md) | Coarse occurrence band (Orphanet prevalence class or qualitative tier) — the ... |
 | [progression](slots/progression.md) |  |
 | [prompt](slots/prompt.md) | The unresolved question, controversy, or todo articulated by a Discussion |
 | [proposed_experiments](slots/proposed_experiments.md) | Experiments proposed as ways to resolve this Discussion |
@@ -431,8 +466,12 @@ Name: dismech
 | [protocol_reference](slots/protocol_reference.md) | Optional protocol, methods paper, or registry reference for the experimental ... |
 | [publication](slots/publication.md) | Associated publication (PMID) |
 | [qualifiers](slots/qualifiers.md) | List of predicate-value pairs for formal post-composition |
+| [rate_high](slots/rate_high.md) | Upper bound of the occurrence rate per 100,000 when the source gives a range ... |
+| [rate_low](slots/rate_low.md) | Lower bound of the occurrence rate per 100,000 when the source gives a range ... |
+| [rate_per_100000](slots/rate_per_100000.md) | Normalized point estimate of occurrence expressed as cases per 100,000, for m... |
 | [rationale](slots/rationale.md) | Why this Discussion matters / what hangs on its resolution |
 | [readouts](slots/readouts.md) | Links this biomarker to disease pathograph nodes that it measures, reflects, ... |
+| [recording_state](slots/recording_state.md) | Behavioural state or activation procedure under which an EEG finding is recor... |
 | [reference](slots/reference.md) | The authoritative reference (publication) for this evidence item |
 | [reference_ranges](slots/reference_ranges.md) | Clinical laboratory reference intervals for this biomarker, keyed by LOINC co... |
 | [reference_title](slots/reference_title.md) | The title of the referenced publication |
@@ -444,6 +483,7 @@ Name: dismech
 | [regulatory_mechanism](slots/regulatory_mechanism.md) | The specific molecular mechanism by which the regulatory variant exerts its e... |
 | [relationship](slots/relationship.md) | Controlled relationship between a biomarker and the pathograph node it report... |
 | [relationship_type](slots/relationship_type.md) | Controlled-vocabulary classification of the gene-disease relationship (e |
+| [reports_on](slots/reports_on.md) | Links an investigation-readout phenotype (e |
 | [repository_url](slots/repository_url.md) | URL to model repository (GitHub, BiGG, VMH, BioModels) |
 | [resolution_angstrom](slots/resolution_angstrom.md) | Structure resolution in angstroms (for experimental structures) |
 | [resolution_note](slots/resolution_note.md) | Short summary written when a Discussion is marked RESOLVED |
@@ -513,7 +553,7 @@ Name: dismech
 | [tracked_issues](slots/tracked_issues.md) | Structured pointers to external tracker issues (e |
 | [transmission](slots/transmission.md) |  |
 | [treatment_effect](slots/treatment_effect.md) | How the treatment affects the targeted mechanism |
-| [treatment_term](slots/treatment_term.md) | The MAXO term for this treatment/medical action |
+| [treatment_term](slots/treatment_term.md) | The NCIT term for this treatment/medical action |
 | [treatments](slots/treatments.md) |  |
 | [triggers](slots/triggers.md) |  |
 | [type](slots/type.md) |  |
@@ -522,6 +562,7 @@ Name: dismech
 | [upper_bound](slots/upper_bound.md) | Upper bound of a reference interval (inclusive) |
 | [upstream_disorder](slots/upstream_disorder.md) | Upstream disorder referenced in a hypothesis |
 | [url](slots/url.md) | URL for the external assertion or registry record |
+| [validation_status](slots/validation_status.md) | Structured validation maturity of a phenotype algorithm / computable case def... |
 | [value](slots/value.md) | The value/filler in a qualifier |
 | [variables](slots/variables.md) | Variables/outputs of a computational model with ontology mappings |
 | [variant_origin](slots/variant_origin.md) | The origin of disease-associated variation in this gene (germline, somatic, d... |
@@ -537,6 +578,7 @@ Name: dismech
 | Enumeration | Description |
 | --- | --- |
 | [AbnormalFlagEnum](enums/AbnormalFlagEnum.md) | Categorical interpretation flag for a clinical laboratory result band, aligne... |
+| [AlgorithmValidationStatusEnum](enums/AlgorithmValidationStatusEnum.md) | Validation maturity of a phenotype algorithm / computable case definition |
 | [AllelicEventEnum](enums/AllelicEventEnum.md) | Type of genetic or epigenetic event affecting an allele |
 | [AllelicHitRoleEnum](enums/AllelicHitRoleEnum.md) | Role of a genetic alteration in a multi-hit disease mechanism |
 | [AnatomicalEntityTerm](enums/AnatomicalEntityTerm.md) | A term representing an anatomical entity |
@@ -548,6 +590,7 @@ Name: dismech
 | [AssociationSignalMethodEnum](enums/AssociationSignalMethodEnum.md) | Method used to derive an association signal |
 | [AssociationSignalSourceEnum](enums/AssociationSignalSourceEnum.md) | Source of an association signal |
 | [BiologicalProcessTerm](enums/BiologicalProcessTerm.md) | A term representing a biological process or pathway |
+| [BiologicalScaleEnum](enums/BiologicalScaleEnum.md) | Biological scale of the substrate a pathophysiology node describes |
 | [BiomarkerEndpointContextEnum](enums/BiomarkerEndpointContextEnum.md) | Endpoint or use context for a biomarker readout link |
 | [BiomarkerReadoutDirectionEnum](enums/BiomarkerReadoutDirectionEnum.md) | Direction of association between biomarker value/presence and the linked even... |
 | [BiomarkerReadoutRelationshipEnum](enums/BiomarkerReadoutRelationshipEnum.md) | Relationship between a biomarker and the pathograph node it reports on |
@@ -558,11 +601,13 @@ Name: dismech
 | [ChannelopathyOrganSystemEnum](enums/ChannelopathyOrganSystemEnum.md) | Classification categories for channelopathies by affected organ system |
 | [ChemicalEntityTerm](enums/ChemicalEntityTerm.md) | A term representing a chemical entity |
 | [ClinicalBenefitLinkageEnum](enums/ClinicalBenefitLinkageEnum.md) | How a surrogate endpoint is linked to clinical benefit in the regulatory cont... |
+| [ClinicalBurdenLevelEnum](enums/ClinicalBurdenLevelEnum.md) | Coarse disease-level assessment of the typical clinical burden imposed by a d... |
 | [ClinicalCourseEnum](enums/ClinicalCourseEnum.md) | Clinical course qualifiers for descriptor post-composition |
 | [ClinicalSignificanceEnum](enums/ClinicalSignificanceEnum.md) | The clinical significance of a variant for a condition (ACMG guidelines) |
 | [ClinicalTrialPhaseEnum](enums/ClinicalTrialPhaseEnum.md) | Clinical trial phase categories per FDA/NIH standards |
 | [ClinicalTrialStatusEnum](enums/ClinicalTrialStatusEnum.md) | Clinical trial recruitment and status categories per ClinicalTrials |
 | [ComorbidityDirectionEnum](enums/ComorbidityDirectionEnum.md) | Directionality of a comorbidity/trajectory association |
+| [ComorbidityEffectDirectionEnum](enums/ComorbidityEffectDirectionEnum.md) | The sign (effect direction) of a comorbidity/trajectory association - whether... |
 | [ComputationalModelTypeEnum](enums/ComputationalModelTypeEnum.md) | Type of computational or in-silico model |
 | [ConditionCompositionEnum](enums/ConditionCompositionEnum.md) | Composition type for a composite condition descriptor |
 | [CriteriaSemanticsEnum](enums/CriteriaSemanticsEnum.md) | The logical direction relating a grouping's membership criteria to its member... |
@@ -570,12 +615,15 @@ Name: dismech
 | [CurationActionEnum](enums/CurationActionEnum.md) | Simple action types for curation audit trail |
 | [CurationStatusEnum](enums/CurationStatusEnum.md) | Curation workflow status for an association |
 | [DatasetTypeEnum](enums/DatasetTypeEnum.md) | Type of dataset or data resource |
+| [DefinitionDerivationBasisEnum](enums/DefinitionDerivationBasisEnum.md) | The epistemic grounding of a definition / phenotype algorithm, orthogonal to ... |
 | [DefinitionTypeEnum](enums/DefinitionTypeEnum.md) | The type of definition or criteria set |
 | [DietaryModificationActionEnum](enums/DietaryModificationActionEnum.md) | Action applied to a food or beverage as part of a dietary treatment |
 | [DiscussionKindEnum](enums/DiscussionKindEnum.md) | Kind of unresolved/in-progress item captured by a Discussion |
 | [DiscussionStatusEnum](enums/DiscussionStatusEnum.md) | Lifecycle status for a Discussion |
 | [DiseaseOrSubtypeTerm](enums/DiseaseOrSubtypeTerm.md) | A MONDO disease term or NCIT cancer disease/subtype term used to ground a dis... |
 | [DiseaseTerm](enums/DiseaseTerm.md) | A MONDO disease, inherited disease susceptibility, or related medical conditi... |
+| [EEGRecordingStateEnum](enums/EEGRecordingStateEnum.md) | Behavioural state or activation procedure under which an EEG finding is recor... |
+| [ElectrophysiologyModalityEnum](enums/ElectrophysiologyModalityEnum.md) | In-vivo electrophysiologic / neurophysiologic investigation on which an elect... |
 | [EnvironmentTerm](enums/EnvironmentTerm.md) | A term representing an environmental context, material, or feature (from ENVO... |
 | [EvidenceItemSupportEnum](enums/EvidenceItemSupportEnum.md) | The level of support for an evidence item |
 | [EvidenceSourceEnum](enums/EvidenceSourceEnum.md) | The provenance/source of the evidence item |
@@ -587,6 +635,7 @@ Name: dismech
 | [FunctionalImpactEnum](enums/FunctionalImpactEnum.md) | Directional or qualitative functional consequence of a variant or genetic con... |
 | [GeneDiseaseRelationshipEnum](enums/GeneDiseaseRelationshipEnum.md) | The qualitative relationship between a gene (or locus) and a disease |
 | [GeneProductTerm](enums/GeneProductTerm.md) | A gene product term from NCIT |
+| [GeneSetRelationshipEnum](enums/GeneSetRelationshipEnum.md) | How an external gene set (e |
 | [GeneTerm](enums/GeneTerm.md) | A gene term from HGNC |
 | [GeographyTerm](enums/GeographyTerm.md) | A place or location |
 | [GroupingBasisEnum](enums/GroupingBasisEnum.md) | The axis (or axes) on which a disease Grouping is drawn |
@@ -596,7 +645,12 @@ Name: dismech
 | [ICD10CMTerm](enums/ICD10CMTerm.md) | An ICD-10-CM diagnosis code |
 | [ICD11FTerm](enums/ICD11FTerm.md) | An ICD-11 Foundation diagnosis code |
 | [ICDOMorphologyEnum](enums/ICDOMorphologyEnum.md) | ICD-O morphology axis classification for cancer subtypes |
+| [ICIMDEnum](enums/ICIMDEnum.md) | ICIMD category (layer 1) and disease group (layer 2) assignments |
+| [IctalStateEnum](enums/IctalStateEnum.md) | Timing of an electrophysiologic finding relative to a seizure or paroxysmal e... |
+| [ImagingFindingTerm](enums/ImagingFindingTerm.md) | An in-vivo imaging finding term |
+| [ImagingModalityEnum](enums/ImagingModalityEnum.md) | In-vivo medical imaging modality by which an ImagingFinding is detected |
 | [InheritanceTerm](enums/InheritanceTerm.md) | A term representing mode of inheritance |
+| [ISDSNosologyGroupEnum](enums/ISDSNosologyGroupEnum.md) | The 41 groups of the ISDS Nosology of Genetic Skeletal Disorders, 2023 revisi... |
 | [IUISCategoryEnum](enums/IUISCategoryEnum.md) | IUIS classification tables for inborn errors of immunity (IEI) |
 | [LateralityEnum](enums/LateralityEnum.md) | Laterality qualifier for anatomical structures or procedures |
 | [LifeCycleStageTerm](enums/LifeCycleStageTerm.md) | A parasite life cycle stage term (from OPL) |
@@ -610,12 +664,15 @@ Name: dismech
 | [ModifierEnum](enums/ModifierEnum.md) | Qualifiers for direction, intensity, or pathological state of a descriptor |
 | [MolecularFunctionTerm](enums/MolecularFunctionTerm.md) | A term representing a molecular function |
 | [NCITDiseaseOrFindingTerm](enums/NCITDiseaseOrFindingTerm.md) | An NCIT disease-oriented oncology term used for disease-level cancer mappings... |
+| [NIHResearchPriorityEnum](enums/NIHResearchPriorityEnum.md) | NIH Highlighted Topics funding-priority areas |
 | [OnsetEnum](enums/OnsetEnum.md) | Age of onset categories from HPO |
 | [OrganismTerm](enums/OrganismTerm.md) | A term representing an organism from NCBITaxon |
 | [PenetranceEnum](enums/PenetranceEnum.md) | Penetrance classification for inheritance |
 | [PhaseTerm](enums/PhaseTerm.md) | A phase or stage |
 | [PhenotypeCategoryEnum](enums/PhenotypeCategoryEnum.md) | Broad phenotype categories from the Human Phenotype Ontology |
 | [PhenotypeTerm](enums/PhenotypeTerm.md) | A term representing a phenotype or disease manifestation |
+| [PrevalenceClassEnum](enums/PrevalenceClassEnum.md) | Coarse, always-fillable band for disease occurrence — the population-rate ana... |
+| [PrevalenceMeasureEnum](enums/PrevalenceMeasureEnum.md) | The kind of epidemiological measure a Prevalence record reports |
 | [ProteinComplexTerm](enums/ProteinComplexTerm.md) | A term representing a protein complex |
 | [ReferenceTagEnum](enums/ReferenceTagEnum.md) | Controlled vocabulary for tagging top-level references by authoritative sourc... |
 | [RegimenTerm](enums/RegimenTerm.md) | A term representing a treatment regimen (from NCIT) |
@@ -632,7 +689,7 @@ Name: dismech
 | [TemporalityEnum](enums/TemporalityEnum.md) | Temporal qualifiers for descriptor post-composition |
 | [TherapeuticModalityEnum](enums/TherapeuticModalityEnum.md) | Broad therapeutic modality / platform of a treatment, independent of the spec... |
 | [ThresholdDirectionEnum](enums/ThresholdDirectionEnum.md) | Whether a threshold activates when the variable goes above or below the value |
-| [TreatmentActionTerm](enums/TreatmentActionTerm.md) | A term representing a medical action or treatment (from MAXO or NCIT) |
+| [TreatmentActionTerm](enums/TreatmentActionTerm.md) | A term representing a medical action or treatment (from NCIT) |
 | [TreatmentEffectEnum](enums/TreatmentEffectEnum.md) | How a treatment affects a pathophysiology mechanism node |
 | [TriggerTerm](enums/TriggerTerm.md) | A trigger |
 | [VariantOriginEnum](enums/VariantOriginEnum.md) | The origin of variation in a gene with respect to a disease entry |

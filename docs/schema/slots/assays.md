@@ -18,9 +18,9 @@ Alias: assays
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
 | [Experiment](../classes/Experiment.md) | A structured experiment or protocol-level study design that can be proposed t... |  yes  |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
 | [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
 
 
 

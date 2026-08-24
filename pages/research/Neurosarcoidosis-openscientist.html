@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1280,21 +1442,21 @@ Clinical Manifestations
 <hr />
 <h2>12. Treatment</h2>
 <h3>Pharmacotherapy</h3>
-<h4>First-line: Corticosteroids (<a href="http://purl.obolibrary.org/obo/MAXO_0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> glucocorticoid therapy)</h4>
+<h4>First-line: Corticosteroids (<a href="https://bioregistry.io/MAXO:0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> glucocorticoid therapy)</h4>
 <ul>
 <li><strong>Prednisone/prednisolone</strong>: Standard initial therapy (91% of patients); doses of 0.5–1 mg/kg/day</li>
 <li>High-dose (40 mg) not superior to lower dose (20 mg) in pulmonary sarcoidosis, with similar relapse rates <a href="https://pubmed.ncbi.nlm.nih.gov/37690784/">PMID: 37690784</a></li>
 <li><strong>Dexamethasone</strong>: Used for acute severe manifestations</li>
 <li><strong>ATC</strong>: H02AB06 (prednisolone), H02AB07 (prednisone)</li>
 </ul>
-<h4>Second-line: Steroid-Sparing Immunosuppressants (<a href="http://purl.obolibrary.org/obo/MAXO_0000601" target="_blank" rel="noopener noreferrer">MAXO:0000601</a> immunosuppressive therapy)</h4>
+<h4>Second-line: Steroid-Sparing Immunosuppressants (<a href="https://bioregistry.io/MAXO:0000601" target="_blank" rel="noopener noreferrer">MAXO:0000601</a> immunosuppressive therapy)</h4>
 <ul>
 <li><strong>Methotrexate</strong> (ATC: L01BA01): More effective than azathioprine for spinal cord sarcoidosis (RR 2.83 for azathioprine relapse vs. methotrexate) <a href="https://pubmed.ncbi.nlm.nih.gov/35145013/">PMID: 35145013</a></li>
 <li><strong>Mycophenolate mofetil</strong> (ATC: L04AA06): Used as steroid-sparing agent; mixed evidence</li>
 <li><strong>Azathioprine</strong> (ATC: L04AX01): Inferior to methotrexate in spinal cord NS</li>
 <li><strong>Cyclophosphamide</strong> (ATC: L01AA01): Used for severe refractory cases; 56% relapse rate, inferior to infliximab <a href="https://pubmed.ncbi.nlm.nih.gov/40702280/">PMID: 40702280</a></li>
 </ul>
-<h4>Third-line: TNF-alpha Inhibitors (<a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> biologic therapy)</h4>
+<h4>Third-line: TNF-alpha Inhibitors (<a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> biologic therapy)</h4>
 <ul>
 <li><strong>Infliximab</strong> (ATC: L04AB02): Most extensively studied; MRI improvement in 82.1% (complete remission 51.8%, partial 30.1%); clinical improvement in 77.3%; relapse rate 6% vs. 56% cyclophosphamide vs. 38% methotrexate (p = 0.06); corticosteroid tapering in 68% <a href="https://pubmed.ncbi.nlm.nih.gov/29030454/">PMID: 29030454</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40702280/">PMID: 40702280</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32718952/">PMID: 32718952</a></li>
 <li><strong>Infliximab biosimilar</strong>: Comparable efficacy and safety <a href="https://pubmed.ncbi.nlm.nih.gov/30739183/">PMID: 30739183</a></li>
@@ -1318,7 +1480,7 @@ Clinical Manifestations
 </ul>
 <h3>Supportive and Rehabilitative</h3>
 <ul>
-<li><strong>Hormone replacement therapy</strong> (<a href="http://purl.obolibrary.org/obo/MAXO_0000780" target="_blank" rel="noopener noreferrer">MAXO:0000780</a>): Essential for hypothalamic-pituitary NS with irreversible endocrinopathies</li>
+<li><strong>Hormone replacement therapy</strong> (<a href="https://bioregistry.io/MAXO:0000780" target="_blank" rel="noopener noreferrer">MAXO:0000780</a>): Essential for hypothalamic-pituitary NS with irreversible endocrinopathies</li>
 <li><strong>Desmopressin</strong> (ATC: H01BA02): For diabetes insipidus</li>
 <li><strong>Exercise training</strong>: RCT evidence supports cycling programs for reducing fatigue and improving QoL <a href="https://pubmed.ncbi.nlm.nih.gov/41015397/">PMID: 41015397</a></li>
 <li><strong>Pulmonary rehabilitation</strong>: Improves exercise tolerance at 6 and 12 months <a href="https://pubmed.ncbi.nlm.nih.gov/31855785/">PMID: 31855785</a></li>
@@ -1625,7 +1787,7 @@ Throughout: Hormone replacement, symptom management,
 <h3>CHEBI Terms (Chemical Entities)</h3>
 <p><a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" rel="noopener noreferrer">CHEBI:44185</a> (methotrexate), <a href="http://purl.obolibrary.org/obo/CHEBI_68602" target="_blank" rel="noopener noreferrer">CHEBI:68602</a> (infliximab), <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" rel="noopener noreferrer">CHEBI:8382</a> (prednisolone), <a href="http://purl.obolibrary.org/obo/CHEBI_8356" target="_blank" rel="noopener noreferrer">CHEBI:8356</a> (prednisone), <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" rel="noopener noreferrer">CHEBI:2948</a> (azathioprine), <a href="http://purl.obolibrary.org/obo/CHEBI_168396" target="_blank" rel="noopener noreferrer">CHEBI:168396</a> (mycophenolate mofetil), <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" rel="noopener noreferrer">CHEBI:4027</a> (cyclophosphamide), <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" rel="noopener noreferrer">CHEBI:71200</a> (adalimumab), <a href="http://purl.obolibrary.org/obo/CHEBI_71422" target="_blank" rel="noopener noreferrer">CHEBI:71422</a> (tofacitinib), <a href="http://purl.obolibrary.org/obo/CHEBI_66895" target="_blank" rel="noopener noreferrer">CHEBI:66895</a> (desmopressin)</p>
 <h3>MAXO Terms (Treatments)</h3>
-<p><a href="http://purl.obolibrary.org/obo/MAXO_0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> (glucocorticoid therapy), <a href="http://purl.obolibrary.org/obo/MAXO_0000601" target="_blank" rel="noopener noreferrer">MAXO:0000601</a> (immunosuppressive therapy), <a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> (biologic therapy), <a href="http://purl.obolibrary.org/obo/MAXO_0000780" target="_blank" rel="noopener noreferrer">MAXO:0000780</a> (hormone replacement therapy), <a href="http://purl.obolibrary.org/obo/MAXO_0000476" target="_blank" rel="noopener noreferrer">MAXO:0000476</a> (multidisciplinary care), <a href="http://purl.obolibrary.org/obo/MAXO_0001001" target="_blank" rel="noopener noreferrer">MAXO:0001001</a> (physical rehabilitation), <a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (MRI), <a href="http://purl.obolibrary.org/obo/MAXO_0000602" target="_blank" rel="noopener noreferrer">MAXO:0000602</a> (PET scan), <a href="http://purl.obolibrary.org/obo/MAXO_0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a> (biopsy)</p>
+<p><a href="https://bioregistry.io/MAXO:0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> (glucocorticoid therapy), <a href="https://bioregistry.io/MAXO:0000601" target="_blank" rel="noopener noreferrer">MAXO:0000601</a> (immunosuppressive therapy), <a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> (biologic therapy), <a href="https://bioregistry.io/MAXO:0000780" target="_blank" rel="noopener noreferrer">MAXO:0000780</a> (hormone replacement therapy), <a href="https://bioregistry.io/MAXO:0000476" target="_blank" rel="noopener noreferrer">MAXO:0000476</a> (multidisciplinary care), <a href="https://bioregistry.io/MAXO:0001001" target="_blank" rel="noopener noreferrer">MAXO:0001001</a> (physical rehabilitation), <a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (MRI), <a href="https://bioregistry.io/MAXO:0000602" target="_blank" rel="noopener noreferrer">MAXO:0000602</a> (PET scan), <a href="https://bioregistry.io/MAXO:0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a> (biopsy)</p>
 <h3>MONDO Term</h3>
 <p><a href="http://purl.obolibrary.org/obo/MONDO_0019203" target="_blank" rel="noopener noreferrer">MONDO:0019203</a> (neurosarcoidosis)</p>
 <hr />

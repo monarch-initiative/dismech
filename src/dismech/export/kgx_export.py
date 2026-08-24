@@ -8,7 +8,8 @@ Each function extracts edges from a specific collection type within the disorder
 import re
 import uuid
 from collections.abc import Iterator
-from typing import Any
+from pathlib import Path
+from typing import Any, NamedTuple
 
 import koza
 from biolink_model.datamodel.pydanticmodel_v2 import (
@@ -41,8 +42,26 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
 )
 from koza import KozaTransform
 
+from dismech.export import sepio_export
+from dismech.export.utils import (
+    pathophysiology_node_names,
+    phenotype_is_upstream_risk_state,
+)
+
 # Knowledge source for all edges
 KNOWLEDGE_SOURCE = "infores:dismech"
+
+# Koza writers only know about nodes and edges, so the SEPIO statement stream is
+# written to its own sidecar file. The handle lives in the transform state
+# between the on_data_begin / on_data_end hooks.
+_SEPIO_STATE_KEY = "sepio_sidecar_handle"
+# Sidecar path -> the koza writer that last opened it. Koza builds a fresh
+# transform context per input tag but reuses one writer for the whole run, so
+# recording the writer instance lets the second tag of a run append while a
+# genuinely new run (new writer) truncates — matching the node/edge files, which
+# the writer itself rewrites from scratch each run.
+_SEPIO_SIDECAR_WRITERS: dict[Path, Any] = {}
+SEPIO_SIDECAR_SUFFIX = "_sepio.jsonl"
 
 # Frequency enum to HP term mapping
 FREQUENCY_TO_HP = {
@@ -126,18 +145,30 @@ def _get_term_id(obj: dict[str, Any] | None, path: list[str]) -> str | None:
     return current if isinstance(current, str) else None
 
 
-def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPhenotypicFeatureAssociation | None:
+def phenotype_to_edge(
+    disease_id: str,
+    phenotype: dict[str, Any],
+    pathophysiology_names: set[str] | None = None,
+) -> Association | None:
     """
     Convert a phenotype entry to a KGX edge.
 
     Args:
         disease_id: The disease term ID (e.g., "MONDO:0004979")
         phenotype: A phenotype dict from phenotypes[]
+        pathophysiology_names: Names of the disorder's pathophysiology nodes,
+            used to detect upstream risk-state phenotypes (see below).
 
     Returns:
-        DiseaseToPhenotypicFeatureAssociation, or None if phenotype_term.term.id
-        is missing or refers to a MONDO concept (which is routed through
+        DiseaseToPhenotypicFeatureAssociation (``has_phenotype``) for a normal
+        manifestation; a direction-neutral ``associated_with`` Association for an
+        upstream risk-state phenotype; or None if phenotype_term.term.id is
+        missing or refers to a MONDO concept (routed through
         disease_comorbidity_to_edge instead).
+
+    Note the risk-state branch emits a plain ``Association``, which has no
+    ``frequency_qualifier`` - a ``frequency:`` curated on such a node is dropped,
+    since a manifestation frequency does not apply to an upstream driver.
     """
     term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
     if not term_id:
@@ -148,12 +179,34 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
     if term_id.startswith("MONDO:"):
         return None
 
+    # Format evidence (direct - attached to phenotype)
+    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+
+    # An HP-typed "phenotype" that drives a pathophysiology node is an UPSTREAM
+    # risk state (e.g. a nutritional deficiency), not a manifestation. Emitting
+    # `<disease> has_phenotype <term>` would invert the curated causal direction,
+    # so export a direction-neutral association instead (the HP object is still a
+    # PhenotypicFeature - we just do not claim it is a feature *of* the disease).
+    if pathophysiology_names and phenotype_is_upstream_risk_state(
+        phenotype, pathophysiology_names
+    ):
+        return Association(
+            id=_make_edge_id(),
+            subject=disease_id,
+            predicate="biolink:associated_with",
+            object=term_id,
+            subject_category="biolink:Disease",
+            object_category="biolink:PhenotypicFeature",
+            publications=publications if publications else None,
+            supporting_text=supporting_text if supporting_text else None,
+            primary_knowledge_source=KNOWLEDGE_SOURCE,
+            knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+            agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+        )
+
     # Map frequency enum to HP term for qualifier
     frequency = phenotype.get("frequency")
     frequency_qualifier = FREQUENCY_TO_HP.get(frequency) if frequency else None
-
-    # Format evidence (direct - attached to phenotype)
-    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
 
     predicate = "biolink:has_phenotype"
     return DiseaseToPhenotypicFeatureAssociation(
@@ -381,26 +434,25 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     """
     Convert a genetic association entry to a KGX edge.
 
-    Prefers gene_term.term.id (proper HGNC CURIE) when available,
-    falls back to constructing HGNC.SYMBOL:{name} from the name field.
+    Requires a curated gene_term.term.id (proper HGNC CURIE). Entries
+    without one are skipped — see #2099.
 
     Args:
         disease_id: The disease term ID
         gene: A gene dict from genetic[]
 
     Returns:
-        GeneToDiseaseAssociation or None if neither gene_term.term.id nor name is available
+        GeneToDiseaseAssociation or None if gene_term.term.id is absent
     """
     if not gene:
         return None
 
-    # Prefer proper HGNC CURIE from gene_term, fall back to symbol from name
+    # Require a curated gene_term.term.id; without it we can't safely emit a
+    # Gene edge (the prior HGNC.SYMBOL:{name} fallback produced malformed
+    # CURIEs for aneuploidies, disease classes, etc. — see #2099).
     gene_id = _get_term_id(gene, ["gene_term", "term", "id"])
     if not gene_id:
-        gene_name = gene.get("name")
-        if not gene_name:
-            return None
-        gene_id = f"HGNC.SYMBOL:{gene_name}"
+        return None
 
     predicate = "biolink:contributes_to"
 
@@ -433,12 +485,19 @@ _PROTECTIVE_EFFECT_PATTERNS = (
 )
 
 
-def _exposure_predicate(effect: str | None) -> str:
-    """Map an environmental `effect` free-text field to a Biolink predicate.
+def _exposure_predicate(effect: str | None, links: list[dict[str, Any]] | None = None) -> str:
+    """Map an environmental entry to a Biolink predicate.
 
-    Returns `biolink:associated_with_decreased_likelihood_of` when the curated
-    `effect` text matches one of the protective phrasings below (case-insensitive,
-    word-boundary matched):
+    The structured `influences_mechanisms[].environmental_effect` enum wins when
+    present: if the entry declares mechanism links and *every* one is
+    `PROTECTS_AGAINST`, the exposure is protective. Requiring unanimity keeps the
+    disease-level KGX edge honest, since one exposure can protect against one
+    mechanism while driving another; a mixed set falls back to the free-text
+    reading below rather than picking a winner.
+
+    Otherwise, returns `biolink:associated_with_decreased_likelihood_of` when the
+    curated `effect` text matches one of the protective phrasings below
+    (case-insensitive, word-boundary matched):
 
       - `reduces? risk`
       - `decreased? (odds|risk|chance|incidence|likelihood)`
@@ -449,8 +508,17 @@ def _exposure_predicate(effect: str | None) -> str:
     "TRIGGERS" / "Increases risk", or text that mentions reduction of a
     non-risk noun like "reduced HDL") falls through to the default
     `biolink:contributes_to`. Curators adding new protective environmental
-    entries should phrase the `effect` text to match one of the patterns
-    above; see #2098 for context."""
+    entries should set `environmental_effect: PROTECTS_AGAINST` on the mechanism
+    link, or failing that phrase the `effect` text to match one of the patterns
+    above; see #2098 and #8033 for context."""
+    declared_effects = [
+        link.get("environmental_effect")
+        for link in (links or [])
+        if isinstance(link, dict) and link.get("environmental_effect")
+    ]
+    if declared_effects and all(e == "PROTECTS_AGAINST" for e in declared_effects):
+        return "biolink:associated_with_decreased_likelihood_of"
+
     if effect and any(p.search(effect) for p in _PROTECTIVE_EFFECT_PATTERNS):
         return "biolink:associated_with_decreased_likelihood_of"
     return "biolink:contributes_to"
@@ -479,7 +547,10 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     # Format evidence (direct - attached to environmental entry)
     publications, supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
 
-    predicate = _exposure_predicate(environmental.get("effect"))
+    predicate = _exposure_predicate(
+        environmental.get("effect"),
+        environmental.get("influences_mechanisms"),
+    )
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
         subject=exposure_id,
@@ -1081,19 +1152,13 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
             if node:
                 yield node
 
-    # Gene nodes
+    # Gene nodes — only emit when a curated gene_term.term.id exists (see #2099).
     for gene in record.get("genetic") or []:
         gene_id = _get_term_id(gene, ["gene_term", "term", "id"])
-        if gene_id:
-            label = _get_term_id(gene, ["gene_term", "term", "label"])
-            node = _emit(gene_id, gene.get("name") or label, "biolink:Gene")
-        else:
-            gene_name = gene.get("name") if gene else None
-            if gene_name:
-                gene_id = f"HGNC.SYMBOL:{gene_name}"
-                node = _emit(gene_id, gene_name, "biolink:Gene")
-            else:
-                node = None
+        if not gene_id:
+            continue
+        label = _get_term_id(gene, ["gene_term", "term", "label"])
+        node = _emit(gene_id, gene.get("name") or label, "biolink:Gene")
         if node:
             yield node
 
@@ -1138,6 +1203,199 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
             yield node
 
 
+class EdgeWithEvidence(NamedTuple):
+    """
+    A KGX association together with the dismech evidence it was built from.
+
+    The KGX edge itself keeps evidence only as flattened `publications` /
+    `supporting_text` strings. The SEPIO sidecar export needs the structured
+    evidence items back, so `iter_edges_with_evidence` carries them alongside
+    each association rather than re-walking the record a second time.
+
+    Attributes:
+        association: The emitted KGX edge
+        evidence: The dismech evidence list the edge's supporting text came from
+        section: The dismech section the edge was derived from
+        indirect: True when the evidence was inherited from a parent
+            pathophysiology mechanism rather than asserted on the object itself
+        source_node: Name of the pathophysiology node the evidence was inherited
+            from, when `indirect` is True
+    """
+
+    association: Association
+    evidence: list[dict[str, Any]] | None
+    section: str
+    indirect: bool = False
+    source_node: str | None = None
+
+
+def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidence]:
+    """
+    Extract all KGX edges from a disorder record, paired with their evidence.
+
+    This is the single walk over a disorder record; `transform` drops the
+    evidence context and yields associations alone.
+
+    Args:
+        record: A disorder dict loaded from YAML
+
+    Yields:
+        EdgeWithEvidence tuples for all associations in the disorder
+    """
+    # Get disease ID - required for all edges
+    disease_id = _get_term_id(record, ["disease_term", "term", "id"])
+    if not disease_id:
+        return
+
+    # Extract phenotype edges. MONDO-typed "phenotypes" are actually comorbid
+    # diseases and produce a disease-to-disease association instead. Upstream
+    # risk-state phenotypes (those driving a pathophysiology node) are routed to
+    # a direction-neutral associated_with rather than has_phenotype.
+    patho_names = pathophysiology_node_names(record)
+    for phenotype in record.get("phenotypes") or []:
+        edge = phenotype_to_edge(
+            disease_id, phenotype, patho_names
+        ) or disease_comorbidity_to_edge(disease_id, phenotype)
+        if edge:
+            yield EdgeWithEvidence(edge, phenotype.get("evidence"), "phenotypes")
+
+    # Extract edges from pathophysiology
+    for patho in record.get("pathophysiology") or []:
+        # Get parent evidence for indirect attribution to children
+        parent_evidence = patho.get("evidence")
+        patho_name = patho.get("name")
+        inherited = {"indirect": True, "source_node": patho_name}
+
+        # Cell types (indirect evidence from parent mechanism)
+        for cell_type in patho.get("cell_types") or []:
+            edge = cell_type_to_edge(disease_id, cell_type, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.cell_types", **inherited
+                )
+
+        # Locations (indirect evidence from parent mechanism)
+        for location in patho.get("locations") or []:
+            edge = location_to_edge(disease_id, location, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.locations", **inherited
+                )
+
+        # Biological processes (indirect evidence from parent mechanism)
+        for process in patho.get("biological_processes") or []:
+            edge = biological_process_to_edge(disease_id, process, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.biological_processes", **inherited
+                )
+
+        # Molecular functions (indirect evidence from parent mechanism)
+        for mf in patho.get("molecular_functions") or []:
+            edge = molecular_function_to_edge(disease_id, mf, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.molecular_functions", **inherited
+                )
+
+        # Cellular components (indirect evidence from parent mechanism)
+        for component in patho.get("cellular_components") or []:
+            edge = cellular_component_to_edge(disease_id, component, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.cellular_components", **inherited
+                )
+
+        # Chemical entities (indirect evidence from parent mechanism)
+        for chemical in patho.get("chemical_entities") or []:
+            edge = chemical_entity_to_edge(disease_id, chemical, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.chemical_entities", **inherited
+                )
+
+        # Pathways (indirect evidence from parent mechanism)
+        for pathway in patho.get("pathways") or []:
+            edge = pathway_to_edge(disease_id, pathway, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.pathways", **inherited
+                )
+
+        # Protein complexes (indirect evidence from parent mechanism)
+        for complex_ in patho.get("protein_complexes") or []:
+            edge = protein_complex_to_edge(disease_id, complex_, parent_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, parent_evidence, "pathophysiology.protein_complexes", **inherited
+                )
+
+    # Extract treatment edges (action, therapeutic agents, and target phenotypes)
+    for treatment in record.get("treatments") or []:
+        treatment_evidence = treatment.get("evidence")
+
+        edge = treatment_to_edge(disease_id, treatment)
+        if edge:
+            yield EdgeWithEvidence(edge, treatment_evidence, "treatments")
+
+        # Therapeutic agents (specific drugs nested under treatment_term)
+        treatment_term = treatment.get("treatment_term") or {}
+        for agent in treatment_term.get("therapeutic_agent") or []:
+            edge = therapeutic_agent_to_edge(disease_id, agent, treatment_evidence)
+            if edge:
+                yield EdgeWithEvidence(
+                    edge, treatment_evidence, "treatments.therapeutic_agent"
+                )
+
+        # Target phenotypes (treatment → phenotype with disease context)
+        treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
+        if treatment_id:
+            for phenotype in treatment.get("target_phenotypes") or []:
+                edge = treatment_target_phenotype_to_edge(
+                    disease_id, treatment_id, phenotype, treatment_evidence
+                )
+                if edge:
+                    yield EdgeWithEvidence(
+                        edge, treatment_evidence, "treatments.target_phenotypes"
+                    )
+
+    # Extract gene association edges
+    for gene in record.get("genetic") or []:
+        edge = gene_to_edge(disease_id, gene)
+        if edge:
+            yield EdgeWithEvidence(edge, gene.get("evidence"), "genetic")
+
+    # Extract environmental exposure edges
+    for environmental in record.get("environmental") or []:
+        edge = exposure_to_edge(disease_id, environmental)
+        if edge:
+            yield EdgeWithEvidence(edge, environmental.get("evidence"), "environmental")
+
+    # Extract inheritance edges
+    for inheritance in record.get("inheritance") or []:
+        edge = inheritance_to_edge(disease_id, inheritance)
+        if edge:
+            yield EdgeWithEvidence(edge, inheritance.get("evidence"), "inheritance")
+
+    # Extract infectious agent edges
+    for agent in record.get("infectious_agent") or []:
+        edge = infectious_agent_to_edge(disease_id, agent)
+        if edge:
+            yield EdgeWithEvidence(edge, agent.get("evidence"), "infectious_agent")
+
+    # Extract histopathology edges
+    for finding in record.get("histopathology") or []:
+        edge = histopathology_to_edge(disease_id, finding)
+        if edge:
+            yield EdgeWithEvidence(edge, finding.get("evidence"), "histopathology")
+
+    # Extract biochemical/biomarker edges
+    for biochemical in record.get("biochemical") or []:
+        edge = biomarker_to_edge(disease_id, biochemical)
+        if edge:
+            yield EdgeWithEvidence(edge, biochemical.get("evidence"), "biochemical")
+
+
 def transform(record: dict[str, Any]) -> Iterator[Association]:
     """
     Extract all KGX edges from a disorder record.
@@ -1151,132 +1409,58 @@ def transform(record: dict[str, Any]) -> Iterator[Association]:
     Yields:
         Association objects for all associations in the disorder
     """
-    # Get disease ID - required for all edges
-    disease_id = _get_term_id(record, ["disease_term", "term", "id"])
-    if not disease_id:
+    for edge in iter_edges_with_evidence(record):
+        yield edge.association
+
+
+def _sepio_sidecar_path(koza_ctx: KozaTransform) -> Path | None:
+    """
+    Locate the SEPIO sidecar file next to the KGX node/edge files.
+
+    Koza's writers expose their destination under different attribute names
+    (`output_dir`/`source_name` on the JSONL writer, `dirname`/`basename` on the
+    TSV writer), and the passthrough writer has no destination at all.
+
+    Args:
+        koza_ctx: The Koza transform context
+
+    Returns:
+        Path to `<output_dir>/<source_name>_sepio.jsonl`, or None when the
+        configured writer does not write to disk
+    """
+    writer = koza_ctx.writer
+    output_dir = getattr(writer, "output_dir", None) or getattr(writer, "dirname", None)
+    source_name = getattr(writer, "source_name", None) or getattr(writer, "basename", None)
+    if not output_dir or not source_name:
+        return None
+    return Path(output_dir) / f"{source_name}{SEPIO_SIDECAR_SUFFIX}"
+
+
+@koza.on_data_begin()
+def open_sepio_sidecar(koza_ctx: KozaTransform) -> None:
+    """Open the SEPIO sidecar file that accompanies the KGX node/edge files."""
+    path = _sepio_sidecar_path(koza_ctx)
+    if path is None:
+        koza_ctx.log("Writer has no output directory; skipping SEPIO sidecar", level="WARNING")
         return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Koza builds a fresh transform context per input tag, so this hook can fire
+    # more than once in a run; only the first open of a run truncates. The guard
+    # is keyed on the writer instance rather than on the path alone, because a
+    # path-keyed guard never resets and would make a second in-process run append
+    # to the first run's sidecar while the node/edge files are rewritten.
+    writer = koza_ctx.writer
+    mode = "a" if _SEPIO_SIDECAR_WRITERS.get(path) is writer else "w"
+    _SEPIO_SIDECAR_WRITERS[path] = writer
+    koza_ctx.state[_SEPIO_STATE_KEY] = path.open(mode, encoding="utf-8")
 
-    # Extract phenotype edges. MONDO-typed "phenotypes" are actually comorbid
-    # diseases and produce a disease-to-disease association instead.
-    for phenotype in record.get("phenotypes") or []:
-        edge = phenotype_to_edge(disease_id, phenotype) or disease_comorbidity_to_edge(
-            disease_id, phenotype
-        )
-        if edge:
-            yield edge
 
-    # Extract edges from pathophysiology
-    for patho in record.get("pathophysiology") or []:
-        # Get parent evidence for indirect attribution to children
-        parent_evidence = patho.get("evidence")
-
-        # Cell types (indirect evidence from parent mechanism)
-        for cell_type in patho.get("cell_types") or []:
-            edge = cell_type_to_edge(disease_id, cell_type, parent_evidence)
-            if edge:
-                yield edge
-
-        # Locations (indirect evidence from parent mechanism)
-        for location in patho.get("locations") or []:
-            edge = location_to_edge(disease_id, location, parent_evidence)
-            if edge:
-                yield edge
-
-        # Biological processes (indirect evidence from parent mechanism)
-        for process in patho.get("biological_processes") or []:
-            edge = biological_process_to_edge(disease_id, process, parent_evidence)
-            if edge:
-                yield edge
-
-        # Molecular functions (indirect evidence from parent mechanism)
-        for mf in patho.get("molecular_functions") or []:
-            edge = molecular_function_to_edge(disease_id, mf, parent_evidence)
-            if edge:
-                yield edge
-
-        # Cellular components (indirect evidence from parent mechanism)
-        for component in patho.get("cellular_components") or []:
-            edge = cellular_component_to_edge(disease_id, component, parent_evidence)
-            if edge:
-                yield edge
-
-        # Chemical entities (indirect evidence from parent mechanism)
-        for chemical in patho.get("chemical_entities") or []:
-            edge = chemical_entity_to_edge(disease_id, chemical, parent_evidence)
-            if edge:
-                yield edge
-
-        # Pathways (indirect evidence from parent mechanism)
-        for pathway in patho.get("pathways") or []:
-            edge = pathway_to_edge(disease_id, pathway, parent_evidence)
-            if edge:
-                yield edge
-
-        # Protein complexes (indirect evidence from parent mechanism)
-        for complex_ in patho.get("protein_complexes") or []:
-            edge = protein_complex_to_edge(disease_id, complex_, parent_evidence)
-            if edge:
-                yield edge
-
-    # Extract treatment edges (action, therapeutic agents, and target phenotypes)
-    for treatment in record.get("treatments") or []:
-        edge = treatment_to_edge(disease_id, treatment)
-        if edge:
-            yield edge
-
-        # Therapeutic agents (specific drugs nested under treatment_term)
-        treatment_evidence = treatment.get("evidence")
-        treatment_term = treatment.get("treatment_term") or {}
-        for agent in treatment_term.get("therapeutic_agent") or []:
-            edge = therapeutic_agent_to_edge(disease_id, agent, treatment_evidence)
-            if edge:
-                yield edge
-
-        # Target phenotypes (treatment → phenotype with disease context)
-        treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
-        if treatment_id:
-            for phenotype in treatment.get("target_phenotypes") or []:
-                edge = treatment_target_phenotype_to_edge(
-                    disease_id, treatment_id, phenotype, treatment_evidence
-                )
-                if edge:
-                    yield edge
-
-    # Extract gene association edges
-    for gene in record.get("genetic") or []:
-        edge = gene_to_edge(disease_id, gene)
-        if edge:
-            yield edge
-
-    # Extract environmental exposure edges
-    for environmental in record.get("environmental") or []:
-        edge = exposure_to_edge(disease_id, environmental)
-        if edge:
-            yield edge
-
-    # Extract inheritance edges
-    for inheritance in record.get("inheritance") or []:
-        edge = inheritance_to_edge(disease_id, inheritance)
-        if edge:
-            yield edge
-
-    # Extract infectious agent edges
-    for agent in record.get("infectious_agent") or []:
-        edge = infectious_agent_to_edge(disease_id, agent)
-        if edge:
-            yield edge
-
-    # Extract histopathology edges
-    for finding in record.get("histopathology") or []:
-        edge = histopathology_to_edge(disease_id, finding)
-        if edge:
-            yield edge
-
-    # Extract biochemical/biomarker edges
-    for biochemical in record.get("biochemical") or []:
-        edge = biomarker_to_edge(disease_id, biochemical)
-        if edge:
-            yield edge
+@koza.on_data_end()
+def close_sepio_sidecar(koza_ctx: KozaTransform) -> None:
+    """Close the SEPIO sidecar file."""
+    handle = koza_ctx.state.pop(_SEPIO_STATE_KEY, None)
+    if handle is not None:
+        handle.close()
 
 
 @koza.transform_record()
@@ -1286,7 +1470,9 @@ def koza_transform(koza_ctx: KozaTransform, record: dict[str, Any]) -> None:
 
     This function is called by the Koza runner for each record.
     It writes node records for all unique entities, then edge records
-    for all associations.
+    for all associations, then the SEPIO statements for the same assertions
+    to the sidecar file (koza's writers only know about nodes and edges, so
+    the SEPIO stream is written directly).
 
     Args:
         koza_ctx: The Koza transform context for writing output
@@ -1294,5 +1480,31 @@ def koza_transform(koza_ctx: KozaTransform, record: dict[str, Any]) -> None:
     """
     for node in extract_nodes(record):
         koza_ctx.write(node)
-    for edge in transform(record):
-        koza_ctx.write(edge)
+
+    sepio_handle = koza_ctx.state.get(_SEPIO_STATE_KEY)
+    disease_name = record.get("name")
+
+    # Materialized rather than streamed because the walk is consumed twice: once
+    # to write the KGX associations, once by the shared statement builder that
+    # `sepio_export.statements_from_record` also uses. One record's edges, so the
+    # list is small.
+    edges = list(iter_edges_with_evidence(record))
+    for edge in edges:
+        koza_ctx.write(edge.association)
+
+    if sepio_handle is None:
+        return
+
+    try:
+        for statement in sepio_export.statements_for_edges(edges, disease_name):
+            sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
+        # Pathophysiology node and causal-edge assertions have no KGX edge, so
+        # they exist only in the SEPIO stream.
+        for statement in sepio_export.pathophysiology_statements(record):
+            sepio_handle.write(sepio_export.dump_statement(statement) + "\n")
+    finally:
+        # Koza calls on_data_end after the record loop with no exception
+        # protection, so flush per record: a mid-run failure then leaves a
+        # sidecar that is complete through the last processed record, matching
+        # the partial node/edge files rather than silently losing buffered lines.
+        sepio_handle.flush()

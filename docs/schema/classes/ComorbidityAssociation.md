@@ -76,6 +76,17 @@ URI: [dismech:class/ComorbidityAssociation](https://w3id.org/monarch-initiative/
     
 
         
+      ComorbidityAssociation : effect_direction
+        
+          
+    
+        
+        
+        ComorbidityAssociation --> "0..1" ComorbidityEffectDirectionEnum : effect_direction
+        click ComorbidityEffectDirectionEnum href "../../enums/ComorbidityEffectDirectionEnum/"
+    
+
+        
       ComorbidityAssociation : hypotheses
         
           
@@ -144,6 +155,7 @@ URI: [dismech:class/ComorbidityAssociation](https://w3id.org/monarch-initiative/
 | [disease_a](../slots/disease_a.md) | 0..1 <br/> [ConditionDescriptor](../classes/ConditionDescriptor.md) | First disease in a comorbidity pair | direct |
 | [disease_b](../slots/disease_b.md) | 0..1 <br/> [ConditionDescriptor](../classes/ConditionDescriptor.md) | Second disease in a comorbidity pair | direct |
 | [directionality](../slots/directionality.md) | 0..1 <br/> [ComorbidityDirectionEnum](../enums/ComorbidityDirectionEnum.md) | Direction of a comorbidity/trajectory association | direct |
+| [effect_direction](../slots/effect_direction.md) | 0..1 <br/> [ComorbidityEffectDirectionEnum](../enums/ComorbidityEffectDirectionEnum.md) | The sign of the association - whether one condition raises (RISK) or lowers (... | direct |
 | [association_signals](../slots/association_signals.md) | * <br/> [AssociationSignal](../classes/AssociationSignal.md) | Association signals from EHR, registry, or computational sources | direct |
 | [literature_evidence](../slots/literature_evidence.md) | * <br/> [EvidenceItem](../classes/EvidenceItem.md) | Literature-based evidence items for this association | direct |
 | [hypotheses](../slots/hypotheses.md) | * <br/> [ComorbidityHypothesis](../classes/ComorbidityHypothesis.md) | Mechanistic or causal hypotheses about the association | direct |
@@ -211,6 +223,7 @@ slots:
 - disease_a
 - disease_b
 - directionality
+- effect_direction
 - association_signals
 - literature_evidence
 - hypotheses
@@ -278,6 +291,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -361,6 +375,21 @@ attributes:
     - ComorbidityAssociation
     - AssociationSignal
     range: ComorbidityDirectionEnum
+  effect_direction:
+    name: effect_direction
+    description: The sign of the association - whether one condition raises (RISK)
+      or lowers (PROTECTIVE) the risk/incidence/severity of the other, is context-dependent
+      (MIXED), null, or unknown. Orthogonal to `directionality` (temporal ordering).
+      Defaults conceptually to RISK for conventional comorbidities; set PROTECTIVE
+      for inverse associations such as the cancer/Alzheimer's-disease paradox.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: effect_direction
+    owner: ComorbidityAssociation
+    domain_of:
+    - ComorbidityAssociation
+    - AssociationSignal
+    range: ComorbidityEffectDirectionEnum
   association_signals:
     name: association_signals
     description: Association signals from EHR, registry, or computational sources
@@ -456,12 +485,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease

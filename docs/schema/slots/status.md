@@ -22,9 +22,10 @@ Alias: status
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  yes  |
-| [MechanisticHypothesis](../classes/MechanisticHypothesis.md) | Disease-level hypothesis metadata used to organize downstream causal edges in... |  yes  |
 | [Discussion](../classes/Discussion.md) | A thread-like record of an open question, controversy, curation todo, emergin... |  yes  |
+| [MechanisticHypothesis](../classes/MechanisticHypothesis.md) | Disease-level hypothesis metadata used to organize downstream causal edges in... |  yes  |
+| [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  yes  |
+| [AlgorithmValidationStatus](../classes/AlgorithmValidationStatus.md) | Validation maturity of a phenotype algorithm / computable case definition: a ... |  yes  |
 
 
 
@@ -38,7 +39,7 @@ Alias: status
 | Property | Value |
 | --- | --- |
 | Range | [String](../types/String.md) |
-| Domain Of | [ClinicalTrial](../classes/ClinicalTrial.md), [MechanisticHypothesis](../classes/MechanisticHypothesis.md), [Discussion](../classes/Discussion.md) |
+| Domain Of | [ClinicalTrial](../classes/ClinicalTrial.md), [AlgorithmValidationStatus](../classes/AlgorithmValidationStatus.md), [MechanisticHypothesis](../classes/MechanisticHypothesis.md), [Discussion](../classes/Discussion.md) |
 
 ### Cardinality and Requirements
 
@@ -102,6 +103,7 @@ rank: 1000
 alias: status
 domain_of:
 - ClinicalTrial
+- AlgorithmValidationStatus
 - MechanisticHypothesis
 - Discussion
 range: string

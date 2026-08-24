@@ -307,10 +307,13 @@ just validate kb/disorders/MyCancer.yaml
 # 2. Term validation (NCIT, CHEBI, HP, CL, GO)
 just validate-terms kb/disorders/MyCancer.yaml
 
-# 3. Reference validation (if evidence added)
-just validate-references kb/disorders/MyCancer.yaml
+# 3. Snippet check against the reference cache (seconds, offline)
+just count-verified-snippets kb/disorders/MyCancer.yaml
 
-# 4. Full QC
+# 4. Before opening the PR: the batched sweep CI runs (slow — once, not per edit)
+just validate-disorders kb/disorders/MyCancer.yaml
+
+# 5. Full QC
 just qc
 ```
 

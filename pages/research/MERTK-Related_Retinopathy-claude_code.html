@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MERTK-Related Retinopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MERTK-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MERTK-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">MERTK-Related Retinopathy: Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-20</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0800394" target="_blank" rel="noopener noreferrer">MONDO:0800394</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>MERTK-Related Retinopathy: Comprehensive Disease Characteristics Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview:</strong> MERTK-related retinopathy is a rare, autosomal recessive inherited retinal degeneration caused by biallelic loss-of-function variants in <em>MERTK</em> (MER proto-oncogene, tyrosine kinase). It presents classically as an early/childhood-onset, severe rod–cone dystrophy with disproportionately early macular involvement, distinguishing it from typical adult-onset retinitis pigmentosa (RP). The molecular basis was the first conclusive evidence implicating a defect in retinal pigment epithelium (RPE) phagocytosis — rather than a photoreceptor-intrinsic defect — as a cause of human retinal degeneration (Gal et al., <em>Nat Genet</em> 2000, <a href="https://pubmed.ncbi.nlm.nih.gov/11062461/" target="_blank" rel="noopener noreferrer">PMID 11062461</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0800394" target="_blank" rel="noopener noreferrer">MONDO:0800394</a> (MERTK-related retinopathy)
+- <strong>OMIM Phenotype:</strong> #613862 — Retinitis Pigmentosa 38 (RP38)
+- <strong>OMIM Gene:</strong> <em>604705 — MER Tyrosine Kinase Protooncogene (MERTK)
+- </em><em>Gene locus:</em><em> 2q13 (also reported as 2q14.1 in older literature)
+- </em><em>HGNC:</em><em> <a href="https://bioregistry.io/HGNC:7027" target="_blank" rel="noopener noreferrer">HGNC:7027</a>
+- </em><em>ICD-10-CM:</em><em> H35.52 (Pigmentary retinal dystrophy / retinitis pigmentosa) — no MERTK-specific ICD code exists; classified under the general RP code
+- </em><em>MeSH:</em><em> Retinitis Pigmentosa (D012174)
+- </em><em>Orphanet:</em><em> No dedicated ORPHA number specific to "MERTK-related retinopathy" was identified in this search; it is grouped under broader entries such as "Severe early-childhood-onset retinal dystrophy" (<a href="https://bioregistry.io/ORPHA:364055" target="_blank" rel="noopener noreferrer">ORPHA:364055</a>) and "Retinitis pigmentosa" (autosomal recessive) entries. This should be verified directly against the current Orphanet database.
+- </em><em>ClinGen Gene-Disease Validity:</em><em> </em><em>Definitive</em>* classification (approved 2022-07-07) for MERTK–MERTK-related retinopathy, autosomal recessive inheritance, based on 12/12 maximum genetic evidence points (6 probands, 8 unique variants, segregation LOD 4.63 across 3 families) plus experimental/model organism evidence.</p>
+<p><strong>Synonyms/alternative names:</strong> Retinitis pigmentosa 38 (RP38); MERTK-associated retinitis pigmentosa; MERTK-related retinitis pigmentosa; childhood-onset rod-cone dystrophy due to MERTK mutation; autosomal recessive retinitis pigmentosa due to MERTK deficiency.</p>
+<p><strong>Data source type:</strong> This report is derived from aggregated disease-level resources — peer-reviewed case series, natural history cohort studies, gene-disease curation panels (ClinGen), and animal/cellular model literature — not from individual patient EHR data.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> Purely genetic/monogenic. Biallelic (homozygous or compound heterozygous) pathogenic variants in <em>MERTK</em> are necessary and sufficient to cause disease; no environmental or infectious trigger is implicated in the primary etiology.</p>
+<p><strong>Genetic risk factors:</strong>
+- Biallelic loss-of-function or hypomorphic missense variants in <em>MERTK</em> (2q13/2q14.1) — causal.
+- Consanguinity strongly increases risk given autosomal recessive inheritance; many reported pedigrees are consanguineous Middle Eastern or North African families (Mackay et al., <em>Mol Vis</em> 2010, <a href="https://pubmed.ncbi.nlm.nih.gov/20300561/" target="_blank" rel="noopener noreferrer">PMID 20300561</a>).
+- Population founder alleles (see Section 9) act as regional genetic risk factors (e.g., Faroe Islands 91-kb deletion).
+- No established modifier genes with strong evidence, though genotype (missense vs. null) appears to influence severity (see below).</p>
+<p><strong>Environmental/lifestyle risk factors:</strong> None established as causal. As with other RP subtypes, light exposure and oxidative stress are hypothesized generic contributors to photoreceptor stress in degenerating retinas, but no MERTK-specific environmental risk factor has been demonstrated in the literature reviewed.</p>
+<p><strong>Protective factors:</strong> No genetic or environmental protective factors specific to MERTK-related retinopathy were identified. Vitamin A palmitate supplementation, used generically in RP management, has shown inconsistent/mixed benefit in RP broadly and is not specifically validated for MERTK-related disease.</p>
+<p><strong>Gene-environment interactions:</strong> None specifically documented for MERTK-related retinopathy in the literature reviewed; this is a monogenic disease with recessive inheritance where phenotype is driven primarily by allelic severity rather than environmental modification.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p><strong>Phenotype type:</strong> Primarily clinical signs and symptoms (ophthalmologic); no behavioral phenotype; some laboratory/imaging biomarkers.</p>
+<h3>Core phenotype: Nyctalopia (night blindness)</h3>
+<ul>
+<li><strong>Type:</strong> Symptom</li>
+<li><strong>Onset:</strong> Earliest and most common presenting symptom; mean age of onset ~9.4 years (±3.4; range 4–15) in one cohort (Retina 2026 cohort); other series report symptom onset as early as age 3 and as late as 12–16 years.</li>
+<li><strong>Severity/progression:</strong> Progressive.</li>
+<li><strong>Frequency:</strong> Most common initial symptom across nearly all reported cohorts.</li>
+<li><strong>HPO term suggestion:</strong> Nyctalopia (<a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a>)</li>
+</ul>
+<h3>Rod-cone dystrophy (progressive peripheral field loss)</h3>
+<ul>
+<li><strong>Type:</strong> Clinical sign (fundoscopic/functional)</li>
+<li><strong>Onset:</strong> Childhood.</li>
+<li><strong>Progression:</strong> Progressive, relentless; full-field ERG becomes "barely recordable" in advanced disease (Ophthalmic Genetics 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34289798/" target="_blank" rel="noopener noreferrer">PMID 34289798</a>).</li>
+<li><strong>HPO terms:</strong> Rod-cone dystrophy (<a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a>); Retinal rod-cone dystrophy; Constricted visual fields (<a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a>); Abnormal electroretinogram (<a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a>)</li>
+</ul>
+<h3>Early/disproportionate macular atrophy</h3>
+<ul>
+<li><strong>Type:</strong> Clinical sign</li>
+<li><strong>Onset:</strong> Distinctive feature — occurs earlier than typical RP, often within the first two decades. Central macular atrophy related to asymmetric visual acuity was common after age 10 (11/17 patients in one series).</li>
+<li><strong>Severity/progression:</strong> Progressive; a key distinguishing biomarker of this gene-specific phenotype versus other RP genes.</li>
+<li><strong>HPO terms:</strong> Macular atrophy (<a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" rel="noopener noreferrer">HP:0007401</a>); Bull's eye maculopathy (<a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a>, seen in some cases)</li>
+</ul>
+<h3>Central visual acuity loss</h3>
+<ul>
+<li><strong>Onset:</strong> Significant visual acuity loss "usually occurs by the teenage years" (Retina 2026, PMID/DOI 10.1097/IAE.0000000000004713).</li>
+<li><strong>Frequency/severity:</strong> Visual acuity 20/70 or worse in at least one eye after age 17 in nearly all patients (16/17 in one cohort); all patients legally blind by age 39 in another series.</li>
+<li><strong>Progression rate (quantified):</strong> Mean BCVA declined from 0.84 ± 0.86 to 1.14 ± 0.86 logMAR at final follow-up (~0.05 ± 0.03 logMAR/year); ellipsoid zone width declined ~141 µm/year; central macular thickness declined ~11.2 µm/year (<a href="https://pubmed.ncbi.nlm.nih.gov/34289798/" target="_blank" rel="noopener noreferrer">PMID 34289798</a>).</li>
+<li><strong>HPO terms:</strong> Reduced visual acuity (<a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a>); Progressive visual loss (<a href="http://purl.obolibrary.org/obo/HP_0000529" target="_blank" rel="noopener noreferrer">HP:0000529</a>)</li>
+</ul>
+<h3>Structural/imaging findings</h3>
+<ul>
+<li>Subretinal debris/hyper-reflective deposits beneath the sensory retina on OCT (a relatively distinctive feature of MERTK retinopathy, thought to reflect unphagocytosed outer segment debris).</li>
+<li>Ultra-widefield fundus autofluorescence: central macular hyperautofluorescence.</li>
+<li>Optic disc drusen and myopia reported as common associated findings in the 2026 Retina cohort.</li>
+<li>HPO terms: Abnormality of the outer nuclear layer; Myopia (<a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" rel="noopener noreferrer">HP:0000545</a>); Optic disc drusen (<a href="http://purl.obolibrary.org/obo/HP_0011766" target="_blank" rel="noopener noreferrer">HP:0011766</a>)</li>
+</ul>
+<p><strong>Additional reported signs:</strong> Bone-spicule pigmentation (variable/less prominent than typical RP in some case series), attenuated retinal vessels, waxy disc pallor — classic RP fundus triad, present variably.</p>
+<p><strong>Quality of life impact:</strong> Not separately quantified with validated instruments (EQ-5D/SF-36) in MERTK-specific literature reviewed; broader RP literature documents substantial QOL burden from progressive vision loss affecting independence, employment, and mobility, with impact escalating as patients become legally blind by young/mid-adulthood. No MERTK-specific QOL studies were identified — <strong>data gap</strong>.</p>
+<p><strong>Systemic/extra-ocular phenotype:</strong> MERTK-related retinopathy is considered <strong>nonsyndromic</strong> — disease is confined to the retina/RPE in reported human cohorts, despite MERTK's broader immunologic roles (see Section 6). No consistent systemic autoimmune phenotype has been reported in affected patients, though this remains a theoretical area of interest given MERTK's role in efferocytosis.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>MERTK</em> (<a href="https://bioregistry.io/HGNC:7027" target="_blank" rel="noopener noreferrer">HGNC:7027</a>; OMIM *604705), chromosome 2q13. Encodes a receptor tyrosine kinase of the TAM (TYRO3/AXL/MERTK) family.</p>
+<p><strong>Variant classification and types:</strong> Pathogenic variants span essentially all mutation classes:
+- <strong>Missense:</strong> e.g., c.1133C&gt;T (p.Thr378Met), c.2163T&gt;A (p.His721Gln), c.1866G&gt;C (p.Lys622Asn), c.2020A&gt;G (p.Met674Val) — PMC9615558; ClinGen curation.
+- <strong>Nonsense:</strong> c.1843A&gt;T (p.Lys615<em>); c.2262C&gt;G (p.Tyr754</em>) — ClinGen curation.
+- <strong>Frameshift:</strong> c.1744_1751delinsT (p.Ile582Ter, functionally a truncation); Ser331Cysfs<em>5 (used to generate the iPSC disease model, <a href="https://pubmed.ncbi.nlm.nih.gov/26263531/" target="_blank" rel="noopener noreferrer">PMID 26263531</a>); c.2214del (p.Cys738Trpfs</em>32).
+- <strong>Splice-site:</strong> c.61+1G&gt;A (intron 1 donor site, Mackay et al. <a href="https://pubmed.ncbi.nlm.nih.gov/20300561/" target="_blank" rel="noopener noreferrer">PMID 20300561</a>); additional splice mutations reported in consanguineous families with paternal isodisomy for chromosome 2.
+- <strong>Large structural deletions:</strong> ~9 kb deletion removing exon 8 (<a href="https://pubmed.ncbi.nlm.nih.gov/20300561/" target="_blank" rel="noopener noreferrer">PMID 20300561</a>); 91-kb deletion spanning exons 1–7, a Faroese founder allele arising from non-homologous recombination between Alu and LINE-1 repeats (Molecular Vision, mol vis v24/667); 5-bp deletion reported in a consanguineous family.</p>
+<p><strong>Functional consequence:</strong> Predominantly <strong>loss of function</strong> — null alleles (nonsense, frameshift, large deletion, canonical splice-site) abolish MERTK protein/kinase activity; missense variants affect highly conserved residues in functional domains (extracellular Ig-like/fibronectin III domains or the intracellular tyrosine kinase domain) and are predicted pathogenic by low population frequency and computational tools, generally producing hypomorphic or complete loss of kinase signaling. No gain-of-function or dominant-negative mechanism has been described; disease is strictly autosomal recessive, consistent with a loss-of-function/haploinsufficiency-tolerant mechanism (heterozygous carriers are unaffected).</p>
+<p><strong>Allele frequency / population genetics:</strong> No pathogenic MERTK variant is common in general population databases (gnomAD), consistent with rarity of the disease; MERTK accounts for roughly 1% of autosomal recessive RP cases generally, but with striking founder effects in specific populations (see Section 9). Specific gnomAD allele frequencies for individual pathogenic alleles were not retrievable in this search session — <strong>recommend direct gnomAD browser query for exact figures</strong>.</p>
+<p><strong>Somatic vs. germline:</strong> All disease-causing variants are germline. (Note: <em>MERTK</em> has separate, unrelated somatic relevance as an oncogenic driver in leukemia, melanoma, gastric cancer, and Ewing sarcoma — this is a distinct area of cancer biology, not part of the retinal phenotype.)</p>
+<p><strong>Modifier genes:</strong> No formally validated modifier genes for MERTK-related retinopathy were identified. Genotype-phenotype correlation (null vs. hypomorphic missense alleles) is suggested as an informal severity modifier across case series, but this has not been systematically established.</p>
+<p><strong>Epigenetic information:</strong> No MERTK-retinopathy-specific epigenetic (DNA methylation/histone) studies were identified in this search — <strong>data gap</strong>.</p>
+<p><strong>Chromosomal abnormalities:</strong> No aneuploidy/translocation etiologies reported; disease arises from intragenic variants and structural deletions at the <em>MERTK</em> locus itself, not from large chromosomal rearrangements.</p>
+<p><strong>Gene/protein structure:</strong> MERTK protein has two Ig-like C2-type domains, two fibronectin type-III domains (ligand-binding extracellular region), a transmembrane domain, and an intracellular tyrosine kinase domain — GeneCards/UniProt.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No established environmental toxin, occupational, or infectious contributors to MERTK-related retinopathy were identified — this is a purely monogenic disease. Lifestyle factors relevant to general RP care (UV/blue-light protection, smoking avoidance for general retinal health) are extrapolated from broader RP guidance rather than MERTK-specific evidence. No infectious agents are implicated.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (upstream → downstream):</strong>
+1. Biallelic loss-of-function <em>MERTK</em> variants → absent/nonfunctional MERTK receptor tyrosine kinase on the apical RPE surface.
+2. Failure of MERTK-dependent signaling in response to its ligands <strong>Gas6</strong> and <strong>Protein S</strong>, which normally bind externalized phosphatidylserine on shed photoreceptor outer segment (POS) tips and bridge them to RPE MERTK.
+3. Loss of POS <strong>ensheathment, fragmentation, and internalization</strong> by RPE — MERTK ligands trigger POS ensheathment, and "ensheathment, fragmentation, and internalization [are] abolished in MERTK mutant RPE" (PMC7066375).
+4. Progressive accumulation of unphagocytosed/undigested photoreceptor outer segment debris in the subretinal space — visualized clinically as subretinal hyper-reflective debris on OCT and hyperautofluorescence on FAF.
+5. Chronic subretinal debris accumulation triggers <strong>RPE inflammation</strong> — a 2022 study (bioRxiv/PMID pending) reported "Inflammation of the retinal pigment epithelium drives early-onset photoreceptor degeneration in Mertk-associated retinitis pigmentosa," implicating a secondary inflammatory mechanism beyond simple debris toxicity.
+6. Secondary photoreceptor (rod, then cone) death by apoptosis, driven by loss of trophic RPE support, toxic debris accumulation, and local inflammation.
+7. Clinical endpoint: progressive rod-cone dystrophy, early macular atrophy, and legal blindness by the third–fourth decade.</p>
+<p><strong>Molecular pathway:</strong> RPE apical phagocytic receptor signaling — two convergent/complementary pathways: (a) αvβ5 integrin, stimulated by MFG-E8, signaling to the actin regulator Rac1 (controls timing of phagocytosis, circadian burst); (b) MERTK, activated by Gas6/Protein S, signaling via focal adhesion kinase (FAK) to drive actual particle <strong>internalization</strong>. MERTK deficiency selectively abolishes the internalization step while initial binding/recognition may remain partially intact (integrin-mediated).</p>
+<p><strong>Cellular processes involved:</strong> Phagocytosis/efferocytosis (specifically "clearance phagocytosis"), cytoskeletal (actin) remodeling, receptor tyrosine kinase signal transduction, secondary apoptosis of photoreceptors, and RPE-driven inflammatory signaling.</p>
+<p><strong>Protein dysfunction:</strong> Loss of MERTK kinase activity (null alleles) or impaired ligand engagement/kinase signaling (missense alleles) — a loss-of-function mechanism at the RPE cell membrane.</p>
+<p><strong>Immune system involvement:</strong> MERTK is a core "eat-me" signal receptor for apoptotic cell clearance (efferocytosis) broadly, not only in RPE but in macrophages/microglia throughout the body. <em>Mertk</em>-knockout mice show defective macrophage clearance of apoptotic thymocytes/lymphocytes and develop <strong>autoimmune features</strong> (increased autoantibodies, lupus-like phenotype) due to impaired self-antigen clearance — TAM-receptor-deficient mice are established autoimmunity models. Microglial MERTK deficiency also impairs efferocytosis in the CNS/retina and modulates neuroinflammation. However, systemic autoimmune disease is <strong>not</strong> a prominent reported feature of human MERTK-related retinopathy patients in the ophthalmic literature reviewed — this immune dimension is primarily documented in model systems and represents a biologically plausible but clinically under-characterized aspect of the human disease.</p>
+<p><strong>Tissue damage mechanism:</strong> Combination of (1) toxic/metabolic stress from undigested POS debris, (2) chronic local RPE inflammation, and (3) loss of RPE trophic/metabolic support for photoreceptors, converging on photoreceptor apoptosis.</p>
+<p><strong>Molecular/omics profiling:</strong> No MERTK-retinopathy-specific transcriptomic, proteomic, metabolomic, or lipidomic human datasets were identified in this search. A related mouse model study ("MerTK-cleavage-resistant mouse") reported "retinal atrophy, inflammation, phagocytic and metabolic disruptions" using multimodal approaches, suggesting metabolic dysregulation accompanies phagocytic failure at the mechanistic level in animal models — human confirmatory omics data represent a <strong>data gap</strong>.</p>
+<p><strong>Suggested GO terms:</strong> Phagocytosis (<a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a>); phagocytosis, engulfment (<a href="http://purl.obolibrary.org/obo/GO_0006911" target="_blank" rel="noopener noreferrer">GO:0006911</a>); regulation of phagocytosis (<a href="http://purl.obolibrary.org/obo/GO_0050764" target="_blank" rel="noopener noreferrer">GO:0050764</a>); receptor tyrosine kinase signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0007169" target="_blank" rel="noopener noreferrer">GO:0007169</a>); apoptotic cell clearance (<a href="http://purl.obolibrary.org/obo/GO_0043277" target="_blank" rel="noopener noreferrer">GO:0043277</a>); photoreceptor cell maintenance (<a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" rel="noopener noreferrer">GO:0045494</a>); visual perception (<a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" rel="noopener noreferrer">GO:0007601</a>)</p>
+<p><strong>Suggested CL (Cell Ontology) terms:</strong> Retinal pigment epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>); rod photoreceptor cell (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>); cone photoreceptor cell (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>); microglial cell (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>); macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong> Eye — specifically the retina and retinal pigment epithelium. Disease is nonsyndromic/ocular-limited in humans; no established secondary organ involvement.</p>
+<p><strong>Body system:</strong> Visual/sensory system (nervous system component — retina is CNS-derived tissue).</p>
+<p><strong>Tissue/cell level:</strong>
+- Primary target: <strong>Retinal pigment epithelium (RPE)</strong> — site of the primary phagocytic defect (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>).
+- Secondarily affected: <strong>Rod photoreceptors</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) — die first/predominantly, consistent with rod-cone dystrophy pattern; <strong>cone photoreceptors</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>), particularly in the macula, affected early and disproportionately relative to typical RP.
+- Outer nuclear layer (photoreceptor cell bodies) shows thinning on OCT.
+- Photoreceptor outer segments — site of debris accumulation (ensheathment failure).</p>
+<p><strong>Subcellular level (GO Cellular Component):</strong> Plasma membrane / apical microvilli of RPE (site of MERTK receptor and phagocytic cup formation, <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>, <a href="http://purl.obolibrary.org/obo/GO_0031514" target="_blank" rel="noopener noreferrer">GO:0031514</a>); phagosome (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>); relevant to receptor tyrosine kinase trafficking.</p>
+<p><strong>Localization (UBERON terms):</strong> Retina (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>); retinal pigment epithelium (<a href="http://purl.obolibrary.org/obo/UBERON_0002566" target="_blank" rel="noopener noreferrer">UBERON:0002566</a>); macula lutea (<a href="http://purl.obolibrary.org/obo/UBERON_0002187" target="_blank" rel="noopener noreferrer">UBERON:0002187</a>); neural retina.</p>
+<p><strong>Lateralization:</strong> Bilateral disease; however, asymmetry between the two eyes in visual acuity and macular atrophy extent is a recognized and somewhat distinctive clinical feature (asymmetric VA loss associated with central macular atrophy after age 10, per the 2026 Retina cohort).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Childhood/juvenile-onset — mean symptom onset ~9.4 years (range 3–16 years across cohorts); essentially all patients symptomatic before age 16. Onset pattern is <strong>insidious</strong> (gradual nyctalopia progressing over years), not acute.</p>
+<p><strong>Progression:</strong>
+- <strong>Stages (informal, based on natural history cohorts):</strong> (1) Early — nyctalopia with preserved central acuity, childhood; (2) Intermediate — progressive peripheral field constriction with emerging macular atrophy, typically starting after age 10; (3) Advanced — significant bilateral, often asymmetric, central vision loss with legal blindness reached by young-to-mid adulthood (by age 39 in one series; VA 20/70 or worse in at least one eye after age 17 in nearly all patients).
+- <strong>Rate:</strong> Relatively rapid/aggressive compared to many other RP genotypes — described as "early-onset and severe form of autosomal recessive RP." Quantified structural progression: EZ width loss ~141 µm/year; central macular thickness loss ~11.2 µm/year; BCVA decline ~0.05 logMAR/year (<a href="https://pubmed.ncbi.nlm.nih.gov/34289798/" target="_blank" rel="noopener noreferrer">PMID 34289798</a>). The Faroese founder-deletion homozygotes showed "onset in the first decade followed by a rapid deterioration of both rod and cone photoreceptor function."
+- <strong>Course pattern:</strong> Chronic, progressive, non-remitting — no episodic or relapsing-remitting pattern described.
+- <strong>Duration:</strong> Lifelong, chronic, currently non-reversible (though early-phase gene therapy trials aim to slow/halt progression — see Section 12).</p>
+<p><strong>Patterns:</strong> No spontaneous remission reported. No clearly defined "critical window" for intervention has been established in humans, though gene therapy trials have targeted patients across a wide age range (14–54 years in the AAV2 phase I trial), and preclinical models suggest earlier intervention (before substantial photoreceptor loss) is likely to preserve more function — consistent with general IRD gene therapy principles.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance pattern:</strong> Autosomal recessive (confirmed by ClinGen Definitive classification, 2022).</p>
+<p><strong>Penetrance:</strong> Appears complete/high in biallelic pathogenic variant carriers based on reported pedigrees, though formal penetrance estimates were not identified — <strong>data gap</strong>.</p>
+<p><strong>Expressivity:</strong> Variable — age of onset (3–16 years) and rate of progression vary across families/genotypes, suggesting variable expressivity, possibly genotype-dependent (null vs. missense alleles).</p>
+<p><strong>Genetic anticipation:</strong> Not described/not applicable (not a repeat-expansion disorder).</p>
+<p><strong>Germline mosaicism:</strong> Not specifically reported for MERTK.</p>
+<p><strong>Founder effects:</strong>
+- <strong>Faroe Islands:</strong> A 91-kb deletion (exons 1–7) is a common founder mutation responsible for <strong>~30%</strong> of nonsyndromic RP cases in this population; carrier frequency ~3% among Faroese controls (3/94 anonymous controls) (<a href="https://pubmed.ncbi.nlm.nih.gov/21677792/" target="_blank" rel="noopener noreferrer">PMID 21677792</a>).
+- <strong>North Africa:</strong> MERTK variants account for <strong>~18%</strong> of rod-cone dystrophy in some North African cohorts (vs. ~1% generally in mixed populations) — reflecting regional founder alleles and high consanguinity rates.
+- <strong>Middle East:</strong> Multiple consanguineous pedigrees reported (Saudi Arabia — site of the AAV2 gene therapy trial; other Gulf states).</p>
+<p><strong>Consanguinity:</strong> Plays a major role — many published families are consanguineous, consistent with autosomal recessive inheritance and regional prevalence patterns.</p>
+<p><strong>Carrier frequency:</strong> General population carrier frequency is presumed low (consistent with ~1% contribution to AR RP generally), but elevated in founder populations (e.g., ~3% in Faroe Islands for the specific 91-kb deletion). Population-wide gnomAD-derived carrier frequency estimates were not retrieved in this session — <strong>recommend direct gnomAD query</strong>.</p>
+<h3>Epidemiology</h3>
+<ul>
+<li>General RP prevalence: ~1/3,500 to 1/4,000 (varies by source, 1/2,500–1/4,000 range).</li>
+<li>Inheritance breakdown of RP overall: autosomal recessive 15–25%, autosomal dominant 5–20%, X-linked recessive 5–15%, simplex/unknown 40–50%.</li>
+<li><strong>MERTK contributes ~1–2–3% of autosomal recessive RP/IRD cases generally</strong>, with substantially higher regional contributions in the Faroe Islands (~30% of RP) and North Africa (~18% of rod-cone dystrophy).</li>
+<li>Estimated global affected population: Opus Genetics cites "an estimated 60,000 patients worldwide" for MERTK-related RP (StockTitan/Foundation Fighting Blindness press coverage, 2026) — this is an industry/advocacy estimate rather than a peer-reviewed epidemiologic figure and should be treated with appropriate caution.</li>
+</ul>
+<p><strong>Population demographics:</strong> No strong sex predilection reported (consistent with autosomal, non-sex-linked inheritance). Geographic clustering in the Faroe Islands, North Africa, and consanguineous Middle Eastern populations, alongside sporadic cases described worldwide (China, Pakistan, UK, US).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical tests:</strong>
+- <strong>Fundoscopic examination:</strong> RP-pattern findings — bone-spicule pigmentation (variable), attenuated vessels, waxy disc pallor, optic disc drusen (frequently noted in the 2026 Retina cohort), myopia.
+- <strong>Electroretinography (ERG):</strong> Full-field and pattern ERG markedly reduced/"barely recordable" in established disease — used to confirm rod-cone dysfunction pattern.
+- <strong>Optical coherence tomography (OCT):</strong> Ellipsoid zone (EZ) width and central macular thickness as quantitative structural biomarkers of progression; characteristic subretinal hyper-reflective debris/deposits distinguish MERTK retinopathy from many other IRD genotypes.
+- <strong>Fundus autofluorescence (FAF), including ultra-widefield:</strong> Central macular hyperautofluorescence pattern.
+- <strong>Visual field testing:</strong> Documents peripheral constriction.
+- <strong>Visual acuity (BCVA):</strong> Serial tracking is a core outcome measure in natural history and trial studies.</p>
+<p><strong>Genetic testing:</strong>
+- <strong>Recommended approach:</strong> Multi-gene NGS panel testing for inherited retinal disease (IRD) is first-line, given phenotypic overlap with many other rod-cone/cone-rod dystrophy genes; MERTK is included in standard comprehensive IRD panels (e.g., 176-gene and 351-gene panels referenced in PMC8683638 and PMC11276581).
+- <strong>Panel-based testing yield:</strong> Achieves molecular diagnosis in ~59% of IRD patients overall (higher, ~92%, in children under 6).
+- <strong>WES/WGS:</strong> Useful for cases where panel testing is non-diagnostic, or to detect structural/deep-intronic variants (e.g., large deletions like the Faroese 91-kb deletion, which would require copy-number-sensitive analysis such as CMA, targeted deletion/duplication analysis, or WGS rather than standard exome capture alone).
+- <strong>Single-gene testing/segregation analysis:</strong> Useful in known consanguineous families or when a specific founder variant is suspected (e.g., targeted testing for the Faroese deletion in that population).
+- <strong>Chromosomal microarray/karyotype/FISH:</strong> Not primary diagnostic modalities for MERTK (disease is not caused by large chromosomal rearrangements/aneuploidy), though CMA or targeted CNV analysis can detect the multi-exon deletions reported in several families.
+- <strong>Mitochondrial DNA testing:</strong> Not applicable (nuclear gene, autosomal recessive).</p>
+<p><strong>Clinical/differential diagnosis:</strong> MERTK-related retinopathy must be differentiated from other causes of childhood-onset rod-cone/cone-rod dystrophy and early macular atrophy, including RPE65-associated Leber congenital amaurosis/early-onset RP, CRB1-associated retinal dystrophy, ABCA4-associated Stargardt disease/cone-rod dystrophy, RDH12, and other autosomal recessive RP genes (EYS, USH2A with associated hearing loss in Usher syndrome, etc.) — the presence of striking subretinal debris on OCT and disproportionately early macular atrophy are clues favoring MERTK. Genetic testing is required for definitive differentiation since fundus appearance alone is not gene-specific.</p>
+<p><strong>Screening:</strong> No population-based newborn or carrier screening program specific to MERTK was identified; carrier screening would follow general ACMG guidance for autosomal recessive conditions and would be most relevant in high-prevalence founder populations (e.g., Faroe Islands) or for at-risk consanguineous couples via targeted or expanded carrier screening/GTR-listed panels.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival/mortality:</strong> MERTK-related retinopathy is an ocular-limited disease with <strong>no reported impact on life expectancy or systemic mortality</strong> in the human literature reviewed.</p>
+<p><strong>Morbidity/functional outcome:</strong> Progressive to severe visual disability — legal blindness reported by age 39 in one series, and VA 20/70 or worse in at least one eye after age 17 in nearly all patients in the 2026 cohort. This represents substantial lifelong disability affecting independence, education, employment, and mobility, though no MERTK-specific formal disability/QOL instrument data (ICF, EQ-5D, PROMIS) were identified — <strong>data gap</strong>.</p>
+<p><strong>Disease course/complications:</strong> Chronic progressive vision loss; no reported systemic complications. Ocular complications specifically related to investigational gene therapy (not the natural disease) include cataract progression, transient subfoveal fluid, filamentary keratitis, and (in two trial patients) unresolved severe visual acuity loss post-injection (<a href="https://pubmed.ncbi.nlm.nih.gov/26825853/" target="_blank" rel="noopener noreferrer">PMID 26825853</a>) — important for informed consent/risk discussions in future trials.</p>
+<p><strong>Recovery potential:</strong> Without treatment, disease is non-reversible and progressive. With investigational gene therapy, three of six patients in the phase I AAV2 trial showed measurable VA improvement, but improvement was lost by 2 years in two of the three — indicating that current gene augmentation approaches may provide only transient benefit, underscoring the ongoing need for improved vectors/protocols (addressed by newer trials, e.g., Opus Genetics' OPGx-MERTK).</p>
+<p><strong>Prognostic factors:</strong> Genotype severity (null vs. missense alleles) is an informal prognostic consideration; age/stage at diagnosis affects the amount of remaining photoreceptor structure (EZ width, ONL thickness) available for potential therapeutic rescue — earlier intervention is generally presumed more favorable, consistent with general IRD gene therapy principles, though not proven in a controlled MERTK-specific trial.</p>
+<p><strong>Prognostic biomarkers:</strong> OCT-derived ellipsoid zone width and central macular thickness, and FAF-defined area of "definitely decreased autofluorescence" (DDAF), have been proposed and used as quantitative biomarkers of disease progression and potential trial endpoints (<a href="https://pubmed.ncbi.nlm.nih.gov/34289798/" target="_blank" rel="noopener noreferrer">PMID 34289798</a>; 2026 Retina cohort study).</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Current standard of care:</strong> <strong>No approved disease-modifying or curative therapy exists.</strong> Management is supportive only:
+- <strong>Supportive/rehabilitative care:</strong> Low-vision aids (magnifiers, handheld/bioptic telescopes, CCTV systems, high-contrast lenses, electronic reading/speech-output devices), orientation and mobility training, glare control/illumination optimization, and low-vision counseling.
+- <strong>Nutritional supplementation:</strong> Vitamin A palmitate has been used empirically in RP generally, but evidence is mixed/controversial and not proven to alter visual field, acuity, or dark adaptation in controlled trials; no MERTK-specific vitamin A efficacy data exist.
+- <strong>MAXO term suggestions:</strong> "vision assistive device provision," "low vision rehabilitation," "genetic counseling," "orientation and mobility training."</p>
+<p><strong>Advanced/experimental therapeutics — Gene therapy (most advanced modality for this specific gene):</strong>
+- <strong>Preclinical:</strong> AAV2-VMD2-hMERTK (AAV2 vector, RPE-specific VMD2/bestrophin-1 promoter driving human MERTK cDNA) rescued phagocytic function and photoreceptor structure in the RCS rat model, with demonstrated potency and ocular-confined biodistribution (Conlon et al., <a href="https://pubmed.ncbi.nlm.nih.gov/23692380/" target="_blank" rel="noopener noreferrer">PMID 23692380</a>).
+- <strong>Completed Phase I trial (NCT01482195):</strong> Subretinal rAAV2-VMD2-hMERTK in 6 patients (ages 14–54) — "acceptable ocular and systemic safety profile" over 2-year follow-up; 3/6 patients showed measurable VA improvement, lost in 2/3 by 2 years; adverse events included filamentary keratitis, progressive cataract, transient subfoveal fluid, monocular oscillopsia; no vector-attributable severe adverse events, though two patients (unrelated report) experienced unresolved severe VA loss post-procedure requiring careful risk disclosure (Ghazi et al., <a href="https://pubmed.ncbi.nlm.nih.gov/26825853/" target="_blank" rel="noopener noreferrer">PMID 26825853</a>).
+- <strong>New trial (2026, in development):</strong> Opus Genetics' <strong>OPGx-MERTK</strong>, an AAV-based gene therapy, funded via Abu Dhabi's Healthcare Research and Innovation Fund, with Cleveland Clinic Abu Dhabi as the clinical site; clinical development activities expected to commence in 2026, targeting an estimated 60,000 patients worldwide with no approved treatment.
+- <strong>MAXO term suggestion:</strong> "gene replacement therapy," "subretinal injection administration."</p>
+<p><strong>Other experimental/preclinical approaches:</strong>
+- <strong>Translational readthrough-inducing drugs (TRIDs):</strong> PTC124 partially restored phagocytosis in an iPSC-RPE MERTK-deficient (nonsense/frameshift, likely applicable to premature termination codon alleles) disease model, illustrating a potential small-molecule strategy for nonsense-mutation subgroups (<a href="https://pubmed.ncbi.nlm.nih.gov/28303901/" target="_blank" rel="noopener noreferrer">PMID 28303901</a>/Scientific Reports 2017).
+- <strong>CRISPR/base editing:</strong> At least one MERTK variant has been noted as a single-nucleotide transition theoretically amenable to CRISPR-Cas9 base editing (PMC8486302 review) — preclinical/conceptual stage only, no human trials identified.
+- <strong>Long-term rescue studies in rodent models</strong> (e.g., Nat Sci Rep 2018, "Long-term Rescue of Photoreceptors in a Rodent Model of Retinitis Pigmentosa Associated with MERTK Mutation") support continued gene-therapy vector optimization.</p>
+<p><strong>Pharmacogenomics:</strong> No MERTK-specific pharmacogenomic data identified (not applicable to a gene-replacement paradigm in the same way as small-molecule drug metabolism).</p>
+<p><strong>Treatment algorithm:</strong> Given absence of approved therapy, current clinical pathway is: (1) genetic confirmation of diagnosis, (2) baseline and serial structural/functional biomarker monitoring (OCT EZ width, BCVA, FAF), (3) supportive low-vision care, (4) genetic counseling for family planning, and (5) referral to gene therapy clinical trials where eligible/available (e.g., emerging Opus Genetics OPGx-MERTK trial).</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Not applicable in the traditional sense (no modifiable risk factor); the only "primary prevention" avenue is genetic — carrier screening and reproductive counseling in at-risk families/populations (e.g., consanguineous couples, Faroese descent) to inform reproductive decision-making, including preimplantation genetic diagnosis (PGD) or prenatal testing where a familial pathogenic variant is known.</p>
+<p><strong>Secondary prevention:</strong> Early genetic diagnosis via NGS panel testing in children presenting with nyctalopia enables earlier initiation of low-vision support services and, potentially, earlier eligibility for gene therapy trials before extensive photoreceptor loss occurs (biologically plausible rationale, not yet proven in controlled human studies).</p>
+<p><strong>Tertiary prevention:</strong> Low-vision rehabilitation, mobility training, and psychosocial support to minimize functional disability and complications of severe vision loss (falls, social/occupational impact) once disease is established.</p>
+<p><strong>Genetic counseling:</strong> Central to management — autosomal recessive inheritance implies 25% recurrence risk for future affected offspring of carrier parents; counseling should address consanguinity risk, founder variant testing in relevant populations, and availability of clinical trials.</p>
+<p><strong>Screening:</strong> No population-based public health screening program exists; targeted carrier screening is most relevant in high-prevalence founder populations (Faroe Islands) or in genetic counseling settings for consanguineous families with a family history of early-onset RP.</p>
+<p><strong>Immunization/infectious prevention:</strong> Not applicable (non-infectious, monogenic disease).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy and naturally occurring disease:</strong>
+- <strong>Rat — Royal College of Surgeons (RCS) rat</strong> (<em>Rattus norvegicus</em>, NCBI Taxon 10116): The classical, decades-old naturally occurring model. Caused by a large deletion in <em>Mertk</em> (~409 bp reported in one study; ~1,850 bp reported in another, resulting in a truncated protein) that abolishes RPE phagocytic function, producing progressive photoreceptor degeneration. This model <strong>preceded and directly led to discovery</strong> of human MERTK-RP (D'Cruz et al., <em>Hum Mol Genet</em> 2000; Gal et al., <em>Nat Genet</em> 2000). Historically the single most important natural animal model of RPE-phagocytosis-defect retinal degeneration and the basis for the first successful RPE-directed retinal gene therapy proof-of-concept (viral <em>Mertk</em> gene transfer corrected the phenotype — <a href="https://pubmed.ncbi.nlm.nih.gov/11592982/" target="_blank" rel="noopener noreferrer">PMID 11592982</a>).
+- <strong>Dog — Swedish Vallhund</strong> (<em>Canis lupus familiaris</em>): A naturally occurring progressive retinal atrophy (PRA) mapped to an intronic LINE-1 retroelement insertion (6–8 kb) in <em>MERTK</em> intron 1, recessively inherited, conferring ~20-fold increased risk of retinopathy in homozygotes; phenotype: normal early vision progressing to nyctalopia and eventual day-vision impairment (PMC5558984). A distinct, milder canine retinopathy with <em>increased</em> MERTK expression has also been described in another breed context (PMC4269413), indicating that both loss- and altered-expression mechanisms can produce canine retinal disease at this locus.</p>
+<p><strong>Veterinary relevance:</strong> Genetic testing for the Swedish Vallhund LINE-1 insertion is commercially available (e.g., cagt.co.uk) for breeding management, given the ~20-fold risk association and recessive inheritance.</p>
+<p><strong>Comparative biology:</strong> The RPE phagocytosis pathway and MERTK's role are highly conserved across mammals (rat, dog, mouse, human), supporting strong translational validity of these animal models for mechanism and gene-therapy development. Orthologous gene: <em>Mertk</em> (mouse, <a href="https://bioregistry.io/MGI:96965" target="_blank" rel="noopener noreferrer">MGI:96965</a>; NCBI Gene 17289), <em>Mertk</em> (rat, NCBI Gene 56822).</p>
+<p><strong>Zoonotic/transmission potential:</strong> Not applicable — this is a non-infectious, purely genetic disease; no cross-species transmission relevance.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mammalian genetic models:</strong>
+- <strong>RCS rat (spontaneous/naturally occurring):</strong> Gold-standard model; loss-of-function <em>Mertk</em> mutation causes RPE phagocytic failure and progressive photoreceptor degeneration; extensively used for gene therapy proof-of-concept (viral <em>Mertk</em> delivery corrects phagocytic defect and rescues photoreceptors — <a href="https://pubmed.ncbi.nlm.nih.gov/11592982/" target="_blank" rel="noopener noreferrer">PMID 11592982</a>; long-term rescue data in Sci Rep 2018).
+- <strong>Mertk knockout mouse (Mertk⁻/⁻, engineered):</strong> Recapitulates an "RCS-like retinal dystrophy phenotype" (IOVS, ARVO). Also used extensively to study MERTK's systemic efferocytosis/immune roles — defective clearance of apoptotic thymocytes/lymphocytes, autoimmune susceptibility (lupus-like phenotype in TAM-deficient mice), and microglial efferocytosis defects. A newer independent knockout allele (PMC11121519, 2024) was generated to re-evaluate and dissect phagocytic versus anti-inflammatory MERTK functions, noting that some other <em>Mertk</em> mutant alleles (e.g., <em>Mertk^nmf12</em>) do <strong>not</strong> phenocopy the early/rapid RCS-like degeneration — indicating allele-specific phenotypic variability even within mouse models, an important caveat for interpreting model data.
+- <strong>MerTK-cleavage-resistant mouse (engineered, 2024, Frontiers in Neuroscience):</strong> A gain-of-function/cleavage-resistant model showing retinal atrophy, inflammation, and phagocytic/metabolic disruption — used to dissect the physiological role of MERTK ectodomain shedding, complementary to loss-of-function models.</p>
+<p><strong>Cellular/in vitro models:</strong>
+- <strong>Patient-derived iPSC-RPE model:</strong> Generated from a patient with the Ser331Cysfs<em>5 frameshift variant; iPSC-RPE cells showed absent MERTK protein and near-absent phagocytic uptake of fluorescently labeled photoreceptor outer segments (minimal internalization vs. clear internalization in controls) — validates human cellular disease modeling and serves as a drug-screening platform (Sci Rep 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/26263531/" target="_blank" rel="noopener noreferrer">PMID 26263531</a>; used subsequently for PTC124 TRID rescue studies, Sci Rep 2017).
+- </em><em>Human pluripotent stem cell-derived RPE (hPSC-RPE), general):</em>* Used to dissect MERTK-dependent POS ensheathment mechanisms mechanistically (PMC7066375), independent of patient-specific mutations.</p>
+<p><strong>Model characteristics — recapitulation and limitations:</strong>
+- Rodent and canine models faithfully recapitulate the core RPE phagocytic defect and progressive photoreceptor loss, and have been essential for gene therapy vector development directly translated into human trials.
+- <strong>Limitation:</strong> Mouse <em>Mertk</em>-null models show variable degeneration kinetics depending on the specific allele, complicating direct extrapolation; the RCS rat, while historically foundational, has a genetic background (large deletion, potentially affecting neighboring genes/regulatory elements) that may not perfectly mirror discrete human point mutations.
+- Human iPSC-RPE models capture the RPE-intrinsic phagocytic defect faithfully but, being 2D monolayer cultures, do not recapitulate the full retinal architecture, chronic inflammatory microenvironment, or systemic immune components (efferocytosis in lymphoid tissue, autoimmunity) seen in whole-organism knockout models.</p>
+<p><strong>Applications:</strong> RCS rat and <em>Mertk</em>-KO mice — gene therapy vector testing (AAV serotype/promoter optimization), natural history/mechanism studies, and pharmacological modulator testing (e.g., MERTK inhibitor ocular safety studies, PMC8837544, relevant given MERTK's dual role as an oncology drug target). iPSC-RPE — patient-specific mechanism validation and small-molecule (TRID) drug screening for genotype-specific approaches (e.g., nonsense-mutation readthrough).</p>
+<p><strong>Resources:</strong> MGI (Mouse Genome Informatics) for <em>Mertk</em> mouse alleles; RGD (Rat Genome Database) for RCS rat strain data; no major zebrafish or invertebrate (Drosophila/C. elegans/yeast) MERTK-retinopathy model was identified in this search, likely reflecting the RPE-specific, mammalian-retina-dependent nature of the phenotype.</p>
+<hr />
+<h2>Summary of Key Data Gaps</h2>
+<ul>
+<li>Precise current gnomAD allele/carrier frequencies for specific MERTK pathogenic alleles (recommend direct database query).</li>
+<li>MERTK-specific validated QOL instrument data (EQ-5D/SF-36/PROMIS).</li>
+<li>Human transcriptomic/proteomic/metabolomic/lipidomic/epigenomic datasets specific to MERTK-retinopathy RPE or retina.</li>
+<li>Formal penetrance/expressivity statistics beyond qualitative case-series impressions.</li>
+<li>A confirmed, disease-specific Orphanet ORPHA number (requires direct Orphanet database verification).</li>
+<li>Systematic human data on whether MERTK's systemic immune/efferocytosis role produces subclinical autoimmune findings in patients.</li>
+</ul>
+<h2>Selected Key Citations (PMID)</h2>
+<ul>
+<li>Gal A et al., <em>Nat Genet</em> 2000 — <a href="https://pubmed.ncbi.nlm.nih.gov/11062461/" target="_blank" rel="noopener noreferrer">PMID 11062461</a> (original human gene discovery)</li>
+<li>Mackay DS et al., <em>Mol Vis</em> 2010 — <a href="https://pubmed.ncbi.nlm.nih.gov/20300561/" target="_blank" rel="noopener noreferrer">PMID 20300561</a> (childhood-onset rod-cone dystrophy phenotype)</li>
+<li>Conlon TJ et al., <em>Hum Gene Ther</em> 2013 — <a href="https://pubmed.ncbi.nlm.nih.gov/23692380/" target="_blank" rel="noopener noreferrer">PMID 23692380</a> (preclinical AAV2 vector)</li>
+<li>Ghazi NG et al., <em>Hum Genet</em> 2016 — <a href="https://pubmed.ncbi.nlm.nih.gov/26825853/" target="_blank" rel="noopener noreferrer">PMID 26825853</a> (Phase I gene therapy trial)</li>
+<li>Lew DS et al./Charbel Issa et al., <em>Sci Rep</em> 2015 — <a href="https://pubmed.ncbi.nlm.nih.gov/26263531/" target="_blank" rel="noopener noreferrer">PMID 26263531</a> (iPSC-RPE disease model)</li>
+<li>Ksantini/Faroe Islands founder deletion — <a href="https://pubmed.ncbi.nlm.nih.gov/21677792/" target="_blank" rel="noopener noreferrer">PMID 21677792</a></li>
+<li>MERTK retinopathy biomarkers — <a href="https://pubmed.ncbi.nlm.nih.gov/34289798/" target="_blank" rel="noopener noreferrer">PMID 34289798</a></li>
+<li>ClinGen Gene-Disease Validity Curation (<a href="http://purl.obolibrary.org/obo/MONDO_0800394" target="_blank" rel="noopener noreferrer">MONDO:0800394</a>), Definitive classification, approved 2022-07-07</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="MERRF_Syndrome-claude_code.html">← MERRF Syndrome (Claude Code)</a>
+                
+                
+                <a href="MERTK-Related_Retinopathy-falcon.html">MERTK-Related Retinopathy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MERTK-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MERTK-Related_Retinopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="MERTK-Related_Retinopathy-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

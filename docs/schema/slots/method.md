@@ -22,8 +22,8 @@ Alias: method
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [GOEnrichment](../classes/GOEnrichment.md) | GO enrichment results for an association signal |  no  |
 | [AssociationSignal](../classes/AssociationSignal.md) | An association signal from EHR, registry, or computational sources, optionall... |  yes  |
+| [GOEnrichment](../classes/GOEnrichment.md) | GO enrichment results for an association signal |  no  |
 | [ProteinStructure](../classes/ProteinStructure.md) | A 3D protein structure from PDB or AlphaFold relevant to understanding a trea... |  no  |
 
 

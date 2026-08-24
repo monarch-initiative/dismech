@@ -17,9 +17,9 @@ Alias: inheritance
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Subtype](../classes/Subtype.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
 | [Genetic](../classes/Genetic.md) |  |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
 
 
 
