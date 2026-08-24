@@ -1961,7 +1961,11 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
    (a cache hit, and instant, for any reference the report already resolved)
 2. For **each snippet**: verify it is an exact substring of the abstract — `just count-verified-snippets kb/disorders/YourDisease.yaml` does this against the cached file in `references_cache/PMID_XXXX.md` in seconds, and names any snippet it cannot find
 3. For **each ontology term** (HP, GO, CL, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
-4. Run the full validation suite before committing (see Validation Workflow below)
+4. For **each quantitative claim you write into `description:` or `notes:`** — a
+   percentage, a prevalence, a "up to N%" — confirm the figure against the cached
+   text of the reference you are attributing it to. **Nothing downstream will
+   check this for you** (see §2c).
+5. Run the full validation suite before committing (see Validation Workflow below)
 
 If a DR-suggested citation cannot be verified against the real abstract, do not use it. Find an alternative source or remove the claim entirely.
 
@@ -2065,6 +2069,57 @@ classifier is `src/dismech/nec_risk.py`. Treat a badge as "run `just preflight-d
 report before curating from it", not as evidence that a confusion has occurred — it is a
 name-shaped risk signal, and an unbadged candidate is not thereby cleared (the
 surname detector only fires when the eponym sits directly before a disease head-noun).
+
+### 2c. The prose layer is unchecked — figures in `description:`/`notes:`
+
+Every anti-hallucination check dismech runs reads `evidence[].snippet`.
+`validate-references`, `count-verified-snippets`, `check_snippets_verbatim.py`,
+`check-title-snippets`, `check-snippet-length` — all of them. **A claim that
+never becomes a snippet is checked by nothing.**
+
+So this passes the entire suite:
+
+```yaml
+# Wrong: a real, topical PMID attached to a figure it does not contain
+- name: Autism Spectrum Disorder
+  description: >-
+    ...TAND collectively affects ~90% of TSC patients across the lifespan.
+  evidence:
+  - reference: PMID:27226234        # real paper, correct topic, zero percentages
+    snippet: "TSC-associated neuropsychiatric disorders, which can include..."
+```
+
+The snippet verifies. The PMID resolves. The paper is genuinely about TSC. The
+`~90%` appears nowhere in it. This is a **fifth** DR failure mode, distinct from
+the three in §2a and from NEC in §2b: the citation is right and the *number* is
+imported from somewhere else. It is also, empirically, the one that gets through
+— @jmcmurry ran 10 new entries whose curating agents were each explicitly warned
+about this exact risk and each adversarially reviewed for it: snippets came back
+**992/992 clean**, and unverified or source-contradicted prose claims turned up
+in **10 of 10 entries** (#7791). Two recurring generators worth naming: an author
+affiliation read as patient ancestry ("a Sydney affiliation" → "Australian
+families"), and a process claim stated as a world fact.
+
+**The rule:** a figure you cannot attach to a verbatim snippet does not belong in
+prose either. Prose is not the safe place to put a claim you could not verify —
+it is the *unprotected* place.
+
+```bash
+just prose-figure-audit                        # whole KB census (~2 min, offline)
+just prose-figure-audit --dr-only --format list
+just prose-figure-audit kb/disorders/Asthma.yaml --format list
+```
+
+The audit reports percentages, `1 in N`, per-100,000 rates and `N-fold` figures
+that do not appear in the references cited *beside* them. Two things it is not:
+
+- **It is advisory, not a gate.** It is heuristic, is not in `just qc`, and is
+  not wired into CI. Derived figures are legitimate (a curator may convert
+  1-in-25,000 to 4 per 100,000; the common conversions are handled, arithmetic in
+  general is not), and not every real source is cached prose.
+- **`OK` is not verification.** Finding the number in an adjacent abstract says
+  nothing about whether it was that percentage *of that thing*. Only reading the
+  source settles it — which is exactly the point of the failure mode.
 
 ### 3. Validation Workflow
 
@@ -2237,6 +2292,20 @@ If a claim is well-established but you cannot find a quotable snippet:
 - **Option C**: Remove the evidence block entirely, keep the description
 
 **Do NOT** fabricate quotes or use incorrect PMIDs.
+
+**Option A applies to your own well-established knowledge, and to nothing else.**
+It is the *exact wrong move* for a claim you took from a deep-research report and
+could not verify — moving that into `notes:` does not soften it, it launders it,
+because `notes:` is the one place no check will ever look (§2c). The two cases
+read identically in the diff and are opposite in kind:
+
+| You cannot quote it because… | Do |
+|---|---|
+| the fact is textbook and no abstract states it crisply | Option A — `notes:`, no evidence |
+| a DR report asserted it and the cited abstract does not contain it | **drop the claim**; it is unverified, not merely unquotable |
+
+If a figure came from a DR report and you cannot find it in the cited source,
+neither `description:` nor `notes:` is where it goes.
 
 ### 5. Common Validation Errors
 
