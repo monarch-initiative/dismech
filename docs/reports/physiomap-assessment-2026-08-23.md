@@ -25,7 +25,10 @@ stating up front: PhysioMap's content is **55% metabolic/hepatic**, its largest 
 is 639 mechanically-shaped enzyme→metabolite links, and of the 866 benchmark pairs **56% are
 unreachable from their lesion and 44% of the reachable ones are a single hop**. The headline
 "100% precision" is therefore a much more local claim than whole-body causal inference —
-see §3.5.
+see §3.5. Structurally the map is **two graphs sharing a namespace**: a genuinely coupled
+213-trait physiological core where the feedback machinery earns its place, and a broad
+one-hop enzyme→analyte fan where a prediction is an edge lookup. Only 27% of nodes can ever
+act as a waypoint in a causal chain (§3.8).
 
 ---
 
@@ -394,6 +397,11 @@ Two readings follow:
    close to definitional, and on which 100% precision is a much weaker claim than
    whole-body causal inference.
 
+§3.8 gives the structural reason both of these hold: the benchmark's lesion variables are
+overwhelmingly *pure sources* (in-degree 0) and its scored variables *pure sinks*
+(out-degree 0) in a one-hop fan, so a scored pair is typically either a single edge or no
+path at all.
+
 **This is consistent-with, not proven.** The release does not publish per-pair determinacy
 labels, so I cannot confirm that the 171 determinate pairs *are* the 155 one-hop pairs plus
 16 others; the counts permit it but do not establish it. My BFS also reconstructs
@@ -441,6 +449,166 @@ shared trait namespace (§2.2).
   chronic hyperinsulinaemia with insulin resistance raises it), so the honest encoding is
   probably a context distinction or a `?`, not two unqualified edges. That 1 conflict in
   2,268 edges is a good consistency record.
+
+### 3.7 Worked edges, by provenance
+
+Every edge below is quoted verbatim from `web/physiomap-1.1.1.json` (labels truncated).
+
+**Guyton core (curated) — 26 edges.** The RAAS/pressure-natriuresis loop, closed:
+
+```
+renal perfusion pressure                    --[-]--> plasma renin activity
+baroreflex sympathetic outflow              --[+]--> plasma renin activity
+plasma renin activity                       --[+]--> plasma angiotensin II concentration
+plasma angiotensin II concentration         --[+]--> plasma aldosterone concentration
+plasma angiotensin II concentration         --[+]--> total peripheral resistance
+plasma angiotensin II concentration         --[+]--> renal tubular sodium and water reabsorption
+plasma aldosterone concentration            --[+]--> renal tubular sodium and water reabsorption
+renal tubular sodium and water reabsorption --[+]--> blood volume
+blood volume                                --[+]--> atrial natriuretic peptide concentration
+atrial natriuretic peptide concentration    --[+]--> urinary sodium and water excretion
+urinary sodium and water excretion          --[-]--> extracellular fluid volume
+mean arterial pressure                      --[-]--> antidiuretic hormone (vasopressin)
+```
+
+This is the one part of the map that genuinely behaves like a coupled system — every node
+here sits in the 213-trait SCC.
+
+**Guyton & Hall extraction — 101 edges.** Renal haemodynamics and acid–base:
+
+```
+renal afferent arteriolar resistance (RA)   --[-]--> glomerular capillary hydrostatic pressure
+renal afferent arteriolar resistance (RA)   --[-]--> renal blood flow
+plasma angiotensin II concentration         --[+]--> renal efferent arteriolar resistance (RE)
+arterial PaCO2                              --[+]--> renal tubular H+ secretion / bicarbonate reabs.
+arterial blood pH                           --[-]--> renal proximal tubule ammonia (NH3) secretion
+arterial blood pH                           --[+]--> total peripheral resistance
+arterial PaCO2                              --[?]--> total peripheral resistance
+blood colloidal osmotic pressure            --[+]--> glomerular capillary colloid osmotic pressure
+```
+
+Note the afferent/efferent arteriolar distinction — the map does carry the fine detail that
+makes the RA/RE opposition on GFR representable.
+
+**West (respiratory textbook) — 106 edges.** Ventilation mechanics, essentially a
+textbook derivation chain:
+
+```
+tidal volume                     --[+]--> total (minute) ventilation
+respiratory rate                 --[+]--> total (minute) ventilation
+total (minute) ventilation       --[+]--> alveolar ventilation
+dead space ventilation           --[-]--> alveolar ventilation
+anatomic dead space volume       --[+]--> dead space ventilation
+tidal volume                     --[-]--> dead space fraction
+alveolar ventilation             --[-]--> alveolar PCO2
+whole-body CO2 production rate   --[+]--> alveolar PCO2
+alveolar surface tension         --[-]--> alveolar stability against collapse
+alveolar surfactant concentration--[+]--> alveolar stability against collapse
+blood-gas barrier thickness      --[-]--> rate of respiratory gas diffusion
+```
+
+**Williams (endocrinology) — 247 edges.** Axis control, including the KNDy pulse generator:
+
+```
+KNDy neuron neurokinin B secretion    --[+]--> hypothalamic kisspeptin secretion
+KNDy neuron dynorphin secretion       --[-]--> hypothalamic kisspeptin secretion
+hypothalamic kisspeptin secretion     --[+]--> hypothalamic GnRH secretion
+tuberoinfundibular dopaminergic (TIDA)--[-]--> anterior-pituitary prolactin secretion
+tissue type-III deiodinase (DIO3)     --[-]--> free plasma triiodothyronine (free T3)
+plasma myostatin (GDF8)               --[-]--> lean body mass (fat-free mass)
+plasma melatonin                      --[-]--> suprachiasmatic nucleus (SCN) output
+plasma prostaglandin E2               --[+]--> body core temperature
+```
+
+**SIGNOR import — 22 edges.** Almost entirely metabolite→metabolite biosynthetic steps,
+which is a narrow use of SIGNOR (a signalling resource):
+
+```
+plasma phenylalanine        --[+]--> plasma tyrosine
+plasma tyrosine             --[+]--> plasma DOPA
+plasma DOPA                 --[+]--> synaptic dopamine (substantia nigra)
+plasma androstenedione      --[+]--> plasma testosterone
+plasma 11-deoxycortisol     --[+]--> plasma cortisol
+plasma 7-dehydrocholesterol --[+]--> plasma total cholesterol
+```
+
+**AOP-Wiki import — 26 edges.** Thyroid-disruption AOPs, the most molecular content in the map:
+
+```
+thyroid NIS (SLC5A5) sodium/iodide symporter --[+]--> follicular cell intracellular iodide
+follicular cell intracellular iodide         --[+]--> follicular cell thyroxine (T4) secretion
+follicular-cell DUOX2 H2O2 generation        --[+]--> thyroid peroxidase iodide organification
+follicular-cell pendrin (SLC26A4) transport  --[+]--> thyroid peroxidase iodide organification
+hepatic T4 clearance/catabolism rate         --[-]--> plasma total thyroxine (T4)
+endothelial AKT1/eNOS-Ser1177 phosphorylation--[+]--> endothelial nitric oxide production
+airway epithelial EGFR activity              --[+]--> airway mucus secretion rate
+renal proximal-tubule OAT1 activity          --[-]--> plasma urate concentration
+```
+
+**Cross-scale edges.** The scale-transition matrix is dominated by two cells — *cellular →
+organ_system* (709) and *organ_system → organ_system* (654). Overall 986 edges go
+finer→coarser, 975 stay within a scale, and **307 go coarser→finer**, which is the map
+representing genuine top-down control rather than only bottom-up composition:
+
+```
+plasma (ionised) calcium concentration --[-]--> parathyroid chief-cell PTH secretion rate
+CSF glucose concentration              --[+]--> intracellular ATP concentration
+thrombin (FIIa) activity               --[+]--> activated platelet procoagulant surface
+```
+
+### 3.8 The topology: a coupled core bolted to a shallow fan
+
+Classifying all 1,699 nodes by in/out degree over the causal edges:
+
+| Role | Nodes | Share |
+|---|---:|---:|
+| **Pure source** (in-degree 0) — candidate lesion variables | 461 | 27.1% |
+| **Pure sink** (out-degree 0) — terminal observables | 710 | 41.8% |
+| **Internal** (both in and out) — can be a waypoint in a chain | **452** | 26.6% |
+| **Isolated** (no causal edges at all) | 76 | 4.5% |
+
+And **593 causal edges (26.1%) run directly from a pure source to a pure sink** — one-hop
+terminal fans that can never participate in any longer chain:
+
+```
+CYP11B2 (aldosterone synthase) activity        --[+]--> adrenal zona glomerulosa aldosterone secretion
+lysosomal acid beta-galactosidase (GLB1)       --[-]--> plasma tissue-non-specific alkaline phosphatase
+hepatocyte apolipoprotein E secretion rate     --[-]--> plasma triglyceride concentration
+hepatocyte canalicular excretion of conj. bili --[-]--> plasma conjugated (direct) bilirubin
+```
+
+The archetype is medium-chain acyl-CoA dehydrogenase (MCAD/ACADM) activity: **out-degree 25,
+in-degree 0** — an enzyme that fans out to two dozen analytes and is caused by nothing. The
+other top sources are the same shape (VLCAD 11, BCKDH 10, DPYD 10, transaldolase 9, CPT2 8).
+
+So PhysioMap is really **two graphs sharing a namespace**:
+
+1. **A genuinely coupled physiological core** — the 213-trait SCC, which is 53
+   cardiovascular–renal + 43 endocrine + 32 respiratory/acid–base + 32 metabolic + 21
+   haematologic + 15 mineral/bone traits: renin, angiotensin II, aldosterone, ADH, ANP,
+   baroreflex outflow, GFR, ECF volume, cardiac output, heart rate. This is where feedback
+   is real and where the Cramer's-rule machinery earns its place.
+2. **A broad, one-hop enzyme→analyte fan** — the IEM content, topologically trivial, where
+   a "prediction" is a single edge lookup.
+
+That split is the structural explanation for §3.5. The rare-disease benchmark's lesions are
+overwhelmingly pure sources from graph 2 and its scored variables are pure sinks from graph
+2, so most scored pairs are either one hop apart or not connected at all. It also explains
+why adding constitution / quantitative identity / modulation changed almost nothing on the
+benchmark (§1.2): those relations live almost entirely in graph 1, and the benchmark mostly
+exercises graph 2.
+
+The authors are not hiding this — the drug-panel benchmark file says so directly in a
+comment: *"Organ targets embedded in the whole-body feedback SCC return '?' (reported
+separately, never wrong)."* The honest summary is that PhysioMap's sophisticated inference
+and PhysioMap's broad coverage are largely in **different parts of the map**.
+
+The 76 isolated nodes are worth a flag: traits with no causal edges at all, in a causal
+knowledge graph — mostly secretion-rate traits (`intestinal L-cell GLP-1 secretion rate`,
+`kidney interstitial fibroblast erythropoietin secretion rate`, `gastric G-cell gastrin
+secretion rate`). They look like curation started and not finished, and the "Connect-isolated
+(curated)" provenance line (111 edges) shows this is a known worklist the authors are
+already chipping at.
 
 ## 4. Recommendations
 
