@@ -850,6 +850,64 @@ window.searchData = [
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
+    "model_key": "Cystic_Fibrosis--computational-model-kurbatova-physiologically-based-model-of-mucociliary-clearance--2",
+    "name": "Kurbatova physiologically based model of mucociliary clearance",
+    "description": "Regional lung model of mucociliary transport with separate periciliary-liquid and mucus layers. It compares normal and CF clearance and simulates how dornase-alfa-induced mucus-viscosity reduction interacts with central versus peripheral aerosol deposition.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Physiological equations and parameters in the publication",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "Kurbatova-CF-MCC-2015",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:25746843",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Cystic Fibrosis",
+    "disease_id": "MONDO:0009061",
+    "category": "Genetic",
+    "parents": [
+      "Respiratory Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [
+      "Periciliary liquid layer",
+      "Mucus layer",
+      "Mucus viscosity",
+      "Aerosol deposition region",
+      "Mucus clearance"
+    ],
+    "variable_ids": [
+      "PCL",
+      "mucus_layer",
+      "mucus_viscosity",
+      "deposition_location",
+      "mucus_clearance"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Airway Surface Liquid Depletion",
+      "Impaired Mucociliary Clearance"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Simulated dornase alfa increased mucus clearance more when drug deposition was concentrated in peripheral small airways."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:25746843"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated directly from the paper; no exact deposited implementation was identified. The deposition result is hypothesis-generating and should not be treated as an established clinical aerosol-delivery recommendation.",
+    "creation_date": "2025-12-19T14:27:56Z",
+    "page_url": "../../pages/disorders/Cystic_Fibrosis.html#computational-model-kurbatova-physiologically-based-model-of-mucociliary-clearance",
+    "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
+  },
+  {
     "model_key": "Multiple_Sclerosis--computational-model-lesion-aware-personalized-whole-brain-conduction-delay-model--2",
     "name": "Lesion-Aware Personalized Whole-Brain Conduction-Delay Model",
     "description": "Direct successor to the Virtual Multiple Sclerosis Patient model. It retains each participant's 84-region DTI connectome and noisy Stuart-Landau dynamics but augments distance-derived edge delays based on a shared whole-brain velocity with an additive tract-specific term derived from the fraction of each tract intersecting the participant's FLAIR lesion mask. Simulation-based inference estimates the patient-specific strength of the lesion-to-delay relationship.",
@@ -1504,6 +1562,62 @@ window.searchData = [
     "creation_date": "2026-04-13T05:41:42Z",
     "page_url": "../../pages/disorders/Anaplastic_Large_Cell_Lymphoma.html#computational-model-npm-alk-signaling-network-sensitivity-model",
     "source_file": "kb/disorders/Anaplastic_Large_Cell_Lymphoma.yaml"
+  },
+  {
+    "model_key": "Cystic_Fibrosis--computational-model-o-donoghue-quantitative-model-of-human-nasal-epithelial-ion-transport--0",
+    "name": "O'Donoghue quantitative model of human nasal epithelial ion transport",
+    "description": "Coupled nonlinear ODE model of sodium, chloride, potassium, and water transport across human nasal epithelial cells. Parameter estimation and Monte Carlo filtering compare non-CF and CF potential-difference responses to amiloride and low-chloride challenges.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "ODE equations and parameters in the article and supplemental material",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "ODonoghue-HNE-ion-transport-2013",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:23732645",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Cystic Fibrosis",
+    "disease_id": "MONDO:0009061",
+    "category": "Genetic",
+    "parents": [
+      "Respiratory Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [
+      "Apical CFTR chloride permeability",
+      "Apical ENaC sodium permeability",
+      "Transepithelial potential difference",
+      "Amiloride-sensitive potential difference"
+    ],
+    "variable_ids": [
+      "P_Cl_a",
+      "P_Na_a",
+      "Vt",
+      "delta_Vt_amiloride"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "CFTR Dysfunction",
+      "ENaC Hyperactivity and Sodium Hyperabsorption"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Loss of CFTR permeability alone could not reproduce the magnitude of CF epithelial bioelectric changes; increased ENaC permeability was also required."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:23732645"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated from the paper and supplemental equations; no exact deposited code implementation was identified. Calibration used primary cultured nasal epithelium rather than patient-specific longitudinal data.",
+    "creation_date": "2025-12-19T14:27:56Z",
+    "page_url": "../../pages/disorders/Cystic_Fibrosis.html#computational-model-o-donoghue-quantitative-model-of-human-nasal-epithelial-ion-transport",
+    "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
     "model_key": "Familial_Long_QT_Syndrome--computational-model-o-hara-rudy-ord-human-ventricular-action-potential-model--0",
@@ -2195,6 +2309,66 @@ window.searchData = [
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-revised-per2-circadian-phosphoswitch-model",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
+  },
+  {
+    "model_key": "Cystic_Fibrosis--computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis--1",
+    "name": "Sandefur purinergic model of airway-surface-liquid homeostasis",
+    "description": "Systems model coupling epithelial ion and water transport to extracellular ATP and adenosine signaling. Fifteen ODEs represent baseline ASL homeostasis; a 23-equation extension simulates prolonged low-dose P2Y2-agonist delivery.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "ODE equations and parameters in the article and supplemental material",
+    "model_software": "MATLAB ode15s",
+    "base_model": "",
+    "model_id": "Sandefur-ASL-homeostasis-2017",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:28808008",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Cystic Fibrosis",
+    "disease_id": "MONDO:0009061",
+    "category": "Genetic",
+    "parents": [
+      "Respiratory Disease",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [
+      "Airway surface liquid height",
+      "Extracellular ATP concentration",
+      "Extracellular adenosine concentration",
+      "CFTR chloride permeability",
+      "ENaC sodium permeability"
+    ],
+    "variable_ids": [
+      "ASL_height",
+      "ATP",
+      "ADO",
+      "pCFTR",
+      "pENaC"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "CFTR Dysfunction",
+      "ENaC Hyperactivity and Sodium Hyperabsorption",
+      "Airway Surface Liquid Depletion"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "Reproducing the CF state required reduced chloride secretion, increased potassium secretion, and increased sodium absorption.",
+      "The model predicted basal ASL height and dehydration caused by accelerated nucleotide metabolism, and proposed prolonged low-dose agonist delivery as a rehydration strategy."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:28808008"
+    ],
+    "num_evidence": 1,
+    "notes": "The prolonged low-dose Denufosol strategy is a model prediction, not clinical evidence. The paper notes that prior short, high-dose Denufosol failed to show sufficient phase-III benefit; the proposed schedule requires testing.",
+    "creation_date": "2025-12-19T14:27:56Z",
+    "page_url": "../../pages/disorders/Cystic_Fibrosis.html#computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis",
+    "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
     "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin--1",
@@ -2947,8 +3121,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 59,
-  "total_source_entries": 23,
+  "total_models": 62,
+  "total_source_entries": 24,
   "total_model_types": 8,
   "total_runnable": 4,
   "total_with_repository": 27
