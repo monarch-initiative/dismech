@@ -520,6 +520,54 @@ The following modules capture conserved final-common-pathway mechanisms of **"di
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 - For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
 
+### Entity References Are Foreign Keys
+
+`attaches_to` — and the `would_support` / `would_refute` / perturbation-and-readout
+`target` slots that reuse its grammar — point at another object *in the same
+entry*:
+
+```
+[<file>:]<kind>#<name>
+
+pathophysiology#Amyloid Plaque Formation
+phenotype#Memory Loss
+Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
+```
+
+**These resolve, and `test_entity_ref_foreign_keys` enforces it** across
+`kb/disorders/`, `kb/modules/` and `kb/comorbidities/` (issue #9193). A dangling
+one used to pass every gate — schema validation, term validation, snippet
+verification and all the offline ratchets — leaving a `KNOWLEDGE_GAP` attached
+to nothing while the entry *looked* like it had recorded its uncertainty.
+
+**The operation that breaks these is a rename or a node split**, because your
+attention is on the nodes, not on what refers to them. After renaming or
+splitting a pathophysiology node, grep the file for the old name before
+committing.
+
+Resolution lives in `src/dismech/entity_refs.py`, and `SECTION_KEYS` there is
+the single source of truth the test *and* the HTML renderer share. Three rules
+in it are not guessable:
+
+| Prefix | Resolves against |
+|---|---|
+| `disease#` | the entry's own top-level `name` — a virtual anchor, not a section |
+| `mechanistic_hypothesis#` | `hypothesis_group_id` (or `hypothesis_label`) — `MechanisticHypothesis` has no `name` |
+| `prevalence#` | `population`; likewise `progression#` → `phase`, `dataset#` → `accession`, `animal_models#` → `species` for an unnamed model |
+
+Singular and plural spellings both resolve (`treatment#` and `treatments#`,
+`phenotype#` and `phenotypes#`) — content uses both and is not churned to
+normalise them. A cross-file reference, or a prefix absent from `SECTION_KEYS`,
+is **skipped, never failed**: an unmapped prefix is a gap in that map, not a
+defect in the content. Add the prefix to `SECTION_KEYS` rather than working
+around it.
+
+On the page, a reference that resolves renders as a live in-page link. A few
+referenced sections (`diagnosis`, `prevalence`, `progression`,
+`imaging_findings`, `epidemiology`, `transmission`, `infectious_agent`) have no
+card on the disorder page at all, so their chips stay plain — that is a
+rendering gap, not a broken reference.
+
 ### Disease Groupings
 
 Disease groupings (`kb/groupings/`) are explicit, curated **unions** of distinct
@@ -991,9 +1039,10 @@ epistemic grounding so the two are never conflated (issue #6245):
   `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
   predicated on. The hypothesis basis is then inferred from those edges'
   `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
-  standalone hypothesis id on the definition. A test
-  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
-  refs to resolve.
+  standalone hypothesis id on the definition.
+  `test_hypothesis_based_definition_attaches_to_foreign_keys` requires a
+  `MECHANISTIC_HYPOTHESIS` definition to carry at least one ref;
+  `test_entity_ref_foreign_keys` (below) is what makes each ref resolve.
 - **`validation_status`** (`AlgorithmValidationStatus` object): `status`
   (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
   `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
