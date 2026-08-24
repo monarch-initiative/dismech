@@ -1042,7 +1042,7 @@ epistemic grounding so the two are never conflated (issue #6245):
   standalone hypothesis id on the definition.
   `test_hypothesis_based_definition_attaches_to_foreign_keys` requires a
   `MECHANISTIC_HYPOTHESIS` definition to carry at least one ref;
-  `test_entity_ref_foreign_keys` (below) is what makes each ref resolve.
+  `test_entity_ref_foreign_keys` (above) is what makes each ref resolve.
 - **`validation_status`** (`AlgorithmValidationStatus` object): `status`
   (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
   `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified

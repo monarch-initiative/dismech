@@ -38,18 +38,19 @@ for a broken reference in the knowledge base.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, NamedTuple
+from collections.abc import Iterator
+from typing import Any, NamedTuple
 
 __all__ = [
-    "EntityRef",
-    "SECTION_KEYS",
-    "REF_SLOTS",
     "DISEASE_KIND",
+    "REF_SLOTS",
+    "SECTION_KEYS",
+    "EntityRef",
+    "entity_ref_index",
+    "iter_entity_refs",
     "parse_entity_ref",
     "resolve_entity_ref",
     "section_items",
-    "entity_ref_index",
-    "iter_entity_refs",
 ]
 
 
@@ -246,13 +247,20 @@ def iter_entity_refs(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
         for key, value in node.items():
             child = f"{path}.{key}" if path else str(key)
             if key in REF_SLOTS:
-                if isinstance(value, list):
-                    for i, item in enumerate(value):
-                        if isinstance(item, str):
-                            yield f"{child}[{i}]", item
-                elif isinstance(value, str):
+                if isinstance(value, str):
                     yield child, value
-                continue
+                    continue
+                if isinstance(value, list) and all(
+                    isinstance(item, str) for item in value
+                ):
+                    for i, item in enumerate(value):
+                        yield f"{child}[{i}]", item
+                    continue
+                # Every ref slot holds a string or a list of strings today.
+                # If one ever nests objects -- `target` is the likeliest, being
+                # shared with ModelMechanismLink and target_mechanisms -- keep
+                # walking rather than silently stopping, so references
+                # underneath it are still found.
             yield from iter_entity_refs(value, child)
     elif isinstance(node, list):
         for i, item in enumerate(node):

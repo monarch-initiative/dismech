@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech.entity_refs import SECTION_KEYS, section_items
+from dismech.entity_refs import DISEASE_KIND, SECTION_KEYS, section_items
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
@@ -511,15 +511,31 @@ def _annotate_variant_anchors(disorder: dict) -> None:
 # `transmission`, `infectious_agent` and `stages` are referenced in content but
 # have no card on the page at all, so there is nothing to link to; those refs
 # stay plain chips until the page renders them.
-_REF_TARGET_ANCHOR_SECTIONS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("definitions", "definition", ("name",)),
-    ("inheritance", "inheritance", ("name",)),
-    ("has_subtypes", "subtype", ("name",)),
-    ("histopathology", "histopathology", ("name",)),
-    ("differential_diagnoses", "differential-diagnosis", ("name",)),
-    ("datasets", "dataset", ("accession", "title")),
-    ("clinical_trials", "clinical-trial", ("name",)),
+#: HTML id on the page header, the target of a `disease#<name>` reference.
+_DISEASE_ANCHOR_ID = "disease-entry"
+
+_REF_TARGET_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("definitions", "definition"),
+    ("inheritance", "inheritance"),
+    ("has_subtypes", "subtype"),
+    ("histopathology", "histopathology"),
+    ("differential_diagnoses", "differential-diagnosis"),
+    ("datasets", "dataset"),
+    ("clinical_trials", "clinical-trial"),
 )
+
+
+def _section_key_slots(section_key: str) -> tuple[str, ...]:
+    """The slots an entity reference matches on, per ``SECTION_KEYS``.
+
+    Read out of that map rather than restated here: two maps that must agree
+    eventually disagree, and `SECTION_KEYS` being the single source of truth is
+    the whole point of `entity_refs`.
+    """
+    for slot, key_slots in SECTION_KEYS.values():
+        if slot == section_key:
+            return key_slots
+    return ("name",)
 
 
 def _annotate_ref_target_anchors(disorder: dict) -> None:
@@ -530,7 +546,8 @@ def _annotate_ref_target_anchors(disorder: dict) -> None:
     their own card. IDs are de-duplicated within a section because two items
     may slugify to the same value.
     """
-    for section_key, prefix, key_slots in _REF_TARGET_ANCHOR_SECTIONS:
+    for section_key, prefix in _REF_TARGET_ANCHOR_SECTIONS:
+        key_slots = _section_key_slots(section_key)
         items = disorder.get(section_key) or []
         if not isinstance(items, list):
             continue
@@ -587,6 +604,13 @@ def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
     anchor passes.
     """
     ref_index: dict[str, str] = {}
+
+    # `disease#<name>` is a virtual whole-entry anchor rather than a section, so
+    # it is absent from SECTION_KEYS by design (see entity_refs) and has to be
+    # indexed on its own. It points at the page header.
+    disease_name = disorder.get("name")
+    if isinstance(disease_name, str) and disease_name:
+        ref_index[f"{DISEASE_KIND}#{disease_name}"] = f"#{_DISEASE_ANCHOR_ID}"
 
     for kind, (section_key, key_slots) in SECTION_KEYS.items():
         for item in section_items(disorder, section_key):

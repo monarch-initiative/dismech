@@ -6,11 +6,16 @@ sections that are *not* keyed on `name`, and the two ways a reference is
 skipped rather than failed.
 """
 
-import pytest
+import pathlib
+import re
 
+import pytest
+import yaml
+
+from dismech import render
 from dismech.entity_refs import (
-    EntityRef,
     SECTION_KEYS,
+    EntityRef,
     entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
@@ -175,10 +180,61 @@ def test_iter_entity_refs_reports_paths():
 
 def test_section_keys_point_at_real_disease_slots():
     """Every mapped section must name a slot the Disease class actually has."""
-    import yaml
-
     schema = yaml.safe_load(open("src/dismech/schema/dismech.yaml"))
     disease_slots = set(schema["classes"]["Disease"]["slots"])
     for kind, (slot, key_slots) in SECTION_KEYS.items():
         assert slot in disease_slots, f"{kind} -> unknown slot {slot}"
         assert key_slots, kind
+
+
+def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
+    """Guard the renderer's ordering dependency (#9193 review, suggestion 5).
+
+    `_build_semantic_ref_index` relies on the `_annotate_*` passes having run,
+    and silently emits no link for an item without an `_anchor_id` — a quietly
+    missing link rather than an error. This runs the same passes
+    `render_disorder` does, in the same order, over the two entries the issue
+    named as exercising the awkward prefixes, and checks two things: every href
+    the index emits is an id the rendered page actually carries, and between
+    them the sections fed by each annotate pass are all represented. Dropping or
+    reordering a pass fails here rather than quietly losing links on the page.
+    """
+    # HPAH carries inheritance/clinical_trials/genetic; Gorlin carries the
+    # hypotheses. Neither has all of them, which is the point of using both.
+    sources = [
+        "kb/disorders/Heritable_Pulmonary_Arterial_Hypertension.yaml",
+        "kb/disorders/Gorlin_Syndrome.yaml",
+    ]
+    seen_kinds: set[str] = set()
+
+    for name in sources:
+        src = pathlib.Path(name)
+        disorder = render.load_disorder(src)
+
+        render._annotate_model_links(disorder)
+        render._annotate_card_anchors(disorder)
+        render._annotate_variant_anchors(disorder)
+        render._annotate_external_assertion_anchors(disorder)
+        render._annotate_ref_target_anchors(disorder)
+        render._annotate_hypothesis_group_links(disorder)
+        index = render._build_semantic_ref_index(disorder)
+
+        out = tmp_path / f"{src.stem}.html"
+        render.render_disorder(src, out)
+        ids = set(re.findall(r'\sid="([^"]+)"', out.read_text()))
+
+        for ref, href in index.items():
+            assert href.lstrip("#") in ids, f"{src.stem}: {ref} -> {href} not on page"
+            seen_kinds.add(ref.split("#", 1)[0])
+
+    # One section per annotate pass, plus the two the index handles itself.
+    for kind in (
+        "pathophysiology",  # inline fallback in the index
+        "disease",  # virtual whole-entry anchor, also inline
+        "genetic",  # _annotate_card_anchors
+        "treatments",  # _annotate_card_anchors
+        "inheritance",  # _annotate_ref_target_anchors
+        "clinical_trials",  # _annotate_ref_target_anchors
+        "mechanistic_hypothesis",  # _annotate_hypothesis_group_links
+    ):
+        assert kind in seen_kinds, f"no semantic-ref index entries for {kind}#"
