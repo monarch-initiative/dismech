@@ -32,7 +32,6 @@ There are **two AOP reference categories** describing the AOP framework and the 
 `Lead_Poisoning` is the pilot comparator entry used to ground the comparison
 against a real dismech pathograph.
 
-
 ## What this page is
 
 It records an inventory of schema comparisons. It does **not** decide adoption. Whether dismech should
@@ -147,30 +146,50 @@ Landesmann B, Lettieri T, Munn S, Nepelska M, Ottinger MA, Vergauwen L, Whelan M
 
 ### Evidence structure
 
-<!--
-TODO: this section currently covers only the two EMOD evidence classes. The v2.8 data
-model already carries a substantial evidence apparatus that belongs here too, including:
+#### Weight of Evidence
 
-  - Weight of Evidence. Referenced once in the comparison table but never introduced.
-    The KER carries free-text <weight-of-evidence>, <biological-plausibility>,
-    <emperical-support-linkage> (note the schema's own typo), <quantitative-understanding>
-    and <uncertainties-or-inconsistencies>; the ordinal grade sits separately on the AOP's
-    relationship listing, as <evidence> and <quantitative-understanding-value>, with the
-    vocabulary High / Moderate / Low / Not Specified. Counted across the 2026-08-06 export
-    (595 AOPs, 2361 KERs), Not Specified is ~34% of weight-of-evidence grades and ~57% of
-    quantitative-understanding grades.
-  - Key event essentiality, assessed at AOP level as <key-event-essentiality-summary>,
-    not on the KER.
-  - <overall-assessment>, which carries the Bradford-Hill-style criteria prompt.
-  - Citation practice in the deployed corpus: inline author-year references, with a
-    separate <references> element, not identifiers bound to a specific claim.
+Evidence in v2.8 sits at two levels, and the split is easy to misread: the KER carries
+prose, while the ordinal grade sits on the AOP.
 
-Source material is in AOP_EMOD_ALIGNMENT/draft-sections-1-6.md, section 1.
--->
+**On the KER** — five free-text fields:
+
+| Field | Holds |
+|---|---|
+| `<weight-of-evidence>` | prose |
+| `<biological-plausibility>` | prose |
+| `<emperical-support-linkage>` | prose — note the schema's own typo, which matters for anyone parsing it |
+| `<quantitative-understanding>` | prose, with `<description>` and `<response-response-relationship>` |
+| `<uncertainties-or-inconsistencies>` | contradicting evidence, as a first-class field |
+
+The KER also carries `evidence-collection-strategy`, `known-modulating-factors`,
+`feedforward-feedback-loops`, `time-scale`, `references`, and taxonomic applicability.
+
+**On the AOP** — the ordinal grades and the summaries:
+
+| Field | Is |
+|---|---|
+| `<evidence>`, per relationship in the AOP's KER listing | the ordinal weight-of-evidence grade |
+| `<quantitative-understanding-value>` | ordinal grade |
+| `<key-event-essentiality-summary>` | essentiality — assessed at AOP level, not on the KER |
+| `<weight-of-evidence-summary>` | AOP-level narrative |
+| `<overall-assessment>` | the Bradford-Hill-style criteria prompt: dose-response concordance, temporal concordance, strength, consistency, specificity |
+
+The grade vocabulary is **High / Moderate / Low / Not Specified**. Counted across the
+2026-08-06 export (595 AOPs, 2361 KERs):
+
+```
+<evidence>                          High 2410 | Not Specified 1975 | Moderate 1120 | Low 239
+<quantitative-understanding-value>  Not Specified 1896 | Moderate 525 | Low 448 | High 444
+```
+
+Not Specified is ~34% of weight-of-evidence grades and ~57% of quantitative-understanding
+grades — a large share of the deployed corpus carries no grade at all.
 
 Biological plausibility is a named field on the KER, kept separate from empirical
 support, so the distinction between what is plausible and what is demonstrated is
 carried on individual relationships as well as on the AOP as a whole.
+
+#### EMOD evidence classes
 
 EMOD adds structure to AOP-Wiki fields that are currently free text. Two of its classes
 carry evidence, and they attach at different points in the backbone:
@@ -179,9 +198,18 @@ carry evidence, and they attach at different points in the backbone:
 - **Observation**, on the Event — a structured stressor/exposure to biological object or
   process record, with direction, aligned to a Key Event.
 
-An Event may have several Observations. At minimum an Observation names a stressor, a
+An Event may be supported by several Observations. At minimum an Observation names a stressor, a
 biological entity that maps to the Event, and a direction of perturbation that aligns
-with it.
+with it. Additional biological context details like tissue, life stage and sex, are
+important to include when using AOPs to support comparative analysis of NAMs and context-
+of-use evaluation.
+
+**Citation** is a third class, and it is what Observation and Evidence instances link
+to. It carries the fields a journal or book citation needs, including URL links for
+DOIs and PubMed IDs, and it replaces the free-text References fields on the AOP, KER,
+and Event objects. Provenance becomes a link to a record rather than a string inside
+one — in the deployed v2.8 corpus, KER evidence cites inline author-year references
+that are not bound to any particular claim.
 
 Source: Hench VK, Caufield JH, Moxon SAT, O'Brien JM, Edwards SW. *AOP-Wiki EMOD 3.0:
 Data Model Expansions and Content Evaluation Framework for Using Agentic AI to Improve
@@ -203,7 +231,7 @@ that merely resemble each other across the two models are left out.
 | AOP / EMOD | dismech | What it enables |
 |---|---|---|
 | Assay / NAM | `ExperimentalModel`, `experimental_model_type`, `namo_type` | Both sides already speak NAM and bind NAMO CURIEs — the cheapest existing bridge |
-| Citation | `EvidenceItem.reference` | Resolvable PMID/DOI on both sides, so evidence can move between them without re-keying |
+| Citation | `EvidenceItem.reference` | Resolvable PMID/DOI on both sides, so evidence can move between them without re-keying. Modelled differently: EMOD normalizes — Citation is its own record that Observation and Evidence instances link to — while dismech bundles the reference, its quote, and its polarity into one `EvidenceItem` attached directly to the claim |
 | KEC Object / Process | `cell_types`, `biological_processes`, `locations` | Shared GO/HP/CL/UBERON terms make Event-to-node matching computable rather than manual |
 | KEC Action | `Descriptor.modifier` | Both PATO-derived; mappable term by term |
 | Experiment Type | `EvidenceItem.evidence_source` | Mappable term by term, with one named gap: no clinical or epidemiological term on the AOP side |
@@ -262,3 +290,50 @@ rather than from a single published AOP, so AOP 17 may not remain the comparator
 *Not yet written.* The AOP side of this use case will draw on an AOP network with
 consensus nodes, under development in OpenScientist.
 
+---
+
+## Next Steps
+
+The end goal this project leads to is **dismech-derived AOPs** — dismech pathographs as
+source material for new AOPs, and dismech evidence as support for existing ones. Two
+directions, in order of how close they are.
+
+**Enriching existing AOPs** is the nearer one, and it needs no structural change on
+either side. A dismech `EvidenceItem` carries a resolvable identifier plus a quote
+validated against the source, which is close to what a KER with no weight-of-evidence
+assessment needs — and Not Specified accounts for ~34% of weight-of-evidence grades and
+~57% of quantitative-understanding grades in the deployed corpus.
+
+**Seeding new AOPs** is the further one, and the divergences above are what stand in the
+way: the toxicokinetic steps in a dismech chain have to be separated from the key
+events, species applicability and a population level have no dismech counterpart, and a
+disease-anchored graph has to be cut stressor-agnostic before it is an AOP.
+
+<!--
+## Not yet included
+
+Drafted material held in
+[`AOP_EMOD_ALIGNMENT/draft-sections-1-6.md`](AOP_EMOD_ALIGNMENT/draft-sections-1-6.md),
+deliberately not on this page. Listed so the page's coverage is legible rather than
+implied.
+
+- **Enriching canonical evidence for existing AOPs.** The direction with the clearest
+  target: Not Specified accounts for ~34% of weight-of-evidence grades and ~57% of
+  quantitative-understanding grades, and a dismech `EvidenceItem` is close to what
+  filling one needs.
+- **Value-level mappings.** Term-by-term tables for the three enum pairs the comparison
+  table calls mappable: LoBO to `BiologicalScaleEnum`, Experiment Type to
+  `EvidenceSourceEnum`, and KEC Action to `ModifierEnum`.
+- **Further EMOD classes.** Assay/NAM, Experiment Type, and Causal Agent, plus
+  Biological Target Family, Harmonized Events and AOPs, Candidate Event Merger, and the
+  Event Integration Score.
+- **Further dismech contributions to EMOD.** `supports` polarity including `REFUTE`, the
+  two evidence layers on a model link, `causal_link_type`, `hypothesis_groups`, and
+  `HUMAN_CLINICAL` as an evidence source.
+- **EMOD lineage and process detail.** Prototype history, the roll-up principle, the
+  status of the Evidence class, and sources not yet read. Repo-side context rather than
+  page content.
+
+Two of the three directions named in this project's description — dismech enriched by
+AOPs, and dismech seeding new AOPs — are represented here only as pointers.
+-->
