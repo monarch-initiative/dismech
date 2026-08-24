@@ -2074,6 +2074,17 @@ genesets-refresh:
 structured-rebuild-orphanet *args="":
     uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
 
+# Enumerate and classify the publications Orphanet *recites* on the
+# prevalence/epidemiology rows the KB imports -- a citation that today survives
+# only as display text inside `snippet` (#7518). Offline and deterministic;
+# regenerates research/orphanet_prevalence_source_audit.md in place.
+# Not every recited token is a publication: `_clean_source()` discards Orphadata's
+# source tag, so years, ISBNs and DOI fragments reach the cache wearing a `PMID:`
+# prefix. Add --format tsv/summary, or --strict to fail on a flagged token.
+[group('Research')]
+orphanet-prevalence-source-audit *args="":
+    uv run python scripts/orphanet_prevalence_source_audit.py {{args}}
+
 # Rebuild every references_cache/CGGV_*.md from current ClinGen CSV
 # Use --id to limit to specific CGGV assertion IDs.
 [group('Research')]
