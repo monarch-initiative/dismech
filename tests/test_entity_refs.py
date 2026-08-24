@@ -15,6 +15,7 @@ import yaml
 from dismech import render
 from dismech.entity_refs import (
     SECTION_KEYS,
+    SINGLETON_SECTIONS,
     EntityRef,
     entity_ref_index,
     iter_entity_refs,
@@ -38,6 +39,7 @@ ENTRY = {
     "datasets": [{"accession": "geo:GSE1", "title": "A dataset"}],
     "animal_models": [{"species": "Mus musculus", "genotype": "Foo-/-"}],
     "discussions": [{"discussion_id": "gap_one"}],
+    "clinical_burden": {"burden_level": "SEVERE"},
 }
 
 
@@ -161,7 +163,7 @@ def test_iter_entity_refs_reports_paths():
         # `target` on a model link carries a plain name, not a reference.
         "animal_models": [{"modeled_mechanisms": [{"target": "Node A"}]}],
     }
-    found = dict(iter_entity_refs(doc))
+    found = {site.path: site.ref for site in iter_entity_refs(doc)}
     assert found["discussions[0].attaches_to[0]"] == "pathophysiology#Node A"
     assert found["discussions[0].attaches_to[1]"] == "phenotype#Pheno A"
     assert (
@@ -179,12 +181,56 @@ def test_iter_entity_refs_reports_paths():
 
 
 def test_section_keys_point_at_real_disease_slots():
-    """Every mapped section must name a slot the Disease class actually has."""
+    """Every mapped section must name a slot the Disease class actually has.
+
+    Covers `SINGLETON_SECTIONS` too: a typo there resolves to `None` and is
+    silently skipped rather than failing, so nothing else would catch it.
+    """
     schema = yaml.safe_load(open("src/dismech/schema/dismech.yaml"))
     disease_slots = set(schema["classes"]["Disease"]["slots"])
     for kind, (slot, key_slots) in SECTION_KEYS.items():
         assert slot in disease_slots, f"{kind} -> unknown slot {slot}"
         assert key_slots, kind
+    for slot in SINGLETON_SECTIONS:
+        assert slot in disease_slots, f"SINGLETON_SECTIONS: unknown slot {slot}"
+        # A singleton is a single inlined object, not a list -- that is the
+        # whole reason it needs the empty-anchor form.
+        assert not schema["slots"][slot].get("multivalued"), slot
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "prevalence#",  # the section as a whole, not one population
+        "treatments#",
+        "clinical_burden#",  # a singleton object with no name to anchor to
+        "disease#",  # the entry as a whole
+    ],
+)
+def test_whole_section_anchor_resolves(ref):
+    """An empty anchor names the section itself (#9394)."""
+    assert resolve_entity_ref(ENTRY, ref) is True
+
+
+def test_whole_section_anchor_resolves_on_the_name_not_the_contents():
+    """A section with no content still satisfies `<section>#`.
+
+    The motivating case is a KNOWLEDGE_GAP attached to a section precisely
+    because it is empty — `Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`
+    records that no disease-specific management is established and curates no
+    `treatments:` at all. Requiring content would make that gap unattachable.
+    """
+    empty = {"name": "Bare Disease"}
+    assert resolve_entity_ref(empty, "treatments#") is True
+    assert resolve_entity_ref(empty, "clinical_burden#") is True
+    # A misspelled or invented section is still caught — that is what the
+    # check is for once contents are not required.
+    assert resolve_entity_ref(empty, "treatmnets#") is None
+
+
+def test_singleton_section_rejects_a_named_anchor():
+    """`clinical_burden` has no `name`, so only the whole-section form works."""
+    assert resolve_entity_ref(ENTRY, "clinical_burden#Anything") is False
 
 
 def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
@@ -207,7 +253,7 @@ def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
         ],
         "experiments": [{"target": {"nested": {"target": "treatments#Drug A"}}}],
     }
-    found = dict(iter_entity_refs(doc))
+    found = {site.path: site.ref for site in iter_entity_refs(doc)}
 
     # The strings beside the object survive...
     assert found["discussions[0].attaches_to[0]"] == "pathophysiology#Node A"
@@ -216,6 +262,23 @@ def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
     assert found["discussions[0].attaches_to[1].target"] == "phenotype#Pheno A"
     # An object directly under a ref slot is walked rather than stopped at.
     assert found["experiments[0].target.nested.target"] == "treatments#Drug A"
+
+
+def test_whole_section_link_requires_a_card_to_jump_to():
+    """Resolution and linking answer different questions (#9394 review).
+
+    `treatments#` *resolves* in an entry curating no treatments — that is the
+    point, since the motivating case is a gap attached to an empty section. But
+    the treatments card is only rendered when there is content, so linking there
+    would emit an href to an anchor that does not exist on the page. The index
+    must therefore be stricter than the resolver.
+    """
+    with_content = {"name": "D", "treatments": [{"name": "Drug A"}]}
+    without = {"name": "D"}
+
+    assert resolve_entity_ref(without, "treatments#") is True  # resolves...
+    assert "treatments#" not in render._build_semantic_ref_index(without)  # ...but no link
+    assert render._build_semantic_ref_index(with_content)["treatments#"] == "#treatments"
 
 
 def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
