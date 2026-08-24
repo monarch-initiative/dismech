@@ -64,9 +64,9 @@ from typing import Any, NamedTuple
 
 __all__ = [
     "DISEASE_KIND",
-    "SINGLETON_SECTIONS",
     "REF_SLOTS",
     "SECTION_KEYS",
+    "SINGLETON_SECTIONS",
     "EntityRef",
     "entity_ref_index",
     "iter_entity_refs",
