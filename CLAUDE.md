@@ -427,6 +427,7 @@ schema shape, the trigger→consequence node chain, the treatment
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
 - `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm). **Do not wire cell-type plasma proteomic aging clocks (astrocyte/skeletal myocyte/myeloid "age gap" biomarkers, PMID:42297981) to this module without new evidence** — they measure no senescence marker, so the nine such biomarkers already curated across `Alzheimer_Disease`, `Amyotrophic_Lateral_Sclerosis`, `Lung_Carcinoma`, `Type_2_Diabetes_Mellitus` and `Frontotemporal_Dementia` are deliberately unattached; the open question and the two experiments that would settle it are recorded in the module's `gap_senescence_vs_plasma_cell_type_aging_clocks` discussion.
 - `senescence_tumor_suppression` — Conserved tumor-SUPPRESSIVE arm of senescence/aging, the deliberate complement of `cellular_senescence`, with two independent routes to a tumor barrier: oncogenic/replicative/genotoxic stress in at-risk cells → p16INK4a/Rb and p53/p21 senescence-associated arrest → restraint of malignant transformation or progression from a benign/low-grade state; separately, directly evidenced aging-associated loss of stemness in the cell of origin (PMID:39633048) can limit tumor-initiating capacity. Carries the pro-senescent (senescence-inducing) drug-target pattern (treatments use `target_mechanisms` with `ACTIVATES` to reinforce the arrest), the conceptual inverse of the senolytic pattern. Together the two senescence modules capture the antagonistic pleiotropy of senescence as two modules rather than one effect-reversing edge. Framing guardrails: does NOT assert net age-protection; generic aging/stem-cell depletion is not evidence for the age/stemness branch; senescence-loss or escape nodes do not directly conform to the positive arrest/barrier targets. Positive conformance to the senescence arm requires stable senescence-associated proliferative arrest plus an evidence-linked tumor-suppressive consequence; p16/p21/SA-beta-gal positivity alone, quiescence, differentiation, or reversible cytostasis is insufficient. Worked conformer: Pilocytic_Astrocytoma (oncogene-induced arrest and low-grade progression barrier). Key conformance target: `senescence_tumor_suppression#Barrier to Malignant Transformation`
+- `photoaging` — Conserved extrinsic (UV-induced) skin-aging pathway, the deliberate complement of the intrinsic `cellular_senescence`/`inflammaging` modules: UVB irradiation and photo-oxidative injury (DNA damage, ROS, ligand-independent growth-factor/cytokine-receptor activation) → MAP-kinase-driven AP-1 (c-Jun/c-Fos) and NF-kB transcriptional activation → MMP upregulation (collagenase MMP-1, stromelysin MMP-3, gelatinase MMP-9) and pro-inflammatory mediator induction (IL-1, IL-6, IL-8, PTGS2/COX-2) → dermal collagen/elastin ECM degradation → photoaging (wrinkling, laxity, solar elastosis). Carries two drug-target patterns: the peer-reviewed topical retinoid (tretinoin) `INHIBITS` the AP-1 hub (blocks UV-induced c-Jun), and topical sunscreen `INHIBITS` the trigger node. Not an Xogenesis module (matrix destruction, not pathological-structure formation). Worked NAM: the Outer Biosciences ex vivo human skin platform UVB arm (UVB 300 mJ/cm2 → LDH/IL-8/MMP1 induction, mitigated by sunscreen). Key conformance target: `photoaging#MAPK Signaling and AP-1/NF-kB Transcriptional Activation`
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
 - `il11_erk_ampk_mtor_aging` — Conserved pro-inflammatory-cytokine driver of mammalian ageing (Widjaja et al., Nature 2024, PMID:39020175): age-associated IL-11 upregulation across tissues → IL11RA1-gp130 receptor signalling (canonical STAT3 + non-canonical MEK-ERK-p90RSK) → coupled ERK-p90RSK↑ / LKB1-AMPK-inactivation / mTORC1↑ axis dysregulation → mTORC1/ERK-dependent cellular senescence, SASP and metabolic decline (age-repressed WAT beiging, sarcopenia, fibrosis) → frailty, multimorbidity, age-related cancer and reduced lifespan. Carries the anti-IL-11 neutralizing-antibody drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the receptor-signalling node; anti-IL-11 extends mouse median lifespan >20% given from 75 weeks of age). The IL-11-specific, druggable driver arm of inflammaging: it feeds the source-agnostic `inflammaging` chain and the `cellular_senescence` programme, which it deliberately does NOT re-derive; carries a `KNOWLEDGE_GAP` on the canonical-vs-non-canonical signalling contribution and a `HUMAN_MODEL_MISMATCH` on the mouse-only lifespan arm. Worked conformers (all attach at the **amplifier** `#IL-11 Receptor Signalling Activation` node): Idiopathic_Pulmonary_Fibrosis (lung fibroblast), Liver_Cirrhosis (hepatic stellate cell), Chronic_Kidney_Disease (kidney interstitial fibroblast), Dilated_Cardiomyopathy (cardiac fibroblast). Conformance-target guidance: attach at `#IL-11 Receptor Signalling Activation` when only the IL-11→ERK arm is evidenced in that tissue (the case for every current fibrosis conformer); reserve the central_effector `#ERK-AMPK-mTORC1 Axis Dysregulation` (the module's disorder-agnostic rate-limiting node) for entries that actually evidence the coupled LKB1-AMPK-inactivation / mTORC1 metabolic arm. Key conformance target (rate-limiting node): `il11_erk_ampk_mtor_aging#ERK-AMPK-mTORC1 Axis Dysregulation`; current conformance attachment point: `il11_erk_ampk_mtor_aging#IL-11 Receptor Signalling Activation`
 - `mtor_androgen_deprivation_resistance` — Conserved PI3K/AKT/mTOR-driven adaptive resistance to androgen-receptor (AR) pathway blockade in prostate cancer: AR-pathway blockade (ADT/ARPI) → reciprocal PI3K/AKT feedback activation (relief of feedback inhibition, potentiated by PTEN loss) → mTORC1 hyperactivation → pro-survival translational/metabolic reprogramming → adaptive (castration) resistance. Carries the co-targeting drug pattern: treatments use `target_mechanisms` with `INHIBITS` on the mTORC1 node (e.g. everolimus + the AR antagonist bicalutamide, the pair taken into the phase II NCT00814788 trial) to re-sensitize resistant tumors to AR blockade. Carries an open `KNOWLEDGE_GAP` recording that everolimus monotherapy failed in mCRPC and that rapalogs re-trigger the module's own PI3K/AKT feedback arm, so conformers must not curate rapalog therapy as effective. The mechanistic complement to AI-derived morphometric predictors of ADT response — the INR-like/non-responder tumor state converges on this axis. Worked conformers: Prostate_Adenocarcinoma (which also carries the 13-CMB AI predictor `definitions` entry that `attaches_to` its conforming resistance node) and Metastatic_Prostate_Cancer. Key conformance / treatment target: `mtor_androgen_deprivation_resistance#mTORC1 Hyperactivation`
@@ -519,6 +520,54 @@ The following modules capture conserved final-common-pathway mechanisms of **"di
 - Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 - For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
+
+### Entity References Are Foreign Keys
+
+`attaches_to` — and the `would_support` / `would_refute` / perturbation-and-readout
+`target` slots that reuse its grammar — point at another object *in the same
+entry*:
+
+```
+[<file>:]<kind>#<name>
+
+pathophysiology#Amyloid Plaque Formation
+phenotype#Memory Loss
+Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
+```
+
+**These resolve, and `test_entity_ref_foreign_keys` enforces it** across
+`kb/disorders/`, `kb/modules/` and `kb/comorbidities/` (issue #9193). A dangling
+one used to pass every gate — schema validation, term validation, snippet
+verification and all the offline ratchets — leaving a `KNOWLEDGE_GAP` attached
+to nothing while the entry *looked* like it had recorded its uncertainty.
+
+**The operation that breaks these is a rename or a node split**, because your
+attention is on the nodes, not on what refers to them. After renaming or
+splitting a pathophysiology node, grep the file for the old name before
+committing.
+
+Resolution lives in `src/dismech/entity_refs.py`, and `SECTION_KEYS` there is
+the single source of truth the test *and* the HTML renderer share. Three rules
+in it are not guessable:
+
+| Prefix | Resolves against |
+|---|---|
+| `disease#` | the entry's own top-level `name` — a virtual anchor, not a section |
+| `mechanistic_hypothesis#` | `hypothesis_group_id` (or `hypothesis_label`) — `MechanisticHypothesis` has no `name` |
+| `prevalence#` | `population`; likewise `progression#` → `phase`, `dataset#` → `accession`, `animal_models#` → `species` for an unnamed model |
+
+Singular and plural spellings both resolve (`treatment#` and `treatments#`,
+`phenotype#` and `phenotypes#`) — content uses both and is not churned to
+normalise them. A cross-file reference, or a prefix absent from `SECTION_KEYS`,
+is **skipped, never failed**: an unmapped prefix is a gap in that map, not a
+defect in the content. Add the prefix to `SECTION_KEYS` rather than working
+around it.
+
+On the page, a reference that resolves renders as a live in-page link. A few
+referenced sections (`diagnosis`, `prevalence`, `progression`,
+`imaging_findings`, `epidemiology`, `transmission`, `infectious_agent`) have no
+card on the disorder page at all, so their chips stay plain — that is a
+rendering gap, not a broken reference.
 
 ### Disease Groupings
 
@@ -991,9 +1040,10 @@ epistemic grounding so the two are never conflated (issue #6245):
   `MECHANISTIC_HYPOTHESIS` definition, link the pathograph node(s)/edge(s) it is
   predicated on. The hypothesis basis is then inferred from those edges'
   `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
-  standalone hypothesis id on the definition. A test
-  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
-  refs to resolve.
+  standalone hypothesis id on the definition.
+  `test_hypothesis_based_definition_attaches_to_foreign_keys` requires a
+  `MECHANISTIC_HYPOTHESIS` definition to carry at least one ref;
+  `test_entity_ref_foreign_keys` (above) is what makes each ref resolve.
 - **`validation_status`** (`AlgorithmValidationStatus` object): `status`
   (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
   `rationale` + optional `evidence` (standard EvidenceItem — PMID + verified
@@ -2094,12 +2144,13 @@ just count-verified-snippets kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
 #   Snippets checked: 376/376 verified against cached references
 ```
 
-**Five more gates belong in this loop, because CI runs them ungated (#9137).**
-The three checks above are the ones CI runs *on your changed files*; these five
+**Six more gates belong in this loop, because CI runs them ungated (#9137).**
+The three checks above are the ones CI runs *on your changed files*; these six
 run on **every** PR with no path filter at all (`.github/workflows/main.yaml`),
 precisely because the PRs that trip them are curation PRs touching only `kb/`,
 which no `src/tests` filter would catch. A curator who runs only the documented
-loop can therefore finish every check and still push work that fails CI:
+loop can therefore finish every check and still push work that fails CI (the
+last is report-only and cannot fail it — it prints for a human to read):
 
 ```bash
 just check-folded-hyphens                              # whole KB + src/, ~8s
@@ -2107,9 +2158,10 @@ just check-snippet-length                              # whole KB, ~1min
 just check-title-snippets                              # whole KB, ~2.5min
 just check-environmental-evidence                      # whole KB, ~1min
 just check-duplicate-keys kb/disorders/MyDisease.yaml  # or bare: kb/ + schema + conf, ~18s
+just check-source-defect-claims                        # whole KB, ~19s (report-only)
 ```
 
-All five are offline — no reference fetching, no OAK, no network — which is why
+All six are offline — no reference fetching, no OAK, no network — which is why
 they belong in the per-edit loop rather than the pre-PR sweep. They are not all
 *fast*, though: only `check-duplicate-keys` takes file arguments, so the other
 four re-scan the whole KB every run (and the ratchets scan it twice, once at
@@ -2126,6 +2178,7 @@ five are invisible to `validate` / `validate-terms` / `count-verified-snippets`:
 | `check-title-snippets` | A snippet that is the cited paper's *title*, or a contiguous fragment of it, rather than its finding — see §6 below (#8374). |
 | `check-environmental-evidence` | An `environmental:` entry with no entry-level `evidence:` block, which is an uncited causation claim (#8296). Evidence on that entry's `influences_mechanisms` links is a **different** claim — "this exposure acts on this node", not "this exposure is real" — and does not satisfy this gate. |
 | `check-duplicate-keys` | A repeated mapping key: kept silently by PyYAML's safe loaders, fatal to the ruamel-backed reference validator. See "Duplicate YAML Keys" below (#8623). |
+| `check-source-defect-claims` | A **prose** claim that a cited source is defective — "that record has no abstract", "the abstract does not mention X" — which the cache contradicts. Report-only; see "Claims About a Cited Source" below (#9226). |
 
 **Grandfathering, and the trap in it.** Four of the five ratchet against a
 baseline so the pre-existing backlog need not be cleaned up first — but they do
@@ -2146,7 +2199,9 @@ not source that baseline the same way, and the difference decides whether
   for more care, not less — a hyphen split is a corrupted term in rendered prose.
   Regenerate it only when you have deliberately changed the backlog (e.g. fixed
   entries), never to admit a split you just introduced.
-- `check-duplicate-keys` has no baseline at all. Every finding is new.
+- `check-duplicate-keys` and `check-source-defect-claims` have no baseline at
+  all. The former treats every finding as new; the latter never fails, so it has
+  nothing to grandfather.
 
 **Triage views.** Each ratchet has a `list-*` sibling printing every finding,
 baselined or not — `just list-short-snippets`, `just list-title-snippets`,
@@ -2331,6 +2386,22 @@ derived counts, qualitative-term mapping, clinical estimate), the literature-ter
 → enum mapping table, and worked examples. **When in doubt, omit `frequency:`
 rather than fabricate justification.**
 
+**A band also has a scope, and scope mismatches pass every check we have.** A
+band quoted from a source broader than the entry — an `ORPHA:` row for the whole
+spectrum landing on a single subtype entry, a `kb/groupings/` union, an umbrella
+`Disease`, a `has_subtypes` parent — is verbatim, real, and wrong. Snippet
+verification, term validation, and schema validation all pass, because nothing
+in the stack knows what population the source measured. Before adopting a band,
+ask what it was measured over; if that is wider than the entry, either scope the
+record with the `subtype:` foreign key (machine-checked, unlike a prose
+restriction in `notes:`), keep a narrower quantitative band and cite the broad
+row `PARTIAL` with the conflict named, or drop the band. Do not keep the band
+and note the mismatch in prose. See **Anti-pattern 5** in
+[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
+for the decision rule and the worked in-KB precedents (`Marfan_Syndrome`
+`Spontaneous Pneumothorax`, `Dystrophic_Epidermolysis_Bullosa` `Cutaneous
+Squamous Cell Carcinoma`).
+
 ### 8. Running Full QC
 
 ```bash
@@ -2396,13 +2467,13 @@ just validate-disorders kb/disorders/MyDisease.yaml
    so a PMID you forgot to fetch shows up as `not cached locally` rather than
    passing quietly
 4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
-5. Run the five ungated CI gates — `just check-folded-hyphens`,
+5. Run the six ungated CI gates — `just check-folded-hyphens`,
    `just check-snippet-length`, `just check-title-snippets`,
-   `just check-environmental-evidence`, and `just check-duplicate-keys
-   kb/disorders/YourFile.yaml`. They are offline, they run on every PR whatever
-   it touches, and none of the checks above can see what they catch (see
-   "Validation Workflow" for what each one means and why a new finding cannot be
-   baselined away)
+   `just check-environmental-evidence`, `just check-duplicate-keys
+   kb/disorders/YourFile.yaml`, and `just check-source-defect-claims`. They are
+   offline, they run on every PR whatever it touches, and none of the checks
+   above can see what they catch (see "Validation Workflow" for what each one
+   means and why a new finding cannot be baselined away)
 6. Run `just validate-disorders <every changed file>` once before opening the PR
    (see "Validation Workflow" for why this is the end-of-run check)
 
@@ -2529,6 +2600,129 @@ This is a **stopgap**. The check belongs upstream in `linkml-term-validator`,
 next to the existence and label checks it already performs — every LinkML
 knowledge base consuming RGD ontologies has the same gap. It lives here because
 the validator is a pinned external dependency.
+
+## Claims About a Cited Source (dismech#9226)
+
+Every other gate here checks a **snippet against the cache**. Nothing checked
+**prose against the cache** — so a sentence asserting that a source is
+*defective* validated cleanly no matter what the cached file actually held:
+
+```yaml
+explanation: >-
+  Original PYROXD1 gene-discovery report; the cached PubMed record carries no
+  abstract body, so the snippet is the article title.
+```
+
+`references_cache/PMID_27745833.md` has a full abstract. Nothing noticed, because
+nothing was looking. On #9207 one such claim ("the cached abstract is truncated
+mid-word") survived **two fix rounds across three sites** — each fix searched
+for the surface last seen, and the next site contained neither string. The same
+defect had already happened in `Tetralogy_of_Fallot.yaml`, where four such
+claims were false; its correction note records the root cause as *a fixed-width
+extraction window used during curation*.
+
+**That root cause is the rule worth remembering:**
+
+> A claim that a source is defective is a claim about a **file**, not about the
+> excerpt you were shown. Verify it against the whole file.
+
+```bash
+just check-source-defect-claims                        # whole KB, ~19s, offline
+just check-source-defect-claims kb/disorders/Asthma.yaml
+just list-source-defect-claims                          # every claim + verdict
+```
+
+**It adjudicates; it is not a keyword blacklist.** This matters more than the
+check itself. Claims of this shape are usually **true and load-bearing**:
+`Acute_Annular_Outer_Retinopathy` downgrades three evidence items to `PARTIAL`
+because `PMID:18195232` really has no abstract; `Cri-du-Chat_Syndrome` and
+`DTYMK-Related_Neurodegeneration` explain that a snippet legitimately begins
+mid-word because the cached PDF breaks a word across a line (#8048). Flagging
+those would be worse than no check at all — it would train curators to delete
+accurate provenance to get a build green. So each claim is resolved to its
+reference and checked against the cached body, and gets one of four verdicts:
+
+| Verdict | Meaning |
+|---|---|
+| `CONTRADICTED` | The cache demonstrably disagrees. **The finding.** |
+| `CONFIRMED` | The cache agrees. Counted, never printed as a problem. |
+| `NARRATED` | The sentence *reports* such a claim rather than asserting one — a correction note, or an account of an earlier revision. Never adjudicated. |
+| `UNDETERMINED` | Not mechanically decidable. Listed under `--all`, never a failure. |
+
+**Report-only. It never fails the build**, in `just qc` or in CI — it prints for
+a human to read. (`--strict` exists for direct CLI use.)
+
+**Three claim classes, and what each costs when false:**
+
+- **`no-abstract`** — "that record has no abstract". Adjudicated by asking
+  whether the cached record carries abstract prose. Note this deliberately does
+  **not** trust the frontmatter `content_type`: PubMed emits a citation stub for
+  a record that never had an abstract, and the fetcher types it `abstract_only`
+  exactly like a record that has one, so `PMID:18195232` is `abstract_only` with
+  no abstract. The test strips MEDLINE scaffolding (citation line, authors,
+  affiliations, DOI/PMID footer, COI statement) block-wise and counts what is
+  left.
+- **`negative-existence`** — "the abstract does not mention X". The most
+  consequential class, because it is used to **justify omitting or downgrading
+  evidence**: a false one silently suppresses real curation.
+  `DENND5A-Related_Developmental_and_Epileptic_Encephalopathy` discarded
+  `PMID:27431290` on the grounds that its abstract "does not mention DENND5A" —
+  the abstract names DENND5A as one of three novel candidate genes. Adjudicated
+  only when the object is specific enough to search unambiguously; "does not
+  specify the mouse allele" is a claim about *which* allele and stays
+  UNDETERMINED rather than risking a wrong contradiction.
+- **`defective-text`** — truncation / mid-word / garbled. **Always UNDETERMINED**:
+  no exact test exists, so these are reported for a glance, never adjudicated.
+  Bare `truncat` is *not* a trigger — it matches ~1,600 lines of correct
+  genetics prose (`truncating variant`, `truncated protein`), so a defect word
+  counts only when it co-occurs with a word naming our stored text.
+
+**Writing a claim so it can be checked.** Name the reference in the sentence, or
+put the claim in the evidence item it is about. Resolution takes the nearest id
+named *before* the claim (an anaphoric "That reference…" reaches back a
+sentence), then the enclosing evidence item's own `reference:`, then the
+enclosing `evidence:` block. An id named *after* the claim is treated as a
+contrast, not the subject — "…does not name SETD5, which rests on PMID:X" is
+about the item's own reference, not about `PMID:X`.
+
+**Author-year alone is not enough when a paragraph cites more than one paper.**
+Anaphora is only followed ~400 characters back. A long `notes:` paragraph that
+introduces two papers up front and then says *"the Efthymiou et al. 2021 report
+has no PubMed abstract"* several sentences later has put its subject out of
+reach — the tool will not guess between the rivals, and reports `UNDETERMINED`
+rather than adjudicating against the wrong one. That is deliberate: resolving
+such a claim to the enclosing evidence block's reference contradicted a
+perfectly correct note in `Osteogenesis_Imperfecta_Type_XXI`. Repeat the PMID in
+the sentence making the claim if you want it checked.
+
+### The snippet half: quotes cut mid-word
+
+The other half of #9207 was four snippets stopping at `movement d`. A mid-word
+fragment **is** a substring of the cached text, so it verifies — which is
+exactly what made the error invisible, and it is where the false belief about
+the source came from.
+
+```bash
+just check-snippet-boundaries                          # kb/, advisory
+just check-snippet-boundaries kb/disorders/Asthma.yaml
+```
+
+An advisory sibling of `count-verified-snippets` (same cache layer, same
+normalization — deliberately *not* a second cache-resolution implementation, per
+#7684). It applies to strict matches only: `normalize_relaxed` strips all
+spaces, so under relaxed matching every match is flanked by word characters by
+construction and the check would fire on 100% of them — which are precisely the
+#8048 ligature/hyphenation cases the legitimate "begins mid-word" notes are
+about. A **digit** flank is also exempt: `…hearing loss and microcephaly20-26`
+is a superscript citation marker fused in by extraction, not a cut word.
+
+Repo-wide backlog at introduction: **126 of 129,528 snippets** across 60 files
+(0.1%) — small enough to need no baseline. Typical finding:
+`'Bisphosphonate treatment in individuals with significant skeletal dis'`.
+
+It runs in `just qc` (~2m over `kb/`) so that backlog stays visible, but **not**
+in CI: it exits 0 whatever it finds, and a two-minute step that can never fail
+is pure cost on every PR.
 
 ## Duplicate YAML Keys (dismech#8623)
 
