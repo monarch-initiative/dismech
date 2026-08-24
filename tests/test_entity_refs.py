@@ -17,6 +17,7 @@ from dismech.entity_refs import (
     SECTION_KEYS,
     SINGLETON_SECTIONS,
     EntityRef,
+    canonical_kind,
     entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
@@ -337,6 +338,67 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
         "treatments",  # _annotate_card_anchors
         "inheritance",  # _annotate_ref_target_anchors
         "clinical_trials",  # _annotate_ref_target_anchors
-        "mechanistic_hypothesis",  # _annotate_hypothesis_group_links
+        "mechanistic_hypotheses",  # _annotate_hypothesis_group_links
     ):
         assert kind in seen_kinds, f"no semantic-ref index entries for {kind}#"
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected"),
+    [
+        # The eight aliases the KB actually carried before #9394 normalised it.
+        ("phenotype", "phenotypes"),
+        ("mechanistic_hypothesis", "mechanistic_hypotheses"),
+        ("treatment", "treatments"),
+        ("subtype", "has_subtypes"),  # the one that is not a pluralisation
+        ("animal_model", "animal_models"),
+        ("experimental_model", "experimental_models"),
+        ("discussion", "discussions"),
+        ("dataset", "datasets"),
+        # ...and the three that were accepted but unused.
+        ("variant", "variants"),
+        ("stage", "stages"),
+        ("computational_model", "computational_models"),
+        # Already canonical.
+        ("phenotypes", "phenotypes"),
+        ("pathophysiology", "pathophysiology"),
+        # Not ours to rename: the virtual whole-entry anchor, and any prefix
+        # missing from SECTION_KEYS (a gap in the map, not a defect).
+        ("disease", "disease"),
+        ("not_a_section", "not_a_section"),
+    ],
+)
+def test_canonical_kind(kind, expected):
+    assert canonical_kind(kind) == expected
+
+
+def test_canonical_kind_is_idempotent_over_every_mapped_prefix():
+    """Canonicalising twice must not move — otherwise the gate that uses this
+    could demand a spelling it would then reject on the next run."""
+    for kind in SECTION_KEYS:
+        once = canonical_kind(kind)
+        assert canonical_kind(once) == once
+        assert once in SECTION_KEYS, f"{kind} canonicalises to an unresolvable prefix"
+
+
+def test_aliases_still_resolve_after_normalisation():
+    """The KB was normalised, but the aliases are kept resolvable on purpose.
+
+    Nothing outside `kb/` is bound by the canonical spelling, and an entry
+    written before #9394 is not a defect. If this ever fails, the back-compat
+    half of that decision has been dropped.
+    """
+    data = {
+        "name": "D",
+        "phenotypes": [{"name": "Pheno A"}],
+        "treatments": [{"name": "Drug A"}],
+        "has_subtypes": [{"name": "Type 1"}],
+        "mechanistic_hypotheses": [{"hypothesis_group_id": "canonical_model"}],
+    }
+    for ref in (
+        "phenotype#Pheno A",
+        "treatment#Drug A",
+        "subtype#Type 1",
+        "mechanistic_hypothesis#canonical_model",
+    ):
+        assert resolve_entity_ref(data, ref) is True, ref

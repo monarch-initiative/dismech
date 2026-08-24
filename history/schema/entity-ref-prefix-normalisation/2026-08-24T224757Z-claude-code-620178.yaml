@@ -1,0 +1,40 @@
+history_version: 1
+target:
+  kind: schema
+  slug: entity-ref-prefix-normalisation
+  path: src/dismech/entity_refs.py
+session:
+  id: 2026-08-24T224757Z-claude-code-620178
+  timestamp: '2026-08-24T22:47:57Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/9394
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - attaches_to
+  - would_support
+  - would_refute
+  - target
+  - schema
+  summary: Normalise entity-reference prefixes to schema slot names (#9394 step 4)
+  details: |
+    Normalised 274 entity references across 78 files in kb/disorders, kb/modules and kb/comorbidities from the singular prefix alias to the schema slot name: phenotype# -> phenotypes# (90), mechanistic_hypothesis# -> mechanistic_hypotheses# (94), treatment# -> treatments# (61), subtype# -> has_subtypes# (19), animal_model# -> animal_models# (4), experimental_model# -> experimental_models# (2), discussion# -> discussions# (2), dataset# -> datasets# (2).
+
+    SECTION_KEYS accepted both spellings, so both already resolved and the #9193 foreign-key gate was indifferent between them. That indifference is what let the corpus drift: grepping phenotypes# found 82 of 172 phenotype references, and no reference's prefix was derivable from the schema without consulting the alias map. Both properties are now true.
+
+    Migration was a boundary-anchored text replace, verified per file: the post-edit parse must deep-equal the pre-edit parse with the same rename applied in memory, and the line count must be unchanged. Before applying, textual occurrences of each alias token were compared against structurally-parsed reference sites in every file and matched exactly (274 = 274, 0 files mismatched), establishing that no alias token occurs in prose and that the replace could not touch anything but a reference.
+
+    Added dismech.entity_refs.canonical_kind() (alias -> schema slot; disease# and unmapped prefixes returned unchanged) and a new gate, test_entity_ref_prefixes_are_schema_slot_names, parametrized over disorders + modules + comorbidities. Backlog is zero, so it needs no baseline. The aliases are deliberately kept resolvable: an entry written before this change, or by hand today, is not a defect, and test_aliases_still_resolve_after_normalisation pins that.
+
+    Also updated the schema's own attaches_to example (which documented the now-non-canonical phenotype#Memory Loss), the entity_refs module docstring, and CLAUDE.md's 'not churned to normalise them' paragraph. Derived schema artifacts (elements/, docs/schema/, datamodel/*_pydantic.py) were deliberately not regenerated, matching the precedent of the merged #9394 PR, which added slots to the source schema without touching them.
+
+    Verification: pytest tests/test_data.py -k entity_ref (4720 passed), pytest tests/test_entity_refs.py (66 passed, up from 49), ruff clean, scripts/check_duplicate_yaml_keys.py over all 78 changed files clean, scripts/check_folded_hyphens.py clean, and a 120-disorder render smoke (215 live entity-ref links, 0 broken anchors). Negative control run: reverting one reference to its alias spelling makes the new gate fire.

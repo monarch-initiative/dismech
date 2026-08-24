@@ -540,7 +540,7 @@ entry*:
 [<file>:]<kind>#<name>
 
 pathophysiology#Amyloid Plaque Formation
-phenotype#Memory Loss
+phenotypes#Memory Loss
 Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 ```
 
@@ -562,15 +562,19 @@ in it are not guessable:
 | Prefix | Resolves against |
 |---|---|
 | `disease#` | the entry's own top-level `name` — a virtual anchor, not a section |
-| `mechanistic_hypothesis#` | `hypothesis_group_id` (or `hypothesis_label`) — `MechanisticHypothesis` has no `name` |
+| `mechanistic_hypotheses#` | `hypothesis_group_id` (or `hypothesis_label`) — `MechanisticHypothesis` has no `name` |
 | `prevalence#` | `population`; likewise `progression#` → `phase`, `dataset#` → `accession`, `animal_models#` → `species` for an unnamed model |
 
-Singular and plural spellings both resolve (`treatment#` and `treatments#`,
-`phenotype#` and `phenotypes#`) — content uses both and is not churned to
-normalise them. A cross-file reference, or a prefix absent from `SECTION_KEYS`,
-is **skipped, never failed**: an unmapped prefix is a gap in that map, not a
-defect in the content. Add the prefix to `SECTION_KEYS` rather than working
-around it.
+**`<kind>` is the schema slot name of the section** — `phenotypes#`, not
+`phenotype#`; `treatments#`, not `treatment#`; `has_subtypes#`, not `subtype#`.
+Write new references that way. The singular aliases still resolve, and an entry
+carrying one is not a defect, but the KB was normalised to the slot-name form
+(issue #9394) so that the prefix is derivable from the schema and so that
+grepping `phenotypes#` finds every phenotype reference instead of silently
+missing the 90 written the other way. A cross-file reference, or a prefix absent
+from `SECTION_KEYS`, is **skipped, never failed**: an unmapped prefix is a gap in
+that map, not a defect in the content. Add the prefix to `SECTION_KEYS` rather
+than working around it.
 
 **An empty anchor names the whole section** (issue #9394):
 
