@@ -608,7 +608,7 @@ class CachedReferenceIndex:
         return self._by_bare_id.get(key)
 
     @staticmethod
-    def _extract_body(text: str) -> str:
+    def extract_body(text: str) -> str:
         """Strip YAML frontmatter and pre-content headers, as the fetcher does.
 
         The frontmatter split is delimiter-aware (issue #7697): a ``---`` inside a
@@ -644,7 +644,7 @@ class CachedReferenceIndex:
             text = path.read_text(encoding="utf-8")
         except OSError:  # pragma: no cover - unreadable cache file
             return None
-        return self._extract_body(text) or None
+        return self.extract_body(text) or None
 
     def _memoized_content(
         self,
@@ -968,6 +968,10 @@ def main(argv: list[str] | None = None) -> int:
     print(report.format())
 
     if args.strict:
+        # boundary_suspect is populated only when --check-boundaries was passed,
+        # so an existing --strict caller that does not opt in sees an empty list
+        # and its exit code is unchanged. Opting in makes boundary findings
+        # gating, which is the point of asking for them.
         unverified = list(report.mismatched) + report.boundary_suspect
         if not args.allow_abstract_only:
             unverified += report.abstract_only_pairs

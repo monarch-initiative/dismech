@@ -2618,6 +2618,16 @@ enclosing `evidence:` block. An id named *after* the claim is treated as a
 contrast, not the subject — "…does not name SETD5, which rests on PMID:X" is
 about the item's own reference, not about `PMID:X`.
 
+**Author-year alone is not enough when a paragraph cites more than one paper.**
+Anaphora is only followed ~400 characters back. A long `notes:` paragraph that
+introduces two papers up front and then says *"the Efthymiou et al. 2021 report
+has no PubMed abstract"* several sentences later has put its subject out of
+reach — the tool will not guess between the rivals, and reports `UNDETERMINED`
+rather than adjudicating against the wrong one. That is deliberate: resolving
+such a claim to the enclosing evidence block's reference contradicted a
+perfectly correct note in `Osteogenesis_Imperfecta_Type_XXI`. Repeat the PMID in
+the sentence making the claim if you want it checked.
+
 ### The snippet half: quotes cut mid-word
 
 The other half of #9207 was four snippets stopping at `movement d`. A mid-word
@@ -2642,6 +2652,10 @@ is a superscript citation marker fused in by extraction, not a cut word.
 Repo-wide backlog at introduction: **126 of 129,528 snippets** across 60 files
 (0.1%) — small enough to need no baseline. Typical finding:
 `'Bisphosphonate treatment in individuals with significant skeletal dis'`.
+
+It runs in `just qc` (~2m over `kb/`) so that backlog stays visible, but **not**
+in CI: it exits 0 whatever it finds, and a two-minute step that can never fail
+is pure cost on every PR.
 
 ## Duplicate YAML Keys (dismech#8623)
 

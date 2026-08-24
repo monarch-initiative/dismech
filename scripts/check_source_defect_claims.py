@@ -486,6 +486,39 @@ def antecedent_reference(text: str, offset: int) -> str | None:
     return preceding[-1] if preceding else None
 
 
+def ambiguous_antecedent(text: str, offset: int) -> bool:
+    """True when the prose names rival references and none is close enough to pick.
+
+    If the curator named references in this field, the claim is about one of
+    *those*, not about whatever the enclosing evidence block happens to cite --
+    so falling through to the enclosing scope invents a subject. With two or
+    more rivals and no antecedent inside :data:`ANAPHORA_WINDOW`, there is no
+    honest way to choose, and UNDETERMINED is the answer.
+
+    This is the OI-type-XXI case, and it is the failure mode this whole tool
+    warns about, turned on itself. ``Osteogenesis_Imperfecta_Type_XXI.yaml``
+    says the *Efthymiou et al. 2021* report has no PubMed abstract -- true,
+    ``PMID:33964184`` is a citation stub with no abstract body. But that id sits
+    678 characters back, 278 outside the window, so resolution fell through to
+    the enclosing block's ``PMID:33053334`` (van Dijk 2020, which does have an
+    abstract) and contradicted a correct note. A curator acting on that report
+    would have deleted accurate provenance.
+
+    One named reference is not ambiguous, however far back it sits: there is no
+    rival to confuse it with, so :func:`resolve_references` uses it rather than
+    giving up. Widening the window instead was rejected -- it moves the cliff
+    without removing it. Disambiguating by the author-year the prose usually
+    carries ("the Efthymiou et al. 2021 report") against the cache's own
+    ``authors``/``year`` frontmatter would resolve this case affirmatively, but
+    it is more machinery than a report-only tool warrants; UNDETERMINED already
+    keeps the finding set honest.
+    """
+    return (
+        len(inline_references(text[:offset])) > 1
+        and antecedent_reference(text, offset) is None
+    )
+
+
 def _subtree_references(node) -> list[str]:
     out: list[str] = []
     if isinstance(node, dict):
@@ -514,10 +547,16 @@ def resolve_references(
        wrong contradictions in ``Bachmann-Bupp_Syndrome.yaml`` alone -- and
        scoping to the claim sentence lost the antecedent when it sat in the
        previous one;
-    2. a ``reference:`` on the mapping the prose sits in. An ``explanation:``
+    2. the single id named *before* the claim anywhere in the field, if there is
+       exactly one. With no rival it is unambiguous however far back it sits.
+       Two or more, with none inside the window, resolves to nothing at all
+       (:func:`ambiguous_antecedent`) -- the enclosing scope must NOT stand in
+       for a subject the prose named itself. Ids named *after* the claim are
+       contrasts and never candidates here;
+    3. a ``reference:`` on the mapping the prose sits in. An ``explanation:``
        explains *its own* evidence item, so the sibling beats any id named
        after the claim;
-    3. every ``reference:`` in the nearest enclosing object that carries an
+    4. every ``reference:`` in the nearest enclosing object that carries an
        ``evidence:`` block -- a pathophysiology ``description:`` has no sibling
        ``reference:``, its references live in a child ``evidence:`` list, so a
        same-mapping definition of "adjacent" would drop that site (it was one of
@@ -526,6 +565,19 @@ def resolve_references(
     antecedent = antecedent_reference(text, offset)
     if antecedent is not None:
         return (antecedent,)
+
+    # Only ids BEFORE the claim are candidate subjects. One named after it is a
+    # contrast ("...which rests on PMID:X"), and letting that stand in as the
+    # subject is what contradicted a true claim in
+    # SETD5_Haploinsufficiency_Syndrome.yaml.
+    preceding = inline_references(text[:offset])
+    if len(preceding) > 1:
+        # Rival ids, none near enough to pick: see ambiguous_antecedent().
+        # Falling through to the enclosing scope would invent a subject.
+        return ()
+    if len(preceding) == 1:
+        # Unambiguous however far back it sits -- no rival to confuse it with.
+        return preceding
 
     for node in reversed(ancestors):
         value = node.get("reference")
@@ -653,7 +705,7 @@ class Adjudicator:
             return ""
         match = _TITLE_RE.search(text)
         title = match.group(1).strip().strip("\"'") if match else ""
-        return abstract_prose(self.index._extract_body(text), title)
+        return abstract_prose(self.index.extract_body(text), title)
 
     def adjudicate(self, claim: Claim) -> Finding:
         if is_narration(claim.text):
@@ -684,8 +736,11 @@ class Adjudicator:
         return self._adjudicate_negative_existence(claim)
 
     def _adjudicate_no_abstract(self, claim: Claim) -> Finding:
-        # A claim naming several references is satisfied if ANY of them lacks an
-        # abstract; contradicting requires every candidate to have one.
+        # Short-circuits on the first candidate that settles the question, in
+        # both directions: any reference lacking an abstract CONFIRMS the claim,
+        # and any that cannot be checked offline makes it UNDETERMINED.
+        # CONTRADICTED is reached only by falling out of the loop, i.e. once
+        # every candidate has been shown to carry an abstract.
         checked: list[tuple[str, int]] = []
         for reference_id in claim.references:
             content_type = self.index.content_type(reference_id)
@@ -870,6 +925,10 @@ def scan(paths) -> list[Claim]:
         try:
             data = safe_load(path.read_text(encoding="utf-8"))
         except Exception as exc:
+            # Deliberately broad, and deliberately non-fatal: gating on
+            # malformed YAML is `validate-all`'s job, and one bad file must not
+            # cost the other 200-odd findings in a report-only sweep. Warning to
+            # stderr keeps the file visible as unchecked rather than invisible.
             print(
                 f"warning: skipping unparseable {path}: {exc.__class__.__name__}",
                 file=sys.stderr,

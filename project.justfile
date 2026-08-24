@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-source-defect-claims check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -972,6 +972,10 @@ list-source-defect-claims *files:
 # snippets on #9207 until a reviewer read the cache. Advisory sibling of
 # `count-verified-snippets`; strict matches only (a relaxed match strips all
 # spaces, so every one is flanked by word characters by construction).
+# Advisory, like `count-verified-snippets`: it exits 0 whatever it finds, so it
+# reports the backlog rather than gating on it. In `just qc` (~2m over kb/) so
+# the 126-snippet backlog stays visible and does not quietly grow; NOT in CI,
+# where a 2-minute step that can never fail would be pure cost.
 [group('QC')]
 check-snippet-boundaries *files:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} \

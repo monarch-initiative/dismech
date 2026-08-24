@@ -19,10 +19,12 @@ from dismech.reference_snippet_audit import (
     boundary_defect,
 )
 from scripts.check_source_defect_claims import (
+    ANAPHORA_WINDOW,
     ClaimKind,
     Verdict,
     abstract_prose,
     adjudicate_all,
+    ambiguous_antecedent,
     antecedent_reference,
     find_claims_in_text,
     inline_references,
@@ -198,6 +200,86 @@ def test_a_citation_after_the_claim_is_a_contrast_not_the_subject():
     )
     offset = text.index("does not name")
     assert antecedent_reference(text, offset) is None
+
+
+# The shape of Osteogenesis_Imperfecta_Type_XXI.yaml:genetic[0].notes, which
+# produced a false CONTRADICTED. Two citations, and the one the claim is about
+# sits 678 characters back -- outside ANAPHORA_WINDOW -- so the middle section
+# is padded here to preserve that distance rather than paraphrased shorter.
+OI_XXI_NOTES = (
+    "OI type XXI is caused by biallelic loss-of-function variants in KDELR2. "
+    "The defining report (van Dijk et al. 2020, PMID:33053334) identified "
+    "bi-allelic pathogenic KDELR2 variants in four families. "
+    "A second cohort (Efthymiou et al. 2021, PMID:33964184) reported two "
+    "additional biallelic KDELR2 missense variants "
+    + "in children with progressively deforming recessive OI, expanding the "
+    "phenotypic spectrum to include neurodevelopmental features such as motor "
+    "delay and speech delay alongside the recessive OI signs of short stature, "
+    "wormian bones, bowed limbs, chest deformity, hypotonia, joint "
+    "hypermobility, blue sclerae, and dentinogenesis imperfecta. "
+    "Those extended phenotype descriptors are recorded here as notes rather "
+    "than as separately modeled phenotype evidence because "
+    "the Efthymiou et al. 2021 report has no PubMed abstract and its "
+    "phenotype detail resides only in the figures/full text."
+)
+
+
+def test_rival_citations_out_of_window_resolve_to_nothing():
+    """Two candidates, neither close enough: refuse rather than guess.
+
+    The claim is about the *Efthymiou 2021* report (PMID:33964184, genuinely a
+    citation stub with no abstract). Falling through to the enclosing evidence
+    block picked van Dijk 2020 instead and contradicted a TRUE note -- the exact
+    anti-pattern this tool warns about, turned on itself.
+    """
+    offset = OI_XXI_NOTES.index("has no PubMed abstract")
+    # The fixture must actually reproduce the out-of-window gap, or it passes
+    # for the wrong reason: a shorter paraphrase puts the correct citation
+    # back inside the window, where resolution already worked.
+    assert offset - OI_XXI_NOTES.index("PMID:33964184") > ANAPHORA_WINDOW
+    assert antecedent_reference(OI_XXI_NOTES, offset) is None
+    assert ambiguous_antecedent(OI_XXI_NOTES, offset)
+    node = {"evidence": [{"reference": "PMID:33053334"}]}
+    assert resolve_references(OI_XXI_NOTES, offset, [node]) == ()
+
+
+def test_the_oi_xxi_claim_is_not_contradicted():
+    """End-to-end on the live entry: the curator's note is true and must stand."""
+    path = ROOT / "kb" / "disorders" / "Osteogenesis_Imperfecta_Type_XXI.yaml"
+    if not path.exists():  # pragma: no cover - entry renamed or retired
+        pytest.skip("Osteogenesis_Imperfecta_Type_XXI.yaml no longer present")
+    findings = adjudicate_all(scan([path]))
+    contradicted = [f for f in findings if f.verdict is Verdict.CONTRADICTED]
+    assert not contradicted, "\n".join(f.format() for f in contradicted)
+
+
+def test_a_single_named_citation_is_used_however_far_back():
+    """No rival means no ambiguity, so distance alone must not disqualify it."""
+    text = (
+        "See PMID:12345678 for the series. "
+        + ("Filler text. " * 60)
+        + ("That record has no abstract.")
+    )
+    offset = text.index("has no abstract")
+    assert antecedent_reference(text, offset) is None
+    assert not ambiguous_antecedent(text, offset)
+    assert resolve_references(text, offset, [{}]) == ("PMID:12345678",)
+
+
+def test_a_trailing_citation_does_not_become_the_subject():
+    """A contrast named after the claim must not win over the sibling reference.
+
+    Counting rivals across the whole field (rather than only before the claim)
+    briefly made this id the subject and contradicted a true claim in
+    SETD5_Haploinsufficiency_Syndrome.yaml.
+    """
+    text = (
+        "this abstract does not name SETD5, so it supports the modality but "
+        "not the SETD5-specific claim, which rests on PMID:41957673."
+    )
+    offset = text.index("does not name")
+    node = {"reference": "PMID:32109418", "explanation": text}
+    assert resolve_references(text, offset, [node]) == ("PMID:32109418",)
 
 
 def test_reference_resolves_through_an_enclosing_evidence_block():
