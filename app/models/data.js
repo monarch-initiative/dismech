@@ -2947,8 +2947,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 57,
-  "total_source_entries": 22,
+  "total_models": 59,
+  "total_source_entries": 23,
   "total_model_types": 8,
   "total_runnable": 4,
   "total_with_repository": 27
