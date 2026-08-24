@@ -2336,6 +2336,22 @@ derived counts, qualitative-term mapping, clinical estimate), the literature-ter
 → enum mapping table, and worked examples. **When in doubt, omit `frequency:`
 rather than fabricate justification.**
 
+**A band also has a scope, and scope mismatches pass every check we have.** A
+band quoted from a source broader than the entry — an `ORPHA:` row for the whole
+spectrum landing on a single subtype entry, a `kb/groupings/` union, an umbrella
+`Disease`, a `has_subtypes` parent — is verbatim, real, and wrong. Snippet
+verification, term validation, and schema validation all pass, because nothing
+in the stack knows what population the source measured. Before adopting a band,
+ask what it was measured over; if that is wider than the entry, either scope the
+record with the `subtype:` foreign key (machine-checked, unlike a prose
+restriction in `notes:`), keep a narrower quantitative band and cite the broad
+row `PARTIAL` with the conflict named, or drop the band. Do not keep the band
+and note the mismatch in prose. See **Anti-pattern 5** in
+[`docs/frequency-evidence-guidelines.md`](docs/frequency-evidence-guidelines.md)
+for the decision rule and the worked in-KB precedents (`Marfan_Syndrome`
+`Spontaneous Pneumothorax`, `Dystrophic_Epidermolysis_Bullosa` `Cutaneous
+Squamous Cell Carcinoma`).
+
 ### 8. Running Full QC
 
 ```bash
