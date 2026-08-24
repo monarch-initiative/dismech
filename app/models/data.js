@@ -907,6 +907,67 @@ window.searchData = [
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
   },
   {
+    "model_key": "Sickle_Cell_Disease--computational-model-lu-stochastic-kinetic-model-of-hbs-polymerization-and-erythrocyte-sickling--1",
+    "name": "Lu stochastic kinetic model of HbS polymerization and erythrocyte sickling",
+    "description": "Patient- and organ-parameterized model coupling oxygen-dependent HbS solubility, homogeneous and heterogeneous nucleation, fiber growth, and a mechanical criterion for red-cell sickling. Inputs include oxygen tension, deoxygenation time, temperature, cell volume, hemoglobin concentration, and hemoglobin composition.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Stochastic kinetic equations and parameters in the article and supplementary materials",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "Lu-HbS-sickling-2019",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:31457104",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Sickle Cell Disease",
+    "disease_id": "MONDO:0011382",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "variables": [
+      "Oxygen tension",
+      "Mean corpuscular volume",
+      "Mean corpuscular hemoglobin concentration",
+      "Hemoglobin composition",
+      "Nucleation delay time",
+      "Sickled red-cell fraction"
+    ],
+    "variable_ids": [
+      "PO2",
+      "MCV",
+      "MCHC",
+      "Hb_fraction",
+      "tau_d",
+      "sickled_fraction"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Hemoglobin Polymerization",
+      "Red Blood Cell Sickling"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Model sensitivity identified HbS solubility, the nucleation-rate prefactor, and oxygen affinity as dominant determinants of polymerization.",
+      "The model was checked against prior in-vivo and in-vitro sickling data and produced drug-effect estimates consistent with recent screening assays."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:31457104"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated directly from the paper and supplementary equations; no exact code repository was identified. This is not a clinically validated digital twin: patient-specific inputs improve individual simulations, but prospective prognosis and dosing claims require further experimental validation.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Sickle_Cell_Disease.html#computational-model-lu-stochastic-kinetic-model-of-hbs-polymerization-and-erythrocyte-sickling",
+    "source_file": "kb/disorders/Sickle_Cell_Disease.yaml"
+  },
+  {
     "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-m4rl-glioblastoma-tumor-microenvironment-treatment-model--2",
     "name": "M4RL Glioblastoma Tumor-Microenvironment Treatment Model",
     "description": "Multiscale framework combining a spatial agent-based model of tumor cells, tumor-associated macrophages, cytokines, and intracellular ERK/AKT signaling with a Fokker-Planck physics-informed neural-network surrogate and A3C reinforcement learning to optimize CSF1R- and IGF1R-inhibitor scheduling.",
@@ -2822,11 +2883,72 @@ window.searchData = [
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-whole-body-human-metabolic-model-for-diabetes",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
+  },
+  {
+    "model_key": "Sickle_Cell_Disease--computational-model-zheng-multiscale-qsp-model-of-autologous-gene-therapy--0",
+    "name": "Zheng multiscale QSP model of autologous gene therapy",
+    "description": "Deterministic ordinary-differential-equation model coupling hematopoietic stem-cell engraftment, erythroid differentiation, red-cell turnover, globin assembly, and oxygen-regulated erythropoiesis. Healthy and SCD parameterizations are extended with myeloablative preconditioning and transplantation of CD34-positive cells expressing an anti-sickling gamma-globin.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "ODE equations and parameters in the article and supporting information",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "Zheng-SCD-QSP-2021",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:34139105",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Sickle Cell Disease",
+    "disease_id": "MONDO:0011382",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "variables": [
+      "Initial transduced CD34-positive cell dose",
+      "Long-term hematopoietic stem-cell fraction",
+      "Mean vector copy number",
+      "Preconditioning depletion",
+      "Anti-sickling hemoglobin",
+      "Transduced red blood cells"
+    ],
+    "variable_ids": [
+      "initial_dose",
+      "LT-HSC_fraction",
+      "VCN",
+      "preconditioning",
+      "HbNew",
+      "transduced_RBC"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Chronic Hemolysis",
+      "Red Blood Cell Sickling"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Simulated reconstitution is biphasic: short-lived progenitors generate an early wave of transduced red cells, while long-term stem-cell engraftment sustains later production.",
+      "Initial transduced-cell dose and myeloablative preconditioning intensity were the strongest positive determinants of modeled long-term outcome."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:34139105"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated from the publication and supporting equations; no exact deposited implementation was identified. Important assumptions include deterministic population averages, at most one vector copy per cell, fixed fractional progenitor depletion, immediate marrow homing, omission of non-erythroid hematopoiesis and iron/heme handling, and empirical oxygen feedback.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Sickle_Cell_Disease.html#computational-model-zheng-multiscale-qsp-model-of-autologous-gene-therapy",
+    "source_file": "kb/disorders/Sickle_Cell_Disease.yaml"
   }
 ];
 window.searchMetrics = {
-  "total_models": 57,
-  "total_source_entries": 22,
+  "total_models": 59,
+  "total_source_entries": 23,
   "total_model_types": 8,
   "total_runnable": 4,
   "total_with_repository": 27
