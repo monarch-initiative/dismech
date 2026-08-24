@@ -78,7 +78,6 @@ promoted out of STILL UNPLACED once it held four distinct shapes, and DEBUNDLE
 TARGETS is the payoff rather than a residue -- a node needing two classes is
 making two claims.
 
-
 ## Why this ordering, not just a vibe
 
 Mean topological depth (longest path from a graph source, computed over

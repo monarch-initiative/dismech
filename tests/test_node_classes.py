@@ -114,7 +114,6 @@ def test_an_example_opens_no_scope_for_a_following_class():
     assert [c.name for c in roots[0].children] == ["first", "second"]
 
 
-
 def test_an_attribute_cannot_attach_into_a_closed_subtree():
     # Regression: the owner lookup used to keep entries from subtrees the
     # current line had already closed, so this attribute -- misindented under

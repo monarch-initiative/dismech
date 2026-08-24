@@ -230,10 +230,16 @@ def conformance_gate_table(result: ScanResult) -> list[tuple[str, int, int]]:
     prints, so the numbers quoted in the spec can be re-derived rather than
     taken on trust.
     """
+    def both_high(pair: tuple[Assignment, Assignment, str]) -> bool:
+        return pair[0].confidence == "HIGH" and pair[1].confidence == "HIGH"
+
     every = conformance_pairs(result, high_only=False)
-    high = [p for p in every if p[0].confidence == "HIGH" and p[1].confidence == "HIGH"]
+    high = [p for p in every if both_high(p)]
     go_bp = [p for p in high if p[0].basis == "go_bp" and p[1].basis == "go_bp"]
-    low = [p for p in every if p not in high]
+    # Predicate rather than `p not in high`: membership on a list of tuples of
+    # dataclasses is a linear scan with field-by-field comparison, so the
+    # obvious spelling is quadratic in the pair count.
+    low = [p for p in every if not both_high(p)]
 
     def bad(pairs: list[tuple[Assignment, Assignment, str]]) -> int:
         return sum(1 for src, tgt, _ in pairs if src.node_class != tgt.node_class)
