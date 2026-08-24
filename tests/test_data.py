@@ -15,6 +15,11 @@ from linkml.validator import Validator
 # validation logic shared with the CLI tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+from dismech.entity_refs import (
+    iter_entity_refs,
+    parse_entity_ref,
+    resolve_entity_ref,
+)
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -48,6 +53,10 @@ CONFORMS_TO_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 # model-link checks span both trees. The two older per-section foreign-key tests
 # above predate this and still cover disorders only.
 MODEL_BEARING_FILES = DISORDER_FILES + MODULE_FILES
+# Entries whose hash-anchor entity references (`attaches_to`, `would_support`,
+# `would_refute`, perturbation/readout `target`) are resolved as foreign keys.
+# Same three trees as `conforms_to`: groupings use a different grammar.
+ENTITY_REF_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 # Model sections whose entries may carry `modeled_mechanisms` links.
 MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
@@ -810,29 +819,59 @@ def test_subtype_foreign_keys(filepath):
     )
 
 
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
+def test_entity_ref_foreign_keys(filepath):
+    """Every hash-anchor entity reference must resolve (#9193).
+
+    ``attaches_to``, ``Experiment.would_support`` / ``would_refute`` and the
+    perturbation/readout ``target`` slots all point at another object in the
+    same entry using the ``[<file>:]<kind>#<name>`` grammar. They are foreign
+    keys, and a dangling one is invisible to every other gate: schema
+    validation, term validation, and snippet verification all pass while a
+    KNOWLEDGE_GAP hangs off a node that no longer exists.
+
+    That is most likely to happen during a rename or node split — the operation
+    that puts the author's attention on the nodes rather than on what refers to
+    them (the incident in PR #9187).
+
+    Resolution lives in ``dismech.entity_refs`` so the renderer and any exporter
+    follow a reference the same way. A cross-file reference, or a prefix absent
+    from ``SECTION_KEYS``, is skipped rather than failed: an unmapped prefix is
+    a gap in that map, not a defect in the content.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    errors = []
+    for path, ref in iter_entity_refs(data):
+        if resolve_entity_ref(data, ref) is False:
+            parsed = parse_entity_ref(ref)
+            errors.append(f"{path}={ref!r} does not resolve to a {parsed.kind}")
+
+    assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
+
+
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
     """Hypothesis-based phenotype algorithms must anchor in the pathograph (#6245).
 
     A `definitions[]` entry whose `derivation_basis` is MECHANISTIC_HYPOTHESIS
     is predicated on a specific disease mechanism, so it must `attaches_to` at
-    least one node it operationalizes, and any *local* `pathophysiology#<name>`
-    or `phenotype#<name>` reference must resolve to a real node/phenotype in the
-    same entry (the same hash-anchor discipline `discussions.attaches_to` uses).
-    Cross-file references (`<file>:<kind>#<name>`) are not resolved here.
+    least one node it operationalizes.
+
+    *Resolving* those references is `test_entity_ref_foreign_keys`' job now,
+    over every ref-bearing slot rather than just this one. What remains here are
+    the two rules specific to this derivation basis: the list must exist, and
+    each entry must use the hash-anchor grammar rather than a bare name — a
+    reference the shared resolver would otherwise skip as "not a reference".
     """
     with open(filepath) as f:
         data = safe_load(f)
 
-    definitions = data.get("definitions", []) or []
-    if not definitions:
-        return
-
-    patho_names = {n.get("name") for n in data.get("pathophysiology", []) or []}
-    pheno_names = {p.get("name") for p in data.get("phenotypes", []) or []}
-
     errors = []
-    for i, defn in enumerate(definitions):
+    for i, defn in enumerate(data.get("definitions", []) or []):
         if defn.get("derivation_basis") != "MECHANISTIC_HYPOTHESIS":
             continue
         refs = defn.get("attaches_to", []) or []
@@ -841,25 +880,11 @@ def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
                 f"definitions[{i}] ({defn.get('name')!r}) has "
                 f"derivation_basis: MECHANISTIC_HYPOTHESIS but no attaches_to"
             )
-            continue
         for ref in refs:
-            if "#" not in ref:
-                errors.append(f"definitions[{i}].attaches_to={ref!r} lacks '#'")
-                continue
-            left, name = ref.split("#", 1)
-            if ":" in left:
-                # Cross-file reference — not resolved here.
-                continue
-            kind = left
-            if kind == "pathophysiology" and name not in patho_names:
+            if parse_entity_ref(ref) is None:
                 errors.append(
-                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
-                    f"pathophysiology node"
-                )
-            elif kind == "phenotype" and name not in pheno_names:
-                errors.append(
-                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
-                    f"phenotype"
+                    f"definitions[{i}].attaches_to={ref!r} is not a "
+                    f"<kind>#<name> entity reference"
                 )
 
     assert not errors, (
