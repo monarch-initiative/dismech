@@ -40,9 +40,10 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 INDENT = 2
 
@@ -92,7 +93,7 @@ class ClassNode:
     name: str
     line: int
     gloss: str | None = None
-    children: list["ClassNode"] = field(default_factory=list)
+    children: list[ClassNode] = field(default_factory=list)
     examples: list[Example] = field(default_factory=list)
     attributes: dict[str, list[str]] = field(default_factory=dict)
 

@@ -49,10 +49,11 @@ from __future__ import annotations
 
 import csv
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 DEFAULT_SEED = Path("docs/superpowers/pathograph_node_class_go_seed.tsv")
 DEFAULT_KB_DIRS = (Path("kb/disorders"), Path("kb/modules"))
@@ -90,7 +91,7 @@ def load_seed(path: Path = DEFAULT_SEED) -> dict[str, tuple[str, str]]:
     seed: dict[str, tuple[str, str]] = {}
     with Path(path).open(encoding="utf-8") as fh:
         for line in fh:
-            if line.startswith("#") or line.startswith("go_id") or not line.strip():
+            if line.startswith(("#", "go_id")) or not line.strip():
                 continue
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 5:
