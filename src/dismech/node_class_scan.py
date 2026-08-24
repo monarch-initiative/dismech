@@ -176,10 +176,11 @@ def conformance_pairs(
     """Resolvable ``conforms_to`` pairs where both sides carry a class.
 
     ``high_only`` keeps only pairs where *both* classes came from a HIGH
-    confidence rule (seeded GO BP, or GO MF). That gate matters: measured over
-    the KB, pairs with a LOW-confidence side disagree 36.3% of the time against
-    10.0% when both sides are HIGH, so the gene/CL/UBERON fallbacks contribute
-    mostly noise here.
+    confidence rule (seeded GO BP, or GO MF). That gate matters: pairs with a
+    LOW-confidence side disagree several times more often than pairs where both
+    sides are HIGH, so the gene/CL/UBERON fallbacks contribute mostly noise
+    here. Run ``--format conformance-gates`` for the current numbers rather than
+    quoting a figure from this docstring, which the KB's growth will outdate.
     """
     out = []
     for key, ref in sorted(result.conforms_to.items()):
@@ -217,6 +218,31 @@ def conformance_mismatches(
         (source, ref, target.node_class or "", source.node_class or "")
         for source, target, ref in conformance_pairs(result, high_only=high_only)
         if source.node_class != target.node_class
+    ]
+
+
+def conformance_gate_table(result: ScanResult) -> list[tuple[str, int, int]]:
+    """Mismatch rate under each confidence gate, as ``(label, bad, total)``.
+
+    The gate is the finding, not a knob: the gene/CL/UBERON fallbacks are useful
+    for coverage and useless for adjudication, and this table is what says so.
+    Every row here is derived from the same pair list the ``conformance`` format
+    prints, so the numbers quoted in the spec can be re-derived rather than
+    taken on trust.
+    """
+    every = conformance_pairs(result, high_only=False)
+    high = [p for p in every if p[0].confidence == "HIGH" and p[1].confidence == "HIGH"]
+    go_bp = [p for p in high if p[0].basis == "go_bp" and p[1].basis == "go_bp"]
+    low = [p for p in every if p not in high]
+
+    def bad(pairs: list[tuple[Assignment, Assignment, str]]) -> int:
+        return sum(1 for src, tgt, _ in pairs if src.node_class != tgt.node_class)
+
+    return [
+        ("both sides HIGH (seeded GO BP or GO MF)", bad(high), len(high)),
+        ("both sides from seeded GO BP alone", bad(go_bp), len(go_bp)),
+        ("either side from a LOW fallback rule", bad(low), len(low)),
+        ("all pairs", bad(every), len(every)),
     ]
 
 
@@ -260,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("summary", "tsv", "debundle", "conformance"),
+        choices=("summary", "tsv", "debundle", "conformance", "conformance-gates"),
         default="summary",
     )
     parser.add_argument("--seed", default=str(DEFAULT_SEED))
@@ -268,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
         "--include-low",
         action="store_true",
         help="conformance: also compare pairs classified by a LOW-confidence "
-        "fallback rule (measured 36.3%% mismatch vs 10.0%% -- mostly noise)",
+        "fallback rule (measured ~40%% mismatch vs ~9%% -- mostly noise)",
     )
     parser.add_argument(
         "--kb-dir",
@@ -299,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
         for a in rows:
             print(f"{a.detail:24s} {a.node}  [{a.disease}]")
         print(f"\n{len(rows)} debundle candidates", file=sys.stderr)
+        return 0
+
+    if args.format == "conformance-gates":
+        for label, bad, total in conformance_gate_table(result):
+            pct = 100 * bad / total if total else 0.0
+            print(f"{label:42s} {pct:5.1f}%  ({bad}/{total})")
         return 0
 
     if args.format == "conformance":

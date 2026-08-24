@@ -94,6 +94,10 @@ def test_example_name_may_contain_single_spaces_and_brackets_elsewhere():
         ("  Orphan Node  [D]\n", "example outside any class"),
         ("TOP\n  a\n  a\n", "duplicate sibling class name"),
         ("  :key value\n", "attribute line has no enclosing node"),
+        (
+            "TOP\n  first\n    A Node  [D]\n  second\n      :key value\n",
+            "attribute line has no enclosing node",
+        ),
     ],
 )
 def test_grammar_violations_raise_with_a_line_number(text, fragment):
@@ -108,6 +112,22 @@ def test_an_example_opens_no_scope_for_a_following_class():
     # parent class, not a child of the example.
     roots = parse_text("TOP\n  first\n    A Node  [D]\n  second\n")
     assert [c.name for c in roots[0].children] == ["first", "second"]
+
+
+
+def test_an_attribute_cannot_attach_into_a_closed_subtree():
+    # Regression: the owner lookup used to keep entries from subtrees the
+    # current line had already closed, so this attribute -- misindented under
+    # `second`, which has no example -- silently became an attribute of
+    # `A Node` two branches away instead of failing.
+    text = "TOP\n  first\n    A Node  [D]\n  second\n      :key value\n"
+    with pytest.raises(ParseError) as excinfo:
+        parse_text(text, source="sample.txt")
+    assert excinfo.value.line == 5
+
+    # The same indentation IS valid while that subtree is still open.
+    roots = parse_text("TOP\n  first\n    A Node  [D]\n      :key value\n")
+    assert roots[0].children[0].examples[0].attributes == {"key": ["value"]}
 
 
 def test_round_trip_is_stable():

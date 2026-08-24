@@ -119,6 +119,18 @@ def _add_attribute(target: ClassNode | Example, key: str, value: str) -> None:
     target.attributes.setdefault(key, []).append(value)
 
 
+def _close_deeper(last_at_depth: dict[int, ClassNode | Example], depth: int) -> None:
+    """Forget the nodes a new line at ``depth`` has just closed.
+
+    ``last_at_depth`` is what an attribute line consults to find its owner. It
+    must shrink with the class stack: without this, a misindented attribute
+    resolves to a node in an already-closed subtree and attaches there silently,
+    which is the one failure the parser exists to make loud.
+    """
+    for deeper in [d for d in last_at_depth if d > depth]:
+        del last_at_depth[deeper]
+
+
 def parse_text(text: str, *, source: str = "<text>") -> list[ClassNode]:
     """Parse node-class text into a forest of :class:`ClassNode` roots.
 
@@ -167,9 +179,10 @@ def parse_text(text: str, *, source: str = "<text>") -> list[ClassNode]:
                 line=lineno,
             )
             parent.examples.append(ex)
-            last_at_depth[depth] = ex
             # An example opens no class scope; drop anything deeper.
             del stack[depth:]
+            _close_deeper(last_at_depth, depth)
+            last_at_depth[depth] = ex
             continue
 
         if depth > len(stack):
@@ -199,6 +212,7 @@ def parse_text(text: str, *, source: str = "<text>") -> list[ClassNode]:
         siblings.append(node)
         del stack[depth:]
         stack.append(node)
+        _close_deeper(last_at_depth, depth)
         last_at_depth[depth] = node
 
     return roots

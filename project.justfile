@@ -941,8 +941,9 @@ check-not4curation *args:
 # `conformance` compares every conforms_to edge's two sides, which is an
 # INDEPENDENT check on the classes because conforming pairs are curated as
 # "same kind of thing" by an unrelated process. Conformance is gated on both
-# sides being HIGH confidence by default (mismatch 10.0% vs 36.3% once the
-# gene/CL/UBERON fallbacks are let in); pass --include-low to see the rest.
+# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
+# in multiplies the mismatch rate several times over; pass --include-low to see
+# the rest, or `--format conformance-gates` for the current rate under each gate.
 # Design artifact -- nothing in kb/ or the schema depends on it.
 [group('QC')]
 node-class-scan *args:

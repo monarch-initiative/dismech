@@ -2,12 +2,12 @@
 title: A Simple Tree for Pathograph Node Classification
 status: BRAINSTORM
 description: >-
-  Proposes a single flat `node_class` enum for pathophysiology nodes, ordered
-  as a causal cascade: genomic -> environmental -> molecular -> pathway ->
-  cellular -> tissue/organ -> systemic -> outcome, plus two cross-cutting
-  classes (compensation, intervention point). Validated against all 12,290
-  pathophysiology nodes; replaces the improvised 55-value free-text `role`
-  vocabulary.
+  Proposes a `node_class` vocabulary for pathophysiology nodes ordered as a
+  causal cascade: genomic -> environmental -> molecular activity -> molecular
+  substance -> pathway -> cellular -> tissue/organ -> systemic -> outcome, plus
+  a DISPOSITION tier and cross-cutting classes (compensation, intervention
+  point). Validated against every pathophysiology node in the KB; replaces the
+  improvised 55-value free-text `role` vocabulary.
 tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 ---
 
@@ -17,66 +17,67 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 
 ## The tree
 
+The authoritative tree is
+[`pathograph_node_classes.txt`](../pathograph_node_classes.txt), which carries
+the glosses and ~1,600 worked `<node name> [Disease]` examples. Reproduced here
+is only its top level, which is what the proposal actually is; do not treat this
+copy as the tree, and regenerate it rather than editing it:
+
+```bash
+just node-classes --format summary
 ```
-1. GENOMIC_PERTURBATION      the lesion in the genome
-     variant / allele              "Biallelic HMGCL loss of function"
-     dosage                        "Recurrent LCR22-mediated multigene deletion"
-     structural / fusion           PML-RARA, BCR-ABL1
-     epigenetic                    "Maternal 15q11-q13 dosage increase"
 
-2. ENVIRONMENTAL_PERTURBATION  the insult from outside
-     chemical / drug / toxin       "Supratherapeutic Acetaminophen Exposure"
-     infectious agent              "Persistent HIV Infection and Replication"
-     physical                      radiation, trauma, mechanical load
-     nutritional                   deficiency or excess
-     physiological stressor        fasting, fever, catabolic stress
-
-3. MOLECULAR_ACTIVITY_EFFECT  what the gene product can no longer do
-     catalytic activity            "HMGCS2 Catalytic Loss"
-     channel conductance           "SCN5A Sodium-Channel Loss of Function"
-     transport activity            "Loss of GLUT2 Transporter Function"
-     receptor / adaptor activity   "STAT3 dominant-negative dysfunction"
-
-4. MOLECULAR_SUBSTANCE_EFFECT which molecules are now in the wrong amount or form
-     metabolite accumulation       "Reactive valine-derived intermediate accumulation"
-     metabolite depletion          "Low L-Serine and Downstream Metabolites"
-     misfolding / aggregation      "ADan Misfolding and Beta-Sheet Oligomerization"
-
-5. PATHWAY_EFFECT             signalling and flux
-     signalling up / down          "FSHR Signaling Resistance"
-     metabolic flux block          "Impaired leucine degradation"
-     transcriptional program       HIF stabilisation, NF-kB activation
-
-6. CELLULAR_EFFECT
-     cell death                    apoptosis, necrosis, pyroptosis
-     proliferation / growth
-     differentiation / identity    "Testis differentiation in 46,XX gonads"
-     organelle dysfunction         mitochondrial, lysosomal, ER stress
-     stress response / senescence
-
-7. TISSUE_ORGAN_EFFECT
-     inflammation
-     fibrosis / remodelling
-     structure formed              thrombus, granuloma, atheroma, cyst, amyloid deposit
-     degeneration / atrophy
-     barrier failure
-
-8. SYSTEMIC_EFFECT            whole-body physiology
-     organ failure
-     metabolic crisis              "Acute hypoketotic metabolic decompensation"
-     systemic derangement          hyperammonaemia, cytokine storm
-
-9. OUTCOME                    what happens to the patient
-     clinical manifestation, disability, death
-
---- not tiers; these cut across all of the above ---
-
-C1. COMPENSATION              the body pushing back
-     host defence, adaptive escape, protective response
-
-C2. INTERVENTION_POINT        where a drug acts
-     the node a treatment targets or a resistance mechanism defeats
 ```
+ 1. GENOMIC EFFECT             genome instability; pathogenic sequence variant; dosage;
+                               structural variant; epigenetic; transcript-level
+ 2. ENVIRONMENTAL EFFECT       infectious agent; chemical / drug / toxin; physical exposure;
+                               hormonal / physiological exposure; physiological stressor;
+                               microbiome state
+ 3. MOLECULAR ACTIVITY EFFECT  catalytic activity; channel conductance; transport activity;
+                               receptor / adaptor activity; structural-protein activity
+ 4. MOLECULAR SUBSTANCE EFFECT metabolite accumulation; metabolite depletion;
+                               protein misfolding / aggregation; protein abundance loss;
+                               post-translational modification state
+ 5. PATHWAY EFFECT             signalling reduced / failed; signalling increased;
+                               metabolic flux block
+ 6. CELLULAR EFFECT            cell death; differentiation / identity; metaplasia; haemolysis;
+                               proliferation / expansion; senescence; cell activation;
+                               organelle dysfunction; morphogenesis, migration and positioning;
+                               protein trafficking and localization
+ 7. TISSUE / ORGAN EFFECT      inflammation; fibrosis / remodelling; pathological structure
+                               formed; degeneration / atrophy; developmental malformation;
+                               barrier failure; injury; circulatory disturbance; mechanical
+                               obstruction and stenosis; abnormal communication; vascular
+                               malformation; material deposition; ischemia and infarction;
+                               inflammatory infiltration; functional disturbance; neoplastic
+                               invasion and metastasis; pathogen spread and tissue invasion;
+                               immune evasion and immunosuppressive microenvironment;
+                               impaired repair; neural circuit and network dysfunction;
+                               pathological angiogenesis; compression and mass effect
+ 8. SYSTEMIC EFFECT            metabolic crisis; organ failure; endocrine / homeostatic
+                               derangement; systemic inflammatory state; haematological
+                               deficit; autoimmune response; immune deficiency; behavioural
+                               and cognitive mechanism; nutritional deficit
+ 9. OUTCOME                    clinical endpoint; progression and transformation
+
+--- not cascade tiers; these cut across all of the above ---
+
+10. DISPOSITION               genetic predisposition; trigger-specific susceptibility;
+                              tissue vulnerability; outcome risk; penetrance and
+                              expressivity modifier
+11. ALSO CLASSES              COMPENSATION; INTERVENTION POINT
+12. DEBUNDLE TARGETS          found by name; found by GO term; found by conflicting GO terms;
+                              not a bundle, do not split
+13. STILL UNPLACED            not an effect at all; normal biology, not pathology;
+                              aetiology unresolved
+```
+
+The original sketch was 9 cascade tiers plus 2 cross-cutting classes. Tiers 10
+and 12-13 were all forced by the corpus rather than designed: DISPOSITION was
+promoted out of STILL UNPLACED once it held four distinct shapes, and DEBUNDLE
+TARGETS is the payoff rather than a residue -- a node needing two classes is
+making two claims.
+
 
 ## Why this ordering, not just a vibe
 
@@ -256,9 +257,13 @@ equally trustworthy:
 Rule 5 is deliberately LOW: a gene annotation does not distinguish a genomic
 lesion from a broken molecular activity, and those are now different tiers.
 
-**77.1% of the 12,290 nodes get a class, 6.2% are flagged as debundle
-candidates, 16.7% stay unclassified.** Class mix: CELLULAR 45.9%, TISSUE 16.8%,
-GENOMIC 12.1%, SUBSTANCE 8.1%, ACTIVITY 7.1%, PATHWAY 6.7%, SYSTEMIC 3.2%.
+**76.2% of the 13,821 nodes get a class, 6.0% are flagged as debundle
+candidates, 17.8% stay unclassified.** Class mix: CELLULAR 45.7%, TISSUE 16.8%,
+GENOMIC 12.2%, ACTIVITY 8.0%, SUBSTANCE 7.7%, PATHWAY 6.5%, SYSTEMIC 3.1%.
+
+These move as the KB grows -- they were 77.1% of 12,290 nodes when first
+measured. Read them as the shape of the result, not as constants, and re-run
+`just node-class-scan` rather than quoting this paragraph.
 
 ### One tempting "fix" that makes things worse
 
@@ -281,6 +286,38 @@ the pathway the enzyme sits in" needs more than which slots are populated, and
 is unsolved. The limitation is recorded in the module docstring so the ordering
 does not get "corrected" later.
 
+### A second seed row that looks wrong and tests the same way
+
+`GO:0006457 protein folding -> ACTIVITY HIGH` reads as a mistake: the tree files
+`protein misfolding / aggregation` under MOLECULAR SUBSTANCE, and the 49 entries
+carrying this term name nodes like *ADan Misfolding and Beta-Sheet
+Oligomerization* and *Mutant Huntingtin Protein Aggregation* -- substance claims
+by any reading.
+
+Reseeding it to SUBSTANCE was tried. Conformance agreement gets **worse**, 9.3%
+mismatch to 10.0%, and the debundle count does not move (823 either way). The
+new disagreements are pairs where the module side becomes SUBSTANCE while the
+disorder side stays CELLULAR or ACTIVITY from a different GO term -- so the
+metric is penalising a change that makes one side of the pair more defensible
+while the other side stays wrong.
+
+That is the honest reading, and it is why the row is left alone rather than
+"fixed": the conformance number is an **agreement** measure, not an accuracy
+measure, and it cannot adjudicate a case where both sides may be wrong. Anyone
+revisiting this row should change the CELLULAR-seeded aggregation terms in the
+same pass, and expect the number to get worse before it gets better.
+
+### Two gaps in the seed table worth knowing about
+
+- **`OUTCOME` has no seed rows at all**, so rule 1 can never assign it. That is
+  a consequence of note 3e in the tree file -- patient-level outcomes are
+  curated in `phenotypes:`, not `pathophysiology:` -- but it is invisible from
+  the rule table, which reads as though every class is reachable. `ENVIRONMENTAL`
+  and `DISPOSITION` are unseeded for the same reason.
+- **`MEDIUM` never appears in the seed table** (574 HIGH, 66 LOW), even though
+  the CHEBI rule emits it. The three-level confidence scale is really two levels
+  in the seeded path, and the gate that matters is HIGH vs not-HIGH.
+
 ## Conformance edges are an independent check on the classes
 
 This is the test the earlier module section predicted, and it is worth more
@@ -289,20 +326,27 @@ a module node are the same *kind* of thing — curated by a process with no
 knowledge of this classification. So the agreement rate is evidence about the
 classes, not a restatement of them.
 
-Over 770 conformance pairs where both sides classify at HIGH confidence:
-**they agree 90.0% of the time.** For a nine-class scheme applied by an
+Over 871 conformance pairs where both sides classify at HIGH confidence:
+**they agree 90.7% of the time.** For a nine-class scheme applied by an
 independent route, that is a real result.
 
 **But the gate matters, and this is the finding:**
 
 | pairs | mismatch |
 |---|---:|
-| both sides HIGH (seeded GO BP or GO MF) | **10.0%** (77/770) |
-| both sides from seeded GO BP alone | 8.1% (60/740) |
-| either side from a LOW fallback rule | **36.3%** (74/204) |
-| all pairs | 15.9% (156/981) |
+| both sides HIGH (seeded GO BP or GO MF) | **9.3%** (81/871) |
+| both sides from seeded GO BP alone | 7.5% (62/832) |
+| either side from a LOW fallback rule | **40.4%** (112/277) |
+| all pairs | 16.8% (193/1148) |
 
-The gene/CL/UBERON fallbacks more than triple the disagreement rate. They are
+Regenerate the whole table rather than quoting it — it moves as the KB grows,
+and every row is derived from the pair list `--format conformance` prints:
+
+```bash
+just node-class-scan --format conformance-gates
+```
+
+The gene/CL/UBERON fallbacks more than quadruple the disagreement rate. They are
 useful for coverage and useless for adjudication, so `--format conformance`
 gates on both-sides-HIGH by default and `--include-low` opts back in.
 
@@ -592,8 +636,8 @@ absence from our tree is correct, not an oversight.
 
 Started: [`docs/superpowers/pathograph_node_classes.txt`](../pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `<node name> [Disease]`
 pairs, representatives only. No schema, no enum, nothing in `kb/` depends on it.
-Its `DOESN'T FIT` section is where the design is already failing and is the most
-useful part to argue with.
+Its `STILL UNPLACED` section is where the design is already failing and is the
+most useful part to argue with.
 
 Then, in order:
 
@@ -601,9 +645,11 @@ Then, in order:
    (3 variants of `trigger` today), compute cascade position and C2 from the
    edges, and see how much of the 2,322 tagged nodes is left over. That number
    sizes the real curation job.
-2. **Classify ~100 nodes against the 9+2 tree** to find the contested joins,
-   reusing the three-pass structure from
-   [the `biological_scale` survey](../../../projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md).
+2. ~~Classify ~100 nodes against the 9+2 tree~~ — **done, and then some.** The
+   tree now carries ~1,600 worked examples across ~1,275 entries, placed in five
+   random draws plus a sweep of MPATH/MeSH/SNOMED/NCIT. The build notes at the
+   foot of the tree file record what each draw forced, including the leaves that
+   reversed earlier decisions.
 
 ## Appendix — reproducing the numbers
 
