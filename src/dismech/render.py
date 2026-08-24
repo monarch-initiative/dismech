@@ -532,6 +532,19 @@ _SECTION_CARD_ANCHORS: dict[str, str] = {
     "differential_diagnoses": "differentials",
     "datasets": "datasets",
     "clinical_trials": "trials",
+    # The Experimental Models card carries `id="models"` when
+    # `experimental_models` is non-empty -- which is exactly the guard below,
+    # so this pairing is safe.
+    #
+    # `animal_models` and `computational_models` are deliberately absent. That
+    # same `models` id is placed on whichever model card renders *first*
+    # (`{% if not experimental_models %}` on the animal card, and likewise for
+    # computational), so it only belongs to them when the earlier sections are
+    # empty. A per-section guard cannot express that, and pointing
+    # `animal_models#` at a card that is showing experimental models would be a
+    # wrong target rather than a missing one. `comorbidities` is absent because
+    # it is not a Disease slot and so never appears in SECTION_KEYS.
+    "experimental_models": "models",
 }
 
 #: HTML id on the page header, the target of a `disease#<name>` reference.
