@@ -425,12 +425,18 @@ schema shape, the trigger→consequence node chain, the treatment
 
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
-- `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
+- `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm). **Do not wire cell-type plasma proteomic aging clocks (astrocyte/skeletal myocyte/myeloid "age gap" biomarkers, PMID:42297981) to this module without new evidence** — they measure no senescence marker, so the nine such biomarkers already curated across `Alzheimer_Disease`, `Amyotrophic_Lateral_Sclerosis`, `Lung_Carcinoma`, `Type_2_Diabetes_Mellitus` and `Frontotemporal_Dementia` are deliberately unattached; the open question and the two experiments that would settle it are recorded in the module's `gap_senescence_vs_plasma_cell_type_aging_clocks` discussion.
 - `senescence_tumor_suppression` — Conserved tumor-SUPPRESSIVE arm of senescence/aging, the deliberate complement of `cellular_senescence`, with two independent routes to a tumor barrier: oncogenic/replicative/genotoxic stress in at-risk cells → p16INK4a/Rb and p53/p21 senescence-associated arrest → restraint of malignant transformation or progression from a benign/low-grade state; separately, directly evidenced aging-associated loss of stemness in the cell of origin (PMID:39633048) can limit tumor-initiating capacity. Carries the pro-senescent (senescence-inducing) drug-target pattern (treatments use `target_mechanisms` with `ACTIVATES` to reinforce the arrest), the conceptual inverse of the senolytic pattern. Together the two senescence modules capture the antagonistic pleiotropy of senescence as two modules rather than one effect-reversing edge. Framing guardrails: does NOT assert net age-protection; generic aging/stem-cell depletion is not evidence for the age/stemness branch; senescence-loss or escape nodes do not directly conform to the positive arrest/barrier targets. Positive conformance to the senescence arm requires stable senescence-associated proliferative arrest plus an evidence-linked tumor-suppressive consequence; p16/p21/SA-beta-gal positivity alone, quiescence, differentiation, or reversible cytostasis is insufficient. Worked conformer: Pilocytic_Astrocytoma (oncogene-induced arrest and low-grade progression barrier). Key conformance target: `senescence_tumor_suppression#Barrier to Malignant Transformation`
+- `photoaging` — Conserved extrinsic (UV-induced) skin-aging pathway, the deliberate complement of the intrinsic `cellular_senescence`/`inflammaging` modules: UVB irradiation and photo-oxidative injury (DNA damage, ROS, ligand-independent growth-factor/cytokine-receptor activation) → MAP-kinase-driven AP-1 (c-Jun/c-Fos) and NF-kB transcriptional activation → MMP upregulation (collagenase MMP-1, stromelysin MMP-3, gelatinase MMP-9) and pro-inflammatory mediator induction (IL-1, IL-6, IL-8, PTGS2/COX-2) → dermal collagen/elastin ECM degradation → photoaging (wrinkling, laxity, solar elastosis). Carries two drug-target patterns: the peer-reviewed topical retinoid (tretinoin) `INHIBITS` the AP-1 hub (blocks UV-induced c-Jun), and topical sunscreen `INHIBITS` the trigger node. Not an Xogenesis module (matrix destruction, not pathological-structure formation). Worked NAM: the Outer Biosciences ex vivo human skin platform UVB arm (UVB 300 mJ/cm2 → LDH/IL-8/MMP1 induction, mitigated by sunscreen). Key conformance target: `photoaging#MAPK Signaling and AP-1/NF-kB Transcriptional Activation`
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
 - `il11_erk_ampk_mtor_aging` — Conserved pro-inflammatory-cytokine driver of mammalian ageing (Widjaja et al., Nature 2024, PMID:39020175): age-associated IL-11 upregulation across tissues → IL11RA1-gp130 receptor signalling (canonical STAT3 + non-canonical MEK-ERK-p90RSK) → coupled ERK-p90RSK↑ / LKB1-AMPK-inactivation / mTORC1↑ axis dysregulation → mTORC1/ERK-dependent cellular senescence, SASP and metabolic decline (age-repressed WAT beiging, sarcopenia, fibrosis) → frailty, multimorbidity, age-related cancer and reduced lifespan. Carries the anti-IL-11 neutralizing-antibody drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the receptor-signalling node; anti-IL-11 extends mouse median lifespan >20% given from 75 weeks of age). The IL-11-specific, druggable driver arm of inflammaging: it feeds the source-agnostic `inflammaging` chain and the `cellular_senescence` programme, which it deliberately does NOT re-derive; carries a `KNOWLEDGE_GAP` on the canonical-vs-non-canonical signalling contribution and a `HUMAN_MODEL_MISMATCH` on the mouse-only lifespan arm. Worked conformers (all attach at the **amplifier** `#IL-11 Receptor Signalling Activation` node): Idiopathic_Pulmonary_Fibrosis (lung fibroblast), Liver_Cirrhosis (hepatic stellate cell), Chronic_Kidney_Disease (kidney interstitial fibroblast), Dilated_Cardiomyopathy (cardiac fibroblast). Conformance-target guidance: attach at `#IL-11 Receptor Signalling Activation` when only the IL-11→ERK arm is evidenced in that tissue (the case for every current fibrosis conformer); reserve the central_effector `#ERK-AMPK-mTORC1 Axis Dysregulation` (the module's disorder-agnostic rate-limiting node) for entries that actually evidence the coupled LKB1-AMPK-inactivation / mTORC1 metabolic arm. Key conformance target (rate-limiting node): `il11_erk_ampk_mtor_aging#ERK-AMPK-mTORC1 Axis Dysregulation`; current conformance attachment point: `il11_erk_ampk_mtor_aging#IL-11 Receptor Signalling Activation`
 - `mtor_androgen_deprivation_resistance` — Conserved PI3K/AKT/mTOR-driven adaptive resistance to androgen-receptor (AR) pathway blockade in prostate cancer: AR-pathway blockade (ADT/ARPI) → reciprocal PI3K/AKT feedback activation (relief of feedback inhibition, potentiated by PTEN loss) → mTORC1 hyperactivation → pro-survival translational/metabolic reprogramming → adaptive (castration) resistance. Carries the co-targeting drug pattern: treatments use `target_mechanisms` with `INHIBITS` on the mTORC1 node (e.g. everolimus + the AR antagonist bicalutamide, the pair taken into the phase II NCT00814788 trial) to re-sensitize resistant tumors to AR blockade. Carries an open `KNOWLEDGE_GAP` recording that everolimus monotherapy failed in mCRPC and that rapalogs re-trigger the module's own PI3K/AKT feedback arm, so conformers must not curate rapalog therapy as effective. The mechanistic complement to AI-derived morphometric predictors of ADT response — the INR-like/non-responder tumor state converges on this axis. Worked conformers: Prostate_Adenocarcinoma (which also carries the 13-CMB AI predictor `definitions` entry that `attaches_to` its conforming resistance node) and Metastatic_Prostate_Cancer. Key conformance / treatment target: `mtor_androgen_deprivation_resistance#mTORC1 Hyperactivation`
 - `cdc1_tolerogenic_maturation` — Conserved erythropoietin-receptor (EPOR) switch setting whether type 1 conventional dendritic cells (cDC1s) become tolerogenic or immunogenic after taking up cell-associated antigen: efferocytic uptake of dying cells by cDC1s → EPO-EPOR signalling (AKT-mTOR/ERK/STAT5, cDC1-restricted) → tolerogenic maturation to CCR7+ late-mature cDC1s with high integrin beta-8 and reduced cross-presentation → integrin alpha-V beta-8-dependent activation of latent TGF-beta at the cDC1-T cell interface → antigen-specific FOXP3+ Treg induction with restrained CD8+ cross-priming; a reciprocal `adaptive_escape` branch curates the EPOR-loss immunogenic maturation route (increased MHC-II/cross-presentation/costimulation, more tumour-antigen-specific Tpex in tumour-draining LNs, fewer intratumoural Tregs, improved anti-PD-1 efficacy). Carries a **bidirectional** drug-target pattern on the switch node — erythropoietin `ACTIVATES` (tolerance-inducing arm) and investigational cDC1 EPOR blockade `INHIBITS` (tolerance-breaking arm); neither is a treatment recommendation and conforming disorders do not inherit them. The antigen-presenting-cell-intrinsic complement of `immune_checkpoint_blockade` (tumour-cell-intrinsic PD-L1/exhaustion arm), which a tumour entry may conform to in parallel; the Aldh1a2/retinoic-acid route is deliberately excluded (cDC1-restricted Aldh1a2 deletion did not impair tolerance). **CRITICAL species caveat: the entire chain is mouse-only** (Xcr1-Cre conditional Epor/Itgb8/H2-Ab1 deletion, allogeneic BM + heart transplant, B16F10-OVA/MC38-OVA tumours) — no step is shown in human cDC1s, so the module ships with **no conformers** and a human entry needs its own human evidence or an EMERGING `mechanistic_hypotheses` framing (recorded as an open `HUMAN_MODEL_MISMATCH` discussion, plus a `KNOWLEDGE_GAP` on erythropoiesis-stimulating-agent exposure that must NOT be cited as a mechanistic safety claim). Conformance also requires cDC1 lineage, cell-associated antigen, and a tolerogenic readout — CCR7+ maturation alone is the shared gateway to both branches and does not conform. Key conformance target: `cdc1_tolerogenic_maturation#Tolerogenic Maturation to CCR7+ Late-Mature cDC1s`
+- `epidermal_cornification_failure` — Conserved final-common pathway of the inherited ichthyoses and disorders of cornification: loss of a terminal-differentiation component (TGM1 cross-linking, FLG matrix, ALOX12B/ALOXE3, ABCA12 lamellar-body lipid transport, STS, SPINK5/LEKTI, ALDH3A2, ABHD5/PNPLA2, distal cholesterol-synthesis enzymes) → defective cornified envelope assembly and lamellar lipid delivery → **stratum corneum permeability barrier failure** → compensatory epidermal hyperproliferation plus retention hyperkeratosis → ichthyotic scaling with neonatal water-loss, thermoregulatory and infection risk. Not Xogenesis (failure of a normal programmed process). Deliberately does NOT re-derive dominant-negative keratin collapse (`keratin_intermediate_filament_fragility`, which the epidermolytic ichthyoses conform to *in parallel*), desmosomal acantholysis (`desmosomal_adhesion_failure`), or the type-2 sensitization arm of barrier loss (`epithelial_barrier_dysfunction`, where barrier failure leads immunologically rather than how cornification fails structurally — a filaggrin-deficient entry may conform to both). Conformance requires evidencing the barrier consequence, not merely a mutation in a cornification gene. Key conformance target: `epidermal_cornification_failure#Stratum Corneum Permeability Barrier Failure`
+- `dermal_epidermal_junction_adhesion_failure` — Conserved mechanobullous pattern of inherited epidermolysis bullosa and the genetic skin-fragility disorders: loss of one link in the hemidesmosome–anchoring filament–anchoring fibril attachment network (KRT5/KRT14, PLEC, ITGA6/ITGB4, COL17A1, LAMA3/LAMB3/LAMC2, COL7A1, FERMT1) → loss of adhesive integrity at the specific ultrastructural plane that component occupies (the plane, not severity, is what defines the EB subtype) → **mechanically induced dermal-epidermal separation and blistering** → chronic erosion, impaired healing and dermal scarring → cutaneous/extracutaneous complications, with a ~50-fold non-UV-driven cutaneous SCC risk in the sublamina-densa forms. Scope boundary: EBS conforms at the separation node but its proximal lesion belongs to `keratin_intermediate_filament_fragility` — do NOT conform an EBS entry to this module's trigger node (PLEC is the genuine hinge). The acquired autoantibody route (EBA, bullous pemphigoid, anti-laminin-332 MMP) may conform at the separation node with its own autoimmune trigger. Not Xogenesis (a plane of separation, not a new structure). Key conformance target: `dermal_epidermal_junction_adhesion_failure#Mechanically Induced Dermal-Epidermal Separation and Blistering`
+- `keratin_intermediate_filament_fragility` — Conserved cytoskeletal-fragility pattern of the keratinopathies: a heterozygous missense/small in-frame variant in a filament-assembly domain (the 1A and 2B helix boundary motifs and the H1 head, i.e. the molecular-overlap regions) → dominant-negative incorporation into the obligate type-I/type-II heterodimer with keratin network collapse and tonofilament aggregation → **loss of keratinocyte mechanical resilience** → cytolysis restricted to the affected pair's expression domain → mechanically provoked blistering, hyperkeratosis or appendage dystrophy. The expression domain, not the mechanism, sets the disease: KRT5/KRT14 basal (EBS), KRT1/KRT10 suprabasal (epidermolytic ichthyosis), KRT9 palmoplantar, KRT6A/6B/6C/16/17 nail-bed and pilosebaceous (pachyonychia congenita), KRT81/83/86 hair cortex (monilethrix), KRT3/KRT12 cornea (Meesmann). Epidermolytic ichthyosis conforms to BOTH this and `epidermal_cornification_failure` and to neither alone. A keratin *null* allele acting by haploinsufficiency is a different mechanism and does not conform. Not Xogenesis (cytolysis, not structure formation). Key conformance target: `keratin_intermediate_filament_fragility#Loss of Keratinocyte Mechanical Resilience`
+- `lysosome_related_organelle_biogenesis` — Conserved organelle-trafficking pattern of the pigmentary-plus-systemic genodermatoses: loss of a component of the machinery shared by all lysosome-related organelles (LROs) → interruption of the melanosome life cycle at whichever step that component serves — cargo delivery during biogenesis (BLOC-1/2/3 and AP-3 in Hermansky-Pudlak), size and fission control (LYST in Chediak-Higashi), or peripheral capture (RAB27A-melanophilin-myosin Va in Griscelli) → **failed delivery of functional melanosomes to keratinocytes**, so pigment is made but never dispersed → in parallel, failure of the other LROs built by the same machinery (platelet dense granules → bleeding; cytotoxic granules → HLH; AT2 lamellar bodies → pulmonary fibrosis) → hypopigmentation plus a syndrome-specific extracutaneous disease that carries the mortality. **Critical negative boundary: oculocutaneous albinism does NOT conform** — there melanin is never synthesized and the trafficking machinery is intact, whereas here affected melanocytes are *more* densely pigmented than normal while the skin is less so. Distinct from `lysosomal_substrate_accumulation` (conventional lysosome failing to degrade cargo; no storage material or hydrolase deficiency here). Not Xogenesis (failed delivery, not structure formation; the CHS giant granule is an intermediate, not the endpoint). Attachment points differ by design and should not be flattened: only Griscelli_Syndrome_Type_2 conforms at the central effector (melanosome fully built and simply undelivered), while Hermansky_Pudlak_Syndrome (transferred but under-loaded) and Chediak-Higashi_Syndrome (giant, poorly transferred) attach at the melanosome arm and the other-LRO arm instead. Key conformance target: `lysosome_related_organelle_biogenesis#Failed Delivery of Functional Melanosomes to Keratinocytes`
+- `desmosomal_adhesion_failure` — Conserved cell-adhesion pattern of the desmosomal diseases, spanning skin, hair and myocardium: a desmosomal component becomes unavailable by one of three **non-interchangeable** routes — structural gene loss (DSP, JUP, DSG1, PKP1, PKP2/DSC2/DSG2), autoantibody blockade of a desmosomal cadherin ectodomain (pemphigus vulgaris/foliaceus), or failure of the keratinocyte calcium compartmentalization desmosome assembly depends on (ATP2A2/SERCA2 in Darier, ATP2C1/SPCA1 in Hailey-Hailey — these are **not** desmosomal proteins, so curate the calcium lesion as the trigger and the desmosomal defect as secondary) → failed desmosome assembly and loss of intermediate-filament anchorage to the plaque → **loss of desmosomal intercellular adhesion** → acantholysis and mechanical failure of desmosome-dependent tissues (epidermal blistering/keratoderma, woolly or fragile hair, myocyte detachment with fibrofatty replacement) → cardiocutaneous syndrome in which the cardiac arm carries the mortality. Dose-sensitivity is curatable: DSP haploinsufficiency alone gives striate PPK, whereas the cardiocutaneous syndromes need a more severe or recessive allele. Distinct from `keratin_intermediate_filament_fragility` (there the filament network collapses; here it is intact but unanchored); cardiocutaneous conformers should keep conforming to `cardiomyopathy_maladaptive_remodeling` for the heart-failure arm. Not Xogenesis (dissolution of adhesion). Key conformance target: `desmosomal_adhesion_failure#Loss of Desmosomal Intercellular Adhesion`
 
 The following modules capture the conserved **hallmarks of cancer** (Hanahan & Weinberg, PMID:21376230) as a coherent, reusable set. A neoplastic disorder entry can declare `conforms_to` against several of these in parallel (one per hallmark capability it manifests), substituting tumor-type-specific drivers. They are deliberately complementary: `immune_checkpoint_blockade` already covers the "avoiding immune destruction" hallmark and `cellular_senescence` / `senescence_tumor_suppression` cover the senescence dimension, so those are not duplicated here. Flagship multi-hallmark conformers that declare parallel conformance across several of these modules at once: Hepatocellular_Carcinoma (6 modules + checkpoint blockade), Non-Small_Cell_Lung_Cancer (4), Glioblastoma_IDH_Wildtype (3), and Pancreatic_Ductal_Adenocarcinoma (2).
 - `sustaining_proliferative_signaling` — Hallmark 1 (growth-signal autonomy): oncogenic growth-signal lesion (RTK mutation/amplification, autocrine loops, RAS/BRAF/PI3K activation, PTEN/NF1 loss) → constitutive RAS-MAPK and PI3K-AKT-mTOR mitogenic signaling → growth-factor-independent proliferation. Proliferative counterpart of `evading_growth_suppressors`; the RTK-proximal adaptor view is in `rtk_grb2_signaling_adaptation`. Worked conformers: Chronic_Myeloid_Leukemia (BCR-ABL1), BRAF_V600_Mutant_Melanoma (BRAF V600E). Key conformance target: `sustaining_proliferative_signaling#Constitutive Mitogenic Pathway Activation`
@@ -456,6 +462,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `rtk_grb2_signaling_adaptation` — Conserved RTK/GRB2 adaptor pattern: activated RTK phosphotyrosine docking → GRB2 adaptor hub → RAS-MAPK/PI3K-AKT proliferation output, with an emerging GRB2-RAD51 replication-fork protection branch. Key conformance target: `rtk_grb2_signaling_adaptation#GRB2 Adaptor Hub`
 - `parp_parg_macrodomain_viral_evasion` — Conserved antiviral ADP-ribosylation pattern: viral/interferon PARP induction → NAD-dependent antiviral ADP-ribosylation → PARG/host reset → viral macrodomain de-ADP-ribosylation countermeasure → enhanced viral replication/pathogenesis. Key conformance target: `parp_parg_macrodomain_viral_evasion#Viral Macrodomain De-ADP-Ribosylation Countermeasure`
 - `lysosomal_substrate_accumulation` — Conserved lysosomal storage disease pattern: lysosomal hydrolase/cofactor deficiency → undegraded substrate accumulation in the lysosome → autophagic-lysosomal dysfunction and secondary cascade → storage-cell cytotoxicity and neuroinflammation → progressive multisystem/neurodegenerative disease. Conforming disorder nodes substitute the disorder-specific deficient enzyme, stored substrate, and storage cell type (e.g., glucocerebrosidase/glucocerebroside/Gaucher cell; hexosaminidase/GM2 ganglioside/neuron; alpha-galactosidase A/Gb3/endothelium). Key conformance target: `lysosomal_substrate_accumulation#Lysosomal Substrate Accumulation`
+- `cytosolic_deglycosylation` — Conserved module for the congenital disorders of deglycosylation (CDDG), the deliberate complement of `congenital_disorder_of_glycosylation`: where CDG fails to put glycans on, these fail to take them off and clear them. Cytosolic deglycosylation enzyme deficiency (NGLY1 peptide:N-glycanase, MAN2C1 cytosolic alpha-mannosidase) → for the NGLY1 arm only, impaired cytosolic deglycosylation of retrotranslocated (ERAD) glycoproteins → cytosolic glycan catabolite dysregulation → neurodevelopmental and multisystem dysfunction. The central node is named for the catabolite pool rather than for free oligosaccharides specifically so both arms can attach honestly (MAN2C1 accumulates free oligosaccharides; NGLY1 accumulates the glycoasparagine GlcNAc-Asn/GNA via the ENGase bypass). Carries an NGLY1-only side branch, `#Loss of Deglycosylation-Dependent Substrate Activation`, for the NFE2L1/Nrf1 sequence-editing function (Asn→Asp conversion required for the proteasome bounce-back response) — attach only with direct evidence of the activation step, never on a proteasome or oxidative-stress phenotype alone. Carries a `KNOWLEDGE_GAP` on whether the catabolite pool is pathogenic or merely a readout, and a `HUMAN_MODEL_MISMATCH` on ENGASE inhibition (Engase deletion rescues Ngly1-null mouse embryonic lethality, an endpoint no patient has). Not an Xogenesis module — a normal catabolic route fails, nothing pathological is formed. Worked conformers: NGLY1-CDDG (all four applicable nodes incl. the Nrf1 branch) and MAN2C1-CDDG2 (three nodes). Key conformance target: `cytosolic_deglycosylation#Cytosolic Glycan Catabolite Dysregulation`
 - `tsr_o_glycosylation_quality_control` — Folded-TSR ER quality control with two non-interchangeable entry arms: loss of POFUT2-dependent O-fucose or loss of the B3GLCT-dependent glucose extension → impaired stabilization and secretion of a substrate- and tissue-selective set of TSR-containing proteins → extracellular-matrix and BMP/IHH/TGF-beta signaling dysregulation. C-mannosylation and tissue context can compensate. Worked conformers: Peters_Plus_Syndrome (B3GLCT/glucose-extension arm) and Geleophysic_Dysplasia (ADAMTSL2 p.Ser641Leu/O-fucose arm); Weill-Marchesani is intentionally not wired because ADAMTS17 secretion evidence conflicts between cultured cells and developing bone. Distinct from broad N-glycan `congenital_disorder_of_glycosylation`, aggregate-centered `loss_of_proteostasis`, and misfolded-protein-retention `er_protein_storage_disease`. Key conformance target: `tsr_o_glycosylation_quality_control#Impaired ER Quality Control and Secretion of TSR-Containing Proteins`
 - `metabolic_intoxication_decompensation` — Conserved final-common-pathway for the "intoxication-type" inborn errors of intermediary metabolism: enzymatic block in amino-acid/organic-acid/fatty-acid/urea-cycle metabolism → toxic-metabolite accumulation and energy deficit (unmasked by catabolic stress: illness, fasting, surgery, protein load) → acute metabolic decompensation (metabolic acidosis, hyperammonemia, and/or hypoglycemia) → acute metabolic encephalopathy (ammonia neurotoxicity, astrocyte glutamine-osmole swelling/cerebral edema) → irreversible neurological injury and multiorgan crisis. Conforming disorder nodes substitute the disorder-specific deficient enzyme and accumulating metabolite (OTC/ammonia in urea-cycle disorders; propionyl-CoA/methylmalonyl-CoA in organic acidemias; leucine/ketoacids in MSUD; acyl-CoA in fatty-acid oxidation defects); the chronic disease-specific sequelae (basal-ganglia injury, cardiomyopathy) stay on the disorder entries. Worked conformers: Methylmalonic_Acidemia (acute organic-acid decompensation → neurometabolic injury) and Ornithine_Carbamoyltransferase_Deficiency (hyperammonemia → astrocyte-swelling encephalopathy). Key conformance target: `metabolic_intoxication_decompensation#Acute Metabolic Decompensation`
 - `mismatch_repair_driven_repeat_instability` — Conserved DNA-level somatic-instability *engine* for the short-tandem-repeat (STR) expansion diseases, deliberately **upstream of and complementary to** the downstream toxicity modules (`polyglutamine_expansion_proteotoxicity`, `fame_pentanucleotide_repeat_rna_toxicity`): expandable tandem repeat above its instability threshold → aberrant mismatch-repair processing (MutSβ/MSH2-MSH3 licenses expansion, MutLγ/MLH1-MLH3 effects it, FAN1/EXO1 protective) → ongoing somatic repeat expansion in post-mitotic neurons → cell-type-selective toxicity-threshold crossing (the seam handing off to the disorder's downstream toxicity route) → repeat-length-dependent onset, progression, and anticipation. A conforming disorder declares conformance to BOTH this module and its consequence module (e.g. CAG→polyQ, CTG→RNA toxicity, CGG/GAA→silencing). NOT a duplicate of `genome_instability_mutation` (the cancer mutator/CIN hallmark): here MMR is intact and paradoxically *drives* a specific pathogenic expansion. Carries the investigational somatic-expansion-inhibitor (MSH3-lowering) drug-target pattern (treatment `target_mechanisms` INHIBITS the aberrant-MMR node). Worked conformers span three repeat classes: Huntington_Disease and Machado_Joseph_Disease/SCA3 (CAG→polyQ), Myotonic_Dystrophy_Type_1 (CTG→CUG-RNA toxicity), and Fragile_X_Syndrome (CGG→full-mutation methylation silencing); extensible to GAA/FXN. Key conformance target: `mismatch_repair_driven_repeat_instability#Somatic Repeat Expansion in Post-Mitotic Cells`
@@ -466,6 +473,9 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
 - `renal_cystogenesis` — Conserved epithelial (tubular) renal cyst-formation pattern, the cystogenic-machinery complement of `ciliopathy_dysfunction` (which covers the broader Hedgehog/PCP developmental arm but not the cAMP-CFTR cyst-fluid pathway): polycystin/primary-cilium signaling loss (PKD1/PKD2, and ciliary lesions in ARPKD/nephronophthisis/syndromic ciliopathies) → fall in cilium-dependent calcium → cAMP and vasopressin-V2R signaling activation → cyst-lining epithelial proliferation and CFTR-mediated transepithelial fluid secretion → progressive cyst expansion and kidney enlargement → nephron loss and progressive kidney failure. Carries the vasopressin-V2R-antagonist (tolvaptan) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` to link back to the cAMP/V2R node). Deliberately scoped to cAMP-driven tubular cystogenesis; mechanistically unrelated cysts (arachnoid, dermoid, parasitic hydatid, neoplastic cystadenoma, developmental cavitation) are out of scope. Flagship conformer: Autosomal_Dominant_Polycystic_Kidney_Disease (full-chain conformance across all five module nodes); Polycystic_Kidney_Disease conforms at the cAMP/V2R and proliferation/secretion nodes. Key conformance target: `renal_cystogenesis#Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion`
 - `glymphatic_dysfunction` — Conserved brain waste-clearance module: loss of sleep-dependent glymphatic drive (slow-wave sleep, interstitial-space expansion, falling noradrenergic tone) → perivascular AQP4 depolarization and reduced periarterial CSF influx → impaired perivascular CSF-ISF exchange and solute clearance → accumulation of aggregation-prone interstitial proteins (amyloid-beta, tau, alpha-synuclein) → neuroinflammation and progressive neurodegeneration. Sits *upstream* of `amyloidogenesis` (this module sets the precursor concentration; that one models nucleation/deposition) and is distinct from `loss_of_proteostasis` (intracellular degradation capacity, not extracellular perivascular clearance). Carries two curated competing `mechanistic_hypotheses` rather than a single settled chain — `convective_glymphatic_transport` (CANONICAL, AQP4-dependent bulk flow) vs `diffusive_parenchymal_transport` (ALTERNATIVE, size-dependent diffusion, AQP4-independent) — plus a `HUMAN_MODEL_MISMATCH` discussion (anaesthetic regimen, invasive tracer delivery, and species scale all determine measured influx) and a `KNOWLEDGE_GAP` on imaging-surrogate validation (a low DTI-ALPS index is not a measurement of glymphatic dysfunction). Worked conformer: Alzheimer_Disease (`Glymphatic Clearance Failure` node, `glymphatic_clearance_model` EMERGING hypothesis, kept separate from the BBB/LRP1 `vascular_bbb_clearance_model` route). Key conformance target: `glymphatic_dysfunction#Impaired Perivascular CSF-ISF Exchange and Solute Clearance`
+- `cholestatic_liver_injury` — Conserved final common pathway of the cholangiopathies and the hepatocellular cholestatic disorders: impaired bile formation, canalicular secretion, or bile drainage → hepatocellular and biliary bile acid retention (a deteriorative arm opposed by an adaptive removal arm) → bile-acid-mediated hepatocyte and cholangiocyte injury, in which the injured cholangiocyte becomes a proinflammatory/profibrogenic signalling hub via a senescence-associated secretory phenotype → ductular reaction and cholangiocyte-driven (portal-based) fibrogenesis engaging portal fibroblasts, HSCs and Kupffer cells → biliary fibrosis progressing to biliary cirrhosis. Carries the anticholestatic drug-target pattern on the retention amplifier — UDCA and the FXR agonist obeticholic acid both `INHIBITS` that node — with two caveats conformers must preserve: obeticholic acid showed no significant effect on noninvasive fibrosis at 12 months (it is not antifibrotic) and aggravates pruritus. Evidence-ordering guardrail: direct bile acid cytotoxicity precedes neutrophil recruitment, which is not the primary mechanism of cell death in hydrophobic-bile-acid cholestasis. Deliberately NOT an Xogenesis module, and distinct from `cholelithiasis_biliary_supersaturation` (stone formation, not retained-bile-acid injury), `fibrotic_response` (the generic mesenchymal arm), and `drug_induced_liver_injury` (the drug-toxicity arm). Isolated bilirubin conjugation/transport defects with intact bile acid secretion (Gilbert, Crigler-Najjar, Dubin-Johnson, Rotor) are NOT cholestasis and do not conform. Worked conformers: Progressive_Familial_Intrahepatic_Cholestasis (trigger, retention and injury nodes), Sclerosing_Cholangitis (injury + fibrogenesis), Intrahepatic_Cholestasis_of_Pregnancy (trigger + retention), Primary_Biliary_Cholangitis, Primary_Sclerosing_Cholangitis, Alagille_syndrome, Biliary_Atresia (biliary-cirrhosis consequence node only - its initiating cholangiocyte insult is external and precedes bile acid retention, so it does NOT conform to the injury node). Key conformance target: `cholestatic_liver_injury#Bile Acid-Mediated Hepatocyte and Cholangiocyte Injury`
+- `portal_hypertension` — Conserved haemodynamic pathway from chronic liver disease or hepatic vascular obstruction to the decompensating complications that set prognosis: increased intrahepatic vascular resistance (structural fibrosis plus a dynamic arm — LSEC dysfunction and stellate cell contraction) → aggravated, not compensated, by splanchnic vasodilation and hyperdynamic circulation → portal hypertension → portosystemic collateral formation and gastro-oesophageal varices → hepatic decompensation (ascites, hepatic encephalopathy, portal-hypertensive haemorrhage). Trigger substitutions follow sinusoidal anatomy: PRESINUSOIDAL (congenital hepatic fibrosis, schistosomiasis), SINUSOIDAL (cirrhosis of any aetiology), POSTSINUSOIDAL (Budd-Chiari, sinusoidal obstruction syndrome); prehepatic portal vein thrombosis conforms at the portal hypertension node and below, not at the intrahepatic-resistance trigger. Carries the nonselective beta-blocker (carvedilol/propranolol) drug-target pattern on the *splanchnic inflow amplifier* — a therapeutic asymmetry conformers must preserve, since no established pharmacotherapy reverses the intrahepatic resistance arm. Picks up where `fibrotic_response` and `cholestatic_liver_injury` leave off; not an Xogenesis module. Worked conformers: Liver_Cirrhosis and Budd-Chiari_Syndrome (which supplies the postsinusoidal trigger substitution). Key conformance target: `portal_hypertension#Portal Hypertension`
+- `bilirubin_conjugation_transport` — Conserved hepatocellular bilirubin disposal pathway and the hereditary hyperbilirubinaemias that break it: haem catabolism and the unconjugated bilirubin load → **two non-interchangeable lesion arms** → hyperbilirubinaemia → (unconjugated arm only) bilirubin neurotoxicity and kernicterus. ARM SELECTION IS THE CURATOR'S FIRST DECISION: enter at `#UGT1A1-Dependent Bilirubin Glucuronidation Deficiency` only for UNCONJUGATED hyperbilirubinaemia (Gilbert — reduced promoter activity; Crigler-Najjar types 1/2 — coding mutations; neonatal jaundice; haemolytic overload), and at `#Conjugated Bilirubin Transport Failure` only for CONJUGATED hyperbilirubinaemia (Dubin-Johnson — ABCC2/MRP2 canalicular export, with MRP3 basolateral diversion supplying the actual plasma rise; Rotor — simultaneous SLCO1B1 + SLCO1B3 loss of sinusoidal reuptake). A transport-arm conformer must NOT declare conformance to the neurotoxicity node — those disorders are explicitly benign and non-progressive. Carries the phototherapy drug-target pattern (`INHIBITS` the hyperbilirubinaemia node by supplying a conjugation-independent excretion route; a containment therapy, not a cure). Scope boundary: conjugated hyperbilirubinaemia arising in true cholestasis belongs to `cholestatic_liver_injury`, not here — the isolated transport lesions leave bile acid secretion intact and produce no pruritus, bile acid retention, or biliary fibrosis. Worked conformers: Crigler-Najjar_Syndrome (all three nodes of the unconjugated arm), Dubin-Johnson_Syndrome, Rotor_Syndrome, Gilberts_Syndrome. Key conformance target: `bilirubin_conjugation_transport#Hyperbilirubinaemia`
 - `granuloma_formation` — Conserved granuloma-formation ("Xogenesis") pattern recurring across mycobacterial infection (TB, leprosy), fungal infection, sarcoidosis, Crohn disease, berylliosis, and foreign-body reactions: persistent indigestible stimulus an individual macrophage cannot eradicate → Th1/TNF-driven macrophage recruitment and activation → epithelioid transformation and multinucleated giant-cell formation (macrophage fusion) → organized (± caseating) granuloma assembly → tissue containment versus destruction and fibrosis. Carries the TNF-inhibitor drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the TNF/macrophage-activation node — therapeutic in sterile granulomatous disease, reactivates latent TB). Xogenesis anchor: forms MPATH:847 granuloma (`OGMS:0000078` via `OGMS:0000081` derivation). Key conformance target: `granuloma_formation#Epithelioid Transformation and Multinucleated Giant Cell Formation`
 - `thrombogenesis` — Conserved conventional thrombus-formation ("Xogenesis") pattern recurring across venous thromboembolism, arterial thrombosis (MI, stroke), cancer-associated thrombosis, and thrombotic antiphospholipid syndrome: optional Virchow-triad prothrombotic context → platelet adhesion, activation, and aggregation → coagulation cascade activation and thrombin-driven fibrin formation → pathological fibrin-platelet thrombus formation, with conditional branches to local thrombotic vascular occlusion and ischemic tissue injury or venous thrombus embolization to the pulmonary arteries. Conformance is branch- and node-qualified; local occlusion, ischemia, and embolization are not required. Physiologic hemostatic plugs, nonthrombotic emboli or occlusions, and TTP-like VWF-platelet microangiopathy are out of scope absent a distinct conventional thrombin/fibrin thrombosis branch. Carries a heparin-potentiated-antithrombin mechanistic target pattern, which is not inherited as a treatment recommendation by conforming disorders. Xogenesis anchor: forms a thrombus (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:125 thrombosis — MPATH lacks a distinct thrombus continuant, a noted OBO gap) at UBERON:0001981 blood vessel. Worked conformers: Antiphospholipid_Syndrome (platelet, coagulation, thrombus-formation, and occlusion/ischemia nodes) and Posterior_Myocardial_Infarction (thrombus-formation and occlusion/ischemia nodes). Key conformance target: `thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation`
 - `atherogenesis` — Conserved atheroma/atherosclerotic-plaque formation ("Xogenesis") pattern recurring across coronary artery disease, ischemic stroke, and peripheral artery disease: endothelial dysfunction and subendothelial LDL (apoB-lipoprotein) retention → monocyte recruitment and macrophage foam-cell formation → smooth-muscle-cell phenotypic switching and fibrofatty plaque formation → advanced atheroma with necrotic core and fibrous cap → plaque rupture, thrombosis, and ischemic events (feeds `thrombogenesis`). Carries the LDL-lowering (statin) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the LDL-retention trigger). Xogenesis anchor: forms an atheroma (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:28 atherosclerosis — MPATH lacks a distinct atheroma continuant, a noted OBO gap) at UBERON:0001637 artery. Key conformance target: `atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation`
@@ -543,8 +553,18 @@ and the payload for that predicate:
 - `HAS_GENE` → `gene`
 - `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
 - `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
-- `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
-  carry the value in `description`
+- `HAS_INHERITANCE` → `inheritance_term` (an HPO mode-of-inheritance term).
+  **The payload is optional**, unlike every other predicate's: a leaf naming a
+  term is evaluated against every curated `inheritance` block in the member -
+  disease level, `has_subtypes`, and the per-gene blocks under `genetic` - with
+  the same ontology closure as `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
+  single HP term names, such as "hereditary rather than acquired" in
+  `Hereditary_Systemic_Amyloidoses` — stays free text and evaluates to UNKNOWN.
+  **Name the term whenever one exists.** An UNKNOWN leaf inside an `AND`
+  forces the whole conjunction to UNKNOWN, so one unevaluable inheritance
+  clause hides every checkable clause beside it.
+- `HAS_CLASSIFICATION` → `classification`; `HAS_MAPPING` / `OTHER` carry the
+  value in `description`
 - `negated: true` negates a leaf (alternative to a `NOT` operator)
 
 **Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
@@ -917,7 +937,43 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
-(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+(`grouping_basis: OTHER`, a `NECESSARY_AND_SUFFICIENT` `HAS_INHERITANCE`
+criterion over HP:0010984 / HP:0010983).
+
+**Binding the term is what puts an entry in the grouping.** The criteria are
+*sufficient*, so `just check-groupings` reports any entry carrying a bound
+digenic/oligogenic block but missing from `members:` as a candidate — that is
+the mechanism that keeps the union complete, and it only works if the term is
+bound. An entry describing digenic inheritance in prose alone is invisible to
+it.
+
+**The bar is requirement, not severity.** Bind the term when the phenotype does
+not appear without both loci. Decline when either locus suffices on its own and
+the second only shifts penetrance or severity — that is a modifier, and belongs
+in `genetic:` with `relationship_type: MODIFIER`/`COOPERATING`. Most KB entries
+using the word "digenic" are on the declining side, and several say so
+explicitly: `Hypertrophic_Cardiomyopathy_3` (TPM1 alone causes disease; MYH7
+worsens it), `Familial_Defective_Apolipoprotein_B-100`,
+`Primary_Hyperoxaluria_Type_3`, `Cystinuria` (type AB raises aminoaciduria, not
+stone disease), `Chromosome_18p_Deletion_Syndrome` (the digenic claim belongs to
+FSHD2, a different disease), `Brugada_Syndrome` (an unresolved fraction is not a
+demonstrated two-locus architecture),
+`Familial_Nonmedullary_Thyroid_Carcinoma`, `RDH5-Related_Retinopathy` and
+`BBSome-Related_Retinitis_Pigmentosa`. Leaving those unbound is correct, not an
+oversight — read the entry's stated reasoning before overturning it. Watch for
+the title trap in particular: several papers advertise "digenic inheritance" in
+the title while the abstract reports a severity modifier, or (as in
+`Joubert_syndrome`'s citation) a digenic case belonging to a different disease.
+
+**Finding what is still missing.** `scripts/olida_crosswalk.py` cross-walks the
+[OLIDA](https://olida.ibsquare.be/) oligogenic-diseases database against
+`kb/disorders`, splitting it into already-bound, curated-but-unbound (the cheap
+wins) and no-entry-at-all; `research/olida_crosswalk.md` is the committed
+report. Regenerate it rather than hand-editing. Two caveats it states itself: the
+name matching is a screen a curator must confirm, and a high OLIDA confidence
+score rates the *variant combination*, not the claim that the *disease* requires
+two loci — Cystinuria scores at OLIDA's maximum and is still correctly a
+non-member.
 
 ### Hypothesis-Based Phenotype Algorithms
 
@@ -2038,12 +2094,13 @@ just count-verified-snippets kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
 #   Snippets checked: 376/376 verified against cached references
 ```
 
-**Five more gates belong in this loop, because CI runs them ungated (#9137).**
-The three checks above are the ones CI runs *on your changed files*; these five
+**Six more gates belong in this loop, because CI runs them ungated (#9137).**
+The three checks above are the ones CI runs *on your changed files*; these six
 run on **every** PR with no path filter at all (`.github/workflows/main.yaml`),
 precisely because the PRs that trip them are curation PRs touching only `kb/`,
 which no `src/tests` filter would catch. A curator who runs only the documented
-loop can therefore finish every check and still push work that fails CI:
+loop can therefore finish every check and still push work that fails CI (the
+last is report-only and cannot fail it — it prints for a human to read):
 
 ```bash
 just check-folded-hyphens                              # whole KB + src/, ~8s
@@ -2051,9 +2108,10 @@ just check-snippet-length                              # whole KB, ~1min
 just check-title-snippets                              # whole KB, ~2.5min
 just check-environmental-evidence                      # whole KB, ~1min
 just check-duplicate-keys kb/disorders/MyDisease.yaml  # or bare: kb/ + schema + conf, ~18s
+just check-source-defect-claims                        # whole KB, ~19s (report-only)
 ```
 
-All five are offline — no reference fetching, no OAK, no network — which is why
+All six are offline — no reference fetching, no OAK, no network — which is why
 they belong in the per-edit loop rather than the pre-PR sweep. They are not all
 *fast*, though: only `check-duplicate-keys` takes file arguments, so the other
 four re-scan the whole KB every run (and the ratchets scan it twice, once at
@@ -2070,6 +2128,7 @@ five are invisible to `validate` / `validate-terms` / `count-verified-snippets`:
 | `check-title-snippets` | A snippet that is the cited paper's *title*, or a contiguous fragment of it, rather than its finding — see §6 below (#8374). |
 | `check-environmental-evidence` | An `environmental:` entry with no entry-level `evidence:` block, which is an uncited causation claim (#8296). Evidence on that entry's `influences_mechanisms` links is a **different** claim — "this exposure acts on this node", not "this exposure is real" — and does not satisfy this gate. |
 | `check-duplicate-keys` | A repeated mapping key: kept silently by PyYAML's safe loaders, fatal to the ruamel-backed reference validator. See "Duplicate YAML Keys" below (#8623). |
+| `check-source-defect-claims` | A **prose** claim that a cited source is defective — "that record has no abstract", "the abstract does not mention X" — which the cache contradicts. Report-only; see "Claims About a Cited Source" below (#9226). |
 
 **Grandfathering, and the trap in it.** Four of the five ratchet against a
 baseline so the pre-existing backlog need not be cleaned up first — but they do
@@ -2090,7 +2149,9 @@ not source that baseline the same way, and the difference decides whether
   for more care, not less — a hyphen split is a corrupted term in rendered prose.
   Regenerate it only when you have deliberately changed the backlog (e.g. fixed
   entries), never to admit a split you just introduced.
-- `check-duplicate-keys` has no baseline at all. Every finding is new.
+- `check-duplicate-keys` and `check-source-defect-claims` have no baseline at
+  all. The former treats every finding as new; the latter never fails, so it has
+  nothing to grandfather.
 
 **Triage views.** Each ratchet has a `list-*` sibling printing every finding,
 baselined or not — `just list-short-snippets`, `just list-title-snippets`,
@@ -2340,13 +2401,13 @@ just validate-disorders kb/disorders/MyDisease.yaml
    so a PMID you forgot to fetch shows up as `not cached locally` rather than
    passing quietly
 4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
-5. Run the five ungated CI gates — `just check-folded-hyphens`,
+5. Run the six ungated CI gates — `just check-folded-hyphens`,
    `just check-snippet-length`, `just check-title-snippets`,
-   `just check-environmental-evidence`, and `just check-duplicate-keys
-   kb/disorders/YourFile.yaml`. They are offline, they run on every PR whatever
-   it touches, and none of the checks above can see what they catch (see
-   "Validation Workflow" for what each one means and why a new finding cannot be
-   baselined away)
+   `just check-environmental-evidence`, `just check-duplicate-keys
+   kb/disorders/YourFile.yaml`, and `just check-source-defect-claims`. They are
+   offline, they run on every PR whatever it touches, and none of the checks
+   above can see what they catch (see "Validation Workflow" for what each one
+   means and why a new finding cannot be baselined away)
 6. Run `just validate-disorders <every changed file>` once before opening the PR
    (see "Validation Workflow" for why this is the end-of-run check)
 
@@ -2473,6 +2534,129 @@ This is a **stopgap**. The check belongs upstream in `linkml-term-validator`,
 next to the existence and label checks it already performs — every LinkML
 knowledge base consuming RGD ontologies has the same gap. It lives here because
 the validator is a pinned external dependency.
+
+## Claims About a Cited Source (dismech#9226)
+
+Every other gate here checks a **snippet against the cache**. Nothing checked
+**prose against the cache** — so a sentence asserting that a source is
+*defective* validated cleanly no matter what the cached file actually held:
+
+```yaml
+explanation: >-
+  Original PYROXD1 gene-discovery report; the cached PubMed record carries no
+  abstract body, so the snippet is the article title.
+```
+
+`references_cache/PMID_27745833.md` has a full abstract. Nothing noticed, because
+nothing was looking. On #9207 one such claim ("the cached abstract is truncated
+mid-word") survived **two fix rounds across three sites** — each fix searched
+for the surface last seen, and the next site contained neither string. The same
+defect had already happened in `Tetralogy_of_Fallot.yaml`, where four such
+claims were false; its correction note records the root cause as *a fixed-width
+extraction window used during curation*.
+
+**That root cause is the rule worth remembering:**
+
+> A claim that a source is defective is a claim about a **file**, not about the
+> excerpt you were shown. Verify it against the whole file.
+
+```bash
+just check-source-defect-claims                        # whole KB, ~19s, offline
+just check-source-defect-claims kb/disorders/Asthma.yaml
+just list-source-defect-claims                          # every claim + verdict
+```
+
+**It adjudicates; it is not a keyword blacklist.** This matters more than the
+check itself. Claims of this shape are usually **true and load-bearing**:
+`Acute_Annular_Outer_Retinopathy` downgrades three evidence items to `PARTIAL`
+because `PMID:18195232` really has no abstract; `Cri-du-Chat_Syndrome` and
+`DTYMK-Related_Neurodegeneration` explain that a snippet legitimately begins
+mid-word because the cached PDF breaks a word across a line (#8048). Flagging
+those would be worse than no check at all — it would train curators to delete
+accurate provenance to get a build green. So each claim is resolved to its
+reference and checked against the cached body, and gets one of four verdicts:
+
+| Verdict | Meaning |
+|---|---|
+| `CONTRADICTED` | The cache demonstrably disagrees. **The finding.** |
+| `CONFIRMED` | The cache agrees. Counted, never printed as a problem. |
+| `NARRATED` | The sentence *reports* such a claim rather than asserting one — a correction note, or an account of an earlier revision. Never adjudicated. |
+| `UNDETERMINED` | Not mechanically decidable. Listed under `--all`, never a failure. |
+
+**Report-only. It never fails the build**, in `just qc` or in CI — it prints for
+a human to read. (`--strict` exists for direct CLI use.)
+
+**Three claim classes, and what each costs when false:**
+
+- **`no-abstract`** — "that record has no abstract". Adjudicated by asking
+  whether the cached record carries abstract prose. Note this deliberately does
+  **not** trust the frontmatter `content_type`: PubMed emits a citation stub for
+  a record that never had an abstract, and the fetcher types it `abstract_only`
+  exactly like a record that has one, so `PMID:18195232` is `abstract_only` with
+  no abstract. The test strips MEDLINE scaffolding (citation line, authors,
+  affiliations, DOI/PMID footer, COI statement) block-wise and counts what is
+  left.
+- **`negative-existence`** — "the abstract does not mention X". The most
+  consequential class, because it is used to **justify omitting or downgrading
+  evidence**: a false one silently suppresses real curation.
+  `DENND5A-Related_Developmental_and_Epileptic_Encephalopathy` discarded
+  `PMID:27431290` on the grounds that its abstract "does not mention DENND5A" —
+  the abstract names DENND5A as one of three novel candidate genes. Adjudicated
+  only when the object is specific enough to search unambiguously; "does not
+  specify the mouse allele" is a claim about *which* allele and stays
+  UNDETERMINED rather than risking a wrong contradiction.
+- **`defective-text`** — truncation / mid-word / garbled. **Always UNDETERMINED**:
+  no exact test exists, so these are reported for a glance, never adjudicated.
+  Bare `truncat` is *not* a trigger — it matches ~1,600 lines of correct
+  genetics prose (`truncating variant`, `truncated protein`), so a defect word
+  counts only when it co-occurs with a word naming our stored text.
+
+**Writing a claim so it can be checked.** Name the reference in the sentence, or
+put the claim in the evidence item it is about. Resolution takes the nearest id
+named *before* the claim (an anaphoric "That reference…" reaches back a
+sentence), then the enclosing evidence item's own `reference:`, then the
+enclosing `evidence:` block. An id named *after* the claim is treated as a
+contrast, not the subject — "…does not name SETD5, which rests on PMID:X" is
+about the item's own reference, not about `PMID:X`.
+
+**Author-year alone is not enough when a paragraph cites more than one paper.**
+Anaphora is only followed ~400 characters back. A long `notes:` paragraph that
+introduces two papers up front and then says *"the Efthymiou et al. 2021 report
+has no PubMed abstract"* several sentences later has put its subject out of
+reach — the tool will not guess between the rivals, and reports `UNDETERMINED`
+rather than adjudicating against the wrong one. That is deliberate: resolving
+such a claim to the enclosing evidence block's reference contradicted a
+perfectly correct note in `Osteogenesis_Imperfecta_Type_XXI`. Repeat the PMID in
+the sentence making the claim if you want it checked.
+
+### The snippet half: quotes cut mid-word
+
+The other half of #9207 was four snippets stopping at `movement d`. A mid-word
+fragment **is** a substring of the cached text, so it verifies — which is
+exactly what made the error invisible, and it is where the false belief about
+the source came from.
+
+```bash
+just check-snippet-boundaries                          # kb/, advisory
+just check-snippet-boundaries kb/disorders/Asthma.yaml
+```
+
+An advisory sibling of `count-verified-snippets` (same cache layer, same
+normalization — deliberately *not* a second cache-resolution implementation, per
+#7684). It applies to strict matches only: `normalize_relaxed` strips all
+spaces, so under relaxed matching every match is flanked by word characters by
+construction and the check would fire on 100% of them — which are precisely the
+#8048 ligature/hyphenation cases the legitimate "begins mid-word" notes are
+about. A **digit** flank is also exempt: `…hearing loss and microcephaly20-26`
+is a superscript citation marker fused in by extraction, not a cut word.
+
+Repo-wide backlog at introduction: **126 of 129,528 snippets** across 60 files
+(0.1%) — small enough to need no baseline. Typical finding:
+`'Bisphosphonate treatment in individuals with significant skeletal dis'`.
+
+It runs in `just qc` (~2m over `kb/`) so that backlog stays visible, but **not**
+in CI: it exits 0 whatever it finds, and a two-minute step that can never fail
+is pure cost on every PR.
 
 ## Duplicate YAML Keys (dismech#8623)
 
