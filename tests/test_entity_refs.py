@@ -215,9 +215,7 @@ def test_iter_entity_refs_walks_objects_inside_a_ref_slot():
     # ...and so does the reference inside it.
     assert found["discussions[0].attaches_to[1].target"] == "phenotype#Pheno A"
     # An object directly under a ref slot is walked rather than stopped at.
-    assert (
-        found["experiments[0].target.nested.target"] == "treatments#Drug A"
-    )
+    assert found["experiments[0].target.nested.target"] == "treatments#Drug A"
 
 
 def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
