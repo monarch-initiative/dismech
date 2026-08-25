@@ -2883,6 +2883,125 @@ window.searchData = [
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
+    "model_key": "Duchenne_Muscular_Dystrophy--computational-model-virgilio-agent-based-model-of-regeneration-in-healthy-and-mdx-skeletal-muscle--0",
+    "name": "Virgilio agent-based model of regeneration in healthy and mdx skeletal muscle",
+    "description": "Spatial stochastic model of an acutely injured mouse muscle cross-section in which muscle fibers, extracellular matrix, necrotic tissue, fibroblasts, satellite stem cells, myogenic progenitors, neutrophils, and macrophage states interact over 28 days. Disease scenarios alter microenvironmental cell behaviors and initial injury using age-specific mdx experimental observations.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "Java agent-based simulation with histology-derived two-dimensional geometry",
+    "model_software": "Repast",
+    "base_model": "",
+    "model_id": "Virgilio-mdx-muscle-regeneration-2018",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:30070607",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Duchenne Muscular Dystrophy",
+    "disease_id": "MONDO:0010679",
+    "category": "Genetic",
+    "parents": [
+      "Muscular Dystrophy",
+      "Neuromuscular Disease"
+    ],
+    "variables": [
+      "Initial injured muscle fraction",
+      "Satellite stem cell count",
+      "Fibroblast count",
+      "Anti-inflammatory macrophage count",
+      "Muscle cross-sectional area recovery"
+    ],
+    "variable_ids": [
+      "initial_injury",
+      "SSC_count",
+      "fibroblast_count",
+      "M2_count",
+      "CSA_recovery"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Failed Satellite Cell Regeneration",
+      "Chronic Muscle Inflammation",
+      "Fibrofatty Muscle Replacement"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "Recovery at day 28 depended on peak satellite stem-cell abundance, with suppressed peaks emerging in the impaired-regeneration aged-mdx scenario.",
+      "Fibroblast and anti-inflammatory macrophage populations influenced satellite stem-cell abundance, but no single altered parameter explained the disease difference."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:30070607"
+    ],
+    "num_evidence": 1,
+    "notes": "No durable public deposit of the exact 2018 Repast implementation was identified. This is an mdx mouse model, not a human or patient-specific DMD digital twin; its value is hypothesis generation about regeneration microenvironments.",
+    "creation_date": "2026-01-07T17:31:51Z",
+    "page_url": "../../pages/disorders/Duchenne_Muscular_Dystrophy.html#computational-model-virgilio-agent-based-model-of-regeneration-in-healthy-and-mdx-skeletal-muscle",
+    "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
+  },
+  {
+    "model_key": "Duchenne_Muscular_Dystrophy--computational-model-virgilio-fibrosis-perturbation-model-of-mdx-muscle-regeneration--1",
+    "name": "Virgilio fibrosis-perturbation model of mdx muscle regeneration",
+    "description": "Follow-up use of the skeletal-muscle agent-based framework to vary extracellular- matrix area fraction and protein density, predict their effects on cell migration, growth-factor diffusion, and 28-day regeneration, and compare the prediction with TGF-beta-treated mdx mouse experiments.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "Java agent-based simulation with two-dimensional muscle geometry",
+    "model_software": "Repast",
+    "base_model": "Virgilio-mdx-muscle-regeneration-2018",
+    "model_id": "Virgilio-mdx-fibrosis-regeneration-2021",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:32748106",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Duchenne Muscular Dystrophy",
+    "disease_id": "MONDO:0010679",
+    "category": "Genetic",
+    "parents": [
+      "Muscular Dystrophy",
+      "Neuromuscular Disease"
+    ],
+    "variables": [
+      "Extracellular matrix area fraction",
+      "Extracellular matrix protein density",
+      "Growth-factor diffusion",
+      "Cell migration",
+      "Muscle cross-sectional area recovery"
+    ],
+    "variable_ids": [
+      "ECM_area_fraction",
+      "ECM_protein_density",
+      "growth_factor_diffusion",
+      "cell_migration",
+      "CSA_day_28"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Fibrofatty Muscle Replacement",
+      "Failed Satellite Cell Regeneration"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Increasing simulated fibrotic area initially reduced day-28 regeneration by limiting growth-factor diffusion and cell migration.",
+      "The TGF-beta experiment did not show the predicted recovery difference; additional simulations reproduced that negative result when matrix protein density was reduced, showing that area fraction alone was insufficient."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:32748106"
+    ],
+    "num_evidence": 1,
+    "notes": "This follow-up is especially useful as a negative-result case: the first model prediction failed when fibrosis area increased but matrix density fell. It should not be generalized from mdx mice to antifibrotic efficacy in people with DMD.",
+    "creation_date": "2026-01-07T17:31:51Z",
+    "page_url": "../../pages/disorders/Duchenne_Muscular_Dystrophy.html#computational-model-virgilio-fibrosis-perturbation-model-of-mdx-muscle-regeneration",
+    "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
+  },
+  {
     "model_key": "Multiple_Sclerosis--computational-model-virtual-multiple-sclerosis-patient-whole-brain-model--1",
     "name": "Virtual Multiple Sclerosis Patient Whole-Brain Model",
     "description": "Subject-specific delayed whole-brain model that couples 84 noisy Stuart-Landau oscillators according to each participant's DTI-derived connectome. Simulation-based Bayesian inference uses source-reconstructed MEG alpha-spectrum features to estimate a global coupling parameter and one average whole-brain conduction velocity for each participant.",
@@ -3177,6 +3296,67 @@ window.searchData = [
     "source_file": "kb/disorders/Asthma.yaml"
   },
   {
+    "model_key": "Duchenne_Muscular_Dystrophy--computational-model-yoon-multivariate-dmd-progression-and-virtual-trial-models--2",
+    "name": "Yoon multivariate DMD progression and virtual-trial models",
+    "description": "Five nonlinear mixed-effects progression models derived from the prospective longitudinal ImagingNMD cohort. Each model couples six-minute walk distance to MRI transverse relaxation time in one leg muscle and simulates how age, steroid use, baseline function, and baseline imaging alter virtual-patient trajectories.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Nonlinear mixed-effects sigmoid Imax and Emax models",
+    "model_software": "Monolix, Simulx, and R",
+    "base_model": "",
+    "model_id": "DMD-6MWD-MRI-T2-multivariate-models",
+    "repository_url": "https://app.cop.ufl.edu/dmd/",
+    "repository_host": "Other",
+    "publication": "PMID:38609673",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Duchenne Muscular Dystrophy",
+    "disease_id": "MONDO:0010679",
+    "category": "Genetic",
+    "parents": [
+      "Muscular Dystrophy",
+      "Neuromuscular Disease"
+    ],
+    "variables": [
+      "Six-minute walk distance",
+      "Muscle MRI transverse relaxation time",
+      "Age at assessment",
+      "Steroid use",
+      "Half-maximal functional decline age",
+      "Half-maximal MRI-T2 increase age"
+    ],
+    "variable_ids": [
+      "6MWD",
+      "MRI_T2",
+      "Age",
+      "steroid_use",
+      "DPT50_6MWD",
+      "DPT50_MRI_T2"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Progressive Muscle Degeneration",
+      "Fibrofatty Muscle Replacement"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Sigmoid Imax and Emax functions best captured functional decline and MRI-T2 increase, with steroid use and baseline functional and imaging values as significant covariates.",
+      "The five models produced similar half-decline ages for walking distance but muscle-specific half-increase ages for MRI-T2."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:38609673"
+    ],
+    "num_evidence": 1,
+    "notes": "The public simulator supports real and virtual populations for trial-design use. The DIGITAL_TWIN label denotes individualized covariate-conditioned trajectories, not a mechanistic or continuously updated personal twin; clinical use beyond trial simulation would require external validation in the intended population.",
+    "creation_date": "2026-01-07T17:31:51Z",
+    "page_url": "../../pages/disorders/Duchenne_Muscular_Dystrophy.html#computational-model-yoon-multivariate-dmd-progression-and-virtual-trial-models",
+    "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
+  },
+  {
     "model_key": "Sickle_Cell_Disease--computational-model-zheng-multiscale-qsp-model-of-autologous-gene-therapy--0",
     "name": "Zheng multiscale QSP model of autologous gene therapy",
     "description": "Deterministic ordinary-differential-equation model coupling hematopoietic stem-cell engraftment, erythroid differentiation, red-cell turnover, globin assembly, and oxygen-regulated erythropoiesis. Healthy and SCD parameterizations are extended with myeloablative preconditioning and transplantation of CD34-positive cells expressing an anti-sickling gamma-globin.",
@@ -3239,10 +3419,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 64,
-  "total_source_entries": 25,
+  "total_models": 67,
+  "total_source_entries": 26,
   "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 27
+  "total_with_repository": 28
 };
 window.dispatchEvent(new Event('searchDataReady'));
